@@ -1,0 +1,50 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người chơi" as NguoiChoi
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+actor "SePay" as SePay
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "Tài chính và tranh chấp" {
+    usecase "Xem số dư và\nlịch sử giao dịch" as UC_XemSoDuVaGiaoDich
+    usecase "Nạp số dư qua SePay" as UC_NapSoDuQuaSepay
+    usecase "Thanh toán booking\nbằng số dư" as UC_ThanhToanBookingBangSoDu
+    usecase "Thanh toán booking\nqua SePay" as UC_ThanhToanBookingQuaSepay
+    usecase "Thanh toán phí\ntham gia kèo" as UC_ThanhToanPhiKeo
+    usecase "Nhận khoản thanh toán\nđến muộn vào số dư" as UC_NhanKhoanThanhToanDenMuon
+    usecase "Nhận hoàn tiền\nkhi tự hủy" as UC_NhanHoanTienKhiTuHuy
+    usecase "Nhận hoàn toàn bộ do lỗi\nsân hoặc nền tảng" as UC_NhanHoanTienDoLoiHeThong
+    usecase "Theo dõi và đối soát\ndoanh thu" as UC_TheoDoiVaDoiSoatDoanhThu
+    usecase "Yêu cầu rút\nsố dư khả dụng" as UC_YeuCauRutTien
+    usecase "Xử lý yêu cầu rút tiền" as UC_XuLyYeuCauRutTien
+    usecase "Gửi tranh chấp giao dịch" as UC_GuiTranhChapGiaoDich
+    usecase "Giải quyết tranh chấp\ngiao dịch" as UC_GiaiQuyetTranhChapGiaoDich
+    usecase "Đăng ký gói thuê bao" as UC_DangKyGoiThueBao
+  }
+}
+
+NguoiChoi -- UC_XemSoDuVaGiaoDich
+NguoiChoi -- UC_NapSoDuQuaSepay
+NguoiChoi -- UC_ThanhToanBookingBangSoDu
+NguoiChoi -- UC_ThanhToanBookingQuaSepay
+NguoiChoi -- UC_ThanhToanPhiKeo
+NguoiChoi -- UC_NhanKhoanThanhToanDenMuon
+NguoiChoi -- UC_NhanHoanTienKhiTuHuy
+NguoiChoi -- UC_NhanHoanTienDoLoiHeThong
+NguoiChoi -- UC_GuiTranhChapGiaoDich
+
+NhaCungCapSan -- UC_TheoDoiVaDoiSoatDoanhThu
+NhaCungCapSan -- UC_YeuCauRutTien
+NhaCungCapSan -- UC_DangKyGoiThueBao
+
+Admin -- UC_XuLyYeuCauRutTien
+Admin -- UC_GiaiQuyetTranhChapGiaoDich
+
+SePay -- UC_NapSoDuQuaSepay
+SePay -- UC_ThanhToanBookingQuaSepay
+SePay -- UC_ThanhToanPhiKeo
+SePay -- UC_NhanKhoanThanhToanDenMuon
+@enduml

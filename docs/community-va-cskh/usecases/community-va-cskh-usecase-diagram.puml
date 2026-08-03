@@ -1,0 +1,48 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người chơi" as NguoiChoi
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+actor "AI" as AI
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "Cộng đồng và CSKH" {
+    usecase "Xem bảng tin cộng đồng\ncông khai" as UC_XemBangTinCongKhai
+    usecase "Tạo bài viết" as UC_TaoBaiViet
+    usecase "Chỉnh sửa bài viết" as UC_ChinhSuaBaiViet
+    usecase "Xóa bài viết" as UC_XoaBaiViet
+    usecase "Bình luận bài viết" as UC_BinhLuanBaiViet
+    usecase "Thích, lưu hoặc chia sẻ\nbài viết" as UC_TuongTacBaiViet
+    usecase "Báo cáo nội dung vi phạm" as UC_BaoCaoNoiDung
+    usecase "Kiểm duyệt nội dung\ncộng đồng" as UC_KiemDuyetNoiDung
+    usecase "Khiếu nại quyết định\nkiểm duyệt" as UC_KhieuNaiKiemDuyet
+    usecase "Gửi đánh giá hai chiều" as UC_GuiDanhGiaHaiChieu
+    usecase "Mở chat chăm sóc\nkhách hàng" as UC_MoChatCskh
+    usecase "Xử lý hội thoại chăm sóc\nkhách hàng" as UC_XuLyChatCskh
+  }
+}
+
+NguoiChoi -- UC_XemBangTinCongKhai
+NguoiChoi -- UC_TaoBaiViet
+NguoiChoi -- UC_ChinhSuaBaiViet
+NguoiChoi -- UC_XoaBaiViet
+NguoiChoi -- UC_BinhLuanBaiViet
+NguoiChoi -- UC_TuongTacBaiViet
+NguoiChoi -- UC_BaoCaoNoiDung
+NguoiChoi -- UC_KhieuNaiKiemDuyet
+NguoiChoi -- UC_GuiDanhGiaHaiChieu
+NguoiChoi -- UC_MoChatCskh
+
+NhaCungCapSan -- UC_GuiDanhGiaHaiChieu
+NhaCungCapSan -- UC_MoChatCskh
+
+Admin -- UC_KiemDuyetNoiDung
+Admin -- UC_XuLyChatCskh
+
+AI -- UC_KiemDuyetNoiDung
+AI -- UC_MoChatCskh
+
+UC_KhieuNaiKiemDuyet ..> UC_KiemDuyetNoiDung : <<extend>>
+@enduml

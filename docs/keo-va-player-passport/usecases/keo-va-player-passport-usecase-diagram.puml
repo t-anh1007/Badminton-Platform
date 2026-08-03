@@ -1,0 +1,53 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người chơi" as NguoiChoi
+actor "Người tổ chức kèo" as NguoiToChucKeo
+actor "Người tổ chức\nchuyên nghiệp" as NguoiToChucChuyenNghiep
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "Kèo và Player Passport" {
+    usecase "Tạo và công bố kèo" as UC_TaoVaCongBoKeo
+    usecase "Tạo kèo lặp lại" as UC_TaoKeoLapLai
+    usecase "Xem chi tiết kèo" as UC_XemChiTietKeo
+    usecase "Gửi yêu cầu tham gia kèo" as UC_GuiYeuCauThamGiaKeo
+    usecase "Xét duyệt người tham gia" as UC_XetDuyetNguoiThamGia
+    usecase "Xác nhận tham gia kèo" as UC_XacNhanThamGiaKeo
+    usecase "Rút khỏi kèo" as UC_RutKhoiKeo
+    usecase "Hủy kèo" as UC_HuyKeo
+    usecase "Xử lý kèo không đủ người" as UC_XuLyKeoKhongDuNguoi
+    usecase "Xác nhận việc sử dụng sân" as UC_XacNhanSuDungSan
+    usecase "Báo cáo người chơi\nvắng mặt" as UC_BaoCaoNoShow
+    usecase "Phản đối báo cáo\nvắng mặt" as UC_PhanDoiNoShow
+    usecase "Khai báo trình độ\nchuẩn hóa" as UC_KhaiBaoTrinhDo
+    usecase "Đánh giá sau trận" as UC_DanhGiaSauTran
+    usecase "Xem Player Passport" as UC_XemPlayerPassport
+  }
+}
+
+NguoiChoi -- UC_XemChiTietKeo
+NguoiChoi -- UC_GuiYeuCauThamGiaKeo
+NguoiChoi -- UC_XacNhanThamGiaKeo
+NguoiChoi -- UC_RutKhoiKeo
+NguoiChoi -- UC_PhanDoiNoShow
+NguoiChoi -- UC_KhaiBaoTrinhDo
+NguoiChoi -- UC_DanhGiaSauTran
+NguoiChoi -- UC_XemPlayerPassport
+
+NguoiToChucKeo -- UC_TaoVaCongBoKeo
+NguoiToChucKeo -- UC_TaoKeoLapLai
+NguoiToChucKeo -- UC_XetDuyetNguoiThamGia
+NguoiToChucKeo -- UC_HuyKeo
+NguoiToChucKeo -- UC_XuLyKeoKhongDuNguoi
+NguoiToChucKeo -- UC_BaoCaoNoShow
+
+NhaCungCapSan -- UC_XacNhanSuDungSan
+Admin -- UC_PhanDoiNoShow
+
+NguoiToChucChuyenNghiep --|> NguoiToChucKeo
+UC_TaoKeoLapLai ..> UC_TaoVaCongBoKeo : <<extend>>
+UC_PhanDoiNoShow ..> UC_BaoCaoNoShow : <<extend>>
+@enduml

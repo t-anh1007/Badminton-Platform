@@ -1,0 +1,32 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người chơi" as NguoiChoi
+actor "Người tổ chức kèo" as NguoiToChucKeo
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "AI" {
+    usecase "Nhận gợi ý kèo phù hợp" as UC_NhanGoiYKeoPhuHop
+    usecase "Nhận gợi ý sân phù hợp\ncho nhóm" as UC_NhanGoiYSanChoNhom
+    usecase "Nhận hỗ trợ từ chatbot" as UC_NhanHoTroTuChatbot
+    usecase "Phân tích doanh thu\nvà công suất" as UC_PhanTichDoanhThuVaCongSuat
+    usecase "Hỗ trợ kiểm duyệt\nbằng AI" as UC_HoTroKiemDuyetBangAI
+    usecase "Nhận hỗ trợ vận hành" as UC_NhanHoTroVanHanh
+  }
+}
+
+NguoiChoi -- UC_NhanGoiYKeoPhuHop
+NguoiChoi -- UC_NhanGoiYSanChoNhom
+NguoiChoi -- UC_NhanHoTroTuChatbot
+
+NguoiToChucKeo -- UC_NhanGoiYSanChoNhom
+
+NhaCungCapSan -- UC_NhanHoTroTuChatbot
+NhaCungCapSan -- UC_PhanTichDoanhThuVaCongSuat
+
+Admin -- UC_HoTroKiemDuyetBangAI
+Admin -- UC_NhanHoTroVanHanh
+@enduml

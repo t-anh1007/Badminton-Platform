@@ -1,0 +1,15 @@
+{
+  "description": "Claude Code + Codex orchestration for Khoaluantn project",
+  "model": "claude-opus-5",
+  "fast-mode": true,
+  "permissions": {
+    "bash": ["git", "npm", "node", "powershell"],
+    "read": ["**/*.md", "**/*.json", "**/*.ts", "**/*.js", "src/**", "docs/**"],
+    "edit": ["src/**", "docs/**", ".claude/**", ".codex/**"],
+    "write": ["outputs/**", "docs/**"]
+  },
+  "hooks": {
+    "pre-codex-task": "Verify task has clear success criteria",
+    "post-codex-output": "Review against acceptance criteria"
+  }
+}

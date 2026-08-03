@@ -1,0 +1,12 @@
+# Word temp files
+~$*
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Discovery QA (raw data, không cần track)
+.discovery_qa/

@@ -1,0 +1,61 @@
+@startuml
+!theme plain
+title Đặt vé xem phim trực tuyến
+
+|Khách hàng|
+start
+:Truy cập website, chọn phim;
+
+|Hệ thống|
+:Hiển thị suất chiếu của phim;
+
+|Khách hàng|
+:Chọn suất chiếu;
+
+|Hệ thống|
+if (Khách đã đăng nhập?) then (Chưa)
+  |Khách hàng|
+  repeat
+    :Nhập email và mật khẩu;
+    |Hệ thống|
+    :Kiểm tra đăng nhập;
+  repeat while (Đăng nhập thất bại?) is (Thất bại, thử lại) not (Thành công)
+else (Rồi)
+endif
+
+|Hệ thống|
+:Hiển thị sơ đồ ghế và ghế trống;
+
+|Khách hàng|
+repeat
+  :Chọn số lượng và vị trí ghế;
+  |Hệ thống|
+  backward:Báo lỗi Ghế không khả dụng, chọn lại;
+repeat while (Ghế đã có người đặt?) is (Đã đặt) not (Còn trống)
+
+|Hệ thống|
+:Giữ ghế tạm 10 phút;
+
+|Khách hàng|
+:Xác nhận đơn, chọn phương thức thanh toán (thẻ hoặc ví điện tử);
+
+|Hệ thống|
+repeat
+  :Xử lý thanh toán;
+repeat while (Thanh toán thất bại và chưa đủ 3 lần?) is (Thất bại, thử lại) not (Xong)
+
+if (Thanh toán thành công?) then (Thành công)
+  |Hệ thống|
+  :Sinh e-ticket, gửi email, hiển thị mã QR;
+  |Khách hàng|
+  :Nhận vé điện tử;
+  stop
+else (Thất bại quá 3 lần)
+  |Hệ thống|
+  :Hủy giao dịch, giải phóng ghế đã giữ;
+  |Khách hàng|
+  :Nhận thông báo giao dịch bị hủy;
+  stop
+endif
+
+@enduml

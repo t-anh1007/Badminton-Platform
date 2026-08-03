@@ -1,0 +1,49 @@
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/nen-tang-cau-long-usecase-index.md | master index, 7 modules, 79 use cases
+2026-07-18 | usecase | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-index.md | 9 use cases for account and access
+2026-07-18 | usecase | @Tuan-Anh | docs/nha-cung-cap-va-lich-san/usecases/nha-cung-cap-va-lich-san-usecase-index.md | 13 use cases for provider and calendar
+2026-07-18 | usecase | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-index.md | 10 use cases for court search and booking
+2026-07-18 | usecase | @Tuan-Anh | docs/tai-chinh-va-tranh-chap/usecases/tai-chinh-va-tranh-chap-usecase-index.md | 14 use cases for finance and disputes
+2026-07-18 | usecase | @Tuan-Anh | docs/keo-va-player-passport/usecases/keo-va-player-passport-usecase-index.md | 15 use cases for match and player passport
+2026-07-18 | usecase | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-index.md | 12 use cases for community and customer care
+2026-07-18 | usecase | @Tuan-Anh | docs/ai/usecases/ai-usecase-index.md | 6 use cases for AI
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-diagram.puml | 3 actors, 9 use cases, 3 packages, 1 include
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-diagram.svg | 3 actors, 9 use cases, 3 packages, 1 include
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-index.md | 3 actors, 9 use cases, 3 packages, 1 include
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-diagram.puml | platform boundary; single module package convention
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-khoan-va-quyen-truy-cap/usecases/tai-khoan-va-quyen-truy-cap-usecase-diagram.svg | platform boundary; single module package convention
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/nen-tang-cau-long/usecases/nen-tang-cau-long-usecase-index.md | platform boundary; single module package convention
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/nha-cung-cap-va-lich-san/usecases/nha-cung-cap-va-lich-san-usecase-diagram.puml | 2 actors, 13 use cases, 1 package, 13 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/nha-cung-cap-va-lich-san/usecases/nha-cung-cap-va-lich-san-usecase-diagram.svg | 2 actors, 13 use cases, 1 package, 13 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/nha-cung-cap-va-lich-san/usecases/nha-cung-cap-va-lich-san-usecase-index.md | 2 actors, 13 use cases, 1 package, 13 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-diagram.puml | 3 actors, 10 use cases, 1 package, 12 associations, 2 includes
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-diagram.svg | 3 actors, 10 use cases, 1 package, 12 associations, 2 includes
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-index.md | 3 actors, 10 use cases, 1 package, 12 associations, 2 includes
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-diagram.puml | remove map service actor; 2 actors, 10 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-diagram.svg | remove map service actor; 2 actors, 10 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tim-san-va-booking/usecases/tim-san-va-booking-usecase-index.md | remove map service actor; 2 actors, 10 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-chinh-va-tranh-chap/usecases/tai-chinh-va-tranh-chap-usecase-diagram.puml | 4 actors, 14 use cases, 1 package, 18 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-chinh-va-tranh-chap/usecases/tai-chinh-va-tranh-chap-usecase-diagram.svg | 4 actors, 14 use cases, 1 package, 18 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/tai-chinh-va-tranh-chap/usecases/tai-chinh-va-tranh-chap-usecase-index.md | 4 actors, 14 use cases, 1 package, 18 associations
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/keo-va-player-passport/usecases/keo-va-player-passport-usecase-diagram.puml | 5 actors, 15 use cases, 16 associations, 2 extends, 1 generalization
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/keo-va-player-passport/usecases/keo-va-player-passport-usecase-diagram.svg | 5 actors, 15 use cases, 16 associations, 2 extends, 1 generalization
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/keo-va-player-passport/usecases/keo-va-player-passport-usecase-index.md | 5 actors, 15 use cases, 16 associations, 2 extends, 1 generalization
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-diagram.puml | 4 actors, 12 use cases, 1 package, 19 associations, 1 extend
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-diagram.svg | 4 actors, 12 use cases, 1 package, 19 associations, 1 extend
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-index.md | 4 actors, 12 use cases, 1 package, 19 associations, 1 extend
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/nen-tang-cau-long/usecases/nen-tang-cau-long-usecase-index.md | 4 actors, 12 use cases, 1 package, 19 associations, 1 extend
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-diagram.puml | 4 actors, 12 use cases, 1 package, 16 associations, 1 extend; removed 3 AI conte
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-diagram.svg | 4 actors, 12 use cases, 1 package, 16 associations, 1 extend; removed 3 AI conte
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/community-va-cskh/usecases/community-va-cskh-usecase-index.md | 4 actors, 12 use cases, 1 package, 16 associations, 1 extend; removed 3 AI conte
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/ai/usecases/ai-usecase-diagram.puml | 4 actors, 6 use cases, 1 package, 8 associations, no semantic relationships
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/ai/usecases/ai-usecase-diagram.svg | 4 actors, 6 use cases, 1 package, 8 associations, no semantic relationships
+2026-07-18 | usecase-diagram | @Tuan-Anh | docs/ai/usecases/ai-usecase-index.md | 4 actors, 6 use cases, 1 package, 8 associations, no semantic relationships
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-PRO-01-dang-ky-tro-thanh-nha-cung-cap-san.docx | create use case UC-PRO-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-SUP-01-chat-cham-soc-khach-hang.docx | create use case UC-SUP-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-AI-01-nhan-goi-y-keo.docx | create use case UC-AI-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-AI-04-xem-phan-tich-doanh-thu-ai.docx | create use case UC-AI-04
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-BKG-01-dat-san-va-thanh-toan-toan-bo.docx | create use case UC-BKG-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-BKG-02-huy-dat-san-va-nhan-hoan-tien.docx | create use case UC-BKG-02
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-FIN-01-doi-soat-va-rut-doanh-thu.docx | create use case UC-FIN-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-MAT-01-tao-keo-giao-luu.docx | create use case UC-MAT-01
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-MAT-02-xin-tham-gia-va-thanh-toan-keo.docx | create use case UC-MAT-02
+2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-REP-01-xu-ly-bao-cao-vang-mat-va-khieu-nai.docx | create use case UC-REP-01

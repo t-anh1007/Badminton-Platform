@@ -1,0 +1,40 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "Nhà cung cấp và lịch sân" {
+    usecase "Đăng ký nhà cung cấp sân" as UC_DangKyNhaCungCap
+    usecase "Xét duyệt nhà cung cấp sân" as UC_XetDuyetNhaCungCap
+    usecase "Quản lý tài khoản\ncùng nhà cung cấp" as UC_QuanLyTaiKhoanNhaCungCap
+    usecase "Quản lý hồ sơ cơ sở sân" as UC_QuanLyCoSoSan
+    usecase "Quản lý danh sách sân con" as UC_QuanLySanCon
+    usecase "Thiết lập giờ hoạt động\nvà ngày đóng cửa" as UC_ThietLapGioHoatDong
+    usecase "Thiết lập biểu giá theo lịch" as UC_ThietLapBieuGia
+    usecase "Thiết lập quy tắc đặt sân" as UC_ThietLapQuyTacDatSan
+    usecase "Quản lý lịch sân hợp nhất" as UC_QuanLyLichSanHopNhat
+    usecase "Ghi nhận booking tại quầy\nhoặc qua điện thoại" as UC_GhiNhanBookingNoiBo
+    usecase "Nhập dữ liệu sân và lịch\nbằng CSV" as UC_NhapDuLieuCsv
+    usecase "Tạo chương trình khuyến mãi" as UC_TaoKhuyenMai
+    usecase "Quản lý dữ liệu danh mục\ndùng chung" as UC_QuanLyDanhMucDungChung
+  }
+}
+
+NhaCungCapSan -- UC_DangKyNhaCungCap
+NhaCungCapSan -- UC_QuanLyTaiKhoanNhaCungCap
+NhaCungCapSan -- UC_QuanLyCoSoSan
+NhaCungCapSan -- UC_QuanLySanCon
+NhaCungCapSan -- UC_ThietLapGioHoatDong
+NhaCungCapSan -- UC_ThietLapBieuGia
+NhaCungCapSan -- UC_ThietLapQuyTacDatSan
+NhaCungCapSan -- UC_QuanLyLichSanHopNhat
+NhaCungCapSan -- UC_GhiNhanBookingNoiBo
+NhaCungCapSan -- UC_NhapDuLieuCsv
+NhaCungCapSan -- UC_TaoKhuyenMai
+
+Admin -- UC_XetDuyetNhaCungCap
+Admin -- UC_QuanLyDanhMucDungChung
+@enduml

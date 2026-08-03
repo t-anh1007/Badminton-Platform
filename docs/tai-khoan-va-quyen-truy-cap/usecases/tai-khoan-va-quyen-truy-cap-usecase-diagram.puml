@@ -1,0 +1,41 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Người chơi" as NguoiChoi
+actor "Nhà cung cấp sân" as NhaCungCapSan
+actor "Admin" as Admin
+
+rectangle "Badminton Community & Marketplace Platform" {
+  package "Tài khoản và quyền truy cập" {
+    usecase "Đăng ký tài khoản" as UC_DangKyTaiKhoan
+    usecase "Xác minh số điện thoại\nhoặc email" as UC_XacMinhLienHe
+    usecase "Quản lý hồ sơ cá nhân" as UC_QuanLyHoSoCaNhan
+    usecase "Đăng nhập" as UC_DangNhap
+    usecase "Đăng xuất" as UC_DangXuat
+    usecase "Đặt lại mật khẩu" as UC_DatLaiMatKhau
+    usecase "Đổi mật khẩu" as UC_DoiMatKhau
+    usecase "Quản lý phiên đăng nhập" as UC_QuanLyPhienDangNhap
+    usecase "Quản lý quyền truy cập\ntài khoản" as UC_QuanLyQuyenTruyCap
+  }
+}
+
+NguoiChoi -- UC_DangKyTaiKhoan
+NguoiChoi -- UC_XacMinhLienHe
+NguoiChoi -- UC_QuanLyHoSoCaNhan
+NguoiChoi -- UC_DangNhap
+NguoiChoi -- UC_DangXuat
+NguoiChoi -- UC_DatLaiMatKhau
+NguoiChoi -- UC_DoiMatKhau
+NguoiChoi -- UC_QuanLyPhienDangNhap
+
+NhaCungCapSan -- UC_DangNhap
+NhaCungCapSan -- UC_DangXuat
+NhaCungCapSan -- UC_DatLaiMatKhau
+NhaCungCapSan -- UC_DoiMatKhau
+NhaCungCapSan -- UC_QuanLyPhienDangNhap
+
+Admin -- UC_QuanLyQuyenTruyCap
+
+UC_DangKyTaiKhoan ..> UC_XacMinhLienHe : <<include>>
+@enduml
