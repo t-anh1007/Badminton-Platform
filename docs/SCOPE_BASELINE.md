@@ -163,7 +163,7 @@ Trừ khi vòng discovery mới có lý do mới và mạnh hơn.
 | Thích / lưu / chia sẻ bài viết | Giá trị thấp |
 | Khiếu nại quyết định kiểm duyệt | Vòng thứ hai của moderation |
 | 4/6 AI: Smart Court Recommendation, AI moderation, AI Revenue Analysis, Admin Ops Assistant | Giữ 2 AI làm sâu thay vì 6 AI hời hợt |
-| Chat CSKH thời gian thực | Thay bằng ticket bất đồng bộ. *Cập nhật 2026-08-04:* hạ tầng realtime (WebSocket) được phép nhưng **chỉ** cho module ghép kèo live — xem [discovery F-03](discovery/2026-08-04-tinh-nang-moi.md). |
+| Chat CSKH thời gian thực | CSKH vẫn dùng ticket bất đồng bộ. *Cập nhật 2026-08-04:* ràng buộc "tránh hạ tầng realtime" đã được **gỡ** — WebSocket được phép dùng trong dự án (use case chính là ghép kèo live, không giới hạn) — xem [discovery F-03](discovery/2026-08-04-tinh-nang-moi.md). |
 
 ### Cắt từ vòng discovery trước (giữ nguyên quyết định)
 

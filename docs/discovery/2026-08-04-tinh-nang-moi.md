@@ -102,8 +102,9 @@ Chất real-time **không nằm ở việc tìm-và-nộp** (đó chỉ là tìm
 màn hình host tự hiện yêu cầu mới mà không cần refresh; host duyệt → màn hình người tìm tự chuyển sang
 "được duyệt, mời thanh toán".
 
-**Cơ chế:** **WebSocket** cho riêng module ghép kèo (nơi tức thì tạo giá trị demo). Các nơi khác của hệ thống
-(thông báo booking, số dư) dùng **polling**. Đây là quyết định có chủ đích — xem mục 8.
+**Cơ chế:** **WebSocket** cho ghép kèo (nơi tức thì tạo giá trị demo). WebSocket được phép dùng cho các case
+realtime khác trong dự án khi hợp lý; các nơi tần suất thấp (thông báo booking, số dư) dùng **polling** để tiết kiệm.
+Xem mục 8.
 
 ### 4.3. Vòng đời và quy tắc
 
@@ -179,7 +180,7 @@ vì đã có seed. Nếu deadline căng, đây là tính năng **cắt được 
 
 | Quyết định | Nội dung | Ảnh hưởng baseline |
 |---|---|---|
-| Liveness | **WebSocket cho module ghép kèo**, polling cho phần còn lại. | **Sửa** ràng buộc "tránh hạ tầng realtime" của baseline — nhưng **giới hạn phạm vi** ở module ghép kèo, có chủ đích. |
+| Liveness | **WebSocket được phép dùng trong dự án** (use case chính: ghép kèo live); polling cho các nơi tần suất thấp. | **Gỡ** ràng buộc "tránh hạ tầng realtime" của baseline. Không giới hạn WebSocket chỉ cho ghép kèo — dùng được cho case realtime khác khi hợp lý. |
 | Nộp nhiều kèo | Nộp nhiều, **ai được duyệt + trả trước thắng**, tự rút phần còn lại. | Không đụng baseline; tái dùng cơ chế hold + chống-đặt-trùng. |
 | Thang trình độ | 5 bậc hiển thị (Mới chơi/Y/TB/TB+/BC) + rating số có độ bất định (F-01). | Bổ sung chi tiết cho F-01. |
 | Mô hình hoàn tiền SePay | SePay **không** có API hoàn tiền — xem mục 8.1. | Khớp ràng buộc baseline #5, #7, #9; không phát sinh khái niệm mới. |
