@@ -15,10 +15,18 @@ kiêm PO, ~4–6 tháng, máy yếu, không thích Docker.
 
 ## Decision
 
-TypeScript xuyên suốt. 7 service theo module + API Gateway (không chẻ vụn hơn).
+TypeScript xuyên suốt. **5 service theo module + API Gateway** (đã gộp từ 8 để nhẹ máy).
 
-**Service:** `api-gateway`, `account-service`, `venue-service`, `booking-service`,
-`finance-service`, `matchmaking-service` (WebSocket), `community-service`, `ai-service`.
+**Service:** `api-gateway`, `account-service`, `venue-booking-service` (venue+booking),
+`finance-service`, `matchmaking-service` (kèo + passport + F-01/03/04 + WebSocket),
+`community-service` (bài viết + kiểm duyệt + hỗ trợ + chatbot).
+
+**AI là thư viện TypeScript dùng chung** (không phải service riêng) — import vào nơi cần.
+
+**Quyết định gộp (2026-08-04):**
+- `venue` + `booking` gộp làm một: giữ-slot và chống đặt trùng sạch nhất khi lịch và booking cùng một service/DB, tránh khóa phân tán across service.
+- `ai-service` hạ xuống thư viện: AI đã là TS, được matchmaking gọi đồng bộ; tách service chỉ thêm network hop.
+- `finance` và `account` giữ riêng: ranh giới tiền/audit và auth, đáng cô lập nhất.
 
 | Lớp | Công nghệ |
 |---|---|
@@ -30,13 +38,15 @@ TypeScript xuyên suốt. 7 service theo module + API Gateway (không chẻ vụ
 | Cache/lock | Redis (ioredis) — khóa giữ-slot phân tán, rate-limit, token blacklist, state ghép kèo |
 | Realtime | Socket.IO trong matchmaking-service |
 | Auth | JWT + bcrypt (account-service phát hành, gateway verify) |
-| AI | ai-service: Node + TS + LangChain.js + LLM API (F-02, F-05, chatbot, matchmaker) |
+| AI | Thư viện TS dùng chung: LangChain.js + LLM API (F-02, F-05, chatbot, matchmaker) — import vào matchmaking/community/venue-booking |
 | Test | Vitest + Supertest (per service) + Playwright (e2e) |
 | Log/metrics | pino + Prometheus client (tùy chọn) |
 | Chạy local (không Docker) | concurrently/pm2 nhiều tiến trình Node; hạ tầng hosted: Neon (Postgres) + CloudAMQP (RabbitMQ) + Upstash (Redis) |
 | Deploy | Mỗi service → Render/Railway; Frontend → Vercel/Netlify; broker/redis/db hosted |
 
-**Không dùng Docker** (máy yếu) → bù bằng hạ tầng hosted + process manager local.
+**Docker:** tùy chọn. Docker giải quyết *khởi động*, không giải quyết *máy yếu* (còn nặng hơn do
+overhead container). Cách làm nhẹ thật sự = ít service + đẩy DB/broker/Redis lên hosted. Nếu dùng
+Docker thì chỉ cho các Node service, hạ tầng vẫn hosted.
 **AI trong TypeScript** (giữ nguyên từ 0001). **Làm mới hoàn toàn**, không tái dùng project-cnm.
 
 ## Alternatives Considered
