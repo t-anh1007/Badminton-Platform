@@ -4,7 +4,7 @@ Date: 2026-08-04
 
 ## Status
 
-Accepted
+Superseded by [0002](0002-tech-stack-microservices.md) — PO chọn microservices (2026-08-04).
 
 ## Context
 
