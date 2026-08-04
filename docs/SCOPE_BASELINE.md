@@ -101,7 +101,7 @@ không phải mô tả lại nó.
 | 8 | Nhận hoàn toàn bộ do lỗi sân hoặc nền tảng | Người chơi |
 | 9 | Theo dõi doanh thu (hoa hồng cố định, không cấu hình) | Nhà cung cấp sân |
 | 10 | Yêu cầu rút số dư khả dụng | Nhà cung cấp sân |
-| 11 | Xử lý yêu cầu rút tiền (đánh dấu đã chuyển thủ công) | Admin |
+| 11 | Xử lý yêu cầu rút tiền (chuyển khoản tay, webhook SePay tự đối soát) | Admin |
 | 12 | Gửi tranh chấp giao dịch | Người chơi |
 | 13 | Giải quyết tranh chấp giao dịch | Admin |
 
@@ -190,7 +190,7 @@ mà không nêu rõ và xin quyết định của PO:
 
 ## 5. Câu hỏi kỹ thuật cần chốt trước khi thiết kế
 
-| Câu hỏi | Ảnh hưởng |
-|---|---|
-| SePay hỗ trợ chính xác webhook/callback nào? Có API hoàn tiền không? | Nếu không có refund API, mọi hoàn tiền phải vào số dư nội bộ |
-| Thang trình độ cầu lông dùng hệ nào? | Input bắt buộc của Player Passport và AI Matchmaker |
+| Câu hỏi | Ảnh hưởng | Trạng thái |
+|---|---|---|
+| SePay hỗ trợ chính xác webhook/callback nào? Có API hoàn tiền không? | Nếu không có refund API, mọi hoàn tiền phải vào số dư nội bộ | ✅ Chốt 2026-08-04: **không** có API hoàn tiền. Hoàn tiền → ghi có số dư nội bộ (tự động). Rút tiền → chuyển khoản tay + webhook "tiền ra" tự đối soát. |
+| Thang trình độ cầu lông dùng hệ nào? | Input bắt buộc của Player Passport và AI Matchmaker | ✅ Chốt 2026-08-04: 5 bậc hiển thị (Mới chơi/Y/TB/TB+/BC) + rating số có độ bất định. |

@@ -55,6 +55,14 @@ Cột **Nền**: 🟢 = chạy tốt kể cả không có dữ liệu (cold-star
 một giá trị trung tâm + độ lệch thể hiện mức bất định). Người mới → khoảng rộng; càng chơi và càng được
 đánh giá → khoảng hẹp lại.
 
+**Thang trình độ (tách hai lớp — chốt 2026-08-04):**
+
+- **Lớp hiển thị (người dùng):** 5 bậc — `Mới chơi → Yếu (Y) → Trung bình (TB) → Trung bình Khá (TB+) → Bán chuyên (BC)`.
+- **Lớp nội bộ (AI):** một điểm số liên tục (kiểu Glicko, gốc ví dụ 1500 ± độ lệch). 5 nhãn chỉ là **điểm cắt** trên trục số.
+  Người mới khai một bậc → khởi tạo ở giữa dải bậc đó với **độ bất định rộng**, rồi co lại theo kết quả.
+
+> Nguyên tắc: *người dùng nghĩ bằng nhãn, AI nghĩ bằng số.* Số bậc chỉ là điểm cắt, đổi được mà không đụng phần lõi.
+
 **Vì sao ghi điểm:** thể hiện hiểu biết về hệ thống rating và xử lý bất định — chiều sâu học thuật rõ ràng.
 **Chi phí:** thấp, chủ yếu là toán + một form khai báo ban đầu.
 **Cold-start:** có — khởi đầu với khoảng bất định rộng, không cần lịch sử.
@@ -152,6 +160,7 @@ Kể trọn mạch F-01 → F-02 → F-03 trong một cảnh.
 **Vì sao ghi điểm:** nối cả hai phía cung–cầu, trực quan đẹp khi demo.
 **Cold-start:** không — **cần bộ seed**. Đây là tính năng phụ thuộc dữ liệu, chấp nhận rủi ro có kiểm soát
 vì đã có seed. Nếu deadline căng, đây là tính năng **cắt được đầu tiên** mà không phá câu chuyện lõi.
+**Trạng thái:** ⏸ hoãn — chưa chuẩn bị seed cho tới sau kỳ báo cáo tiến độ; các tính năng AI chưa đụng ở giai đoạn này.
 
 ---
 
@@ -172,6 +181,21 @@ vì đã có seed. Nếu deadline căng, đây là tính năng **cắt được 
 |---|---|---|
 | Liveness | **WebSocket cho module ghép kèo**, polling cho phần còn lại. | **Sửa** ràng buộc "tránh hạ tầng realtime" của baseline — nhưng **giới hạn phạm vi** ở module ghép kèo, có chủ đích. |
 | Nộp nhiều kèo | Nộp nhiều, **ai được duyệt + trả trước thắng**, tự rút phần còn lại. | Không đụng baseline; tái dùng cơ chế hold + chống-đặt-trùng. |
+| Thang trình độ | 5 bậc hiển thị (Mới chơi/Y/TB/TB+/BC) + rating số có độ bất định (F-01). | Bổ sung chi tiết cho F-01. |
+| Mô hình hoàn tiền SePay | SePay **không** có API hoàn tiền — xem mục 8.1. | Khớp ràng buộc baseline #5, #7, #9; không phát sinh khái niệm mới. |
+
+### 8.1. Mô hình tài chính khi SePay không có API hoàn tiền
+
+SePay chỉ là webhook lắng nghe biến động số dư (tiền vào/ra), không khởi tạo lệnh chuyển ngược. Do đó:
+
+- **Hoàn tiền = ghi có vào số dư nội bộ.** Mọi khoản hoàn (hủy booking, lỗi sân, hủy kèo) chỉ là một bút toán
+  ledger ghi có vào số dư người chơi — **tức thì, tự động, không cần SePay**. Tiền thật vẫn nằm trong tài khoản
+  ngân hàng nền tảng; chỉ sổ nội bộ dịch chuyển. Không bao giờ chuyển ngược về ngân hàng.
+- **Rút tiền = chuyển khoản tay + webhook tự đối soát.** Người bán yêu cầu rút → trạng thái `chờ chi` →
+  Admin chuyển khoản tay từ tài khoản nền tảng → **SePay bắt biến động "tiền ra"** → hệ thống tự khớp số tiền +
+  nội dung và chuyển sang `đã chi`, ghi ledger. Con người chỉ bấm chuyển khoản; xác nhận và đối soát là tự động.
+- **API chi hộ/disbursement thật sự** (khởi tạo lệnh chi tự động) cần **API ngân hàng**, không phải SePay →
+  để ở "Hướng phát triển", không làm trong đồ án.
 
 > Lưu ý cho báo cáo: WebSocket là **lựa chọn cân nhắc chi phí có chủ đích** (chỉ ở nơi tức thì tạo giá trị),
 > không phải mâu thuẫn với quyết định cắt chat realtime. Cần diễn đạt đúng như vậy để tránh hiểu nhầm khi bảo vệ.
@@ -182,12 +206,12 @@ vì đã có seed. Nếu deadline căng, đây là tính năng **cắt được 
 
 Kế thừa từ baseline + phát sinh mới:
 
-| Câu hỏi | Ảnh hưởng |
-|---|---|
-| SePay hỗ trợ webhook/callback nào? Có API hoàn tiền không? | Luồng thanh toán/hoàn tiền của F-03 |
-| Thang trình độ cầu lông dùng hệ nào (yếu/TB/khá/giỏi hay khác)? | Input bắt buộc của F-01, F-02, F-04 |
-| Bộ seed mô phỏng gồm bao nhiêu user/booking/kèo, phân bố ra sao? | Chất lượng demo F-05 (và độ thuyết phục F-01) |
-| Ngưỡng "đánh giá bất thường" của F-07 định nghĩa thế nào? | Tránh false positive khi demo |
+| Câu hỏi | Ảnh hưởng | Trạng thái |
+|---|---|---|
+| SePay hỗ trợ webhook/callback nào? Có API hoàn tiền không? | Luồng thanh toán/hoàn tiền của F-03 | ✅ Chốt — không có API hoàn tiền; dùng mô hình mục 8.1 |
+| Thang trình độ cầu lông dùng hệ nào? | Input bắt buộc của F-01, F-02, F-04 | ✅ Chốt — 5 bậc lai, xem F-01 |
+| Bộ seed mô phỏng gồm bao nhiêu user/booking/kèo, phân bố ra sao? | Chất lượng demo F-05 (và độ thuyết phục F-01) | ⏸ Hoãn đến sau báo cáo tiến độ |
+| Ngưỡng "đánh giá bất thường" của F-07 định nghĩa thế nào? | Tránh false positive khi demo | Mở |
 
 ---
 
