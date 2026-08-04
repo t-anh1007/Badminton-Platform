@@ -31,6 +31,12 @@ signals, and application behavior remain authoritative. Harness adds navigation
 and working-memory structure around that truth; it does not install upstream
 `repository-harness` product documents over it.
 
+Project-specific agent reference:
+
+- `CLAUDE_CODEX_CAPABILITIES.md`: catalog of project-local skills, useful global
+  Codex capabilities, installed plugin groups, and optional plugins that are not
+  installed yet.
+
 ## Source-Repository Indexes
 
 The following material is deliberately outside the default installation:
