@@ -47,3 +47,4 @@
 2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-MAT-01-tao-keo-giao-luu.docx | create use case UC-MAT-01
 2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-MAT-02-xin-tham-gia-va-thanh-toan-keo.docx | create use case UC-MAT-02
 2026-07-18 | usecase | @Tuan-Anh | docs/nen-tang-cau-long/usecases/UC-REP-01-xu-ly-bao-cao-vang-mat-va-khieu-nai.docx | create use case UC-REP-01
+2026-08-04 | manual | @Tuan-Anh | docs/ | rename 7 domain folders + files from Vietnamese to English slugs (nen-tang-cau-long->badminton-platform, tai-khoan-va-quyen-truy-cap->account-access, nha-cung-cap-va-lich-san->venue-scheduling, tim-san-va-booking->court-booking, tai-chinh-va-tranh-chap->finance-disputes, keo-va-player-passport->matchmaking-passport, community-va-cskh->community-support); updated frontmatter/links/wikilinks accordingly

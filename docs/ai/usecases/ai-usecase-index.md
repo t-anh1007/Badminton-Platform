@@ -4,7 +4,7 @@ feature: ai
 status: draft
 updated: 2026-07-19
 links:
-  - docs/nen-tang-cau-long/usecases/nen-tang-cau-long-usecase-index.md
+  - docs/badminton-platform/usecases/badminton-platform-usecase-index.md
 ---
 
 # Use Case Index - AI

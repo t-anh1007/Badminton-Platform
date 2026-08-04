@@ -10,3 +10,7 @@ Thumbs.db
 
 # Discovery QA (raw data, không cần track)
 .discovery_qa/
+
+# Harness core maintenance binary
+scripts/bin/harness
+scripts/bin/harness.exe
