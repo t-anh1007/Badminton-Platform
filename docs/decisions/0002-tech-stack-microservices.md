@@ -41,8 +41,8 @@ TypeScript xuyên suốt. **5 service theo module + API Gateway** (đã gộp t�
 | AI | Thư viện TS dùng chung: LangChain.js + LLM API (F-02, F-05, chatbot, matchmaker) — import vào matchmaking/community/venue-booking |
 | Test | Vitest + Supertest (per service) + Playwright (e2e) |
 | Log/metrics | pino + Prometheus client (tùy chọn) |
-| Chạy local (không Docker) | concurrently/pm2 nhiều tiến trình Node; hạ tầng hosted: Neon (Postgres) + CloudAMQP (RabbitMQ) + Upstash (Redis) |
-| Deploy | Mỗi service → Render/Railway; Frontend → Vercel/Netlify; broker/redis/db hosted |
+| Chạy local (không Docker) | concurrently/pm2 nhiều tiến trình Node, trỏ tới Postgres/Redis/RabbitMQ hosted trên Railway → máy chỉ gánh tiến trình Node |
+| Deploy | **Railway**: backend (5 service + gateway) + Postgres (per-service) + Redis + RabbitMQ trong một project, mạng nội bộ riêng tư. **Vercel**: frontend. Realtime = Socket.IO self-host trên Railway + Redis adapter. |
 
 **Docker:** tùy chọn. Docker giải quyết *khởi động*, không giải quyết *máy yếu* (còn nặng hơn do
 overhead container). Cách làm nhẹ thật sự = ít service + đẩy DB/broker/Redis lên hosted. Nếu dùng
@@ -69,9 +69,21 @@ Tradeoffs:
 - Chi phí lặp lại mỗi service: auth-verify, log, test, migration riêng.
 - Deadline rủi ro cao hơn monolith với 1 dev.
 
+## Deploy (chốt 2026-08-04)
+
+**Railway + Vercel.** Railway chạy toàn bộ backend + Postgres + Redis + RabbitMQ trong một
+project (mạng nội bộ riêng tư); Vercel chạy frontend. Realtime giữ Socket.IO self-host trên
+Railway (không cần Supabase Realtime). Dev local trỏ tới hạ tầng Railway để máy yếu không phải
+chạy DB/broker cục bộ.
+
+- **Vì sao thắng:** zero rearchitect (giữ nguyên Socket.IO/RabbitMQ/Redis); ít nền tảng nhất
+  (2); không cold-start lúc demo (tiến trình sống dai).
+- **Đánh đổi:** Railway ~$5/mo hobby (không free vĩnh viễn) — chấp nhận đổi lấy ổn định.
+- **Loại:** Supabase (BaaS không chạy được Express microservices; đồ ăn kèm trùng service tự làm).
+  Phương án lùi free nếu cần: Render + Supabase + CloudAMQP + Vercel. TOSE.sh để ngỏ.
+
 ## Follow-Up
 
-- Chốt cách chạy local trên máy yếu (process manager + hạ tầng hosted).
 - Thiết kế luồng event/outbox cho nhất quán booking↔finance↔matchmaking.
 - Architecture chi tiết + data model (database-per-service).
 - Sau đó: grill goal Mốc 1 → spec user story + AC.
