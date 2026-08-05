@@ -1,7 +1,16 @@
 // venue-booking-service — Prisma schema (schema-per-service, D17/ADR 0004).
-// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
-// Bất biến: service này CHỈ định nghĩa/đụng tới schema "venue_booking" của chính nó;
-// không FK, không model tham chiếu bảng của service khác.
+// G0: áp lược đồ theo docs/architecture/data-model.md §2 + decision-log.md §5.
+// Bất biến: service này CHỈ định nghĩa/đụng schema "venue_booking" của chính nó;
+// không FK, không model tham chiếu bảng của service khác. userId/raterUserId... là
+// tham chiếu (không FK) sang account-service.
+//
+// KHÔNG có ở đây (quyết định, không phải thiếu sót):
+// - CANCELLATION_POLICY (D9 — chính sách hủy là hằng số nền tảng, không cấu hình theo PROVIDER)
+// - BOOKING_REVIEW (D7 — không có use case đánh giá booking sân ở GĐ1)
+// - OPERATING_HOURS / CLOSURE / BOOKING_RULE — nhắc tới trong data-model.md nhưng CHƯA có cột
+//   nào được định nghĩa (khoảng trống có từ trước, không thuộc 12 thay đổi G0). Trường cụ thể
+//   do G2 (chủ sở hữu VEN-05/06/07) định nghĩa khi hiện thực use case, tránh G0 tự suy đoán
+//   một quyết định thiết kế nghiệp vụ.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,4 +19,122 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("VENUE_BOOKING_DATABASE_URL")
+}
+
+/// A-VEN-01: bổ sung `rejected` — hồ sơ bị từ chối nộp lại được.
+enum ProviderStatus {
+  pending
+  approved
+  suspended
+  rejected
+}
+
+enum BookingSource {
+  marketplace
+  internal
+}
+
+enum BookingStatus {
+  held
+  confirmed
+  completed
+  cancelled
+}
+
+/// D10: phân biệt tự hủy (FIN-07, bậc thang) với lỗi phía sân/nền tảng (FIN-08, hoàn 100%).
+enum CancellationReason {
+  self
+  provider_fault
+  platform_admin
+}
+
+model Provider {
+  id      String         @id @default(uuid())
+  userId  String
+  orgName String
+  status  ProviderStatus @default(pending)
+  contact Json?
+
+  venues Venue[]
+
+  @@map("providers")
+}
+
+model Venue {
+  id         String   @id @default(uuid())
+  providerId String
+  provider   Provider @relation(fields: [providerId], references: [id])
+  name       String
+  lat        Float
+  lng        Float
+  address    String
+  amenities  Json?
+  images     Json?
+
+  courts Court[]
+
+  @@map("venues")
+}
+
+model Court {
+  id      String  @id @default(uuid())
+  venueId String
+  venue   Venue   @relation(fields: [venueId], references: [id])
+  name    String
+  active  Boolean @default(true)
+
+  pricingRules PricingRule[]
+  holds        Hold[]
+  bookings     Booking[]
+
+  @@map("courts")
+}
+
+model PricingRule {
+  id            String   @id @default(uuid())
+  courtId       String
+  court         Court    @relation(fields: [courtId], references: [id])
+  weekday       Int
+  /// Kiểu Postgres `time` — Prisma chưa có kiểu native, giữ đúng kiểu DB qua Unsupported.
+  startTime     Unsupported("time")
+  endTime       Unsupported("time")
+  price         BigInt
+  version       Int      @default(1)
+  effectiveFrom DateTime
+
+  @@map("pricing_rules")
+}
+
+model Hold {
+  id        String   @id @default(uuid())
+  courtId   String
+  court     Court    @relation(fields: [courtId], references: [id])
+  /// Kiểu Postgres `tstzrange` — dùng cho EXCLUDE constraint (BR-BOK-03), thêm ở G3.
+  timeRange Unsupported("tstzrange")
+  userId    String
+  expiresAt DateTime
+
+  @@map("holds")
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+  courtId   String
+  court     Court         @relation(fields: [courtId], references: [id])
+  /// Kiểu Postgres `tstzrange` — EXCLUDE constraint chống đặt trùng thêm ở G3 (BR-BOK-03).
+  timeRange Unsupported("tstzrange")
+  /// BR-VEN-08a: nullable — booking nội bộ không gắn tài khoản người chơi.
+  userId    String?
+  /// BR-VEN-08a: chỉ dùng khi source = internal.
+  guestName    String?
+  guestContact String?
+  source       BookingSource
+  status       BookingStatus @default(held)
+  /// D10: phân biệt luồng hoàn FIN-07 (self) vs FIN-08 (provider_fault | platform_admin).
+  cancellationReason CancellationReason?
+  policySnapshot     Json?
+  priceSnapshot      BigInt
+  createdAt          DateTime @default(now())
+
+  @@map("bookings")
 }

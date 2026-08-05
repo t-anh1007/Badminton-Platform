@@ -1,7 +1,8 @@
 // finance-service — Prisma schema (schema-per-service, D17/ADR 0004).
-// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
-// Bất biến: service này CHỈ định nghĩa/đụng tới schema "finance" của chính nó;
-// không FK, không model tham chiếu bảng của service khác.
+// G0: áp lược đồ theo docs/architecture/data-model.md §3 + decision-log.md §5.
+// Bất biến: service này CHỈ định nghĩa/đụng schema "finance" của chính nó;
+// không FK, không model tham chiếu bảng của service khác. userId/bookingId... là
+// tham chiếu (không FK) sang account-service / venue-booking-service.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,4 +11,153 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("FINANCE_DATABASE_URL")
+}
+
+/// D3 + D16: personal/business tách riêng; platform là ví hệ thống không có chủ.
+enum WalletType {
+  personal
+  business
+  platform
+}
+
+enum LedgerEntryType {
+  topup
+  payment
+  refund
+  payout
+  commission
+  release
+}
+
+enum PaymentMethod {
+  balance
+  sepay
+}
+
+enum PaymentRefType {
+  booking
+  matchFee
+}
+
+enum PaymentIntentStatus {
+  pending
+  completed
+  failed
+}
+
+enum SepayDirection {
+  in
+  out
+}
+
+/// BR-FIN-17: đối soát ánh xạ 1-1 theo từng sự kiện.
+enum SepayStatus {
+  unmatched
+  matched_auto
+  matched_manual
+  out_of_scope
+}
+
+/// BR-FIN-19: partially_paid — yêu cầu đã có bút toán payout không bao giờ về rejected.
+enum WithdrawalStatus {
+  pending
+  paid
+  rejected
+  partially_paid
+}
+
+enum DisputeStatus {
+  open
+  resolved
+}
+
+model Wallet {
+  id     String     @id @default(uuid())
+  /// D16: nullable — ví platform không có chủ.
+  userId String?
+  /// D3: bỏ UK đơn lẻ trên userId — một user có thể có cả ví personal lẫn business.
+  walletType WalletType
+  available  BigInt     @default(0)
+  /// ADR 0003 + BR-FIN-16: pending/reserved chỉ có ý nghĩa cho ví business.
+  pending  BigInt @default(0)
+  reserved BigInt @default(0)
+  currency String @default("VND")
+
+  ledgerEntries LedgerEntry[]
+
+  @@unique([userId, walletType])
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id       String          @id @default(uuid())
+  walletId String
+  wallet   Wallet          @relation(fields: [walletId], references: [id])
+  amount   BigInt
+  type     LedgerEntryType
+  refType  String
+  refId    String
+  before   BigInt
+  after    BigInt
+  ts       DateTime        @default(now())
+
+  @@map("ledger_entries")
+}
+
+model PaymentIntent {
+  id        String               @id @default(uuid())
+  userId    String
+  amount    BigInt
+  method    PaymentMethod
+  refType   PaymentRefType
+  refId     String
+  status    PaymentIntentStatus  @default(pending)
+  createdAt DateTime             @default(now())
+
+  @@map("payment_intents")
+}
+
+model SepayEvent {
+  id          String         @id @default(uuid())
+  direction   SepayDirection
+  amount      BigInt
+  rawRef      String
+  matchedType String?
+  matchedId   String?
+  /// BR-FIN-17: trạng thái đối soát 1-1 theo từng sự kiện.
+  status      SepayStatus    @default(unmatched)
+  receivedAt  DateTime       @default(now())
+
+  @@map("sepay_events")
+}
+
+model WithdrawalRequest {
+  id            String            @id @default(uuid())
+  sellerUserId  String
+  amount        BigInt
+  status        WithdrawalStatus  @default(pending)
+  /// BR-FIN-19: số tiền đã thực chi khi chưa đủ (partially_paid).
+  paidAmount    BigInt?
+  sePayEventId  String?
+  createdAt     DateTime          @default(now())
+  processedAt   DateTime?
+
+  @@map("withdrawal_requests")
+}
+
+model Dispute {
+  id              String        @id @default(uuid())
+  refType         String
+  refId           String
+  /// D11: liên kết tới booking (venue-booking-service) — không FK chéo schema.
+  bookingId       String
+  raiserUserId    String
+  evidence        Json?
+  status          DisputeStatus @default(open)
+  resolution      String?
+  decidedByUserId String?
+  /// D11: mốc hạn 24 giờ tính từ lúc ca kết thúc — hoãn giải phóng doanh thu tới khi qua mốc này.
+  deadlineAt      DateTime
+
+  @@map("disputes")
 }

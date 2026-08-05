@@ -137,7 +137,10 @@ graph TB
 - **Publish:** `ContentReported` → tạo moderation case.
 - **UC:** community-support (8) + F-07.
 
-> **Đánh giá hai chiều** đặt cùng service sở hữu giao dịch được đánh giá: đánh giá booking ở `venue-booking-service`, đánh giá kèo ở `matchmaking-service`. F-07 (AI lib) hỗ trợ cả hai. Tránh nhân bản cơ chế review.
+> **Đánh giá hai chiều** đặt cùng service sở hữu giao dịch được đánh giá. **Đánh giá booking sân
+> KHÔNG thuộc phạm vi GĐ1** (D7 — `BOOKING_REVIEW` không có use case nào được duyệt, đánh dấu
+> hoãn). Chỉ đánh giá kèo ở `matchmaking-service` (GĐ2, F-01/03/04/07). F-07 (AI lib) hỗ trợ khi
+> triển khai. Tránh nhân bản cơ chế review nếu đánh giá booking được mở lại ở giai đoạn sau.
 
 ## 5. Data model — sơ đồ quan hệ lõi
 
@@ -316,4 +319,8 @@ sequenceDiagram
 
 ## 11. Ghi chú phạm vi
 
-Kiến trúc này phủ **toàn bộ 7 module + 6 tính năng mới**. Thứ tự **thực thi** vẫn theo build order: GĐ1 (account, venue-booking, finance) trước, GĐ2 (matchmaking, community, AI lib) sau. Mốc 1 (lát cắt dọc) chỉ chạm phần tối thiểu của account + venue-booking + finance.
+Kiến trúc này phủ **toàn bộ 7 module + 6 tính năng mới**. Thứ tự **thực thi** không còn theo build
+order lát cắt dọc — đã chốt bằng **D1** (đơn vị phân giai đoạn là module trọn vẹn). Thứ tự triển
+khai có thẩm quyền nằm ở [phase-1-handoff.md §2](../product/phase-1-handoff.md): `Gboot → G0 →
+Gdesign → G1 → G2 → G3 → G4 → (G5 ∥ G6) → G7`, phủ trọn account + venue-booking + finance ở GĐ1;
+matchmaking + community + AI lib thuộc GĐ2.

@@ -21,7 +21,7 @@ không dừng chờ PO 10 lần.
 | # | Gói | Executor | Trạng thái | AC pass/tổng | Self-verify OK (cho sang gói kế) | Ngày |
 |---|---|---|---|---:|---|---|
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
-| 0b | G0 | Claude | chưa bắt đầu | — | — | — |
+| 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | chưa bắt đầu | — | — | — |
 | 1 | G1 | Claude | chưa bắt đầu | 0/34 | — | — |
 | 2 | G2 | Claude | chưa bắt đầu | 0/43 | — | — |
@@ -275,6 +275,46 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 **Hạ tầng local đang chạy** (3 container). Dừng: `npm run infra:down`.
 
 _(Milestone kế: G0 — áp lược đồ data model vào 5 schema.prisma.)_
+
+### G0 — 2026-08-06 — ✅ self-verify OK (12/12 thay đổi)
+
+**Phạm vi đã tự quyết (self-verification, ghi rõ để minh bạch):**
+- Chỉ áp 12 thay đổi lên **3 schema GĐ1** mà chúng thực sự chạm tới: `account-service`,
+  `venue-booking-service`, `finance-service`. Không có dòng nào trong 12 thay đổi chạm
+  `matchmaking-service`/`community-service` — hai service này thuộc GĐ2 (theo DESIGN.md đã sửa
+  ở phiên trước), `schema.prisma` của chúng **giữ nguyên trạng thái Gboot** (chỉ datasource +
+  generator), không migrate.
+- **`OPERATING_HOURS`, `CLOSURE`, `BOOKING_RULE`**: được nhắc trong quan hệ ở `data-model.md`
+  gốc nhưng **chưa từng có cột nào được định nghĩa** — khoảng trống có từ trước, không thuộc 12
+  thay đổi. Không tự suy đoán field (tránh lặp lỗi "kiến trúc tự mở rộng phạm vi" đã bị bắt 2 lần
+  với `BOOKING_REVIEW`/`CANCELLATION_POLICY`). Để **G2** (chủ sở hữu VEN-05/06/07) định nghĩa khi
+  hiện thực use case.
+- `tstzrange` (Postgres) và `time` không có kiểu native trong Prisma → dùng `Unsupported("...")`
+  để giữ đúng kiểu cột thật ở DB (migrate vẫn tạo đúng cột Postgres), truy vấn qua các cột này để
+  G3 tự viết raw SQL khi thêm `EXCLUDE` constraint (BR-BOK-03).
+
+**Đã cập nhật:**
+- `docs/architecture/data-model.md`: áp đủ 12 dòng vào ERD account/venue-booking/finance; thêm
+  ghi chú rõ ràng cho các thực thể bị loại (`BOOKING_REVIEW`, `CANCELLATION_POLICY`) và các thực
+  thể còn thiếu định nghĩa cột (`OPERATING_HOURS`/`CLOSURE`/`BOOKING_RULE`).
+- `docs/architecture/system-architecture.md`: §11 trỏ build order sang `phase-1-handoff.md` thay
+  vì lát cắt dọc cũ (D1); §4.6 sửa câu "đánh giá booking ở venue-booking-service" thành ghi rõ
+  KHÔNG thuộc phạm vi GĐ1 (D7).
+- 3 `schema.prisma` (account, venue-booking, finance) có đủ model theo ERD + 12 delta.
+
+**Bằng chứng (proof):**
+- `prisma validate` sạch cho cả 3 service.
+- `prisma migrate dev --name g0_init` chạy sạch trên CSDL rỗng cho cả 3 service (migration
+  `g0_init` mới, áp thành công).
+- Đối chiếu trực tiếp trong Postgres: **12/12 thay đổi xác nhận đúng** (roles là mảng enum;
+  Provider.status có `rejected`; Booking.userId nullable + guestName/guestContact +
+  cancellationReason; `booking_reviews`/`cancellation_policies` không tồn tại; Wallet có
+  walletType + userId nullable + pending/reserved; WithdrawalRequest có `partially_paid` +
+  paidAmount; SepayEvent có đủ 4 status; Dispute có bookingId + deadlineAt).
+- Quét `@relation`: toàn bộ quan hệ chỉ trỏ nội bộ trong cùng schema, 0 tham chiếu chéo service.
+- `npm run build` sạch toàn bộ 9 workspace sau khi thêm model.
+
+_(Milestone kế: Gdesign — design baseline 5 page shell GĐ1.)_
 
 ## 4. Self-verification cuối mỗi milestone
 
