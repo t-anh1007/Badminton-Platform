@@ -3,6 +3,16 @@
 
 # Node
 node_modules/
+dist/
+*.tsbuildinfo
+
+# Env (giữ .env.example, bỏ .env thật)
+.env
+**/.env
+!**/.env.example
+
+# Prisma generated client
+**/node_modules/.prisma/
 
 # OS
 .DS_Store

@@ -29,6 +29,9 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn trong quá t
 | D16 | 2026-08-05 | **Ví hệ thống `platform`.** Một bản ghi ví duy nhất không thuộc người dùng nào, nhận `commission` và chịu bút toán đảo khi hoàn tiền. Không có nó thì hoa hồng không có nơi lưu trú và bất biến bảo toàn giá trị không kiểm chứng được. | FIN-07, FIN-08, FIN-09, FIN-13, FIN-14 |
 | D17 | 2026-08-05 | **DB: một PostgreSQL, schema-per-service.** Mỗi service có migration, tài khoản truy cập và quyền sở hữu schema riêng; cấm FK và truy vấn xuyên schema; giao tiếp chỉ qua API hoặc event. Xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md). | Gboot |
 | D18 | 2026-08-05 | **Repo: một monorepo dùng workspaces.** Mỗi service build/test/deploy độc lập; chỉ chia sẻ contract/DTO/event schema và thư viện hạ tầng, không chia sẻ entity hay business logic. Xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md). | Gboot |
+| D19 | 2026-08-06 | **Tỷ lệ hoa hồng `r` = 10% (0.10).** PO chốt giá trị cho `A-FIN-01` (trước đó là giả định). Mọi AC tài chính tham số hóa theo `r` nên đổi số sau không phải sửa spec. Áp dụng từ G4. | FIN-03, FIN-04, FIN-07, FIN-08, FIN-09, FIN-13 |
+| ~~D20~~ | 2026-08-06 | ~~**Ngoại lệ vai trò cho GĐ1 (mô hình Hybrid).** Claude thực thi Gboot/G0/Gdesign, Codex execute G1…G7.~~ ⚠️ **Bị thay thế bởi D21** cùng ngày. | — |
+| D21 | 2026-08-06 | **Goal triển khai GĐ1 do Claude Code thực thi trọn vẹn** — toàn bộ 10 milestone Gboot→G7. Không giao task, không dispatch, không phụ thuộc Codex. Claude chịu trách nhiệm: implementation backend/frontend; unit/integration/contract/Playwright E2E; review diff + kiểm scope; kiểm thử độc lập cuối phase; ghi evidence vào `phase-1-progress.md`. **[CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) không áp dụng cho goal này.** PO chỉ nghiệm thu cuối phase. **Thay thế D20 (bỏ Hybrid).** | Toàn bộ GĐ1 (Gboot..G7) |
 
 ### Lý do đáng ghi nhớ
 
@@ -114,7 +117,7 @@ Chi tiết nằm ở mục 6 của từng file spec. Tổng hợp những giả 
 
 | # | Giả định | Rủi ro | Nguồn |
 |---|---|---|---|
-| A-FIN-01 | Tỷ lệ hoa hồng đặt lúc triển khai, giá trị khởi đầu đề xuất 10%. AC viết theo tham số `r` nên đổi số không phải sửa spec | **Trung bình — chạm doanh thu** | [finance-disputes.md](specs/finance-disputes.md) |
+| ~~A-FIN-01~~ | ~~Tỷ lệ hoa hồng đặt lúc triển khai, giá trị khởi đầu đề xuất 10%~~ | ✅ **Đã duyệt — D19 chốt `r=10%` (2026-08-06)**, không còn là giả định | [finance-disputes.md](specs/finance-disputes.md) |
 | ~~A-FIN-05~~ | ~~Webhook SePay không khớp thì vào hàng chờ đối soát tay~~ | ✅ Đã thành chức năng `FIN-14` theo D15, không còn là giả định | — |
 | A-FIN-06 | Tranh chấp mở chỉ hoãn giải phóng doanh thu của đúng booking đó, không phong tỏa cả ví kinh doanh | Trung bình | như trên |
 | A-FIN-08 | Yêu cầu rút bị trừ khỏi `available` ngay khi tạo, không đợi Admin duyệt | Trung bình | như trên |
