@@ -6,6 +6,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Bắt buộc chỉ định output riêng: npm workspaces hoist @prisma/client lên
+  // node_modules gốc, nên nếu để mặc định, service generate sau sẽ GHI ĐÈ
+  // client (và model) của service generate trước — phát hiện lúc làm G1.
+  output = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -98,4 +102,31 @@ model AccountAudit {
   ts           DateTime @default(now())
 
   @@map("account_audits")
+}
+
+/// G1: bảng hạ tầng Outbox (data-model.md §7) — ghi cùng transaction với thay
+/// đổi domain, relay publish lên RabbitMQ, đánh dấu publishedAt để không phát
+/// trùng. Sự kiện phát: UserRegistered (ACC-02), AccountLocked (ACC-08, dùng
+/// chung cho cả khóa/khôi phục qua trường `locked` trong payload).
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox")
+}
+
+/// G1: idempotency cho consumer CHÍNH account-service (nếu account-service
+/// tự tiêu thụ sự kiện của mình trong tương lai). Không dùng để dedupe phía
+/// finance/venue-booking — đó là ProcessedEvent riêng của schema họ.
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now())
+
+  @@map("processed_events")
 }

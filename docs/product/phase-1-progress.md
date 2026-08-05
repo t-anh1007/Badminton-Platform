@@ -23,7 +23,7 @@ không dừng chờ PO 10 lần.
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
-| 1 | G1 | Claude | chưa bắt đầu | 0/34 | — | — |
+| 1 | G1 | Claude | **self-verify OK** | 31/34 (3 blocked, chờ G2/G4) | ✅ (xem §3) | 2026-08-06 |
 | 2 | G2 | Claude | chưa bắt đầu | 0/43 | — | — |
 | 3 | G3 | Claude | chưa bắt đầu | 0/25 | — | — |
 | 4 | G4 | Claude | chưa bắt đầu | 0/32 | — | — |
@@ -42,40 +42,40 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 
 | AC ID | Milestone | Automated test | E2E/manual proof | Status | Evidence |
 |---|---|---|---|---|---|
-| AC-ACC-01-1 | G1 |  |  | todo |  |
-| AC-ACC-01-2 | G1 |  |  | todo |  |
-| AC-ACC-01-3 | G1 |  |  | todo |  |
-| AC-ACC-01-4 | G1 |  |  | todo |  |
-| AC-ACC-02-1 | G1 |  |  | todo |  |
-| AC-ACC-02-2 | G1 |  |  | todo |  |
-| AC-ACC-02-3 | G1 |  |  | todo |  |
-| AC-ACC-02-4 | G1 |  |  | todo |  |
-| AC-ACC-02-5 | G1 |  |  | todo |  |
-| AC-ACC-03-1 | G1 |  |  | todo |  |
-| AC-ACC-03-2 | G1 |  |  | todo |  |
-| AC-ACC-03-3 | G1 |  |  | todo |  |
-| AC-ACC-03-4 | G1 |  |  | todo |  |
-| AC-ACC-03-5 | G1 |  |  | todo |  |
-| AC-ACC-03-6 | G1 |  |  | todo |  |
-| AC-ACC-04-1 | G1 |  |  | todo |  |
-| AC-ACC-04-2 | G1 |  |  | todo |  |
-| AC-ACC-05-1 | G1 |  |  | todo |  |
-| AC-ACC-05-2 | G1 |  |  | todo |  |
-| AC-ACC-05-3 | G1 |  |  | todo |  |
-| AC-ACC-05-4 | G1 |  |  | todo |  |
-| AC-ACC-05-5 | G1 |  |  | todo |  |
-| AC-ACC-06-1 | G1 |  |  | todo |  |
-| AC-ACC-06-2 | G1 |  |  | todo |  |
-| AC-ACC-06-3 | G1 |  |  | todo |  |
-| AC-ACC-07-1 | G1 |  |  | todo |  |
-| AC-ACC-07-2 | G1 |  |  | todo |  |
-| AC-ACC-07-3 | G1 |  |  | todo |  |
-| AC-ACC-08-1 | G1 |  |  | todo |  |
-| AC-ACC-08-2 | G1 |  |  | todo |  |
-| AC-ACC-08-3 | G1 |  |  | todo |  |
-| AC-ACC-08-4 | G1 |  |  | todo |  |
-| AC-ACC-08-5 | G1 |  |  | todo |  |
-| AC-ACC-08-6 | G1 |  |  | todo |  |
+| AC-ACC-01-1 | G1 | services/account-service/test/registration.test.ts | — | pass | services/account-service/test/registration.test.ts |
+| AC-ACC-01-2 | G1 | services/account-service/test/registration.test.ts | — | pass | services/account-service/test/registration.test.ts |
+| AC-ACC-01-3 | G1 | services/account-service/test/registration.test.ts | — | pass | services/account-service/test/registration.test.ts |
+| AC-ACC-01-4 | G1 | services/account-service/test/registration.test.ts | — | pass | services/account-service/test/registration.test.ts |
+| AC-ACC-02-1 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
+| AC-ACC-02-2 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
+| AC-ACC-02-3 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
+| AC-ACC-02-4 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
+| AC-ACC-02-5 | G1 |  |  | blocked | BLOCKED — chờ G4 (finance-service consume UserRegistered). Producer side (Outbox) đã kiểm ở AC-ACC-02-1. |
+| AC-ACC-03-1 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-03-2 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-03-3 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-03-4 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-03-5 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-03-6 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-04-1 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-04-2 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
+| AC-ACC-05-1 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-05-2 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-05-3 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-05-4 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-05-5 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-06-1 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-06-2 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-06-3 | G1 | services/account-service/test/passwordReset.test.ts | — | pass | services/account-service/test/passwordReset.test.ts |
+| AC-ACC-07-1 | G1 | services/account-service/test/profile.test.ts | — | pass | services/account-service/test/profile.test.ts |
+| AC-ACC-07-2 | G1 | services/account-service/test/profile.test.ts | — | pass | services/account-service/test/profile.test.ts |
+| AC-ACC-07-3 | G1 | services/account-service/test/profile.test.ts | — | pass | services/account-service/test/profile.test.ts |
+| AC-ACC-08-1 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
+| AC-ACC-08-2 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
+| AC-ACC-08-3 | G1 |  |  | blocked | BLOCKED — chờ G2 (venue-booking-service consume AccountLocked). |
+| AC-ACC-08-4 | G1 |  |  | blocked | BLOCKED — chờ G2 (venue-booking-service). |
+| AC-ACC-08-5 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
+| AC-ACC-08-6 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-VEN-01-1 | G2 |  |  | todo |  |
 | AC-VEN-01-2 | G2 |  |  | todo |  |
 | AC-VEN-01-3 | G2 |  |  | todo |  |
@@ -374,7 +374,56 @@ actl.me trực tiếp (site sống, có thể đổi) làm bằng chứng duy nh
 Mode) — dự án dùng SPA `BrowserRouter` thuần, không có bề mặt tấn công đó; chưa có bản vá mới hơn,
 không hạ version.
 
-_(Milestone kế: G1 — Danh tính và quyền truy cập, 34 AC.)_
+### G1 — 2026-08-06 — ✅ self-verify OK (31/34 pass, 3 blocked)
+
+**Đã dựng (business logic thật, account-service):**
+- `packages/eventbus`: publish RabbitMQ (topic exchange `domain-events`) + Outbox relay
+  (`startOutboxRelay`, poll 500ms, `SELECT...FOR UPDATE SKIP LOCKED`).
+- `account-service`: lib nền (env, prisma, redis, password/bcrypt, jwt, outbox, email-stub,
+  errors) + 6 domain module (registration, verification, session, passwordReset, profile,
+  adminAccounts) + routes Express (`/auth/*`, `/profile/me`, `/admin/users/:id/lock|unlock`) +
+  middleware `requireAuth`/`requireRole`.
+- Outbox + ProcessedEvent thêm vào schema account (data-model.md §7, đúng phạm vi service này).
+- 2 sự kiện domain đúng tên đã có trong system-architecture.md (không tự đặt tên mới):
+  `UserRegistered` (ACC-02), `AccountLocked` (ACC-08, dùng field `locked:boolean` cho cả
+  khóa/khôi phục thay vì bịa thêm `AccountUnlocked`).
+
+**Quyết định phạm vi tự đưa ra (ghi minh bạch):** `AC-ACC-02-5` (ví personal ở finance) và
+`AC-ACC-08-3/08-4` (ẩn cơ sở khỏi tìm kiếm, chặn booking ở venue-booking) đòi hỏi logic ở service
+khác — trái với "Không đổi: các service khác" của scope boundary G1, và venue-booking/finance
+chưa được xây (G2/G4). Áp đúng mô hình Outbox đã chốt (ADR 0004): G1 xây **đầy đủ phía producer**
+(ghi Outbox + relay publish RabbitMQ đúng một lần, xác nhận bằng smoke test thật — xem dưới); phía
+**consumer** đánh dấu `blocked` trong ledger, không tự xây trước logic thuộc milestone khác.
+
+**2 lỗi hạ tầng nghiêm trọng tự phát hiện và tự sửa (self-verification, ghi minh bạch):**
+1. **Prisma Client bị ghi đè giữa các service.** `generator client` mặc định generate ra
+   `node_modules/@prisma/client` — do npm workspaces hoist, **cả 5 service dùng chung một
+   thư mục**, nên service generate SAU sẽ đè client (và model) của service generate TRƯỚC. Xác
+   nhận bug ĐANG XẢY RA từ G0 (client chung lúc đó là của finance, ghi đè lên account/venue-booking).
+   Sửa: thêm `output = "../node_modules/@prisma/client"` vào cả 5 schema.prisma (kể cả 2 service
+   GĐ2, tránh kế thừa bug sau) — mỗi service tự có client riêng. Xác nhận lại bằng cách in
+   `Object.keys()` của client mỗi service, đúng model riêng của từng service.
+2. **`npm install` ở root xóa mất Prisma Client generate thủ công.** Vì npm không biết thư mục đó
+   là output của Prisma nên coi là rác và dọn khi cài thêm gói. Sửa bằng `postinstall: prisma
+   generate` chuẩn Prisma cho cả 5 service — tự phục hồi sau mỗi `npm install`.
+
+**Bằng chứng (proof):**
+- **32/32 test không-skip PASS** (34 AC, 3 `it.skip` có lý do rõ + 1 test phụ xác nhận cấu trúc
+  event `AccountLocked`), chạy bằng Vitest, tích hợp thật với Postgres + Redis (docker infra), viết
+  ở `services/account-service/test/*.test.ts` (6 file, ~35 test case).
+- **`AC-ACC-03-4` (thông báo lỗi trùng khớp từng ký tự):** kiểm bằng `expect(...).toBe(...)` so
+  sánh chuỗi tuyệt đối giữa nhánh "sai mật khẩu" và "email không tồn tại" — chặt hơn yêu cầu
+  "kiểm tra thủ công" của handoff.
+- **Smoke test thật xác nhận relay publish đúng lên RabbitMQ** (không chỉ ghi Outbox): tạo 1 dòng
+  Outbox thủ công → relay đọc → publish lên exchange `domain-events` → **nhận được message thật**
+  qua một queue tạm bind wildcard → `publishedAt` được set. Chứng minh producer side "phát" thật,
+  không chỉ dừng ở ghi DB.
+- `npm run build` + `npm run typecheck` sạch toàn bộ 9 workspace sau khi thêm business logic.
+
+**Test ledger:** 31 dòng `AC-ACC-*` chuyển `pass`, 3 dòng chuyển `blocked` kèm lý do (§2).
+
+_(Milestone kế: G2 — Nhà cung cấp và lịch sân, 43 AC — tiêu thụ `AccountLocked` để hoàn thành
+AC-ACC-08-3/08-4 còn blocked ở trên.)_
 
 ## 4. Self-verification cuối mỗi milestone
 

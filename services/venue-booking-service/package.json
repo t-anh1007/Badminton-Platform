@@ -12,7 +12,8 @@
     "prisma:generate": "dotenv -e ../../.env -- prisma generate",
     "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
-    "prisma:validate": "dotenv -e ../../.env -- prisma validate"
+    "prisma:validate": "dotenv -e ../../.env -- prisma validate",
+    "postinstall": "dotenv -e ../../.env -- prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

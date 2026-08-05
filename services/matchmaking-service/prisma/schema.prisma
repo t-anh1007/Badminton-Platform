@@ -5,6 +5,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Bắt buộc output riêng — tránh service khác ghi đè client khi hoist (xem
+  // ghi chú trong account-service/prisma/schema.prisma, phát hiện lúc làm G1).
+  output = "../node_modules/@prisma/client"
 }
 
 datasource db {
