@@ -164,3 +164,31 @@ Các tài liệu sau đang ở `status: draft` và cần cập nhật khi spec G
 | `data-model.md` | `DISPUTE` cần mốc hạn 24 giờ tính từ lúc ca kết thúc và liên kết tới booking để hoãn giải phóng doanh thu | D11 |
 | `system-architecture.md` §11 | Ghi chú build order trỏ sang `phasing.md` | D1 |
 | `system-architecture.md` §4.6 | Bỏ câu "đánh giá booking ở venue-booking-service" hoặc ghi rõ là ngoài phạm vi GĐ1 | D7 |
+
+12 dòng `data-model.md` trên là con số G0 phải áp đủ.
+
+## 6. Bootstrap chưa tồn tại
+
+Repo hiện **chưa có `package.json` hay file `.prisma` nào** — chỉ có tài liệu. Vì vậy khâu
+"migration chạy sạch" không có runtime để thực thi. Gói **Gboot** trong
+[phase-1-handoff.md](phase-1-handoff.md) dựng khung monorepo và Prisma trước, chạy trước G0.
+Chiến lược DB và ranh giới monorepo phải được PO chốt trước khi Gboot bắt đầu.
+
+## 7. Vòng review thứ ba, sửa 2026-08-05
+
+Sau khi PO duyệt BOK và FIN, một vòng review nữa tìm thêm các vấn đề. Kết quả kiểm chứng và xử lý:
+
+| # | Phát hiện | Đúng/sai | Xử lý |
+|---|---|---|---|
+| 1 | BR-FIN-17 ép "một sự kiện — một đối ứng", không xử lý được chi vượt (chuyển 700k cho yêu cầu 600k) | Đúng | Viết lại BR-FIN-17 thành "một sự kiện ánh xạ tới **tập** đối ứng cùng hướng, tổng bằng số tiền sự kiện". Thêm `AC-FIN-14-11` phủ nhánh chi vượt |
+| 2 | FIN-03/FIN-04 chưa có AC kiểm chứng ghi `release + commission` khi booking xác nhận | Đúng | FIN-09 bổ sung mục "ghi doanh thu" và `AC-FIN-09-1`, `AC-FIN-09-2` (cân bằng ba vế tại xác nhận), `AC-FIN-09-3` (idempotent). BR-FIN-06 nêu rõ ghi cả hoa hồng vào ví `platform` |
+| 3 | FIN-14 thiếu cách gán tiền vào cho booking trực tiếp | **Phản biện** | Không phải lỗi. Webhook khớp mã thì FIN-04 tự xác nhận; chỉ khi không khớp mới vào FIN-14, và ghi `topup` là catch-all an toàn. Cho Admin xác nhận booking từ FIN-14 sẽ bỏ qua logic hold. Đã ghi rõ trong FIN-14 |
+| 4 | Số AC của gói G4 và G5 sai (28→29, 19→24) | Đúng | Đếm lại toàn bộ; sửa handoff. Tổng dự án 195 → 198 AC sau khi thêm AC ở mục 1, 2 |
+| 5 | G0 ghi 10 thay đổi data model, thực tế 12; repo chưa có project Prisma | Đúng | G0 sửa thành 12; tách gói **Gboot** dựng khung trước |
+| 6 | Đồ thị phụ thuộc tự mâu thuẫn (G7 cần G6 nhưng nói G5-G7 song song; G8 sau G2 nhưng cần G6/G7) | Đúng | Sửa thành `Gboot → G0 → G1 → G2 → G3 → G4 → (G5 ‖ G6) → G7`. Chuyển phần ghi doanh thu của FIN-09 sang G4 để G5 chỉ phụ thuộc G4 |
+| 7 | G8 "khu vực quản trị thống nhất" chưa có AC, có nguy cơ mở rộng phạm vi | Đúng | Bỏ G8. Mỗi màn hình Admin nằm trong gói sở hữu nghiệp vụ của nó |
+| 8 | Danh sách quyết định chặn quá rộng | Đúng | Chỉ DB + monorepo chặn Gboot; hoa hồng chặn G4; WebSocket thuộc GĐ2; thời điểm tạo ví đã được spec chốt |
+
+**Ba lỗi 1, 2 chạm spec `finance-disputes` đã duyệt.** Đây là tinh chỉnh, không phải thiết kế
+lại: lỗi 1 là một nhánh biên (chi vượt), lỗi 2 là AC kiểm chứng còn thiếu cho hành vi vốn đã
+mô tả ở BR-FIN-06/14. Spec giữ trạng thái `approved` với ghi chú sửa đổi này. FIN nay có 73 AC.

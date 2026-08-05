@@ -43,7 +43,7 @@ toán ledger; chỉ khi tiền thật rời hệ thống mới ghi `payout`. Xem
 | BR-FIN-03 | Số dư ví không bao giờ âm. Mọi thao tác làm số dư âm bị từ chối. |
 | BR-FIN-04 | Không chuyển tiền giữa hai ví của cùng một người, và không chuyển ngang hàng giữa người dùng. Ràng buộc bất biến #6 và quyết định D3. |
 | BR-FIN-05 | **Hoàn tiền luôn ghi có vào ví `personal`**, không bao giờ chuyển ngược ra ngân hàng. SePay không có API hoàn tiền. |
-| BR-FIN-06 | Doanh thu vào `pending` của ví `business` khi booking `confirmed`. Chuyển sang `available` sau khi **ca kết thúc và hết 24 giờ**, với điều kiện booking đó không có tranh chấp đang mở. Ràng buộc bất biến #5. |
+| BR-FIN-06 | Khi booking `confirmed`, finance ghi **đồng thời** doanh thu ròng `gross × (1 − r)` vào `pending` của ví `business` và hoa hồng `gross × r` vào ví `platform`. Phần `pending` chuyển sang `available` sau khi **ca kết thúc và hết 24 giờ**, với điều kiện booking đó không có tranh chấp đang mở. Ràng buộc bất biến #5. Chi tiết ở FIN-09. |
 | BR-FIN-07 | **Hạn gửi tranh chấp trùng đúng cửa sổ 24 giờ** đó. Hết 24 giờ thì không gửi được nữa và tiền chuyển sang `available`. Bất biến thu được: tiền chỉ rời diện tranh chấp khi không còn ai được quyền tranh chấp. **Quyết định D11.** |
 | BR-FIN-08 | Hoa hồng là **tỷ lệ cố định**, đặt lúc triển khai, không cấu hình được lúc chạy. Áp trên mọi booking marketplace. **Không** áp trên booking nội bộ theo `BR-VEN-08`. |
 | BR-FIN-09 | Mọi webhook SePay được xử lý **idempotent** theo mã sự kiện. Nhận lại cùng một sự kiện không sinh bút toán thứ hai. |
@@ -53,7 +53,7 @@ toán ledger; chỉ khi tiền thật rời hệ thống mới ghi `payout`. Xem
 | BR-FIN-13 | Mọi thao tác của Admin lên tiền đều ghi vết append-only kèm lý do bắt buộc. |
 | BR-FIN-14 | **Mọi khoản hoàn đều là đảo ba vế, không bao giờ cộng thêm.** Doanh thu và hoa hồng đã được ghi đủ ngay khi booking `confirmed`. Khi hoàn với tỷ lệ `f` — bất kể nguyên nhân là người chơi tự hủy (FIN-07), sân hủy (FIN-08), hay Admin xử tranh chấp (FIN-13) — hệ thống ghi **đồng thời ba bút toán**: ví `personal` tăng `gross × f`; `pending` của ví `business` giảm `gross × f × (1 − r)`; ví `platform` giảm `gross × f × r`. Không luồng nào được đảo thiếu vế nào. |
 | BR-FIN-15 | **Bảo toàn giá trị.** Với mọi booking, tổng số tiền người chơi trả luôn bằng tổng của: phần đã hoàn về ví `personal`, phần doanh thu ròng còn lại của chủ sân, và phần hoa hồng còn lại ở ví `platform`. Bất biến này phải đúng sau mọi luồng hủy hay tranh chấp. |
-| BR-FIN-17 | **Mỗi giao dịch ngân hàng có đúng một đối ứng.** Mọi `SEPAY_EVENT` phải được ánh xạ **đúng một lần** tới đúng một trong bốn đối ứng, **cùng hướng và cùng số tiền**: (a) một bút toán `topup`; (b) một khoản thanh toán booking trực tiếp qua SePay, biểu hiện trên ledger là cặp `release` cộng `commission` của booking đó; (c) một bút toán `payout`; (d) một bản ghi `out_of_scope` kèm lý do. Không sự kiện nào được để chưa khớp vô thời hạn, và không đối ứng nào được dùng cho hai sự kiện. |
+| BR-FIN-17 | **Mỗi giao dịch ngân hàng được giải trình trọn vẹn.** Mọi `SEPAY_EVENT` phải ánh xạ tới **một tập đối ứng cùng hướng, có tổng số tiền bằng đúng số tiền của sự kiện**. Mỗi đối ứng thuộc một trong bốn loại: (a) một bút toán `topup`; (b) một khoản thanh toán booking trực tiếp qua SePay, biểu hiện trên ledger là cặp `release` cộng `commission` của booking đó; (c) một bút toán `payout`; (d) một bản ghi `out_of_scope` kèm lý do. Đa số sự kiện có đúng một đối ứng; trường hợp chi lệch cho một yêu cầu rút thì một sự kiện tách thành hai đối ứng (ví dụ `payout` cộng `out_of_scope`) mà tổng vẫn bằng số tiền sự kiện. Không sự kiện nào được để chưa khớp vô thời hạn, và không đối ứng nào được dùng cho hai sự kiện. |
 | BR-FIN-19 | **Không hoàn tác một khoản đã chi thật.** Yêu cầu rút chỉ chuyển sang `rejected` khi **chưa có bút toán `payout` nào** gắn với nó. Nếu tiền đã rời ngân hàng dù chỉ một phần, yêu cầu bắt buộc đi tiếp qua `partially_paid` rồi `paid`; phần chưa chi ở `reserved` được trả về `available`, còn phần đã chi không bao giờ được hoàn về ví. Vi phạm quy tắc này khiến chủ sân vừa giữ tiền ngoài ngân hàng vừa lấy lại số dư trong hệ thống. |
 | BR-FIN-18 | **Bảo toàn ở mức hệ thống.** Tổng tiền vào trừ tổng tiền ra theo `SEPAY_EVENT`, sau khi loại các sự kiện `out_of_scope`, luôn bằng tổng số dư của toàn bộ ví: mọi ví `personal`, mọi ví `business` cộng cả ba phân vùng, và ví `platform`. Đây là phép kiểm tra duy nhất chứng minh hệ thống không tạo ra hay đánh mất tiền. |
 | BR-FIN-16 | **Ví `business` có ba phân vùng: `pending`, `available`, `reserved`.** Các chuyển dịch hợp lệ là: `pending → available` (hết cửa sổ 24 giờ, không tranh chấp); `available → reserved` (tạo yêu cầu rút); `reserved → available` (hủy hoặc từ chối yêu cầu rút, hoặc trả lại phần dư sau chi một phần); `reserved → rời hệ thống` (chi thành công, ghi `payout`). Không có chuyển dịch nào khác. Ba chuyển dịch đầu là phân vùng nội bộ, **không sinh bút toán ledger** vì tổng tài sản không đổi; chỉ khi tiền thật rời hệ thống mới ghi `payout`. |
@@ -343,7 +343,8 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | User Story | Là nhà cung cấp sân, tôi muốn xem doanh thu theo thời gian và biết rõ phần nào đang chờ, phần nào rút được, để quản lý dòng tiền |
 | Điều kiện trước | Có vai `provider` |
 | Sự kiện kích hoạt | Mở trang doanh thu |
-| Workflow chính | 1. Hiển thị `pending` và `available` của ví `business` → 2. Liệt kê từng khoản doanh thu gắn với booking, kèm số tiền gộp, hoa hồng đã trừ, số ròng, và thời điểm dự kiến chuyển sang `available` → 3. Cho lọc theo khoảng thời gian và theo cơ sở |
+| Ghi doanh thu (nền, không phải màn hình) | Khi `finance-service` nhận `BookingConfirmed{bookingId, gross}`, nó ghi **đồng thời hai bút toán** trong một giao dịch: `release` cộng `gross × (1 − r)` vào `pending` của ví `business` chủ sân, và `commission` cộng `gross × r` vào ví `platform`. Đây là nơi duy nhất doanh thu và hoa hồng được tạo, và là gốc để BR-FIN-14 đảo lại khi hoàn. Consumer idempotent theo `bookingId`. |
+| Workflow chính (màn hình) | 1. Hiển thị `pending`, `available`, `reserved` của ví `business` → 2. Liệt kê từng khoản doanh thu gắn với booking, kèm số tiền gộp, hoa hồng đã trừ, số ròng, và thời điểm dự kiến chuyển sang `available` → 3. Cho lọc theo khoảng thời gian và theo cơ sở |
 | Luồng thay thế | Khoản đang bị hoãn do có tranh chấp mở: hiển thị nhãn riêng kèm lý do |
 | Luồng lỗi | Chưa có doanh thu nào → trạng thái rỗng |
 | Business Rules | BR-FIN-06, BR-FIN-07, BR-FIN-08, BR-FIN-12; BR-VEN-08 |
@@ -358,12 +359,14 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 
 **Acceptance Criteria**
 
-- `AC-FIN-09-1` — **Given** một booking 200k vừa `confirmed` với hoa hồng `r`, **When** chủ sân xem doanh thu, **Then** khoản `200k × (1 − r)` xuất hiện ở `pending` kèm thời điểm dự kiến giải phóng.
-- `AC-FIN-09-2` — **Given** ca đã kết thúc và đã qua 24 giờ mà không có tranh chấp, **When** tác vụ nền chạy, **Then** khoản đó chuyển từ `pending` sang `available`.
-- `AC-FIN-09-3` — **Given** một booking có tranh chấp đang `open`, **When** đã qua 24 giờ, **Then** khoản của **riêng booking đó** vẫn ở `pending`, còn các khoản khác vẫn chuyển sang `available` bình thường.
-- `AC-FIN-09-4` — **Given** một booking nội bộ do chủ sân ghi tại quầy, **When** xem doanh thu, **Then** booking đó không xuất hiện và không có hoa hồng nào được tính.
+- `AC-FIN-09-1` — **Given** một booking 200k vừa `confirmed` với hoa hồng `r`, **When** finance nhận `BookingConfirmed`, **Then** `pending` của ví `business` tăng đúng `200k × (1 − r)` **và** ví `platform` tăng đúng `200k × r`, cả hai trong cùng một giao dịch.
+- `AC-FIN-09-2` — **Given** cùng booking đó, **When** cộng khoản trừ khỏi ví `personal` khi thanh toán, khoản vào `pending` chủ sân, và khoản vào ví `platform`, **Then** ba khoản cân bằng: người chơi trả 200k, chủ sân nhận `200k × (1 − r)`, nền tảng nhận `200k × r`. Đây là gốc bảo toàn giá trị mà BR-FIN-14 dựa vào để đảo.
+- `AC-FIN-09-3` — **Given** `BookingConfirmed` bị phát lại hai lần, **When** finance xử lý, **Then** doanh thu và hoa hồng chỉ được ghi một lần.
+- `AC-FIN-09-4` — **Given** ca đã kết thúc và đã qua 24 giờ mà không có tranh chấp, **When** tác vụ nền chạy, **Then** khoản đó chuyển từ `pending` sang `available`.
+- `AC-FIN-09-5` — **Given** một booking có tranh chấp đang `open`, **When** đã qua 24 giờ, **Then** khoản của **riêng booking đó** vẫn ở `pending`, còn các khoản khác vẫn chuyển sang `available` bình thường.
+- `AC-FIN-09-6` — **Given** một booking nội bộ do chủ sân ghi tại quầy, **When** xem doanh thu, **Then** booking đó không xuất hiện và không có hoa hồng nào được tính.
 
-**Tiêu chí kiểm chứng:** kiểm thử tự động 4 AC; AC-FIN-09-4 là bằng chứng cho `BR-VEN-08`.
+**Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC. `AC-FIN-09-1` và `AC-FIN-09-2` là vế mà bản nháp trước bỏ sót — chúng chứng minh hoa hồng được ghi vào ví `platform` tại thời điểm xác nhận, thứ mà toàn bộ logic đảo của BR-FIN-14 phụ thuộc vào. `AC-FIN-09-6` là bằng chứng cho `BR-VEN-08`.
 
 ---
 
@@ -524,7 +527,8 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | Sự kiện kích hoạt | Admin xử lý một sự kiện trong hàng chờ |
 | Workflow chính | 1. Mở hàng chờ đối soát, sắp theo thời gian nhận → 2. Mỗi dòng hiển thị hướng tiền, số tiền, nội dung thô, thời điểm, và lý do không khớp được → 3. Chọn một trong ba cách xử lý → 4. Nhập lý do bắt buộc → 5. Ghi bút toán tương ứng và ghi vết theo BR-FIN-13 |
 | Ba cách xử lý | **a. Gán tiền vào cho một người dùng** — ghi bút toán `topup` đúng số tiền thực nhận vào ví `personal` của người đó. **b. Gán tiền ra cho một yêu cầu rút** — xem bảng dưới. **c. Đánh dấu ngoài phạm vi** — giao dịch không liên quan tới nền tảng, không sinh bút toán nào |
-| Cách (b) theo số tiền | **Khớp đúng:** yêu cầu chuyển `paid`, ghi `payout`, `reserved` về 0. **Chi thiếu:** yêu cầu chuyển `partially_paid`, ghi `payout` **đúng số thực chi**, `reserved` giảm đúng số đó, phần dư vẫn nằm ở `reserved`. **Chi vượt số yêu cầu:** không gán được — nền tảng đã chi nhiều hơn khoản nợ, Admin xử lý phần vượt bằng cách (c) kèm lý do, ghi nhận đây là khoản lỗ vận hành |
+| Cách (a) — tiền vào không khớp | Luôn ghi `topup` vào ví `personal` của người được gán. **FIN-14 không xác nhận booking hộ**, kể cả khi tiền có vẻ là để trả một booking — làm vậy sẽ bỏ qua logic hold. Người chơi nhận lại tiền vào ví và tự đặt lại. Đây là catch-all an toàn cho mọi khoản tiền vào lạc. |
+| Cách (b) theo số tiền | **Khớp đúng:** yêu cầu chuyển `paid`, ghi `payout`, `reserved` về 0. **Chi thiếu:** yêu cầu chuyển `partially_paid`, ghi `payout` **đúng số thực chi**, `reserved` giảm đúng số đó, phần dư vẫn nằm ở `reserved`. **Chi vượt số yêu cầu:** sự kiện tách thành **hai đối ứng** theo BR-FIN-17 — một `payout` bằng đúng số tiền yêu cầu (yêu cầu chuyển `paid`, `reserved` về 0), và một `out_of_scope` cho phần vượt kèm lý do, ghi nhận là khoản lỗ vận hành. Tổng hai đối ứng bằng số tiền đã chi. |
 | Luồng thay thế | Sau khi một yêu cầu ở `partially_paid`, Admin có hai đường: chuyển bù phần còn thiếu, webhook mới khớp và yêu cầu sang `paid`; hoặc chốt ở mức đã chi, phần dư ở `reserved` trả về `available` và yêu cầu sang `paid` với `paidAmount` nhỏ hơn `amount` |
 | Luồng lỗi | Không nhập lý do → từ chối; Gán tiền vào cho tài khoản không tồn tại → từ chối; Gán tiền ra cho yêu cầu đã `paid` hoặc `rejected` → từ chối; Xử lý một sự kiện đã được xử lý → từ chối; Thử từ chối một yêu cầu đã có bút toán `payout` → từ chối theo BR-FIN-19 |
 | Business Rules | BR-FIN-01, BR-FIN-02, BR-FIN-12, BR-FIN-13, BR-FIN-17, BR-FIN-19 |
@@ -547,10 +551,11 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 - `AC-FIN-14-10` — **Given** một yêu cầu đã có bút toán `payout` 500k, **When** Admin thử chuyển yêu cầu sang `rejected`, **Then** hệ thống từ chối. Đây là kiểm chứng cho BR-FIN-19 và ngăn đúng kịch bản chủ sân vừa giữ 500k ngoài ngân hàng vừa lấy lại 600k trong hệ thống.
 - `AC-FIN-14-5` — **Given** một sự kiện đã ở trạng thái `matched_manual`, **When** Admin thử xử lý lại, **Then** hệ thống từ chối.
 - `AC-FIN-14-6` — **Given** Admin bỏ trống lý do, **When** xác nhận bất kỳ cách xử lý nào, **Then** hệ thống từ chối.
-- `AC-FIN-14-7` — **Given** một tập giao dịch bất kỳ, **When** duyệt từng `SEPAY_EVENT`, **Then** mỗi sự kiện có đúng một đối ứng thuộc bốn loại của BR-FIN-17, khớp cả hướng lẫn số tiền, và không đối ứng nào bị dùng cho hai sự kiện.
+- `AC-FIN-14-7` — **Given** một tập giao dịch bất kỳ, **When** duyệt từng `SEPAY_EVENT`, **Then** mỗi sự kiện có một tập đối ứng cùng hướng với tổng số tiền bằng đúng số tiền sự kiện, mỗi đối ứng thuộc bốn loại của BR-FIN-17, và không đối ứng nào bị dùng cho hai sự kiện.
+- `AC-FIN-14-11` — **Given** một webhook "tiền ra" 700k trong khi yêu cầu rút là 600k với `reserved` 600k, **When** Admin xử lý, **Then** sự kiện tách thành một `payout` 600k đưa yêu cầu sang `paid` và `reserved` về 0, cộng một `out_of_scope` 100k kèm lý do; tổng hai đối ứng bằng 700k và không phần nào của 700k bị bỏ sót khỏi đối soát.
 - `AC-FIN-14-8` — **Given** một kịch bản đầy đủ gồm nạp tiền, thanh toán bằng số dư, thanh toán trực tiếp qua SePay, hủy có hoàn một phần, tranh chấp và rút tiền, **When** tính tổng tiền vào trừ tổng tiền ra theo `SEPAY_EVENT` sau khi loại các sự kiện `out_of_scope`, **Then** kết quả bằng đúng tổng số dư của mọi ví `personal`, mọi ví `business` gồm cả ba phân vùng, và ví `platform`. Đây là kiểm chứng cho BR-FIN-18.
 
-**Tiêu chí kiểm chứng:** kiểm thử tự động 10 AC. `AC-FIN-14-8` là **kiểm thử toàn vẹn ở mức hệ thống** và là bằng chứng cuối cùng cho toàn bộ mô hình tài chính — nó phủ cả đường thanh toán trực tiếp qua SePay, thứ mà công thức ở bản nháp trước bỏ sót. `AC-FIN-14-10` chặn đúng kịch bản mất tiền của nền tảng.
+**Tiêu chí kiểm chứng:** kiểm thử tự động 11 AC. `AC-FIN-14-8` là **kiểm thử toàn vẹn ở mức hệ thống** và là bằng chứng cuối cùng cho toàn bộ mô hình tài chính — nó phủ cả đường thanh toán trực tiếp qua SePay, thứ mà công thức ở bản nháp trước bỏ sót. `AC-FIN-14-10` chặn đúng kịch bản mất tiền của nền tảng; `AC-FIN-14-11` phủ nhánh chi vượt.
 
 > `BR-FIN-18` được đo **sau khi mọi `SEPAY_EVENT` đã được xử lý**, tức không còn sự kiện nào
 > ở trạng thái `unmatched`. Trong lúc một khoản chi lệch chưa được Admin gán, ngân hàng và ví
@@ -570,12 +575,12 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | FIN-06 | Thanh toán đến muộn | AC-FIN-06-1…3 | Sequence thanh toán đến muộn |
 | FIN-07 | Hoàn tiền khi tự hủy | AC-FIN-07-1…6 | Sequence hủy và hoàn tiền |
 | FIN-08 | Hoàn toàn bộ do lỗi sân | AC-FIN-08-1…5 | Trong activity BOK-10 |
-| FIN-09 | Theo dõi doanh thu | AC-FIN-09-1…4 | — |
+| FIN-09 | Theo dõi doanh thu + ghi doanh thu/hoa hồng | AC-FIN-09-1…6 | — |
 | FIN-10 | Yêu cầu rút tiền | AC-FIN-10-1…6 | Sequence rút tiền và đối soát |
 | FIN-11 | Xử lý yêu cầu rút tiền | AC-FIN-11-1…6 | Sequence rút tiền và đối soát |
 | FIN-12 | Gửi tranh chấp | AC-FIN-12-1…6 | Sequence tranh chấp |
 | FIN-13 | Giải quyết tranh chấp | AC-FIN-13-1…8 | Sequence tranh chấp |
-| FIN-14 | Đối soát giao dịch chưa khớp | AC-FIN-14-1…10 | State `SEPAY_EVENT`; state `WITHDRAWAL_REQUEST` |
+| FIN-14 | Đối soát giao dịch chưa khớp | AC-FIN-14-1…11 | State `SEPAY_EVENT`; state `WITHDRAWAL_REQUEST` |
 
 ## 6. Giả định cần duyệt
 

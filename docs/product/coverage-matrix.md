@@ -18,10 +18,11 @@ Trạng thái: `chưa phân tích` · `đang làm rõ` · `đủ context` · `c�
 | `court-booking` | 10 | **đã duyệt** 2026-08-05 | [court-booking.md](specs/court-booking.md) |
 | `finance-disputes` | 13 | **đã duyệt** 2026-08-05 | [finance-disputes.md](specs/finance-disputes.md) |
 
-**Tiến độ: 40/40 chức năng đã duyệt (100%).** Spec Giai đoạn 1 hoàn tất. Gói bàn giao cho
-Codex: [phase-1-handoff.md](phase-1-handoff.md).
+**Tiến độ: 40/40 chức năng đã duyệt (100%), tổng 198 AC.** Spec Giai đoạn 1 hoàn tất. Gói bàn
+giao cho Codex: [phase-1-handoff.md](phase-1-handoff.md).
 
-Tổng GĐ1 tăng từ 39 lên 40 do bổ sung `FIN-14` theo quyết định D15.
+Tổng GĐ1 tăng từ 39 lên 40 do bổ sung `FIN-14` (D15). Tổng AC tăng lên 198 sau vòng review thứ
+ba (thêm AC ghi hoa hồng và nhánh chi vượt trong `finance-disputes` — xem [decision-log §7](decision-log.md)).
 
 ## `account-access`
 
@@ -80,9 +81,9 @@ Không có chức năng đánh giá booking sân (quyết định D7).
 | FIN-06 | Nhận thanh toán đến muộn vào số dư | đã duyệt | 3 |
 | FIN-07 | Nhận hoàn tiền khi tự hủy | đã duyệt | 6 |
 | FIN-08 | Nhận hoàn toàn bộ do lỗi sân | đã duyệt | 5 |
-| FIN-09 | Theo dõi doanh thu | đã duyệt | 4 |
+| FIN-09 | Theo dõi doanh thu + ghi doanh thu/hoa hồng | đã duyệt | 6 |
 | FIN-10 | Yêu cầu rút số dư khả dụng | đã duyệt | 6 |
 | FIN-11 | Xử lý yêu cầu rút tiền | đã duyệt | 6 |
 | FIN-12 | Gửi tranh chấp giao dịch | đã duyệt | 6 |
 | FIN-13 | Giải quyết tranh chấp giao dịch | đã duyệt | 8 |
-| FIN-14 | Đối soát giao dịch chưa khớp | đã duyệt | 10 |
+| FIN-14 | Đối soát giao dịch chưa khớp | đã duyệt | 11 |
