@@ -22,7 +22,7 @@ không dừng chờ PO 10 lần.
 |---|---|---|---|---:|---|---|
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
-| 0c | Gdesign | Claude | chưa bắt đầu | — | — | — |
+| 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
 | 1 | G1 | Claude | chưa bắt đầu | 0/34 | — | — |
 | 2 | G2 | Claude | chưa bắt đầu | 0/43 | — | — |
 | 3 | G3 | Claude | chưa bắt đầu | 0/25 | — | — |
@@ -315,6 +315,66 @@ _(Milestone kế: G0 — áp lược đồ data model vào 5 schema.prisma.)_
 - `npm run build` sạch toàn bộ 9 workspace sau khi thêm model.
 
 _(Milestone kế: Gdesign — design baseline 5 page shell GĐ1.)_
+
+### Gdesign — 2026-08-06 — ✅ self-verify OK (5/5 proof)
+
+**Đã dựng `apps/web`:**
+- Vite 8 + React 19 + TypeScript + Tailwind v4 (`@tailwindcss/vite`, CSS-first `@theme` — không cần
+  `tailwind.config.js`) + React Router v7. Fonts: `@fontsource/geist-sans` (400/700/800),
+  `@fontsource/geist-mono` (400/500) — tự host, không phụ thuộc CDN Google Fonts.
+- Design tokens: 10 màu ở `src/index.css` `@theme` (navy, blue, slate, court-green `#1B4D2E`,
+  accent-shuttle `#F5E663`, accent-red `#E63946`, text/bg) → Tailwind tự sinh utility
+  (`bg-court-green`, `text-accent-shuttle`, ...). Typography scale `.text-h1/h2/body/caption` +
+  `.text-figures` (Geist Mono cho số liệu).
+- Component dùng chung: `Preloader` (CSS `@keyframes`, không Framer Motion), `Navbar` (sticky,
+  đổi nền khi cuộn), `MenuOverlay` (full-screen navy, không có "Download App"), `Hero` (SVG phẳng +
+  parallax 3 lớp bằng CSS `transform: translateY()`, không WebGL), `Card` (hover translateY),
+  `AdminTable`, `AuthForm`, `SlotGrid`.
+- 5 page shell GĐ1: Trang chủ, Auth (login/register/verify), Đặt sân, Hồ sơ, Quản trị — dữ liệu
+  mock ở `src/data/mock.ts`, chưa gọi API thật (đúng scope boundary).
+
+**Một lỗi thật tự phát hiện và tự sửa (self-verification, ghi minh bạch):**
+- Bình luận trong `index.css` chứa chuỗi `--color-*/--font-*` — literal `*/` **đóng comment CSS
+  sớm**, làm hỏng toàn bộ khối `@theme` phía sau (đây cũng là nguồn gốc 2 warning Lightning CSS
+  lúc build đầu tiên). Hệ quả: 0 token màu được sinh, mọi utility như `bg-court-green` không tồn
+  tại, trang render sai hoàn toàn (nền sáng thay vì xanh lá đậm, caption xanh xám thay vì vàng).
+  Phát hiện bằng cách so khớp trực tiếp `grep` trên CSS build ra (không có `--color-court-green`
+  nào), không phải chỉ nhìn ảnh chụp. Sửa bằng cách viết lại câu chữ tránh literal `*/`. Rebuild
+  sạch, không còn warning, token/utility sinh đúng — xác nhận lại bằng ảnh chụp thực tế.
+- `Hero.tsx` có 3 dòng SVG `stroke="#F5E663"` hardcode hex, vi phạm nguyên tắc "không hardcode
+  hex trong component". Sửa thành `className="stroke-accent-shuttle"` (Tailwind utility từ token).
+
+**Bằng chứng (proof):**
+1. `npm run dev` (port 5173, http 200) và `vite build` đều sạch, không lỗi/warning.
+2. 5 page shell render đúng qua Browser pane, không lỗi console (kiểm từng trang: Home, Booking,
+   Profile, Auth, Admin).
+3. **10 screenshot** (5 trang × 2 viewport: desktop 1440×900, mobile 390×844) lưu tại
+   `docs/product/gdesign-screenshots/` bằng script Playwright (`scripts/gdesign-screenshots.mjs`,
+   dùng lại được cho Playwright E2E ở G1..G7 theo master goal). Đối chiếu bảng dưới.
+4. Grep-âm: không `three`/`webgl`/`<canvas`/`lenis`/`<video` trong `apps/web/src` (1 kết quả duy
+   nhất là dòng comment tự mô tả "không cần WebGL/canvas" — không phải import thật). Không
+   dependency `three`/`lenis` trong `package.json`.
+5. Token tập trung một nguồn (`index.css` `@theme`) — quét lại 0 hex hardcode trong
+   `src/components`/`src/pages`/`src/layout` sau khi sửa Hero.tsx.
+
+**Đối chiếu "giống actl.me 90%" (DESIGN.md §1.1, cột trái):**
+
+| Tiêu chí | Đạt/lệch | Ghi chú |
+|---|---|---|
+| Thứ tự section, layout tổng thể | ✅ Đạt | Nav → Hero → 3 tính năng, giống cấu trúc ACTL |
+| Nhịp spacing, tỉ lệ typography H1/H2/Body/Caption | ✅ Đạt | Scale `clamp()` đúng khoảng 48–64px/32–40px/16px/13px |
+| Motion: hover đổi màu, overlay bung, card nhấc, fade khi cuộn | ✅ Đạt (một phần) | Hover/overlay/card đã có; fade-in khi cuộn tới (scroll-triggered reveal) **chưa làm** — chỉ có parallax hero, để G1..G7 bổ sung nếu cần khi có nội dung thật |
+| UX: nav sticky đổi nền, overlay thay dropdown, list đậm số liệu | ✅ Đạt | Nav đổi nền khi cuộn; overlay full-screen; `AdminTable`/`SlotGrid` dùng Geist Mono cho số liệu |
+| Cảm giác thể thao cạnh tranh (contrast mạnh, chữ hoa đậm) | ✅ Đạt | H1 uppercase 800, contrast navy/court-green vs vàng |
+| KHÔNG WebGL/3D/canvas/particle | ✅ Đạt | Xác nhận bằng grep-âm (mục 4) |
+
+**Ghi chú:** dùng ảnh chụp Playwright viewport cố định làm bằng chứng bền vững, không dùng
+actl.me trực tiếp (site sống, có thể đổi) làm bằng chứng duy nhất — đúng yêu cầu goal.
+`react-router-dom@7.18.2` (mới nhất) có advisory GHSA-qwww-vcr4-c8h2 (CSRF, chỉ ảnh hưởng RSC
+Mode) — dự án dùng SPA `BrowserRouter` thuần, không có bề mặt tấn công đó; chưa có bản vá mới hơn,
+không hạ version.
+
+_(Milestone kế: G1 — Danh tính và quyền truy cập, 34 AC.)_
 
 ## 4. Self-verification cuối mỗi milestone
 

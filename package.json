@@ -5,7 +5,8 @@
   "description": "Nền tảng cầu lông — monorepo (npm workspaces, schema-per-service)",
   "workspaces": [
     "packages/*",
-    "services/*"
+    "services/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=20"
@@ -19,6 +20,7 @@
     "prisma:migrate": "npm run prisma:migrate --workspaces --if-present"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "concurrently": "^9.1.0",
     "dotenv-cli": "^7.4.4",
     "typescript": "^5.6.3"
