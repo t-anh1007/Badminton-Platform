@@ -307,12 +307,12 @@ sequenceDiagram
 
 ## 10. Quyết định cần PO xác nhận
 
-| # | Quyết định | Mặc định đề xuất |
-|---|---|---|
-| 1 | DB tách hẳn hay schema-per-service | **Schema-per-service** trong 1 Postgres (rẻ, đủ nguyên tắc) |
-| 2 | Monorepo hay nhiều repo | **Monorepo** (workspaces) |
-| 3 | Client nối WS thẳng matchmaking hay qua gateway | **Thẳng matchmaking** (đơn giản, tránh gateway giữ kết nối) |
-| 4 | Ví khởi tạo khi đăng ký hay khi giao dịch đầu | Khi `UserRegistered` (finance tạo sẵn ví rỗng) |
+| # | Quyết định | Mặc định đề xuất | Trạng thái |
+|---|---|---|---|
+| 1 | DB tách hẳn hay schema-per-service | **Schema-per-service** trong 1 Postgres (rẻ, đủ nguyên tắc) | ✅ **Chốt 2026-08-05** (D17) — đúng đề xuất, cộng thêm: mỗi service có migration, tài khoản truy cập và quyền sở hữu schema riêng; không FK, không truy vấn xuyên schema; giao tiếp chỉ qua API hoặc event |
+| 2 | Monorepo hay nhiều repo | **Monorepo** (workspaces) | ✅ **Chốt 2026-08-05** (D18) — đúng đề xuất, cộng thêm: chỉ chia sẻ contract/DTO/event schema và thư viện hạ tầng; không chia sẻ entity hay business logic xuyên service |
+| 3 | Client nối WS thẳng matchmaking hay qua gateway | **Thẳng matchmaking** (đơn giản, tránh gateway giữ kết nối) | Thuộc GĐ2 (`matchmaking-service`), không chặn GĐ1. Chốt khi spec GĐ2 |
+| 4 | Ví khởi tạo khi đăng ký hay khi giao dịch đầu | Khi `UserRegistered` (finance tạo sẵn ví rỗng) | ✅ Đã chốt bởi spec GĐ1, thay thế mục này: ví `personal` tạo khi xác minh email (`AC-ACC-02-5`), ví `business` tạo khi duyệt nhà cung cấp (`AC-VEN-02-1`). Xem [ADR 0003](../decisions/0003-multi-role-dual-wallet.md) |
 
 ## 11. Ghi chú phạm vi
 

@@ -18,6 +18,10 @@ mà không phải phỏng vấn lại.
 > sung AC ghi và kiểm chứng hoa hồng vào ví `platform` khi booking xác nhận; số AC từng gói
 > đã đếm lại; G0 tách phần bootstrap; đồ thị phụ thuộc sửa mâu thuẫn; G8 bị hòa vào các gói
 > sở hữu nghiệp vụ; danh sách quyết định chặn thu hẹp đúng phạm vi. Xem [decision-log §7](decision-log.md).
+>
+> **Cập nhật 2026-08-05.** Hai quyết định chặn Gboot đã được PO chốt (D17, D18):
+> schema-per-service trong một Postgres, monorepo workspaces. Xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md).
+> **Gboot không còn bị chặn.**
 
 Các gói Admin **không tách riêng**: mỗi màn hình quản trị nằm trong gói sở hữu nghiệp vụ của
 nó (VEN-02 ở G2, ACC-08 ở G1, FIN-11 và FIN-14 ở G6, FIN-13 ở G7).
@@ -77,23 +81,32 @@ Chín ràng buộc bất biến tại [`SCOPE_BASELINE.md` §4](../SCOPE_BASELIN
 > runtime để "migration chạy sạch". Phải dựng khung trước khi áp lược đồ.
 
 **Outcome.** Khung monorepo chạy được: workspaces, sáu service skeleton, `packages/shared`,
-`packages/ai`, `packages/eventbus`, và Prisma khởi tạo cho từng service, khớp cấu trúc thư mục
-ở [system-architecture.md §9](../architecture/system-architecture.md).
+`packages/ai`, `packages/eventbus`, và Prisma khởi tạo cho từng service theo đúng
+**schema-per-service trong một Postgres** (D17) và **monorepo workspaces** (D18) — xem
+[ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md). Khớp cấu trúc thư mục ở
+[system-architecture.md §9](../architecture/system-architecture.md).
 
 **Success condition.** `npm install` ở gốc chạy sạch; mỗi service có `prisma/schema.prisma`
-rỗng nhưng hợp lệ trỏ tới schema Postgres riêng; `prisma migrate` chạy được trên một CSDL rỗng;
-lệnh khởi động local dựng được toàn bộ service mà không lỗi.
+riêng trỏ đúng schema Postgres của nó, không service nào định nghĩa hay truy cập schema của
+service khác; mỗi service dùng một tài khoản CSDL riêng chỉ có quyền trên schema của mình;
+`prisma migrate` chạy được cho từng service trên một CSDL rỗng; lệnh khởi động local dựng
+được toàn bộ service mà không lỗi.
 
 **Scope boundary.** Chỉ dựng khung và cấu hình. Không viết entity, không viết nghiệp vụ. Không
-chọn lại tech stack — theo [ADR 0002](../decisions/0002-tech-stack-microservices.md).
+chọn lại tech stack — theo [ADR 0002](../decisions/0002-tech-stack-microservices.md). Không
+tạo FK hay migration nào chạm schema của service khác.
 
-**Context.** [system-architecture.md §9](../architecture/system-architecture.md) · [ADR 0002](../decisions/0002-tech-stack-microservices.md) · quyết định kỹ thuật §10 phải chốt trước (xem mục 5)
+**Context.** [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md) · [system-architecture.md §9](../architecture/system-architecture.md) · [ADR 0002](../decisions/0002-tech-stack-microservices.md)
 
-**Validation loop.** Trong lúc làm: mỗi service build được sau khi thêm. Cuối: `npm install`
-và `prisma migrate` chạy sạch trên máy trống.
+**Validation loop.** Trong lúc làm: mỗi service build được sau khi thêm; `prisma migrate`
+chạy sạch cho service đó ngay sau khi thêm schema. Cuối: `npm install` chạy sạch trên máy
+trống, migration của cả sáu service chạy sạch, và không có FK hay query nào tham chiếu chéo
+schema — kiểm bằng cách quét `prisma/schema.prisma` của từng service, không thấy tên bảng của
+service khác.
 
-**Stop / pause.** Dừng nếu chiến lược DB (một Postgres nhiều schema hay tách hẳn) và ranh giới
-monorepo chưa được PO chốt — cả hai chặn gói này.
+**Stop / pause.** Dừng nếu phát hiện nhu cầu FK hay truy vấn xuyên schema — đó là dấu hiệu một
+ranh giới service bị vẽ sai ở tầng thiết kế, phải quay lại kiến trúc chứ không phải phá quy
+tắc D17 để đi tiếp.
 
 ---
 
@@ -328,7 +341,7 @@ riêng khoản của booking bị tranh chấp.
 | # | Rủi ro | Mức | Ghi chú |
 |---|---|---|---|
 | R1 | GĐ1 chiếm 40/62 chức năng, dồn phần lớn khối lượng vào nửa đầu; ngôi sao demo F-03 nằm trọn ở GĐ2 | Cao | Van an toàn đã ghi ở [phasing.md §10](phasing.md): tới mốc giữa GĐ1 mà hành trình J1 chưa chạy end-to-end thì cắt FIN-12 và FIN-13 xuống GĐ3 |
-| R2 | Chiến lược DB và ranh giới monorepo chưa được PO chốt | Trung bình | **Chặn Gboot.** Chỉ hai quyết định này chặn khâu bootstrap |
+| R2 | ~~Chiến lược DB và ranh giới monorepo chưa được PO chốt~~ | — | ✅ **Chốt 2026-08-05** (D17, D18). Gboot không còn bị chặn — xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md) |
 | R3 | Ba vòng review đều tìm ra lỗi tiền trong `finance-disputes` | Trung bình | Đã sửa 9 lỗi qua ba vòng. G4, G5, G6, G7 nên được review lại sau khi code xong, không chỉ dựa vào AC pass |
 | R4 | Tỷ lệ hoa hồng chưa chốt con số | Thấp | **Chặn G4** (điểm đầu tiên ghi hoa hồng), không chặn Gboot hay G0. Mọi AC viết theo tham số `r` |
 | R5 | Bộ dữ liệu seed cho demo chưa chuẩn bị | Thấp | Chỉ ảnh hưởng F-05 ở GĐ3 |
@@ -339,19 +352,18 @@ Không phải mọi quyết định đều chặn từ đầu. Chỉ chốt cái
 
 | Quyết định | Chặn gói nào | Trạng thái |
 |---|---|---|
-| Chiến lược DB (một Postgres nhiều schema hay tách hẳn); ranh giới monorepo | **Gboot** | Chưa chốt — [system-architecture.md §10](../architecture/system-architecture.md) mục 1, 2 |
+| Chiến lược DB; ranh giới monorepo | Gboot | ✅ **Chốt 2026-08-05** (D17, D18) — [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md) |
 | Tỷ lệ hoa hồng `r` | **G4** | Chưa chốt; đề xuất khởi đầu 10% |
-| Client nối WebSocket thẳng matchmaking hay qua gateway | **Không chặn GĐ1** | Thuộc GĐ2 (matchmaking), bỏ qua ở GĐ1 |
-| Thời điểm tạo ví | **Không chặn** | Đã được spec chốt: ví `personal` tạo khi xác minh email (`AC-ACC-02-5`), ví `business` khi duyệt nhà cung cấp (`AC-VEN-02-1`) |
+| Client nối WebSocket thẳng matchmaking hay qua gateway | Không chặn GĐ1 | Thuộc GĐ2 (matchmaking), bỏ qua ở GĐ1 |
+| Thời điểm tạo ví | Không chặn | Đã được spec chốt: ví `personal` tạo khi xác minh email (`AC-ACC-02-5`), ví `business` khi duyệt nhà cung cấp (`AC-VEN-02-1`) |
 
-Nói cách khác: chỉ **DB và monorepo** chặn việc bắt đầu. Hoa hồng chốt trước G4. Hai mục còn
-lại ở `system-architecture.md §10` không chặn GĐ1.
+Duy nhất còn lại: **tỷ lệ hoa hồng `r`**, chặn G4, không chặn Gboot hay G0.
 
 ## 6. Trình tự vào việc
 
-1. PO chốt chiến lược DB và ranh giới monorepo → mở khoá **Gboot**.
+1. ✅ ~~PO chốt chiến lược DB và ranh giới monorepo~~ — xong 2026-08-05 (D17, D18). **Gboot mở khoá.**
 2. Chạy Gboot rồi G0 để có khung và lược đồ khớp spec.
 3. G1 → G2 → G3 → G4 (chốt tỷ lệ hoa hồng trước bước này) → (G5 song song G6) → G7.
 
-Sau khi Gboot và G0 xong, phiên `/goal-griller` tiếp theo dựng `/goal` cho từng gói bằng đúng
-sáu trường ở trên, không cần phỏng vấn lại.
+Không còn quyết định nào chặn việc bắt đầu Gboot. Phiên `/goal-griller` tiếp theo dựng `/goal`
+cho Gboot ngay bằng đúng sáu trường ở trên, không cần phỏng vấn lại.

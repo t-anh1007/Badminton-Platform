@@ -27,6 +27,8 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn trong quá t
 | D14 | 2026-08-05 | **Chủ sân giữ cả khoản không hoàn lẫn doanh thu từ việc bán lại chính slot đó.** Khoản không hoàn là bù rủi ro slot ế, không phải thanh toán cho dịch vụ đã cung cấp. Hệ thống không theo dõi quan hệ giữa booking bị hủy và booking mới trên cùng slot. | BOK-09, FIN-07, FIN-09 |
 | D15 | 2026-08-05 | **Thêm `FIN-14 Đối soát giao dịch chưa khớp` vào GĐ1.** Chức năng đầu tiên không có trong `SCOPE_BASELINE`. GĐ1 tăng từ 39 lên 40 chức năng. **PO phê duyệt tường minh 2026-08-05.** | FIN-02, FIN-11, FIN-14 |
 | D16 | 2026-08-05 | **Ví hệ thống `platform`.** Một bản ghi ví duy nhất không thuộc người dùng nào, nhận `commission` và chịu bút toán đảo khi hoàn tiền. Không có nó thì hoa hồng không có nơi lưu trú và bất biến bảo toàn giá trị không kiểm chứng được. | FIN-07, FIN-08, FIN-09, FIN-13, FIN-14 |
+| D17 | 2026-08-05 | **DB: một PostgreSQL, schema-per-service.** Mỗi service có migration, tài khoản truy cập và quyền sở hữu schema riêng; cấm FK và truy vấn xuyên schema; giao tiếp chỉ qua API hoặc event. Xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md). | Gboot |
+| D18 | 2026-08-05 | **Repo: một monorepo dùng workspaces.** Mỗi service build/test/deploy độc lập; chỉ chia sẻ contract/DTO/event schema và thư viện hạ tầng, không chia sẻ entity hay business logic. Xem [ADR 0004](../decisions/0004-db-strategy-and-repo-boundary.md). | Gboot |
 
 ### Lý do đáng ghi nhớ
 
