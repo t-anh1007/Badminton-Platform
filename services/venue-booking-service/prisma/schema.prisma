@@ -71,7 +71,13 @@ model Provider {
   /// này), khác ACCOUNT_AUDIT (account-service, quyết định trên USER).
   decisionReason  String?
   decidedByUserId String?
-  decidedAt       DateTime?
+  /// @db.Timestamptz: toàn bộ DateTime trong schema này dùng timestamptz (có
+  /// timezone) thay vì timestamp mặc định của Prisma — cần thiết để
+  /// tstzrange() trong EXCLUDE constraint (Hold/Booking) không phải cast
+  /// ngầm timestamp->timestamptz (cast đó phụ thuộc timezone phiên, bị
+  /// Postgres coi là STABLE chứ không IMMUTABLE, khiến constraint không tạo
+  /// được — phát hiện lúc viết migration EXCLUDE ở G3).
+  decidedAt DateTime? @db.Timestamptz(3)
 
   /// G2: cờ đánh dấu status=suspended là DO tài khoản chủ bị khóa (AccountLocked),
   /// để khi tài khoản mở khóa lại, chỉ khôi phục approved cho đúng nhóm này —
@@ -139,7 +145,7 @@ model Closure {
   courtId String
   court   Court    @relation(fields: [courtId], references: [id])
   /// Chỉ phần ngày có ý nghĩa (lưu 00:00 UTC của ngày đó).
-  date    DateTime
+  date    DateTime @db.Timestamptz(3)
   reason  String?
 
   @@unique([courtId, date])
@@ -168,7 +174,7 @@ model PricingRule {
   endMinute     Int
   price         BigInt
   version       Int      @default(1)
-  effectiveFrom DateTime
+  effectiveFrom DateTime @db.Timestamptz(3)
 
   @@map("pricing_rules")
 }
@@ -178,11 +184,12 @@ model Hold {
   courtId   String
   court     Court    @relation(fields: [courtId], references: [id])
   /// G2: đổi từ Unsupported("tstzrange") — hai cột DateTime thường, Prisma
-  /// đọc/ghi được. EXCLUDE constraint (BR-BOK-03) thêm ở G3 trên cột generated.
-  startAt   DateTime
-  endAt     DateTime
+  /// đọc/ghi được. @db.Timestamptz bắt buộc (xem ghi chú ở Provider.decidedAt)
+  /// để EXCLUDE constraint (BR-BOK-03, thêm ở G3) dùng tstzrange() không cast.
+  startAt   DateTime @db.Timestamptz(3)
+  endAt     DateTime @db.Timestamptz(3)
   userId    String
-  expiresAt DateTime
+  expiresAt DateTime @db.Timestamptz(3)
 
   @@map("holds")
 }
@@ -192,8 +199,8 @@ model Booking {
   courtId String
   court   Court  @relation(fields: [courtId], references: [id])
   /// G2: đổi từ Unsupported("tstzrange") — xem ghi chú ở Hold.
-  startAt DateTime
-  endAt   DateTime
+  startAt DateTime @db.Timestamptz(3)
+  endAt   DateTime @db.Timestamptz(3)
   /// BR-VEN-08a: nullable — booking nội bộ không gắn tài khoản người chơi.
   userId  String?
   /// BR-VEN-08a: chỉ dùng khi source = internal.
@@ -205,7 +212,7 @@ model Booking {
   cancellationReason CancellationReason?
   policySnapshot     Json?
   priceSnapshot      BigInt
-  createdAt          DateTime @default(now())
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("bookings")
 }
@@ -218,8 +225,8 @@ model Outbox {
   aggregateId   String
   eventType     String
   payload       Json
-  createdAt     DateTime  @default(now())
-  publishedAt   DateTime?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  publishedAt   DateTime? @db.Timestamptz(3)
 
   @@index([publishedAt, createdAt])
   @@map("outbox")
@@ -229,7 +236,7 @@ model Outbox {
 /// trùng nếu RabbitMQ redeliver.
 model ProcessedEvent {
   eventId     String   @id
-  processedAt DateTime @default(now())
+  processedAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("processed_events")
 }

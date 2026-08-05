@@ -3,9 +3,19 @@ import { z } from 'zod';
 import { h } from './handler.js';
 import { createVenue, updateVenue } from '../domain/venue.js';
 import { addCourt, deactivateCourt, getCourtBookingHistory } from '../domain/court.js';
+import { getVenueDetail } from '../domain/venueDetail.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
 export const venueRouter = Router();
+
+// BOK-03 — công khai, không cần đăng nhập.
+venueRouter.get(
+  '/:id',
+  h(async (req, res) => {
+    const detail = await getVenueDetail(req.params.id!);
+    res.status(200).json(detail);
+  }),
+);
 
 const venueSchema = z.object({
   name: z.string(),

@@ -1,0 +1,127 @@
+import { prisma } from '../lib/prisma.js';
+import { isVenueSearchable } from './venue.js';
+import { getEffectivePricingWindows } from './pricing.js';
+import { isRangeFree } from './slotAvailability.js';
+
+const DEFAULT_RADIUS_KM = 10; // A-BOK-04
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export interface VenueSearchResult {
+  venueId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  amenities: unknown;
+  distanceKm: number;
+  lowestPrice: bigint | null;
+}
+
+async function lowestPriceForVenue(venueId: string): Promise<bigint | null> {
+  const courts = await prisma.court.findMany({ where: { venueId, active: true } });
+  const now = new Date();
+  const weekday = now.getUTCDay();
+  let min: bigint | null = null;
+  for (const court of courts) {
+    const windows = await getEffectivePricingWindows(court.id, weekday, now);
+    for (const w of windows) {
+      if (min === null || w.price < min) min = w.price;
+    }
+  }
+  return min;
+}
+
+/** BOK-01 — Tìm sân bằng danh sách và bản đồ (AC-BOK-01-1..4). Công khai,
+ * không cần đăng nhập (AC-01-3: kết quả giống hệt khách vs người đã đăng nhập
+ * — hàm này không nhận userId, không có nhánh nào phân biệt theo actor). */
+export async function searchVenues(
+  lat: number,
+  lng: number,
+  radiusKm: number = DEFAULT_RADIUS_KM,
+): Promise<VenueSearchResult[]> {
+  const venues = await prisma.venue.findMany();
+  const results: VenueSearchResult[] = [];
+
+  for (const venue of venues) {
+    const distanceKm = haversineKm(lat, lng, venue.lat, venue.lng);
+    if (distanceKm > radiusKm) continue;
+    // BR-BOK-01: chỉ cơ sở thỏa BR-VEN-03 (approved + sân active + giờ + giá).
+    if (!(await isVenueSearchable(venue.id))) continue;
+
+    results.push({
+      venueId: venue.id,
+      name: venue.name,
+      lat: venue.lat,
+      lng: venue.lng,
+      address: venue.address,
+      amenities: venue.amenities,
+      distanceKm,
+      lowestPrice: await lowestPriceForVenue(venue.id),
+    });
+  }
+
+  return results;
+}
+
+export interface FilterParams {
+  maxPrice?: number;
+  minPrice?: number;
+  /** Lọc theo khung giờ còn trống trọn vẹn (AC-BOK-02-2). */
+  availability?: { date: Date; startMinute: number; endMinute: number };
+  sortBy?: 'distance' | 'price';
+}
+
+/** BOK-02 — Lọc và sắp xếp trên tập kết quả BOK-01 (AC-BOK-02-1..3). */
+export async function filterAndSortVenues(
+  base: VenueSearchResult[],
+  params: FilterParams,
+): Promise<VenueSearchResult[]> {
+  let results = base;
+
+  if (params.minPrice !== undefined) {
+    results = results.filter((r) => r.lowestPrice !== null && r.lowestPrice >= BigInt(params.minPrice!));
+  }
+  if (params.maxPrice !== undefined) {
+    results = results.filter((r) => r.lowestPrice !== null && r.lowestPrice <= BigInt(params.maxPrice!));
+  }
+
+  if (params.availability) {
+    const { date, startMinute, endMinute } = params.availability;
+    const startAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, startMinute));
+    const endAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, endMinute));
+    const kept: VenueSearchResult[] = [];
+    for (const r of results) {
+      const courts = await prisma.court.findMany({ where: { venueId: r.venueId, active: true } });
+      let anyFree = false;
+      for (const c of courts) {
+        if (await isRangeFree(c.id, startAt, endAt)) {
+          anyFree = true;
+          break;
+        }
+      }
+      if (anyFree) kept.push(r);
+    }
+    results = kept;
+  }
+
+  if (params.sortBy === 'price') {
+    results = [...results].sort((a, b) => {
+      if (a.lowestPrice === null) return 1;
+      if (b.lowestPrice === null) return -1;
+      return a.lowestPrice < b.lowestPrice ? -1 : a.lowestPrice > b.lowestPrice ? 1 : 0;
+    });
+  } else {
+    results = [...results].sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  return results;
+}

@@ -67,5 +67,23 @@ describe('Consume AccountLocked — hoàn thành AC-ACC-08-3 (blocked từ G1)',
     expect(unchanged.status).toBe('approved'); // KHÔNG bị suspend lại vì eventId đã xử lý
   });
 
-  it.skip('AC-ACC-08-4: NCC đang bị khóa, người chơi gọi thẳng API tạo booking mới -> từ chối [BLOCKED: chờ G3 — cần endpoint booking marketplace (BOK-07) chưa xây; cơ chế provider.status=suspended đã sẵn sàng để G3 dùng]', () => {});
+  it('AC-ACC-08-4: NCC đang bị khóa, người chơi gọi thẳng API tạo hold (bước đầu của đặt sân) -> từ chối', async () => {
+    // Hoàn thành ở G3: BR-BOK-01 "chỉ cơ sở thỏa BR-VEN-03 mới xuất hiện
+    // trong tìm kiếm VÀ MỚI ĐẶT ĐƯỢC" — createHold (BOK-06) chặn ngay tại
+    // bước sớm nhất của luồng đặt sân, không chỉ ẩn khỏi tìm kiếm (AC-08-3).
+    // BOK-07 (tạo booking confirmed sau thanh toán) thuộc G4, nhưng không có
+    // BOK-07 nào chạy được nếu bước giữ chỗ này đã bị chặn trước.
+    const { createHold } = await import('../src/domain/hold.js');
+    const userId = fakeUserId();
+    const provider = await createApprovedProvider(userId);
+    const { court } = await createVenueWithCourt(provider.id);
+
+    await handleAccountLocked(randomUUID(), { userId, locked: true, reason: 'vi pham', actorUserId: 'admin-1' });
+
+    const start = new Date(Date.now() + 24 * 60 * 60_000);
+    const end = new Date(start.getTime() + 3600_000);
+    await expect(
+      createHold(fakeUserId(), { courtId: court.id, startAt: start, endAt: end }),
+    ).rejects.toMatchObject({ code: 'VENUE_NOT_AVAILABLE' });
+  });
 });

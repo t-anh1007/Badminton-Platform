@@ -23,9 +23,9 @@ không dừng chờ PO 10 lần.
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
-| 1 | G1 | Claude | **self-verify OK** | 32/34 (2 blocked, chờ G3/G4 — 08-3 hoàn thành ở G2) | ✅ (xem §3) | 2026-08-06 |
+| 1 | G1 | Claude | **self-verify OK** | 33/34 (1 blocked, chờ G4 — 08-3 xong ở G2, 08-4 xong ở G3) | ✅ (xem §3) | 2026-08-06 |
 | 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận + G3/G4) | ✅ (xem §3) | 2026-08-06 |
-| 3 | G3 | Claude | chưa bắt đầu | 0/25 | — | — |
+| 3 | G3 | Claude | **self-verify OK** | 25/25 | ✅ (xem §3) | 2026-08-06 |
 | 4 | G4 | Claude | chưa bắt đầu | 0/32 | — | — |
 | 5 | G5 | Claude | chưa bắt đầu | 0/24 | — | — |
 | 6 | G6 | Claude | chưa bắt đầu | 0/26 | — | — |
@@ -73,7 +73,7 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-ACC-08-1 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-ACC-08-2 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-ACC-08-3 | G1/G2 | services/venue-booking-service/test/accountLockedConsumer.test.ts | — | pass | Hoàn thành ở G2: venue-booking-service tiêu thụ AccountLocked, ẩn cơ sở khỏi tìm kiếm khi NCC bị khóa, booking giữ nguyên. |
-| AC-ACC-08-4 | G1/G3 |  |  | blocked | BLOCKED — chờ G3 (cần endpoint booking marketplace BOK-07 chưa xây). Cơ chế provider.status=suspended đã sẵn sàng ở G2 để G3 dùng ngay. |
+| AC-ACC-08-4 | G1/G3 | services/venue-booking-service/test/accountLockedConsumer.test.ts | — | pass | Hoàn thành ở G3: createHold (BOK-06) chặn ngay bước sớm nhất của luồng đặt sân (BR-BOK-01 "mới đặt được") khi provider.status != approved. |
 | AC-ACC-08-5 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-ACC-08-6 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-VEN-01-1 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
@@ -119,31 +119,31 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-VEN-09-3 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
 | AC-VEN-09-4 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
 | AC-VEN-09-5 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
-| AC-BOK-01-1 | G3 |  |  | todo |  |
-| AC-BOK-01-2 | G3 |  |  | todo |  |
-| AC-BOK-01-3 | G3 |  |  | todo |  |
-| AC-BOK-01-4 | G3 |  |  | todo |  |
-| AC-BOK-02-1 | G3 |  |  | todo |  |
-| AC-BOK-02-2 | G3 |  |  | todo |  |
-| AC-BOK-02-3 | G3 |  |  | todo |  |
-| AC-BOK-03-1 | G3 |  |  | todo |  |
-| AC-BOK-03-2 | G3 |  |  | todo |  |
-| AC-BOK-04-1 | G3 |  |  | todo |  |
-| AC-BOK-04-2 | G3 |  |  | todo |  |
-| AC-BOK-04-3 | G3 |  |  | todo |  |
-| AC-BOK-04-4 | G3 |  |  | todo |  |
-| AC-BOK-04-5 | G3 |  |  | todo |  |
-| AC-BOK-04-6 | G3 |  |  | todo |  |
-| AC-BOK-05-1 | G3 |  |  | todo |  |
-| AC-BOK-05-2 | G3 |  |  | todo |  |
-| AC-BOK-05-3 | G3 |  |  | todo |  |
-| AC-BOK-05-4 | G3 |  |  | todo |  |
-| AC-BOK-05-5 | G3 |  |  | todo |  |
-| AC-BOK-06-1 | G3 |  |  | todo |  |
-| AC-BOK-06-2 | G3 |  |  | todo |  |
-| AC-BOK-06-3 | G3 |  |  | todo |  |
-| AC-BOK-06-4 | G3 |  |  | todo |  |
-| AC-BOK-06-5 | G3 |  |  | todo |  |
+| AC-BOK-01-1 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-01-2 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-01-3 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-01-4 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-02-1 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-02-2 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-02-3 | G3 | services/venue-booking-service/test/search.test.ts | — | pass | services/venue-booking-service/test/search.test.ts |
+| AC-BOK-03-1 | G3 | services/venue-booking-service/test/venueDetail.test.ts | — | pass | services/venue-booking-service/test/venueDetail.test.ts |
+| AC-BOK-03-2 | G3 | services/venue-booking-service/test/venueDetail.test.ts | — | pass | services/venue-booking-service/test/venueDetail.test.ts |
+| AC-BOK-04-1 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-04-2 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-04-3 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-04-4 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-04-5 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-04-6 | G3 | services/venue-booking-service/test/availability.test.ts | — | pass | services/venue-booking-service/test/availability.test.ts |
+| AC-BOK-05-1 | G3 | services/venue-booking-service/test/slotSelection.test.ts | — | pass | services/venue-booking-service/test/slotSelection.test.ts |
+| AC-BOK-05-2 | G3 | services/venue-booking-service/test/slotSelection.test.ts | — | pass | services/venue-booking-service/test/slotSelection.test.ts |
+| AC-BOK-05-3 | G3 | services/venue-booking-service/test/slotSelection.test.ts | — | pass | services/venue-booking-service/test/slotSelection.test.ts |
+| AC-BOK-05-4 | G3 | services/venue-booking-service/test/slotSelection.test.ts | — | pass | services/venue-booking-service/test/slotSelection.test.ts |
+| AC-BOK-05-5 | G3 | services/venue-booking-service/test/slotSelection.test.ts | — | pass | services/venue-booking-service/test/slotSelection.test.ts |
+| AC-BOK-06-1 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
+| AC-BOK-06-2 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts (20 request đồng thời, BẮT BUỘC theo BR-BOK-03) |
+| AC-BOK-06-3 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
+| AC-BOK-06-4 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
+| AC-BOK-06-5 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
 | AC-BOK-07-1 | G4 |  |  | todo |  |
 | AC-BOK-07-2 | G4 |  |  | todo |  |
 | AC-BOK-07-3 | G4 |  |  | todo |  |
@@ -467,6 +467,58 @@ chỉ làm phần venue-booking-service tự quyết được (status pending→
 (hoàn thành ở G2); `AC-ACC-08-4` giữ `blocked`, đổi lý do sang chờ G3 (không còn chờ G2).
 
 _(Milestone kế: G3 — Tìm sân và giữ chỗ, 25 AC.)_
+
+### G3 — 2026-08-06 — ✅ self-verify OK (25/25 pass)
+
+**Đã dựng (business logic thật, venue-booking-service):** BOK-01→06 — tìm sân theo vị trí
+(Haversine, bán kính mặc định 10km), lọc/sắp xếp (giá, khung giờ trống), xem chi tiết cơ sở,
+xem lịch trống + giá theo ngày (dùng lại `getEffectivePricingWindows`/`calculateBookingPrice`
+từ G2), chọn slot + thời lượng (dùng lại `isDurationAllowed` từ G2), **giữ chỗ 10 phút chống đua
+THẬT** bằng EXCLUDE constraint Postgres + reap-then-insert trong cùng transaction — không chỉ
+kiểm tra tầng ứng dụng (đúng yêu cầu BR-BOK-03 + Stop/pause của G3).
+
+**Hạ tầng CSDL mới — EXCLUDE constraint thật (không phải giả lập):**
+- Cài extension `btree_gist` ở cấp database (ghi vào `infra/postgres-init/02-extensions.sql`
+  để tái lập được).
+- **Phát hiện + sửa 1 lỗi kiểu dữ liệu thật:** `startAt/endAt` (G2) map thành Postgres
+  `timestamp` (không timezone) theo mặc định của Prisma — `tstzrange()` trong EXCLUDE constraint
+  phải cast ngầm `timestamp→timestamptz`, mà cast đó phụ thuộc timezone phiên (STABLE, không
+  IMMUTABLE), khiến Postgres từ chối tạo constraint ("functions in index expression must be
+  marked IMMUTABLE"). Sửa: đổi **toàn bộ** cột `DateTime` trong schema sang `@db.Timestamptz(3)`
+  (không chỉ 2 cột liên quan) — đúng hơn cho hệ thống nói chung, không chỉ vá riêng lẻ.
+- `EXCLUDE USING gist ("courtId" WITH =, tstzrange("startAt","endAt",'[)') WITH &&)` trên
+  `holds` (vô điều kiện, kết hợp reap hold hết hạn trong cùng transaction trước khi insert) và
+  trên `bookings` (`WHERE status='confirmed'`, predicate hằng số nên hợp lệ).
+- Xác nhận trực tiếp trong Postgres: `contype='x'` (EXCLUDE) cho cả hai constraint.
+
+**Hoàn thành 2 AC blocked từ G1 (không chờ đến G4):**
+- `AC-ACC-08-3` (đã xong ở G2) và **`AC-ACC-08-4`** — phát hiện khoảng trống thật:
+  `createHold` (BOK-06) ban đầu KHÔNG kiểm tra `provider.status`, nghĩa là người chơi vẫn tạo
+  được Hold cho sân của NCC đã bị khóa (gọi thẳng API, bỏ qua tìm kiếm). BR-BOK-01 nói rõ "chỉ
+  cơ sở thỏa BR-VEN-03 mới xuất hiện trong tìm kiếm **và mới đặt được**" — thêm kiểm tra
+  `provider.status !== 'approved' → VENUE_NOT_AVAILABLE` ngay đầu `createHold`, chặn tại bước
+  sớm nhất của luồng đặt sân (không cần chờ BOK-07/G4 mới chặn được).
+
+**2 bug thật tự bắt (self-verification):**
+1. `isExclusionViolation()` yêu cầu `'code' in err` làm điều kiện AND bắt buộc, nhưng
+   `PrismaClientUnknownRequestError` (lỗi 23P01 thật từ Postgres) không có field `.code` — toàn
+   bộ check tắt sớm, khiến TẤT CẢ request thua trong test đồng thời rơi vào nhánh lỗi chung thay
+   vì `SLOT_ON_HOLD`. Debug bằng script trực tiếp in ra shape lỗi thật, sửa bằng cách chỉ kiểm
+   tra `message` (chứa `23P01` hoặc tên constraint).
+2. Test timeout 5s mặc định quá ngắn cho fixture dựng 4 cơ sở tuần tự (AC-BOK-01-1) — tăng
+   timeout riêng cho test đó, không phải lỗi logic.
+
+**Bằng chứng (proof):**
+- **72/72 test không-skip PASS** (25 AC + 3 test bổ sung, 2 skip còn lại thuộc G2 chờ PO).
+- **`AC-BOK-06-2` (BẮT BUỘC — kiểm thử đồng thời):** 20 request `createHold` song song cho
+  đúng một slot → **đúng 1 thành công, 19 thất bại `SLOT_ON_HOLD`**, xác nhận thêm bằng truy vấn
+  trực tiếp CSDL (đúng 1 dòng `Hold`). Chạy lặp lại 3 lần liên tiếp, không flaky.
+- `npm run build` + `npm run typecheck` sạch toàn bộ 9 workspace.
+
+**Test ledger:** 25 dòng `AC-BOK-01..06` chuyển `pass`; `AC-ACC-08-4` chuyển `pass` (hoàn thành
+ở G3, không còn `blocked`).
+
+_(Milestone kế: G4 — Thanh toán, xác nhận và ghi doanh thu, 32 AC — cần `r=10%` đã chốt.)_
 
 ## 4. Self-verification cuối mỗi milestone
 
