@@ -312,6 +312,7 @@ Track in `src/integration/progress.json`:
 **Andrej Karpathy Principles:** Think → Simplicity → Surgical → Goal-Driven  
 **Project Requirements:** See `DISCOVERY_PROMPT.md` & `REPORT_SPEC.md`  
 **Domain Knowledge:** See `docs/` folder  
+**Orchestration Manual:** See `docs/CODEX_ORCHESTRATION.md` — vai trò, cách giao task, ba cổng review, khi nào escalate lên PO  
 **Skill & Plugin Catalog:** See `docs/CLAUDE_CODEX_CAPABILITIES.md` before routing a task to Codex  
 **Machine Tech Reference:** See `docs/MACHINE_TECH_STACK_ARCHITECTURE_INVENTORY.md` before proposing an implementation stack or architecture  
 
