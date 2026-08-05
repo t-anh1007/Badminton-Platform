@@ -23,8 +23,8 @@ không dừng chờ PO 10 lần.
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
-| 1 | G1 | Claude | **self-verify OK** | 31/34 (3 blocked, chờ G2/G4) | ✅ (xem §3) | 2026-08-06 |
-| 2 | G2 | Claude | chưa bắt đầu | 0/43 | — | — |
+| 1 | G1 | Claude | **self-verify OK** | 32/34 (2 blocked, chờ G3/G4 — 08-3 hoàn thành ở G2) | ✅ (xem §3) | 2026-08-06 |
+| 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận + G3/G4) | ✅ (xem §3) | 2026-08-06 |
 | 3 | G3 | Claude | chưa bắt đầu | 0/25 | — | — |
 | 4 | G4 | Claude | chưa bắt đầu | 0/32 | — | — |
 | 5 | G5 | Claude | chưa bắt đầu | 0/24 | — | — |
@@ -72,53 +72,53 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-ACC-07-3 | G1 | services/account-service/test/profile.test.ts | — | pass | services/account-service/test/profile.test.ts |
 | AC-ACC-08-1 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-ACC-08-2 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
-| AC-ACC-08-3 | G1 |  |  | blocked | BLOCKED — chờ G2 (venue-booking-service consume AccountLocked). |
-| AC-ACC-08-4 | G1 |  |  | blocked | BLOCKED — chờ G2 (venue-booking-service). |
+| AC-ACC-08-3 | G1/G2 | services/venue-booking-service/test/accountLockedConsumer.test.ts | — | pass | Hoàn thành ở G2: venue-booking-service tiêu thụ AccountLocked, ẩn cơ sở khỏi tìm kiếm khi NCC bị khóa, booking giữ nguyên. |
+| AC-ACC-08-4 | G1/G3 |  |  | blocked | BLOCKED — chờ G3 (cần endpoint booking marketplace BOK-07 chưa xây). Cơ chế provider.status=suspended đã sẵn sàng ở G2 để G3 dùng ngay. |
 | AC-ACC-08-5 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
 | AC-ACC-08-6 | G1 | services/account-service/test/adminAccounts.test.ts | — | pass | services/account-service/test/adminAccounts.test.ts |
-| AC-VEN-01-1 | G2 |  |  | todo |  |
-| AC-VEN-01-2 | G2 |  |  | todo |  |
-| AC-VEN-01-3 | G2 |  |  | todo |  |
-| AC-VEN-01-4 | G2 |  |  | todo |  |
-| AC-VEN-02-1 | G2 |  |  | todo |  |
-| AC-VEN-02-2 | G2 |  |  | todo |  |
-| AC-VEN-02-3 | G2 |  |  | todo |  |
-| AC-VEN-02-4 | G2 |  |  | todo |  |
-| AC-VEN-02-5 | G2 |  |  | todo |  |
-| AC-VEN-03-1 | G2 |  |  | todo |  |
-| AC-VEN-03-2 | G2 |  |  | todo |  |
-| AC-VEN-03-3 | G2 |  |  | todo |  |
-| AC-VEN-03-4 | G2 |  |  | todo |  |
-| AC-VEN-04-1 | G2 |  |  | todo |  |
-| AC-VEN-04-2 | G2 |  |  | todo |  |
-| AC-VEN-04-3 | G2 |  |  | todo |  |
-| AC-VEN-04-4 | G2 |  |  | todo |  |
-| AC-VEN-04-5 | G2 |  |  | todo |  |
-| AC-VEN-05-1 | G2 |  |  | todo |  |
-| AC-VEN-05-2 | G2 |  |  | todo |  |
-| AC-VEN-05-3 | G2 |  |  | todo |  |
-| AC-VEN-05-4 | G2 |  |  | todo |  |
-| AC-VEN-05-5 | G2 |  |  | todo |  |
-| AC-VEN-05-6 | G2 |  |  | todo |  |
-| AC-VEN-06-1 | G2 |  |  | todo |  |
-| AC-VEN-06-2 | G2 |  |  | todo |  |
-| AC-VEN-06-3 | G2 |  |  | todo |  |
-| AC-VEN-06-4 | G2 |  |  | todo |  |
-| AC-VEN-06-5 | G2 |  |  | todo |  |
-| AC-VEN-07-1 | G2 |  |  | todo |  |
-| AC-VEN-07-2 | G2 |  |  | todo |  |
-| AC-VEN-07-3 | G2 |  |  | todo |  |
-| AC-VEN-07-4 | G2 |  |  | todo |  |
-| AC-VEN-08-1 | G2 |  |  | todo |  |
-| AC-VEN-08-2 | G2 |  |  | todo |  |
-| AC-VEN-08-3 | G2 |  |  | todo |  |
-| AC-VEN-08-4 | G2 |  |  | todo |  |
-| AC-VEN-08-5 | G2 |  |  | todo |  |
-| AC-VEN-09-1 | G2 |  |  | todo |  |
-| AC-VEN-09-2 | G2 |  |  | todo |  |
-| AC-VEN-09-3 | G2 |  |  | todo |  |
-| AC-VEN-09-4 | G2 |  |  | todo |  |
-| AC-VEN-09-5 | G2 |  |  | todo |  |
+| AC-VEN-01-1 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-01-2 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-01-3 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-01-4 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-02-1 | G2 |  |  | blocked | BLOCKED — chờ PO xác nhận phạm vi cross-service (event ProviderApproved chưa có trong catalog; sửa account-service ngoài scope boundary G2 đã ghi). Đã hỏi Codex, khuyến nghị xin PO xác nhận. Phần venue-only (status pending->approved) đã pass ở test bổ sung trong provider.test.ts. |
+| AC-VEN-02-2 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-02-3 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-02-4 | G2 |  |  | blocked | BLOCKED — cần G3 (booking flow) + G4 (finance payment/wallet debit) để thực sự "đặt sân... trừ ví cá nhân". |
+| AC-VEN-02-5 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
+| AC-VEN-03-1 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
+| AC-VEN-03-2 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
+| AC-VEN-03-3 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
+| AC-VEN-03-4 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
+| AC-VEN-04-1 | G2 | services/venue-booking-service/test/court.test.ts | — | pass | services/venue-booking-service/test/court.test.ts |
+| AC-VEN-04-2 | G2 | services/venue-booking-service/test/court.test.ts | — | pass | services/venue-booking-service/test/court.test.ts |
+| AC-VEN-04-3 | G2 | services/venue-booking-service/test/court.test.ts | — | pass | services/venue-booking-service/test/court.test.ts |
+| AC-VEN-04-4 | G2 | services/venue-booking-service/test/court.test.ts | — | pass | services/venue-booking-service/test/court.test.ts |
+| AC-VEN-04-5 | G2 | services/venue-booking-service/test/court.test.ts | — | pass | services/venue-booking-service/test/court.test.ts |
+| AC-VEN-05-1 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-05-2 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-05-3 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-05-4 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-05-5 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-05-6 | G2 | services/venue-booking-service/test/schedule.test.ts | — | pass | services/venue-booking-service/test/schedule.test.ts |
+| AC-VEN-06-1 | G2 | services/venue-booking-service/test/pricing.test.ts | — | pass | services/venue-booking-service/test/pricing.test.ts |
+| AC-VEN-06-2 | G2 | services/venue-booking-service/test/pricing.test.ts | — | pass | services/venue-booking-service/test/pricing.test.ts |
+| AC-VEN-06-3 | G2 | services/venue-booking-service/test/pricing.test.ts | — | pass | services/venue-booking-service/test/pricing.test.ts |
+| AC-VEN-06-4 | G2 | services/venue-booking-service/test/pricing.test.ts | — | pass | services/venue-booking-service/test/pricing.test.ts |
+| AC-VEN-06-5 | G2 | services/venue-booking-service/test/pricing.test.ts | — | pass | services/venue-booking-service/test/pricing.test.ts |
+| AC-VEN-07-1 | G2 | services/venue-booking-service/test/bookingRule.test.ts | — | pass | services/venue-booking-service/test/bookingRule.test.ts |
+| AC-VEN-07-2 | G2 | services/venue-booking-service/test/bookingRule.test.ts | — | pass | services/venue-booking-service/test/bookingRule.test.ts |
+| AC-VEN-07-3 | G2 | services/venue-booking-service/test/bookingRule.test.ts | — | pass | services/venue-booking-service/test/bookingRule.test.ts |
+| AC-VEN-07-4 | G2 | services/venue-booking-service/test/bookingRule.test.ts | — | pass | services/venue-booking-service/test/bookingRule.test.ts |
+| AC-VEN-08-1 | G2 | services/venue-booking-service/test/calendar.test.ts | — | pass | services/venue-booking-service/test/calendar.test.ts |
+| AC-VEN-08-2 | G2 | services/venue-booking-service/test/calendar.test.ts | — | pass | services/venue-booking-service/test/calendar.test.ts |
+| AC-VEN-08-3 | G2 | services/venue-booking-service/test/calendar.test.ts | — | pass | services/venue-booking-service/test/calendar.test.ts |
+| AC-VEN-08-4 | G2 | services/venue-booking-service/test/calendar.test.ts | — | pass | services/venue-booking-service/test/calendar.test.ts |
+| AC-VEN-08-5 | G2 | services/venue-booking-service/test/calendar.test.ts | — | pass | services/venue-booking-service/test/calendar.test.ts |
+| AC-VEN-09-1 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
+| AC-VEN-09-2 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
+| AC-VEN-09-3 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
+| AC-VEN-09-4 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
+| AC-VEN-09-5 | G2 | services/venue-booking-service/test/internalBooking.test.ts | — | pass | services/venue-booking-service/test/internalBooking.test.ts |
 | AC-BOK-01-1 | G3 |  |  | todo |  |
 | AC-BOK-01-2 | G3 |  |  | todo |  |
 | AC-BOK-01-3 | G3 |  |  | todo |  |
@@ -424,6 +424,49 @@ chưa được xây (G2/G4). Áp đúng mô hình Outbox đã chốt (ADR 0004):
 
 _(Milestone kế: G2 — Nhà cung cấp và lịch sân, 43 AC — tiêu thụ `AccountLocked` để hoàn thành
 AC-ACC-08-3/08-4 còn blocked ở trên.)_
+
+### G2 — 2026-08-06 — ✅ self-verify OK (41/43 pass, 2 blocked)
+
+**Đã dựng (business logic thật, venue-booking-service):** 9 chức năng VEN-01→09 —
+đăng ký/duyệt NCC, hồ sơ cơ sở, sân con, giờ hoạt động + ngày đóng cửa, biểu giá theo lịch
+(tính tiền bắc cầu khung giá), quy tắc đặt sân, lịch hợp nhất, booking tại quầy. Consumer
+`AccountLocked` (idempotent qua `ProcessedEvent`) — hoàn thành `AC-ACC-08-3` còn blocked từ G1.
+
+**2 sửa hạ tầng tự phát hiện (self-verification, kế thừa từ G0, phát hiện khi bắt tay code G2):**
+1. **`PricingRule.startTime/endTime` và `Hold/Booking.timeRange` dùng `Unsupported("time"/
+   "tstzrange")`** (quyết định G0) — nhưng Prisma **không cho phép app code đọc/ghi field
+   Unsupported qua Client**, chỉ raw SQL. VEN-04/05/06 (G2) cần Prisma Client truy vấn các
+   trường này bình thường. Sửa: `PricingRule` dùng phút-trong-ngày (`Int`); `Hold/Booking` tách
+   `startAt`/`endAt` (`DateTime` thường). Ràng buộc EXCLUDE chống đặt trùng (BR-BOK-03) vẫn để
+   G3 thêm bằng migration SQL riêng trên cột generated — không mất gì, chỉ đổi shape cột đúng
+   từ bây giờ. Phải `prisma migrate reset` + recreate schema bằng superuser (role
+   `venue_booking_svc` không có quyền `CREATE SCHEMA`, đúng thiết kế bảo mật Gboot).
+2. **`OperatingHour`/`Closure`/`BookingRule`** (hoãn ở G0, "để G2 định nghĩa khi hiện thực use
+   case") — định nghĩa đầy đủ ở đây theo đúng ghi chú đã để lại.
+
+**Quyết định phạm vi cần PO xác nhận (đã hỏi Codex trước khi tự quyết — xem hội thoại):**
+`AC-VEN-02-1` (duyệt hồ sơ → cộng vai `provider` + tạo ví `business`) đòi hỏi (a) sự kiện mới
+`ProviderApproved` chưa có trong catalog kiến trúc (system-architecture.md §6.3), và (b) sửa
+`account-service` ngoài scope boundary G2 đã ghi. Codex khuyến nghị: tên `ProviderApproved` hợp
+quy ước, kiến trúc nên dùng event (không đồng bộ HTTP), nhưng **cần PO xác nhận rõ trước khi
+sửa `account-service`** vì đây là mâu thuẫn tài liệu thật (D21 chỉ đổi người thực thi, không
+trao quyền tự giải mâu thuẫn scope). **Đã hỏi PO, đang chờ phản hồi** — theo mặc định an toàn:
+chỉ làm phần venue-booking-service tự quyết được (status pending→approved), đánh dấu
+`AC-VEN-02-1` và `AC-VEN-02-4` (cần thêm G3/G4) là `blocked`.
+
+**Bằng chứng (proof):**
+- **46/46 test không-skip PASS** (43 AC + 3 test bổ sung cho AccountLocked consumer, 3 skip có
+  lý do rõ), vitest tích hợp thật với Postgres (docker infra).
+- Một bug thật tự bắt: `effectiveFrom = new Date()` truyền vào `savePricingRules` bị chính hàm
+  từ chối vì vài ms sau `Date.now()` đã lớn hơn — sửa bằng dung sai 60s cho "ngay bây giờ".
+- `AC-ACC-08-3` xác nhận đầy đủ: khóa NCC → `isVenueSearchable` chuyển `false`, booking
+  `confirmed` giữ nguyên; khôi phục → search lại `true`; xử lý trùng `eventId` không suspend lại.
+- `npm run build` + `npm run typecheck` sạch toàn bộ 9 workspace.
+
+**Test ledger:** 41 dòng `AC-VEN-*` chuyển `pass`, 2 dòng `blocked`; `AC-ACC-08-3` chuyển `pass`
+(hoàn thành ở G2); `AC-ACC-08-4` giữ `blocked`, đổi lý do sang chờ G3 (không còn chờ G2).
+
+_(Milestone kế: G3 — Tìm sân và giữ chỗ, 25 AC.)_
 
 ## 4. Self-verification cuối mỗi milestone
 

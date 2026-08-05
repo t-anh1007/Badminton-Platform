@@ -1,17 +1,17 @@
-import express from 'express';
+import { env } from './lib/env.js';
+import { createApp } from './app.js';
+import { bootstrapEventConsumption } from './lib/eventConsumer.js';
 
 const SERVICE_NAME = 'venue-booking-service';
-const PORT = Number(process.env.VENUE_BOOKING_PORT ?? 3002);
 
-const app = express();
-app.use(express.json());
+const app = createApp();
 
-// Health/readiness — proof #4 của Gboot yêu cầu trả 200.
-app.get('/health', (_req, res) => {
-  res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });
+app.listen(env.port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`[${SERVICE_NAME}] listening on :${env.port}`);
 });
 
-app.listen(PORT, () => {
+bootstrapEventConsumption().catch((err) => {
   // eslint-disable-next-line no-console
-  console.log(`[${SERVICE_NAME}] listening on :${PORT}`);
+  console.error('[venue-booking-service] không kết nối được RabbitMQ:', err);
 });

@@ -1,5 +1,7 @@
 // venue-booking-service — Prisma schema (schema-per-service, D17/ADR 0004).
 // G0: áp lược đồ theo docs/architecture/data-model.md §2 + decision-log.md §5.
+// G2: định nghĩa OperatingHours/Closure/BookingRule (đã hoãn ở G0), thêm audit
+// quyết định NCC trên chính Provider, Outbox+ProcessedEvent (tiêu thụ AccountLocked).
 // Bất biến: service này CHỈ định nghĩa/đụng schema "venue_booking" của chính nó;
 // không FK, không model tham chiếu bảng của service khác. userId/raterUserId... là
 // tham chiếu (không FK) sang account-service.
@@ -7,10 +9,15 @@
 // KHÔNG có ở đây (quyết định, không phải thiếu sót):
 // - CANCELLATION_POLICY (D9 — chính sách hủy là hằng số nền tảng, không cấu hình theo PROVIDER)
 // - BOOKING_REVIEW (D7 — không có use case đánh giá booking sân ở GĐ1)
-// - OPERATING_HOURS / CLOSURE / BOOKING_RULE — nhắc tới trong data-model.md nhưng CHƯA có cột
-//   nào được định nghĩa (khoảng trống có từ trước, không thuộc 12 thay đổi G0). Trường cụ thể
-//   do G2 (chủ sở hữu VEN-05/06/07) định nghĩa khi hiện thực use case, tránh G0 tự suy đoán
-//   một quyết định thiết kế nghiệp vụ.
+//
+// SỬA Ở G2 (tự phát hiện, không phải yêu cầu mới): PricingRule.startTime/endTime và
+// Hold/Booking.timeRange từng dùng Prisma `Unsupported("time"/"tstzrange")` ở G0 —
+// nhưng Prisma KHÔNG cho phép app code đọc/ghi field Unsupported qua Client, chỉ raw
+// SQL. VEN-04/05/06 (G2) cần Prisma Client truy vấn các trường này bình thường, nên
+// đổi: PricingRule dùng phút-trong-ngày (Int); Hold/Booking tách startAt/endAt
+// (DateTime thường). Ràng buộc EXCLUDE chống đặt trùng (BR-BOK-03) vẫn để G3 thêm
+// bằng migration SQL riêng trên cột generated tstzrange — không mất gì, chỉ đổi
+// shape cột cho đúng từ bây giờ để khỏi phải sửa lại.
 
 generator client {
   provider = "prisma-client-js"
@@ -25,6 +32,7 @@ datasource db {
 }
 
 /// A-VEN-01: bổ sung `rejected` — hồ sơ bị từ chối nộp lại được.
+/// suspended: ACC-08 khóa tài khoản chủ sở hữu (consume AccountLocked, G2).
 enum ProviderStatus {
   pending
   approved
@@ -55,8 +63,21 @@ model Provider {
   id      String         @id @default(uuid())
   userId  String
   orgName String
-  status  ProviderStatus @default(pending)
   contact Json?
+  status  ProviderStatus @default(pending)
+
+  /// BR-ACC-11 (ghi vết quyết định Admin) — audit giữ trong chính schema
+  /// venue_booking vì đây là quyết định trên PROVIDER (aggregate của service
+  /// này), khác ACCOUNT_AUDIT (account-service, quyết định trên USER).
+  decisionReason  String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+
+  /// G2: cờ đánh dấu status=suspended là DO tài khoản chủ bị khóa (AccountLocked),
+  /// để khi tài khoản mở khóa lại, chỉ khôi phục approved cho đúng nhóm này —
+  /// không đụng provider đang suspended vì lý do khác (hiện tại chưa có lý do
+  /// suspend nào khác ngoài khóa tài khoản, nhưng tách cờ để không mơ hồ).
+  suspendedByAccountLock Boolean @default(false)
 
   venues Venue[]
 
@@ -86,21 +107,65 @@ model Court {
   name    String
   active  Boolean @default(true)
 
-  pricingRules PricingRule[]
-  holds        Hold[]
-  bookings     Booking[]
+  operatingHours OperatingHour[]
+  closures       Closure[]
+  bookingRule    BookingRule?
+  pricingRules   PricingRule[]
+  holds          Hold[]
+  bookings       Booking[]
 
+  @@unique([venueId, name])
   @@map("courts")
 }
 
+/// VEN-05 — giờ hoạt động lặp theo thứ trong tuần. G2 định nghĩa (hoãn ở G0).
+model OperatingHour {
+  id          String @id @default(uuid())
+  courtId     String
+  court       Court  @relation(fields: [courtId], references: [id])
+  /// 0=Chủ nhật … 6=Thứ Bảy (JS Date#getDay()).
+  weekday     Int
+  /// Phút tính từ 00:00, [0, 1440).
+  openMinute  Int
+  closeMinute Int
+
+  @@unique([courtId, weekday])
+  @@map("operating_hours")
+}
+
+/// VEN-05 — ngày đóng cửa ngoại lệ theo ngày cụ thể. G2 định nghĩa (hoãn ở G0).
+model Closure {
+  id      String   @id @default(uuid())
+  courtId String
+  court   Court    @relation(fields: [courtId], references: [id])
+  /// Chỉ phần ngày có ý nghĩa (lưu 00:00 UTC của ngày đó).
+  date    DateTime
+  reason  String?
+
+  @@unique([courtId, date])
+  @@map("closures")
+}
+
+/// VEN-07 — quy tắc đặt sân. G2 định nghĩa (hoãn ở G0).
+model BookingRule {
+  id                 String @id @default(uuid())
+  courtId            String @unique
+  court              Court  @relation(fields: [courtId], references: [id])
+  stepMinutes        Int
+  minDurationMinutes Int
+  maxDurationMinutes Int
+
+  @@map("booking_rules")
+}
+
 model PricingRule {
-  id            String   @id @default(uuid())
-  courtId       String
-  court         Court    @relation(fields: [courtId], references: [id])
-  weekday       Int
-  /// Kiểu Postgres `time` — Prisma chưa có kiểu native, giữ đúng kiểu DB qua Unsupported.
-  startTime     Unsupported("time")
-  endTime       Unsupported("time")
+  id      String @id @default(uuid())
+  courtId String
+  court   Court  @relation(fields: [courtId], references: [id])
+  weekday Int
+  /// G2: đổi từ Unsupported("time") — phút tính từ 00:00, [0, 1440).
+  startMinute   Int
+  endMinute     Int
   price         BigInt
   version       Int      @default(1)
   effectiveFrom DateTime
@@ -112,8 +177,10 @@ model Hold {
   id        String   @id @default(uuid())
   courtId   String
   court     Court    @relation(fields: [courtId], references: [id])
-  /// Kiểu Postgres `tstzrange` — dùng cho EXCLUDE constraint (BR-BOK-03), thêm ở G3.
-  timeRange Unsupported("tstzrange")
+  /// G2: đổi từ Unsupported("tstzrange") — hai cột DateTime thường, Prisma
+  /// đọc/ghi được. EXCLUDE constraint (BR-BOK-03) thêm ở G3 trên cột generated.
+  startAt   DateTime
+  endAt     DateTime
   userId    String
   expiresAt DateTime
 
@@ -121,13 +188,14 @@ model Hold {
 }
 
 model Booking {
-  id        String        @id @default(uuid())
-  courtId   String
-  court     Court         @relation(fields: [courtId], references: [id])
-  /// Kiểu Postgres `tstzrange` — EXCLUDE constraint chống đặt trùng thêm ở G3 (BR-BOK-03).
-  timeRange Unsupported("tstzrange")
+  id      String @id @default(uuid())
+  courtId String
+  court   Court  @relation(fields: [courtId], references: [id])
+  /// G2: đổi từ Unsupported("tstzrange") — xem ghi chú ở Hold.
+  startAt DateTime
+  endAt   DateTime
   /// BR-VEN-08a: nullable — booking nội bộ không gắn tài khoản người chơi.
-  userId    String?
+  userId  String?
   /// BR-VEN-08a: chỉ dùng khi source = internal.
   guestName    String?
   guestContact String?
@@ -140,4 +208,28 @@ model Booking {
   createdAt          DateTime @default(now())
 
   @@map("bookings")
+}
+
+/// G2: hạ tầng Outbox (data-model.md §7) — venue-booking-service publish sự
+/// kiện của riêng nó (BookingCreated/Confirmed/... thuộc G3, chưa dùng ở G2).
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox")
+}
+
+/// G2: idempotency khi tiêu thụ AccountLocked (account-service) — chống xử lý
+/// trùng nếu RabbitMQ redeliver.
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now())
+
+  @@map("processed_events")
 }
