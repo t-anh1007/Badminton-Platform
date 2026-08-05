@@ -1,0 +1,26 @@
+{
+  "name": "khoaluantn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nền tảng cầu lông — monorepo (npm workspaces, schema-per-service)",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "concurrently -n gateway,account,venue,finance,match,community -c blue,green,yellow,magenta,cyan,white \"npm:dev -w services/api-gateway\" \"npm:dev -w services/account-service\" \"npm:dev -w services/venue-booking-service\" \"npm:dev -w services/finance-service\" \"npm:dev -w services/matchmaking-service\" \"npm:dev -w services/community-service\"",
+    "infra:up": "docker compose -f docker-compose.infrastructure.yml up -d",
+    "infra:down": "docker compose -f docker-compose.infrastructure.yml down",
+    "prisma:migrate": "npm run prisma:migrate --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "dotenv-cli": "^7.4.4",
+    "typescript": "^5.6.3"
+  }
+}

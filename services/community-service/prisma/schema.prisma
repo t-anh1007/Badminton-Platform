@@ -1,0 +1,13 @@
+// community-service — Prisma schema (schema-per-service, D17/ADR 0004).
+// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
+// Bất biến: service này CHỈ định nghĩa/đụng tới schema "community" của chính nó;
+// không FK, không model tham chiếu bảng của service khác.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("COMMUNITY_DATABASE_URL")
+}

@@ -1,0 +1,54 @@
+# Hạ tầng local cho Khoaluantn (hybrid dev): CHỈ Docker hóa hạ tầng.
+# 6 service Node chạy trực tiếp bằng `npm run dev` (hot reload) — KHÔNG ở đây.
+# Production dùng Railway (ADR 0002), không dùng file này.
+#
+#   docker compose -f docker-compose.infrastructure.yml up -d
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: khoaluantn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-khoaluantn}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Script init chỉ chạy khi volume rỗng (lần đầu tạo container).
+      - ./infra/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-khoaluantn}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: khoaluantn-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: khoaluantn-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

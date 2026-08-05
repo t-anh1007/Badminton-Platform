@@ -1,0 +1,13 @@
+// venue-booking-service — Prisma schema (schema-per-service, D17/ADR 0004).
+// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
+// Bất biến: service này CHỈ định nghĩa/đụng tới schema "venue_booking" của chính nó;
+// không FK, không model tham chiếu bảng của service khác.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("VENUE_BOOKING_DATABASE_URL")
+}
