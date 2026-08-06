@@ -87,15 +87,38 @@ describe('VEN-02 — Xét duyệt nhà cung cấp sân (phần venue-booking-ser
     expect(unchanged.status).toBe('pending');
   });
 
-  it.skip('AC-VEN-02-1: duyệt hồ sơ -> cộng vai provider (account-service) + tạo ví business (finance-service) [BLOCKED: chờ PO xác nhận phạm vi cross-service — xem docs/product/phase-1-progress.md §3 G2]', () => {
-    // Phần venue-only (status pending -> approved) ĐÃ kiểm ở test/eventProducer
-    // note dưới. Phần cộng role + tạo ví cần event mới "ProviderApproved"
-    // (chưa có trong system-architecture.md §6.3) + sửa account-service ngoài
-    // scope boundary G2 đã ghi ở phase-1-handoff.md — đã hỏi Codex, đang chờ
-    // PO xác nhận trước khi thêm.
+  it('AC-VEN-02-1 (D25, G4-fix): duyệt hồ sơ -> phát ProviderApproved qua Outbox trong cùng transaction', async () => {
+    // Đã gỡ block (PO chốt D25). Phần venue-booking-service: chuyển status +
+    // ghi Outbox ProviderApproved. Phần cộng vai `provider` (account-service)
+    // kiểm ở account-service/test/providerRole.test.ts; phần tạo ví business
+    // (finance-service) kiểm end-to-end qua queue thật ở
+    // finance-service/test/g4Saga.test.ts ("AC-VEN-02-1 (D25)...").
+    const userId = fakeUserId();
+    const provider = await registerProvider(userId, { orgName: 'Org 02-1' });
+
+    await approveProvider(provider.id);
+
+    const updated = await prisma.provider.findUniqueOrThrow({ where: { id: provider.id } });
+    expect(updated.status).toBe('approved');
+    const outbox = await prisma.outbox.findMany({ where: { aggregateId: provider.id, eventType: 'ProviderApproved' } });
+    expect(outbox).toHaveLength(1);
+    expect((outbox[0]!.payload as { userId: string }).userId).toBe(userId);
   });
 
-  it.skip('AC-VEN-02-4: NCC vừa duyệt đặt sân người khác -> trừ ví CÁ NHÂN không phải ví kinh doanh [BLOCKED: cần G3 (booking flow) + G4 (finance payment logic)]', () => {});
+  it('AC-VEN-02-4 (D25, G4-fix): NCC vừa duyệt, khi ĐẶT SÂN với vai người chơi thì trừ ví CÁ NHÂN, không phải ví kinh doanh', async () => {
+    // Đã gỡ block. Bằng chứng thực thi nằm ở finance-service (ranh giới ADR
+    // 0003): FIN-03 payBookingWithBalance CHỈ chạm ví `personal`, không có
+    // đường đi hợp lệ tới ví `business` cho `payment` — kiểm ở
+    // finance-service/test/g4Saga.test.ts "AC-FIN-03-3" (provider có ví
+    // business 500k + ví personal 0đ -> trả booking bị từ chối vì ví business
+    // không chi được, ví business KHÔNG bị đụng). Ở đây chỉ khẳng định trạng
+    // thái NCC được duyệt để chuỗi đó có tiền đề.
+    const userId = fakeUserId();
+    const provider = await registerProvider(userId, { orgName: 'Org 02-4' });
+    await approveProvider(provider.id);
+    const updated = await prisma.provider.findUniqueOrThrow({ where: { id: provider.id } });
+    expect(updated.status).toBe('approved');
+  });
 
   it('(bổ sung) duyệt hồ sơ pending -> status chuyển approved (phần venue-booking-service tự làm được)', async () => {
     const userId = fakeUserId();

@@ -4,6 +4,7 @@ import { venueRouter } from './routes/venues.js';
 import { scheduleRouter } from './routes/schedule.js';
 import { calendarRouter } from './routes/calendar.js';
 import { discoveryRouter } from './routes/discovery.js';
+import { bookingRouter } from './routes/bookings.js';
 
 const SERVICE_NAME = 'venue-booking-service';
 
@@ -20,6 +21,7 @@ export function createApp() {
   app.use('/', scheduleRouter);
   app.use('/', calendarRouter);
   app.use('/', discoveryRouter);
+  app.use('/', bookingRouter);
 
   return app;
 }

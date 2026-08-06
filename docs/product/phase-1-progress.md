@@ -1,7 +1,7 @@
 ---
 type: progress-log + test-ledger
 phase: 1
-status: not-started
+status: in-progress
 updated: 2026-08-06
 purpose: Bằng chứng bàn giao GĐ1 — trạng thái milestone + test ledger từng AC (198 dòng). KHÁC coverage-matrix.md (file kia theo dõi spec đã duyệt; file này theo dõi implementation đã test pass).
 ---
@@ -23,10 +23,10 @@ không dừng chờ PO 10 lần.
 | 0a | Gboot | Claude | **self-verify OK** | — (6/6 proof) | ✅ (xem §3) | 2026-08-06 |
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
-| 1 | G1 | Claude | **self-verify OK** | 33/34 (1 blocked, chờ G4 — 08-3 xong ở G2, 08-4 xong ở G3) | ✅ (xem §3) | 2026-08-06 |
-| 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận + G3/G4) | ✅ (xem §3) | 2026-08-06 |
+| 1 | G1 | Claude | **self-verify OK** | 34/34 (08-3 xong ở G2, 08-4 xong ở G3, 02-5 xong ở G4) | ✅ (xem §3) | 2026-08-06 |
+| 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận) | ✅ (xem §3) | 2026-08-06 |
 | 3 | G3 | Claude | **self-verify OK** | 25/25 | ✅ (xem §3) | 2026-08-06 |
-| 4 | G4 | Claude | chưa bắt đầu | 0/32 | — | — |
+| 4 | G4 | Claude | self-verify OK, **chờ commit** (đã sửa xong sau Codex review, chờ PO tự review lại) | 32/32 | ✅ (xem §3) | 2026-08-06 |
 | 5 | G5 | Claude | chưa bắt đầu | 0/24 | — | — |
 | 6 | G6 | Claude | chưa bắt đầu | 0/26 | — | — |
 | 7 | G7 | Claude | chưa bắt đầu | 0/14 | — | — |
@@ -50,7 +50,7 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-ACC-02-2 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
 | AC-ACC-02-3 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
 | AC-ACC-02-4 | G1 | services/account-service/test/verification.test.ts | — | pass | services/account-service/test/verification.test.ts |
-| AC-ACC-02-5 | G1 |  |  | blocked | BLOCKED — chờ G4 (finance-service consume UserRegistered). Producer side (Outbox) đã kiểm ở AC-ACC-02-1. |
+| AC-ACC-02-5 | G1 | services/finance-service/test/walletProvisioning.test.ts | — | pass | services/finance-service/test/walletProvisioning.test.ts — đóng ở G4 (finance-service consume UserRegistered) |
 | AC-ACC-03-1 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
 | AC-ACC-03-2 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
 | AC-ACC-03-3 | G1 | services/account-service/test/session.test.ts | — | pass | services/account-service/test/session.test.ts |
@@ -144,38 +144,38 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-BOK-06-3 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
 | AC-BOK-06-4 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
 | AC-BOK-06-5 | G3 | services/venue-booking-service/test/hold.test.ts | — | pass | services/venue-booking-service/test/hold.test.ts |
-| AC-BOK-07-1 | G4 |  |  | todo |  |
-| AC-BOK-07-2 | G4 |  |  | todo |  |
-| AC-BOK-07-3 | G4 |  |  | todo |  |
-| AC-BOK-07-4 | G4 |  |  | todo |  |
-| AC-BOK-07-5 | G4 |  |  | todo |  |
-| AC-BOK-08-1 | G4 |  |  | todo |  |
-| AC-BOK-08-2 | G4 |  |  | todo |  |
-| AC-BOK-08-3 | G4 |  |  | todo |  |
-| AC-BOK-08-4 | G4 |  |  | todo |  |
-| AC-BOK-08-5 | G4 |  |  | todo |  |
-| AC-FIN-01-1 | G4 |  |  | todo |  |
-| AC-FIN-01-2 | G4 |  |  | todo |  |
-| AC-FIN-01-3 | G4 |  |  | todo |  |
-| AC-FIN-01-4 | G4 |  |  | todo |  |
-| AC-FIN-02-1 | G4 |  |  | todo |  |
-| AC-FIN-02-2 | G4 |  |  | todo |  |
-| AC-FIN-02-3 | G4 |  |  | todo |  |
-| AC-FIN-02-4 | G4 |  |  | todo |  |
-| AC-FIN-03-1 | G4 |  |  | todo |  |
-| AC-FIN-03-2 | G4 |  |  | todo |  |
-| AC-FIN-03-3 | G4 |  |  | todo |  |
-| AC-FIN-03-4 | G4 |  |  | todo |  |
-| AC-FIN-04-1 | G4 |  |  | todo |  |
-| AC-FIN-04-2 | G4 |  |  | todo |  |
-| AC-FIN-04-3 | G4 |  |  | todo |  |
-| AC-FIN-04-4 | G4 |  |  | todo |  |
-| AC-FIN-06-1 | G4 |  |  | todo |  |
-| AC-FIN-06-2 | G4 |  |  | todo |  |
-| AC-FIN-06-3 | G4 |  |  | todo |  |
-| AC-FIN-09-1 | G4 |  |  | todo |  |
-| AC-FIN-09-2 | G4 |  |  | todo |  |
-| AC-FIN-09-3 | G4 |  |  | todo |  |
+| AC-BOK-07-1 | G4 | services/venue-booking-service/test/booking.test.ts + services/finance-service/test/g4Saga.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-07-2 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-07-3 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-07-4 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-07-5 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-08-1 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-08-2 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-08-3 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-08-4 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-BOK-08-5 | G4 | services/venue-booking-service/test/booking.test.ts | — | pass | services/venue-booking-service/test/booking.test.ts |
+| AC-FIN-01-1 | G4 | services/finance-service/test/wallet.test.ts | — | pass | services/finance-service/test/wallet.test.ts |
+| AC-FIN-01-2 | G4 | services/finance-service/test/wallet.test.ts | — | pass | services/finance-service/test/wallet.test.ts |
+| AC-FIN-01-3 | G4 | services/finance-service/test/wallet.test.ts | — | pass | services/finance-service/test/wallet.test.ts |
+| AC-FIN-01-4 | G4 | services/finance-service/test/wallet.test.ts | — | pass | services/finance-service/test/wallet.test.ts |
+| AC-FIN-02-1 | G4 | services/finance-service/test/topup.test.ts | — | pass | services/finance-service/test/topup.test.ts |
+| AC-FIN-02-2 | G4 | services/finance-service/test/topup.test.ts | — | pass | services/finance-service/test/topup.test.ts |
+| AC-FIN-02-3 | G4 | services/finance-service/test/topup.test.ts | — | pass | services/finance-service/test/topup.test.ts |
+| AC-FIN-02-4 | G4 | services/finance-service/test/topup.test.ts | — | pass | services/finance-service/test/topup.test.ts |
+| AC-FIN-03-1 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-03-2 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-03-3 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-03-4 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-04-1 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-04-2 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-04-3 | G4 | services/finance-service/test/g4Saga.test.ts (tích hợp thật qua RabbitMQ, bắc qua 2 service) | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-04-4 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-06-1 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-06-2 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-06-3 | G4 | services/finance-service/test/g4Saga.test.ts (assertion trong bài AC-FIN-04-3: refType='booking'+type='topup' phân biệt tiền về muộn) | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-09-1 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-09-2 | G4 | services/finance-service/test/g4Saga.test.ts (ba vế cân bằng, kiểm trực tiếp LEDGER_ENTRY) | — | pass | services/finance-service/test/g4Saga.test.ts |
+| AC-FIN-09-3 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
 | AC-BOK-09-1 | G5 |  |  | todo |  |
 | AC-BOK-09-2 | G5 |  |  | todo |  |
 | AC-BOK-09-3 | G5 |  |  | todo |  |
@@ -519,6 +519,161 @@ kiểm tra tầng ứng dụng (đúng yêu cầu BR-BOK-03 + Stop/pause của G
 ở G3, không còn `blocked`).
 
 _(Milestone kế: G4 — Thanh toán, xác nhận và ghi doanh thu, 32 AC — cần `r=10%` đã chốt.)_
+
+### G4 — 2026-08-06 — ✅ self-verify OK (32/32 pass) — MILESTONE CHẠM TIỀN ĐẦU TIÊN
+
+**Đã dựng finance-service từ đầu** (trước đó chỉ có schema G0, chưa có business logic): lib nền
+(env/prisma/jwt-verify-only/errors/outbox/rabbitmq, giống hệt pattern account-service/venue-booking-
+service), domain FIN-01 (xem ví+lịch sử), FIN-02 (nạp qua SePay), FIN-03 (trả bằng số dư), FIN-04
+(trả qua SePay cho booking), FIN-06 (tiền về muộn), và consumer `BookingConfirmed` ghi doanh thu
+(phần G4 của FIN-09: `AC-FIN-09-1/2/3`). Dùng đúng `r=10%` (D19) qua hằng số
+`COMMISSION_RATE_PERCENT` (lib/constants.ts), tính bằng BigInt nguyên: `commission=floor(gross*10/100)`,
+`net=gross-commission` — đảm bảo `net+commission=gross` TUYỆT ĐỐI theo cấu trúc phép tính, không
+phụ thuộc làm tròn (đúng BR-FIN-15, kiểm trực tiếp ở `AC-FIN-09-2`).
+
+**venue-booking-service (BOK-07/08):** thêm `holdExpiresAt` vào Booking (sao chép từ Hold gốc lúc
+tạo booking, vì Hold bị xóa ngay sau đó — cần một cách biết booking `held` còn "trong hạn" hay
+không mà không cần Hold). `POST /bookings` tạo `held` từ hold hợp lệ; `GET
+/internal/bookings/:id/payment-status` cho finance-service hỏi (đúng flows.md §5: "Hỏi venue-
+booking-service booking còn hold không?" — API đồng bộ, không phải event, vì FIN-03 cần quyết định
+NGAY); consumer `PaymentCompleted` xác nhận hoặc hủy tùy hold còn hạn; `reapExpiredHeldBookings()`
+cho AC-BOK-07-5; `GET /players/me/bookings(+/:id)` cho BOK-08, dùng lại một hàm thuần
+`getRefundPercentage` (bậc thang BR-BOK-05) mà G5 (BOK-09/FIN-07 hoàn tiền thật) sẽ tái dùng.
+
+**Quyết định kiến trúc tự đưa ra trong phạm vi G4 (không phải bịa nghiệp vụ mới — chỉ là cách nối
+dây giữa 2 service, đã đối chiếu đúng flows.md/system-architecture.md trước khi code):**
+- Sự kiện mới `PaymentTooLate{bookingId, userId, amount}` (venue-booking-service phát, finance-
+  service tiêu thụ): cần cho đúng `AC-BOK-07-2`/`BR-BOK-04` — khi `PaymentCompleted` về sau khi
+  hold đã hết hạn, venue-booking-service tự phát hiện (so `holdExpiresAt`) và phải báo lại cho
+  finance-service ghi có ví, vì venue-booking-service không có quyền ghi ví. Khác với vụ
+  `ProviderApproved` còn treo từ G2 — sự kiện này KHÔNG đụng account-service, không mở rộng vai trò
+  nào, chỉ là plumbing nằm trọn trong ranh giới "outbox và consumer hai bên" mà scope boundary của
+  G4 đã cho phép tường minh.
+- `PaymentIntent` mở rộng `refType` thêm `topup` + thêm cột `matchCode` (mã nội dung chuyển khoản
+  duy nhất, dùng chung cho FIN-02 và FIN-04) — vì schema G0 chỉ có `booking|matchFee`, chưa có chỗ
+  chứa "yêu cầu nạp".
+- `SepayEvent.externalRef` (mã giao dịch phía SePay, unique) — cần cho idempotency thật khi webhook
+  bị gửi lại (BR-FIN-09); trước đó không có cột nào phân biệt được redelivery với sự kiện mới.
+- ~~Ví `business` được tạo lazy tại thời điểm ghi doanh thu đầu tiên~~ — **đã thay bằng D25** (xem
+  vòng sửa sau Codex review bên dưới): tạo qua sự kiện `ProviderApproved` thật.
+
+**1 bug thật nghiêm trọng tự bắt (self-verification, phát hiện nhờ đây là lần đầu tiên dự án chạy
+kiểm thử tích hợp THẬT qua RabbitMQ thay vì gọi thẳng hàm consumer):** hàm tính `eventId` dự phòng
+(dùng khi message chưa có `messageId`) trong CẢ HAI `eventConsumer.ts` (venue-booking-service từ G2,
+finance-service mới viết ở G4) cắt **64 ký tự đầu của base64(nội dung message)** làm khóa
+idempotency. Với envelope `{"type":"...","occurredAt":"<ISO>","payload":{...}}`, riêng phần
+`type`+`occurredAt` đã chiếm hết 64 ký tự đó với hầu hết tên sự kiện — `payload` KHÔNG BAO GIỜ lọt
+vào hash. Hậu quả: hai sự kiện CÙNG LOẠI phát trong cùng một giây (rất dễ xảy ra, ví dụ 2 booking
+được xác nhận gần nhau) bị coi là **trùng lặp** và sự kiện thứ hai bị **âm thầm bỏ qua** — tiền
+thật bị mất (booking không bao giờ chuyển `confirmed`, ví không bao giờ được ghi có), không có lỗi
+nào được ném ra. Lỗi này đã tồn tại từ G2 nhưng chưa từng bị bắt vì G1-G3 chỉ test bằng cách gọi
+thẳng hàm consumer (`handleAccountLocked(...)`), chưa bao giờ đi qua hàng đợi RabbitMQ thật — kiểm
+thử tích hợp thật của G4 (`g4Saga.test.ts`, bắt buộc bởi chính AC-FIN-04-3/AC-BOK-07-2/07-4) là lần
+đầu lộ ra. Debug bằng loạt script `scratch-debug-saga.ts` (đã xóa), thu hẹp dần từ "toàn bộ saga
+không nhận được message" xuống "transaction chạy đúng nhưng bị bỏ qua sớm do `already processed`
+sai". Sửa: băm SHA-256 TOÀN BỘ nội dung message thay vì cắt một đoạn đầu cố định, ở cả hai service.
+
+**Bằng chứng (proof):**
+- **21/21 test finance-service PASS**, **82/82 test venue-booking-service không-skip PASS** (2
+  skip còn lại vẫn là AC-VEN-02-1/02-4 chờ PO, không liên quan G4).
+- `services/finance-service/test/g4Saga.test.ts` là kiểm thử **tích hợp thật** — khởi động ĐÚNG cả
+  hai app (Express thật của venue-booking-service + RabbitMQ publish/consume thật của cả hai
+  service) trong cùng tiến trình test, không mock; đúng yêu cầu "AC-FIN-04-3/AC-BOK-07-2/07-4 là
+  kiểm thử tích hợp qua hàng đợi sự kiện" của court-booking.md/finance-disputes.md.
+- **`AC-FIN-09-2` (ba vế cân bằng) kiểm trực tiếp trên `LEDGER_ENTRY`** (không chỉ số dư hiển thị):
+  `releaseEntry.amount + commissionEntry.amount === gross` tuyệt đối, cộng kiểm riêng từng vế
+  (`personal -200000`, `business.pending +180000`, `platform.available +20000` với gross=200000).
+  Toàn bộ test tài chính khác (FIN-01..04, 06) cũng assert thẳng trên bảng `ledgerEntry`, không chỉ
+  `wallet.available`.
+- Đóng **`AC-ACC-02-5`** (blocked từ G1) — `services/finance-service/test/walletProvisioning.test.ts`.
+- `npm run build` + `npm run typecheck` sạch toàn bộ 9 workspace.
+
+**Câu hỏi còn treo từ G2 (vẫn CHƯA có quyết định PO, tiếp tục không tự ý xử lý):**
+`AC-VEN-02-1`/`AC-VEN-02-4` — sự kiện `ProviderApproved` mới + việc account-service tự cấp vai trò
+`provider` khi NCC được duyệt. G4 xử lý phần ví bằng lazy-creation (không cần sự kiện này), nhưng
+BẢN THÂN câu hỏi kiến trúc (có nên có `ProviderApproved` hay không, ai phát, ai tiêu thụ) vẫn mở.
+
+**Quy tắc mới từ PO (2026-08-06, D22):** mỗi milestone G phải qua một vòng Codex review trước khi
+commit. Lần đầu áp dụng ngay ở G4 — PO tự chạy Codex review (không phải Claude), phát hiện **6 lỗi
+P1 Standards + 3 P1 + 4 P2 Spec** mà toàn bộ test xanh ở trên KHÔNG bắt được, vì phần lớn test gọi
+thẳng hàm domain, không đi qua HTTP hay hàng đợi thật. Xem mục "Vòng sửa sau Codex review" ngay dưới.
+
+**Test ledger:** 32 dòng `AC-BOK-07/08`, `AC-FIN-01..04,06,09(1-3)` chuyển `pass`; `AC-ACC-02-5`
+chuyển `pass` (không còn `blocked`).
+
+### G4 — Vòng sửa sau Codex review (D22, cùng ngày 2026-08-06)
+
+Codex (PO tự chạy, model do PO chọn) review diff G4 và kết luận **chưa nên commit**. 13 phát hiện,
+đối chiếu từng cái với code thật rồi sửa toàn bộ — không có phát hiện nào bị bỏ qua:
+
+**6 lỗi P1 Standards (đúng-đắn kỹ thuật):**
+1. **Webhook SePay giả mạo được** — `/webhooks/sepay` không xác thực, ai biết `matchCode` cũng tự
+   gửi được số tiền tùy ý, kể cả số âm. → **D23** (PO chốt): shared secret qua
+   `SEPAY_WEBHOOK_SECRET` (header `x-sepay-signature`) + Zod chặn `amount<=0`. Không nhập credential
+   SePay production vào code.
+2. **`res.json()` với BigInt ném 500** — mọi route trả `priceSnapshot` (booking) đều lỗi runtime
+   thật (`TypeError: Do not know how to serialize a BigInt`), POST đã commit DB rồi mới lỗi ở
+   response. Test domain của G4 không chạm HTTP nên không lộ. Sửa: `serializeBooking()` chuyển sang
+   chuỗi ở mọi route booking; thêm bộ test qua `supertest` thật (`bookingHttp.test.ts`) để không lặp
+   lại kiểu lỗi này.
+3. **Slot mở lại trước khi thanh toán xong** — `createBookingFromHold` xóa `Hold` ngay lúc tạo
+   booking `held`, trái spec BOK-07 (xóa hold Ở BƯỚC XÁC NHẬN). Người thứ hai có thể giữ được slot
+   và cả hai cùng trả tiền. Sửa: giữ hold tới khi `PaymentCompleted` → `confirmed` mới xóa (trong
+   `eventConsumer.handlePaymentCompleted`); EXCLUDE constraint (G3) tiếp tục chặn suốt cửa sổ trả.
+4. **Race trừ ví** — kiểm số dư ngoài transaction, `postLedgerEntry` đọc-sửa-ghi không khóa. Hai
+   request thanh toán đồng thời có thể cùng qua được kiểm tra rồi cùng trừ tiền. Sửa: `SELECT ...
+   FOR UPDATE` khóa hàng ví trong `postLedgerEntry` + đọc lại số dư TRONG transaction ở
+   `payBookingWithBalance`; cộng thêm **unique index CSDL** `ledger_payment_once` (mỗi booking tối
+   đa 1 bút toán `payment`) làm hàng rào cuối.
+5. **Idempotency hỏng khi outbox replay** — `eventId` dự phòng băm nội dung message, nhưng
+   `occurredAt` sinh mới mỗi lần `publishEvent` gọi, nên relay publish lại (crash giữa publish và
+   `markPublished`) tạo message khác nội dung → khóa khác → xử lý trùng (ghi doanh thu/hoàn tiền hai
+   lần). Sửa TẬN GỐC ở `packages/eventbus`: `publishEvent` nhận `messageId` tùy chọn, `startOutboxRelay`
+   truyền `Outbox.id` làm `messageId` — mọi lần publish lại CÙNG dòng Outbox giờ mang cùng
+   `messageId`, đúng nghĩa idempotency key ổn định. (Đây là bản vá SAU bản vá SHA-256 tôi tự làm
+   trước đó trong cùng ngày — SHA-256 đúng hướng nhưng chưa đủ vì hash nội dung thay đổi theo
+   `occurredAt`; Codex chỉ ra tận gốc.)
+6. **Ví `platform` không duy nhất** — Postgres coi mỗi `NULL` là khác nhau trong unique constraint,
+   nên `(userId, walletType)` không chặn được hai ví `platform` (`userId=NULL`) cùng tồn tại nếu hai
+   `BookingConfirmed` đầu tiên chạy đồng thời (phá D16). Sửa: partial unique index
+   `wallets_platform_singleton ON wallets(walletType) WHERE walletType='platform'`.
+
+**3 lỗi P1 + 4 lỗi P2 Spec:**
+7. **Vi phạm workflow BOK-07** — cùng nguyên nhân với #3 (xóa hold sai bước).
+8. **Tiền SePay chuyển thừa bị mất đối ứng** — chuyển 250k cho booking 200k chỉ ghi
+   `release+commission=200k`, 50k biến mất. → **D24** (PO chốt): phần đúng giá xác nhận booking,
+   phần thừa ghi có ví `personal` (`refType='overpay'`).
+9. **`AC-BOK-07-5` không chạy ở runtime** — `reapExpiredHeldBookings()`/`reapExpiredHolds()` (G3)
+   chỉ được gọi trong test, không có scheduler. Booking không thanh toán kẹt `held` vô thời hạn thật
+   ngoài môi trường test. Sửa: `lib/scheduler.ts` (`setInterval` 30s), khởi động trong `index.ts`.
+10. **`AC-FIN-06-3` chưa đạt** — thanh toán thiếu và tiền về muộn cùng ghi `refType='booking'`,
+    không phân biệt được trong lịch sử. Sửa: `refType` riêng cho từng trường hợp
+    (`late_payment`/`partial_payment`/`overpay`), nêu rõ trong ledger.
+11. **Bằng chứng "integration qua queue" bị ghi quá mức** — `AC-BOK-07-2/07-4` yêu cầu test qua
+    hàng đợi thật nhưng gọi thẳng `handlePaymentCompleted`, nên chính lỗi #5 (outbox replay) không
+    bị bắt bởi bộ test ban đầu. Đã thêm test replay/race THẬT vào `g4Saga.test.ts` (double-pay đồng
+    thời, ví platform đồng thời) sau khi sửa.
+12. **`AC-FIN-01-2` chưa thật sự pass** — ví business chỉ được tạo lazy khi có doanh thu đầu tiên,
+    provider chưa có booking sẽ không thấy ví. Gắn với câu hỏi `ProviderApproved` treo từ G2.
+13. **Refund preview bỏ qua `policySnapshot`** (vi phạm BR-BOK-06) — tính theo hằng chính sách hiện
+    hành thay vì snapshot của chính booking. Sửa: `getRefundPercentageFromSnapshot()` đọc từ
+    `booking.policySnapshot`.
+
+**Câu hỏi treo từ G2 — ĐÃ ĐÓNG:** Codex chỉ ra #12 gắn trực tiếp với `ProviderApproved` (treo từ
+G2). PO quyết ngay (D25): venue-booking-service phát `ProviderApproved{providerId, userId}` khi
+duyệt NCC (trong cùng transaction với đổi status) → finance-service tạo ví `business` rỗng,
+account-service cộng vai `provider`. **`AC-VEN-02-1`/`AC-VEN-02-4` đóng dứt điểm** — không còn
+`blocked`, không còn treo. account-service có consumer RabbitMQ ĐẦU TIÊN (trước G4 chỉ publish).
+
+**Bằng chứng sau vòng sửa:** build+typecheck sạch 9 workspace; account-service 35 pass/2 skip
+(`AC-ACC-08-3/08-4`, đã đóng thật ở G2/G3 tại venue-booking-service — không liên quan G4); venue-
+booking-service 87/87 pass (0 skip — hai bài `AC-VEN-02-1/02-4` đã gỡ block); finance-service 29/29
+pass (thêm test double-pay đồng thời, overpay, ví platform đồng thời, webhook không có/sai chữ ký,
+ProviderApproved qua queue thật).
+
+_(Milestone kế: G5 — Hủy, hoàn tiền và điều chỉnh (24 AC) song song G6 — Doanh thu, đối soát, tranh
+chấp (26 AC), theo đồ thị phụ thuộc của master goal. **G4 chưa commit** — chờ PO tự chạy lại Codex
+review lần nữa theo đúng model đã chỉ định.)_
 
 ## 4. Self-verification cuối mỗi milestone
 

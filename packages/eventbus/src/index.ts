@@ -32,12 +32,27 @@ export async function connectRabbitMQ(url: string): Promise<{
   return { connection, channel };
 }
 
-/** Publish một sự kiện domain lên exchange topic chung, routing key = eventType. */
-export function publishEvent(channel: Channel, eventType: string, payload: unknown): boolean {
+/** Publish một sự kiện domain lên exchange topic chung, routing key = eventType.
+ *
+ * `messageId` (tùy chọn) là KHÓA IDEMPOTENCY ỔN ĐỊNH của sự kiện — với Outbox
+ * Pattern phải truyền `Outbox.id`. Nếu không truyền, consumer buộc phải băm nội
+ * dung message làm khóa, nhưng `occurredAt` được sinh MỚI ở mỗi lần gọi hàm này,
+ * nên khi relay publish lại cùng một dòng Outbox (crash giữa publish và
+ * markPublished), message có nội dung khác -> khóa khác -> consumer xử lý HAI
+ * LẦN (ghi doanh thu/hoàn tiền trùng). Truyền `messageId=Outbox.id` khiến mọi
+ * lần publish lại cùng một dòng mang cùng messageId -> consumer idempotent thật.
+ * (Lỗi này được Codex phát hiện khi review G4 — xem decision-log D22.) */
+export function publishEvent(
+  channel: Channel,
+  eventType: string,
+  payload: unknown,
+  options?: { messageId?: string },
+): boolean {
   const message: DomainEvent = { type: eventType, occurredAt: new Date().toISOString(), payload };
   return channel.publish(EXCHANGE, eventType, Buffer.from(JSON.stringify(message)), {
     persistent: true,
     contentType: 'application/json',
+    messageId: options?.messageId,
   });
 }
 
@@ -70,7 +85,8 @@ export function startOutboxRelay(options: OutboxRelayOptions): () => void {
       const rows = await fetchUnpublished(batchSize);
       const publishedIds: string[] = [];
       for (const row of rows) {
-        const ok = publishEvent(channel, row.eventType, row.payload);
+        // messageId = Outbox.id: khóa idempotency ổn định qua mọi lần replay.
+        const ok = publishEvent(channel, row.eventType, row.payload, { messageId: row.id });
         if (ok) publishedIds.push(row.id);
       }
       if (publishedIds.length > 0) await markPublished(publishedIds);

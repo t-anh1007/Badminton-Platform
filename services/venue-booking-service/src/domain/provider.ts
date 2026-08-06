@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { writeOutbox } from '../lib/outbox.js';
 
 export interface RegisterProviderInput {
   orgName: string;
@@ -55,15 +56,14 @@ export async function registerProvider(userId: string, input: RegisterProviderIn
   );
 }
 
-/** VEN-02 (phần venue-booking-service) — Duyệt hồ sơ (AC-VEN-02-1 phần trạng thái).
+/** VEN-02 (phần venue-booking-service) — Duyệt hồ sơ (AC-VEN-02-1..4).
  *
- * CHƯA cộng vai `provider` cho tài khoản, CHƯA tạo ví `business` — hai việc đó
- * đòi hỏi sửa account-service/finance-service ngoài scope boundary G2 đã ghi ở
- * phase-1-handoff.md, và cần thêm sự kiện `ProviderApproved` chưa có trong
- * catalog kiến trúc (system-architecture.md §6.3). Đã hỏi Codex (xem
- * chat/progress log) và đang CHỜ PO XÁC NHẬN phạm vi trước khi thêm event mới +
- * sửa account-service. AC-VEN-02-1 (đầy đủ) và AC-VEN-02-4 đánh dấu `blocked`
- * trong test ledger cho tới khi có xác nhận.
+ * D25 (PO chốt 2026-08-06): phát `ProviderApproved{providerId, userId}` qua
+ * Outbox trong CÙNG transaction với việc chuyển status -> approved. finance-
+ * service tiêu thụ để tạo ví `business` rỗng; account-service tiêu thụ để cộng
+ * vai `provider` cho tài khoản. Đóng dứt điểm AC-VEN-02-1/02-4 (treo từ G2).
+ * venue-booking-service KHÔNG tự đụng schema account/finance (D17) — chỉ phát
+ * sự kiện, mỗi service tự xử lý phần của mình.
  */
 export async function approveProvider(providerId: string): Promise<void> {
   const provider = await prisma.provider.findUniqueOrThrow({ where: { id: providerId } });
@@ -75,9 +75,17 @@ export async function approveProvider(providerId: string): Promise<void> {
       { status: provider.status },
     );
   }
-  await prisma.provider.update({
-    where: { id: providerId },
-    data: { status: 'approved', decisionReason: null, decidedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.provider.update({
+      where: { id: providerId },
+      data: { status: 'approved', decisionReason: null, decidedAt: new Date() },
+    });
+    await writeOutbox(tx, {
+      aggregateType: 'Provider',
+      aggregateId: providerId,
+      eventType: 'ProviderApproved',
+      payload: { providerId, userId: provider.userId },
+    });
   });
 }
 

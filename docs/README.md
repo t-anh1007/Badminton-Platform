@@ -37,6 +37,17 @@ Project-specific agent reference:
   Codex capabilities, installed plugin groups, and optional plugins that are not
   installed yet.
 
+Project navigation:
+
+- `product/README.md`: product scope, specs, decisions, Phase 1 handoff and
+  implementation evidence.
+- `architecture/system-architecture.md`: service boundaries and runtime design.
+- `architecture/data-model.md`: cross-service data model and ownership.
+- `decisions/README.md`: lasting architecture decisions.
+- `DESIGN.md`: frontend design direction.
+- `DISCOVERY_PROMPT.md` and `REPORT_SPEC.md`: historical discovery/report
+  workflow; they are not the current implementation tracker.
+
 ## Source-Repository Indexes
 
 The following material is deliberately outside the default installation:

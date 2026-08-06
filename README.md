@@ -1,100 +1,76 @@
-# Khoaluantn — Badminton Platform
+# Khoaluantn — Nền tảng cầu lông
 
-**Project Goal:** Build a marketplace connecting court owners, players, and badminton communities
+Monorepo cho nền tảng kết nối chủ sân, người chơi và cộng đồng cầu lông. Phạm vi
+Giai đoạn 1 tập trung vào tài khoản, vận hành sân, tìm và đặt sân, thanh toán,
+doanh thu, hoàn tiền và tranh chấp.
 
-## 🎯 Quick Start
+## Bắt đầu từ đâu
 
-1. **Read the orchestration model:** `.claude/CLAUDE.md`
-2. **Check current progress:** `src/integration/progress.json`
-3. **Review project scope:** `DISCOVERY_PROMPT.md` & `REPORT_SPEC.md`
+1. Đọc [quy trình repository](docs/WORKFLOW.md).
+2. Xem [phân kỳ sản phẩm](docs/product/phasing.md) và
+   [bàn giao Giai đoạn 1](docs/product/phase-1-handoff.md).
+3. Xem [tiến độ và test ledger](docs/product/phase-1-progress.md) trước khi nhận
+   milestone tiếp theo.
+4. Đọc [kiến trúc hệ thống](docs/architecture/system-architecture.md),
+   [mô hình dữ liệu](docs/architecture/data-model.md) và các ADR liên quan.
 
-## 🏗️ Architecture: Claude + Codex
+## Cấu trúc monorepo
 
-```
-Claude Code (Orchestrator)
-    ↓ defines tasks with clear criteria
-Codex (Worker)
-    ↓ executes, returns results
-Claude Code (Verify & loop)
-```
-
-## 📁 Key Directories
-
-| Directory | Purpose | Owner |
-|-----------|---------|-------|
-| `.claude/` | Orchestration rules | Claude Code |
-| `src/` | Shared code & orchestration logic | Claude Code |
-| `skills/` | Discovery, design, planning skills | Claude Code |
-| `workers/` | Code generation, review, docs, tests | Codex |
-| `docs/` | Architecture & guides | Claude Code |
-| `outputs/` | Generated code & reports | Codex |
-
-## 🚀 Current Phase
-
-**Phase 1: Discovery** — Understanding requirements, scope, unknowns
-
-- [ ] Validate business requirements
-- [ ] Identify domain models
-- [ ] Define scope for Phase 1, 2, 3
-- [ ] Identify risks & assumptions
-
-## 📋 Key Documents
-
-| Document | Purpose |
-|----------|---------|
-| `DISCOVERY_PROMPT.md` | Discovery methodology & goals |
-| `REPORT_SPEC.md` | Report specification for deliverables |
-| `Bao_cao_khao_sat_Pengo.docx` | Market research: Pengo app |
-| `Bao_cao_khao_sat_GiaoLuuCauLong_so_sanh_Pengo.docx` | Market research: Competitors |
-| `.claude/CLAUDE.md` | Orchestration rules & workflows |
-
-## 🤖 Working with Claude Code + Codex
-
-### When Claude acts as Orchestrator:
-- Define clear requirements
-- Decompose into atomic tasks
-- Set success criteria
-- Review Codex output
-- Make technical decisions
-
-### When Codex acts as Worker:
-- Execute tasks exactly as specified
-- Write minimal, focused code
-- Follow acceptance criteria
-- Report what was done
-- Await Claude review
-
-## ⚡ Core Principles (Andrej Karpathy)
-
-1. **Think Before Coding** — State assumptions, surface unknowns
-2. **Simplicity First** — Minimal code, solve only what's asked
-3. **Surgical Changes** — Edit only necessary, preserve style
-4. **Goal-Driven** — Define success criteria, loop until met
-
-## 📞 Commands
-
-```bash
-# View orchestration rules
-cat .claude/CLAUDE.md
-
-# Check progress
-cat src/integration/progress.json
-
-# View current tasks
-cat src/orchestrator/tasks.json
-
-# Review discoveries & reports
-cat DISCOVERY_PROMPT.md
-cat REPORT_SPEC.md
+```text
+apps/
+  web/                       React + Vite frontend
+services/
+  api-gateway/               Điểm vào HTTP
+  account-service/           Tài khoản và phân quyền
+  venue-booking-service/     Sân, lịch, tìm kiếm và booking
+  finance-service/           Thanh toán, ví, doanh thu và tranh chấp
+  matchmaking-service/       Ghép kèo (giai đoạn sau)
+  community-service/         Cộng đồng (giai đoạn sau)
+packages/
+  shared/                    Kiểu và tiện ích dùng chung
+  eventbus/                  Hạ tầng sự kiện RabbitMQ
+  ai/                        Nền tích hợp AI
+infra/                       Khởi tạo hạ tầng cục bộ
+docs/                        Sản phẩm, kiến trúc, quyết định và kế hoạch
+.agents/ .claude/ .codex/    Hướng dẫn và cấu hình agent
+src/                         Metadata orchestration tương thích cũ
 ```
 
-## 📊 Project Status
+Mã ứng dụng nằm trong `apps/`, `services/` và `packages/`. Hai tệp trong `src/`
+chỉ là chỉ mục tương thích; trạng thái triển khai chuẩn nằm ở
+`docs/product/phase-1-progress.md`.
 
-**Current Phase:** 🟡 Discovery  
-**Last Updated:** 2026-08-03  
-**Orchestrator:** Claude Code  
-**Workers:** code-generator, code-reviewer, documentation-writer, test-engineer
+## Công nghệ chính
 
----
+- npm workspaces, Node.js 20+, TypeScript
+- React 19, Vite và Tailwind CSS
+- Express, Prisma và PostgreSQL theo schema/service
+- Redis và RabbitMQ
+- Vitest; Playwright cho hành trình end-to-end
 
-**Next Steps:** Review `.claude/CLAUDE.md` to understand the orchestration model, then start Phase 1 discovery work.
+## Lệnh thường dùng
+
+```powershell
+npm install
+npm run infra:up
+npm run dev
+npm run typecheck
+npm run build
+```
+
+Các service có lệnh test và Prisma riêng trong `package.json` của từng workspace.
+Biến môi trường mẫu nằm tại `.env.example`; không commit `.env` thật.
+
+## Trạng thái
+
+Giai đoạn 1 đang được triển khai theo chuỗi milestone trong
+`docs/product/phase-1-handoff.md`. Không ghi lặp trạng thái động tại README này;
+hãy dùng `docs/product/phase-1-progress.md` làm nguồn hiện hành.
+
+## Cách làm việc với agent
+
+- Dùng repository làm nguồn sự thật; đọc ít nhất đúng tài liệu liên quan.
+- Đi theo chuỗi: discovery đã duyệt → spec → goal → kế hoạch → code → kiểm thử.
+- Chỉ triển khai phạm vi đã được phê duyệt, thay đổi tối thiểu và có bằng chứng.
+- Quy tắc chung nằm trong [AGENTS.md](AGENTS.md); Claude Code đọc thêm
+  [.claude/CLAUDE.md](.claude/CLAUDE.md).

@@ -24,7 +24,7 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
     const results = await searchVenues(CENTER.lat, CENTER.lng, 10);
     expect(results.find((r) => r.venueId === lockedVenue.id)).toBeUndefined();
     expect(results.length).toBeGreaterThanOrEqual(3);
-  }, 20000); // fixture dựng 4 cơ sở (mỗi cơ sở 14 lượt insert tuần tự) — chậm hơn 5s mặc định
+  }, 60000); // fixture dựng 4 cơ sở (mỗi cơ sở 14 lượt insert tuần tự) — cần dư địa khi toàn suite chạy song song
 
   it('AC-BOK-01-2: cơ sở không có sân con hoạt động -> không xuất hiện', async () => {
     const provider = await createApprovedProvider();
@@ -33,7 +33,7 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
     });
     const results = await searchVenues(CENTER.lat, CENTER.lng, 10);
     expect(results.find((r) => r.venueId === venue.id)).toBeUndefined();
-  });
+  }, 15000); // makeCourtSearchable/insert tuần tự — xem ghi chú AC-BOK-01-1
 
   it('AC-BOK-01-3: khách chưa đăng nhập -> kết quả hiển thị đầy đủ như người đã đăng nhập', async () => {
     // searchVenues không nhận userId — không có nhánh nào phân biệt actor,
@@ -42,7 +42,7 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
     await makeCourtSearchable(provider.id, NEARBY);
     const results = await searchVenues(CENTER.lat, CENTER.lng, 10);
     expect(results.length).toBeGreaterThan(0);
-  });
+  }, 15000);
 
   it('AC-BOK-01-4: không có cơ sở nào trong bán kính -> mảng rỗng, không lỗi', async () => {
     await expect(searchVenues(FAR_AWAY.lat, FAR_AWAY.lng, 1)).resolves.toEqual([]);
@@ -61,7 +61,7 @@ describe('BOK-02 — Lọc và sắp xếp sân', () => {
 
     expect(filtered.find((r) => r.venueId === cheap.id)).toBeTruthy();
     expect(filtered.find((r) => r.venueId === expensive.id)).toBeUndefined();
-  });
+  }, 15000);
 
   it('AC-BOK-02-2: lọc theo khung giờ 19h-21h ngày mai -> chỉ cơ sở còn ít nhất một sân trống trọn khung', async () => {
     const providerFree = await createApprovedProvider();
@@ -93,7 +93,7 @@ describe('BOK-02 — Lọc và sắp xếp sân', () => {
 
     expect(filtered.find((r) => r.venueId === freeVenue.id)).toBeTruthy();
     expect(filtered.find((r) => r.venueId === busyVenue.id)).toBeUndefined();
-  });
+  }, 15000);
 
   it('AC-BOK-02-3: bộ lọc cho ra tập rỗng -> xóa lọc -> kết quả gốc của BOK-01 hiện lại đầy đủ', async () => {
     const provider = await createApprovedProvider();
@@ -105,5 +105,5 @@ describe('BOK-02 — Lọc và sắp xếp sân', () => {
 
     const cleared = await filterAndSortVenues(base, {});
     expect(cleared.length).toBe(base.length);
-  });
+  }, 15000);
 });

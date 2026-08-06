@@ -213,6 +213,11 @@ model Booking {
   policySnapshot     Json?
   priceSnapshot      BigInt
   createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  /// G4 (BOK-07): sao chép expiresAt của Hold gốc tại lúc tạo booking — Hold
+  /// bị xóa ngay sau đó, nên đây là cách duy nhất để biết booking `held` này
+  /// có còn "trong hạn" hay không khi PaymentCompleted / payment-status đến,
+  /// mà không cần lưu lại Hold đã dùng.
+  holdExpiresAt DateTime? @db.Timestamptz(3)
 
   @@map("bookings")
 }

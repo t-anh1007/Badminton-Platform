@@ -1,38 +1,11 @@
 {
   "project": "Khoaluantn - Badminton Platform",
-  "current_phase": "discovery",
-  "phases": {
-    "discovery": {
-      "name": "Product Discovery",
-      "status": "in_progress",
-      "completion": 0,
-      "description": "Validate requirements, identify unknowns, define scope"
-    },
-    "planning": {
-      "name": "Architecture & Planning",
-      "status": "pending",
-      "completion": 0,
-      "description": "Design system architecture, data models, workflows"
-    },
-    "implementation": {
-      "name": "Code Generation & Testing",
-      "status": "pending",
-      "completion": 0,
-      "description": "Generate code, write tests, documentation"
-    }
-  },
-  "tasks": {
-    "total": 0,
-    "completed": 0,
-    "in_progress": 0,
-    "pending": 0,
-    "blocked": 0
-  },
-  "metrics": {
-    "completion_percentage": 0,
-    "last_updated": "2026-08-03T00:00:00Z",
-    "claude_decisions": 0,
-    "codex_tasks": 0,
-    "codex_completed": 0
-  }
+  "current_phase": "phase_1_implementation",
+  "status_source": "docs/product/phase-1-progress.md",
+  "goal_source": "docs/product/phase-1-goal.md",
+  "handoff_source": "docs/product/phase-1-handoff.md",
+  "last_verified_milestone": "G3",
+  "next_milestone": "G4",
+  "last_synced": "2026-08-06",
+  "note": "Compatibility index only. Milestone status, AC counts, blockers, and evidence live in status_source."
 }

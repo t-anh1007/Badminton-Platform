@@ -40,6 +40,9 @@ enum PaymentMethod {
 enum PaymentRefType {
   booking
   matchFee
+  /// G4: nạp số dư (FIN-02) — không có đối tượng tham chiếu bên ngoài, refId
+  /// tự trỏ về chính PaymentIntent.id.
+  topup
 }
 
 enum PaymentIntentStatus {
@@ -114,6 +117,9 @@ model PaymentIntent {
   method    PaymentMethod
   refType   PaymentRefType
   refId     String
+  /// G4 (FIN-02/FIN-04): mã nội dung chuyển khoản duy nhất SePay khớp webhook
+  /// vào đúng intent này — chỉ có ý nghĩa khi method=sepay.
+  matchCode String?              @unique
   status    PaymentIntentStatus  @default(pending)
   createdAt DateTime             @default(now())
 
@@ -125,6 +131,9 @@ model SepayEvent {
   direction   SepayDirection
   amount      BigInt
   rawRef      String
+  /// G4 (BR-FIN-17/BR-FIN-09): mã giao dịch phía SePay — khóa idempotency khi
+  /// webhook bị gửi lại (redelivery), khác với `id` (uuid nội bộ của ta).
+  externalRef String?        @unique
   matchedType String?
   matchedId   String?
   /// BR-FIN-17: trạng thái đối soát 1-1 theo từng sự kiện.
@@ -132,6 +141,28 @@ model SepayEvent {
   receivedAt  DateTime       @default(now())
 
   @@map("sepay_events")
+}
+
+/// Outbox Pattern (dùng chung, xem account-service/venue-booking-service) —
+/// finance-service publish PaymentCompleted (FIN-03/04) qua đây.
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+
+  @@map("outbox")
+}
+
+/// Idempotency cho consumer (UserRegistered, BookingConfirmed).
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now())
+
+  @@map("processed_events")
 }
 
 model WithdrawalRequest {

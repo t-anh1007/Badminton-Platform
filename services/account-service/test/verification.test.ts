@@ -69,8 +69,7 @@ describe('ACC-02 — Xác minh email', () => {
     });
   });
 
-  it.skip('AC-ACC-02-5: xác minh xong -> đúng một ví personal số dư 0 ở finance [BLOCKED: chờ G4 — finance-service consume UserRegistered]', () => {
-    // Producer side đã kiểm ở AC-ACC-02-1 (Outbox ghi UserRegistered đúng 1 lần).
-    // Phần tạo ví thuộc finance-service, xây ở G4 theo phase-1-handoff.md.
-  });
+  // AC-ACC-02-5: đã đóng ở G4. Producer side (Outbox ghi UserRegistered đúng 1
+  // lần) kiểm ở AC-ACC-02-1 phía trên. Phần tạo ví `personal` thuộc
+  // finance-service — xem finance-service/test/walletProvisioning.test.ts.
 });
