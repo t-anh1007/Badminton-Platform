@@ -204,6 +204,36 @@ erDiagram
         timestamptz createdAt
         timestamptz processedAt
     }
+    BOOKING_REVENUE {
+        uuid bookingId PK "metadata release theo booking marketplace"
+        uuid businessWalletId FK
+        uuid businessUserId
+        uuid venueId
+        bigint gross
+        bigint net
+        bigint commission
+        timestamptz endAt
+        timestamptz releaseAt
+        timestamptz releasedAt
+    }
+    SEPAY_ALLOCATION {
+        uuid id PK
+        uuid sepayEventId FK
+        string kind "topup|booking|payout|out_of_scope"
+        bigint amount
+        uuid refId
+        string reason
+    }
+    FINANCE_AUDIT {
+        uuid id PK
+        uuid actorUserId
+        string action
+        string refType
+        uuid refId
+        string reason
+        jsonb metadata
+        timestamptz createdAt
+    }
     DISPUTE {
         uuid id PK
         string refType

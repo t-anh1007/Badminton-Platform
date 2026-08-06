@@ -90,6 +90,7 @@ model Wallet {
   currency String @default("VND")
 
   ledgerEntries LedgerEntry[]
+  bookingRevenues BookingRevenue[]
 
   @@unique([userId, walletType])
   @@map("wallets")
@@ -139,6 +140,7 @@ model SepayEvent {
   /// BR-FIN-17: trạng thái đối soát 1-1 theo từng sự kiện.
   status      SepayStatus    @default(unmatched)
   receivedAt  DateTime       @default(now())
+  allocations SepayAllocation[]
 
   @@map("sepay_events")
 }
@@ -173,10 +175,67 @@ model WithdrawalRequest {
   /// BR-FIN-19: số tiền đã thực chi khi chưa đủ (partially_paid).
   paidAmount    BigInt?
   sePayEventId  String?
+  transferCode  String            @unique
+  bankCode      String
+  bankAccountNumber String
+  bankAccountName String
+  rejectionReason String?
   createdAt     DateTime          @default(now())
   processedAt   DateTime?
 
   @@map("withdrawal_requests")
+}
+
+/// FIN-09: metadata của đúng khoản release theo booking, để đáo hạn và hiển thị
+/// mà không truy vấn chéo schema venue_booking (D17).
+model BookingRevenue {
+  bookingId        String   @id
+  businessWalletId String
+  businessWallet   Wallet   @relation(fields: [businessWalletId], references: [id])
+  businessUserId   String
+  venueId          String
+  gross            BigInt
+  net              BigInt
+  commission       BigInt
+  endAt            DateTime
+  releaseAt        DateTime
+  releasedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([businessUserId, releaseAt])
+  @@map("booking_revenues")
+}
+
+/// BR-FIN-17: một sự kiện ngân hàng có thể có nhiều đối ứng (ví dụ payout +
+/// out_of_scope khi chi vượt), tổng các dòng phải bằng amount của sự kiện.
+model SepayAllocation {
+  id           String     @id @default(uuid())
+  sepayEventId String
+  sepayEvent   SepayEvent @relation(fields: [sepayEventId], references: [id])
+  kind         String
+  amount       BigInt
+  refId        String?
+  reason       String?
+  createdAt    DateTime   @default(now())
+
+  @@index([sepayEventId])
+  @@unique([kind, refId])
+  @@map("sepay_allocations")
+}
+
+/// BR-FIN-13 + A-FIN-09: audit tiền riêng trong finance-service, append-only.
+model FinanceAudit {
+  id          String   @id @default(uuid())
+  actorUserId String
+  action      String
+  refType     String
+  refId       String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([refType, refId])
+  @@map("finance_audits")
 }
 
 model Dispute {

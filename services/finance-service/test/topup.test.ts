@@ -55,4 +55,17 @@ describe('FIN-02 — Nạp số dư qua SePay', () => {
     const event = await prisma.sepayEvent.findUniqueOrThrow({ where: { externalRef } });
     expect(event.status).toBe('unmatched');
   });
+
+  it('BR-FIN-17/18: hai giao dịch thật cùng matchCode đồng thời chỉ khớp intent một lần, giao dịch còn lại vào đối soát', async () => {
+    const userId = fakeUserId();
+    const { matchCode } = await createTopupIntent(userId, 200000n);
+    const refs = [randomUUID(), randomUUID()];
+    await Promise.all(refs.map((externalRef) => handleIncomingTransfer({ externalRef, amount: 200000n, rawRef: matchCode })));
+    const [wallet] = await getWalletsForUser(userId);
+    expect(wallet!.available).toBe(200000n);
+    const events = await prisma.sepayEvent.findMany({ where: { externalRef: { in: refs } } });
+    expect(events.map((event) => event.status).sort()).toEqual(['matched_auto', 'unmatched']);
+    const matched = events.find((event) => event.status === 'matched_auto')!;
+    expect((await prisma.sepayAllocation.aggregate({ where: { sepayEventId: matched.id }, _sum: { amount: true } }))._sum.amount).toBe(200000n);
+  });
 });

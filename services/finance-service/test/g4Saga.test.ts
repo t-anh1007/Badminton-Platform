@@ -249,8 +249,9 @@ describe('FIN-09 (phần G4) — Ghi doanh thu khi BookingConfirmed', () => {
     const bookingId = randomUUID();
     const businessUserId = randomUUID();
 
-    await recordBookingRevenue(eventId, { bookingId, businessUserId, gross: '100000' });
-    await recordBookingRevenue(eventId, { bookingId, businessUserId, gross: '100000' }); // redeliver
+    const payload = { bookingId, businessUserId, gross: '100000', venueId: randomUUID(), endAt: new Date(Date.now() + 48 * 3_600_000).toISOString(), source: 'marketplace' as const };
+    await recordBookingRevenue(eventId, payload);
+    await recordBookingRevenue(eventId, payload); // redeliver
 
     const wallet = await prisma.wallet.findFirstOrThrow({ where: { userId: businessUserId, walletType: 'business' } });
     expect(wallet.pending).toBe(90000n); // đúng MỘT lần, không cộng dồn
@@ -332,8 +333,8 @@ describe('G4-fix P1: overpay SePay (D24)', () => {
 describe('G4-fix P1: ví platform duy nhất (partial unique index)', () => {
   it('Hai recordBookingRevenue ĐỒNG THỜI (2 booking khác nhau) -> vẫn chỉ MỘT ví platform', async () => {
     await Promise.allSettled([
-      recordBookingRevenue(randomUUID(), { bookingId: randomUUID(), businessUserId: randomUUID(), gross: '100000' }),
-      recordBookingRevenue(randomUUID(), { bookingId: randomUUID(), businessUserId: randomUUID(), gross: '100000' }),
+      recordBookingRevenue(randomUUID(), { bookingId: randomUUID(), businessUserId: randomUUID(), gross: '100000', venueId: randomUUID(), endAt: new Date(Date.now() + 48 * 3_600_000).toISOString(), source: 'marketplace' }),
+      recordBookingRevenue(randomUUID(), { bookingId: randomUUID(), businessUserId: randomUUID(), gross: '100000', venueId: randomUUID(), endAt: new Date(Date.now() + 48 * 3_600_000).toISOString(), source: 'marketplace' }),
     ]);
     const platforms = await prisma.wallet.findMany({ where: { walletType: 'platform' } });
     expect(platforms).toHaveLength(1);

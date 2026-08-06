@@ -94,8 +94,8 @@ Out of scope:
 - [x] Read workflow, goal, handoff, decisions, current progress, and G5-G7 spec authority.
 - [x] Reconcile current code/schema/tests/frontend with G5 requirements.
 - [x] Implement and verify G5; independent D22 review found no remaining P0/P1/P2.
-- [ ] Commit G5 on `TuanAnh`.
-- [ ] Reconcile and implement G6; verify, independently review, and commit G6.
+- [x] Commit G5 on `TuanAnh` at `854b67a`.
+- [x] Reconcile and implement G6; verify, independently review, and commit G6.
 - [ ] Reconcile and implement G7; verify, independently review, and commit G7.
 - [ ] Implement and pass all eight phase-level Playwright journeys.
 - [ ] Run final repository-wide and finance-conservation gates.
@@ -111,6 +111,11 @@ Out of scope:
 - 2026-08-06: PO approved the smallest G5 schema correction for BOK-10-6:
   add nullable `Booking.courtChangedAt`; booking detail derives a court-change
   note from this marker. Do not add previous-court history beyond the approved AC.
+- 2026-08-06: G6 migrations target a clean Phase 1 pre-production schema, matching
+  the Gboot empty-database migration gate. They intentionally do not backfill
+  disposable local G4 fixtures. Before applying G6 to any retained-data
+  environment, create and validate a separate rehydration/backfill for booking
+  revenue metadata and legacy SePay allocation counterparts.
 
 ## Validation
 

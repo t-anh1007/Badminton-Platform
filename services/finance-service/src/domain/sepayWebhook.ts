@@ -23,20 +23,25 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
 
   if (!intent) {
     // AC-FIN-02-4: không khớp mã nào -> hàng chờ đối soát tay, không ví nào đổi.
-    await prisma.sepayEvent.create({
-      data: { direction: 'in', amount: transfer.amount, rawRef: transfer.rawRef, externalRef: transfer.externalRef, status: 'unmatched' },
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${transfer.externalRef}))) AS event_lock`;
+      if (await tx.sepayEvent.findUnique({ where: { externalRef: transfer.externalRef } })) return;
+      await tx.sepayEvent.create({
+        data: { direction: 'in', amount: transfer.amount, rawRef: transfer.rawRef, externalRef: transfer.externalRef, status: 'unmatched' },
+      });
     });
     return;
   }
 
   if (intent.refType === 'topup') {
     await prisma.$transaction(async (tx) => {
+      if (!(await lockPendingIntent(tx, intent.id, transfer))) return;
       const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
       // BR-FIN-02 luồng thay thế: ghi có ĐÚNG số tiền thực nhận, không phải
       // số đã khai (AC-FIN-02-3).
-      await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'topup', refId: intent.id });
+      const topupEntry = await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'topup', refId: intent.id });
       await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'completed' } });
-      await tx.sepayEvent.create({
+      const event = await tx.sepayEvent.create({
         data: {
           direction: 'in',
           amount: transfer.amount,
@@ -47,6 +52,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
           matchedId: intent.id,
         },
       });
+      await tx.sepayAllocation.create({ data: { sepayEventId: event.id, kind: 'topup', amount: transfer.amount, refId: topupEntry.id } });
     });
     return;
   }
@@ -60,10 +66,11 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
     // refType='late_payment' để lịch sử NÊU RÕ đây là tiền về muộn (AC-FIN-06-3),
     // phân biệt với topup thường và với chuyển thiếu.
     await prisma.$transaction(async (tx) => {
+      if (!(await lockPendingIntent(tx, intent.id, transfer))) return;
       const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
-      await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'late_payment', refId: intent.refId });
+      const topupEntry = await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'late_payment', refId: intent.refId });
       await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'failed' } });
-      await recordSepayEvent(tx, transfer, intent.id);
+      await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: topupEntry.id }]);
     });
     return;
   }
@@ -74,10 +81,13 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
     // có vào ví personal — bảo toàn tiền, không để mất đối ứng (lỗi P1 Codex).
     const excess = transfer.amount - intent.amount;
     await prisma.$transaction(async (tx) => {
+      if (!(await lockPendingIntent(tx, intent.id, transfer))) return;
       await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'completed' } });
+      let excessEntryId: string | null = null;
       if (excess > 0n) {
         const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
-        await postLedgerEntry(tx, { walletId: wallet.id, amount: excess, type: 'topup', refType: 'overpay', refId: intent.refId });
+        const entry = await postLedgerEntry(tx, { walletId: wallet.id, amount: excess, type: 'topup', refType: 'overpay', refId: intent.refId });
+        excessEntryId = entry.id;
       }
       await writeOutbox(tx, {
         aggregateType: 'PaymentIntent',
@@ -85,7 +95,10 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
         eventType: 'PaymentCompleted',
         payload: { bookingId: intent.refId },
       });
-      await recordSepayEvent(tx, transfer, intent.id);
+      await recordSepayEvent(tx, transfer, intent.id, [
+        { kind: 'booking', amount: intent.amount, refId: intent.refId },
+        ...(excessEntryId ? [{ kind: 'topup', amount: excess, refId: excessEntryId }] : []),
+      ]);
     });
     return;
   }
@@ -94,10 +107,29 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
   // vẫn `held`, PaymentIntent giữ nguyên `pending` (hold vẫn tiếp tục chạy).
   // refType='partial_payment' để phân biệt với topup thường và tiền về muộn.
   await prisma.$transaction(async (tx) => {
+    if (!(await lockPendingIntent(tx, intent.id, transfer))) return;
     const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
-    await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'partial_payment', refId: intent.refId });
-    await recordSepayEvent(tx, transfer, intent.id);
+    const topupEntry = await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'partial_payment', refId: intent.refId });
+    await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: topupEntry.id }]);
   });
+}
+
+async function lockPendingIntent(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  intentId: string,
+  transfer: IncomingTransfer,
+): Promise<boolean> {
+  await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${transfer.externalRef}))) AS event_lock`;
+  if (await tx.sepayEvent.findUnique({ where: { externalRef: transfer.externalRef } })) return false;
+  await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intentId} FOR UPDATE`;
+  const fresh = await tx.paymentIntent.findUnique({ where: { id: intentId } });
+  if (fresh?.status === 'pending') return true;
+  // Một giao dịch ngân hàng khác thật sự dùng lại mã đã hoàn tất: không được
+  // bỏ qua, cũng không được xử lý lần hai; đưa vào FIN-14 để hoàn về đúng người.
+  await tx.sepayEvent.create({
+    data: { direction: 'in', amount: transfer.amount, rawRef: transfer.rawRef, externalRef: transfer.externalRef, status: 'unmatched' },
+  });
+  return false;
 }
 
 /** Ghi một SepayEvent đã khớp tự động — gom lại vì lặp ở mọi nhánh webhook. */
@@ -105,8 +137,9 @@ async function recordSepayEvent(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   transfer: IncomingTransfer,
   intentId: string,
+  allocations: Array<{ kind: string; amount: bigint; refId: string }>,
 ): Promise<void> {
-  await tx.sepayEvent.create({
+  const event = await tx.sepayEvent.create({
     data: {
       direction: 'in',
       amount: transfer.amount,
@@ -116,5 +149,8 @@ async function recordSepayEvent(
       matchedType: 'PaymentIntent',
       matchedId: intentId,
     },
+  });
+  await tx.sepayAllocation.createMany({
+    data: allocations.map((allocation) => ({ ...allocation, sepayEventId: event.id })),
   });
 }

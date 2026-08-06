@@ -35,7 +35,10 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
     } else if (envelope.type === 'ProviderApproved') {
       await handleProviderApproved(eventId, envelope.payload as { providerId: string; userId: string });
     } else if (envelope.type === 'BookingConfirmed') {
-      await recordBookingRevenue(eventId, envelope.payload as { bookingId: string; businessUserId: string; gross: string });
+      await recordBookingRevenue(eventId, envelope.payload as {
+        bookingId: string; businessUserId: string; gross: string;
+        venueId: string; endAt: string; source: 'marketplace' | 'internal';
+      });
     } else if (envelope.type === 'PaymentTooLate') {
       await creditLatePayment(eventId, envelope.payload as { bookingId: string; userId: string | null; amount: string });
     } else if (envelope.type === 'BookingCancelled') {

@@ -84,6 +84,9 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
           bookingId: booking.id,
           businessUserId: booking.court.venue.provider.userId,
           gross: booking.priceSnapshot.toString(),
+          venueId: booking.court.venue.id,
+          endAt: booking.endAt.toISOString(),
+          source: booking.source,
         },
       });
     } else {

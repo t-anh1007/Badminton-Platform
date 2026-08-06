@@ -7,6 +7,7 @@ import { handleIncomingTransfer } from '../domain/sepayWebhook.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { env } from '../lib/env.js';
 import { AppError } from '../lib/errors.js';
+import { handleOutgoingTransfer } from '../domain/outgoingTransfer.js';
 
 export const paymentRouter = Router();
 
@@ -69,6 +70,8 @@ paymentRouter.post(
     const body = webhookSchema.parse(req.body);
     if (body.direction === 'in') {
       await handleIncomingTransfer({ externalRef: body.externalRef, amount: BigInt(body.amount), rawRef: body.rawRef });
+    } else {
+      await handleOutgoingTransfer({ externalRef: body.externalRef, amount: BigInt(body.amount), rawRef: body.rawRef });
     }
     res.status(200).json({ received: true });
   }),

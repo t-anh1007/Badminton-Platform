@@ -49,7 +49,7 @@ export async function postLedgerEntry(
     /** ADR 0003 + BR-FIN-16: doanh thu chủ sân (`release`) đọng ở `pending`
      * của ví business chờ hết cửa sổ tranh chấp — mọi bút toán khác đi thẳng
      * `available`. `before`/`after` LUÔN phản ánh field bị đổi thật sự. */
-    field?: 'available' | 'pending';
+    field?: 'available' | 'pending' | 'reserved';
   },
 ) {
   const field = params.field ?? 'available';
@@ -59,8 +59,9 @@ export async function postLedgerEntry(
   // (lỗi P1 Codex bắt ở G4). Prisma không có API FOR UPDATE nên dùng $queryRaw.
   await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${params.walletId} FOR UPDATE`;
   const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: params.walletId } });
-  const before = field === 'pending' ? wallet.pending : wallet.available;
+  const before = field === 'pending' ? wallet.pending : field === 'reserved' ? wallet.reserved : wallet.available;
   const after = before + params.amount;
+  if (after < 0n) throw new AppError('NEGATIVE_BALANCE', 'Số dư ví không thể âm.', 409);
   await tx.wallet.update({ where: { id: wallet.id }, data: { [field]: after } });
   return tx.ledgerEntry.create({
     data: {

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { AdminTable } from '../components/AdminTable';
-import { MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_WITHDRAWALS } from '../data/mock';
+import { MOCK_ADMIN_PROVIDERS } from '../data/mock';
+import { FinanceAdminPanel } from '../components/FinanceAdminPanel';
 
-type Tab = 'providers' | 'withdrawals';
+type Tab = 'providers' | 'withdrawals' | 'reconciliation';
 
 /**
  * Quản trị — DESIGN.md: giao diện TỔNG HỢP các chức năng Admin nằm trong
@@ -26,6 +27,7 @@ export function AdminPage() {
         >
           Duyệt nhà cung cấp
         </button>
+        <button type="button" onClick={() => setTab('reconciliation')} className={`text-caption rounded-full px-4 py-2 ${tab === 'reconciliation' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'}`}>Đối soát</button>
         <button
           type="button"
           onClick={() => setTab('withdrawals')}
@@ -47,17 +49,7 @@ export function AdminPage() {
           ]}
           rows={MOCK_ADMIN_PROVIDERS}
         />
-      ) : (
-        <AdminTable
-          columns={[
-            { key: 'id', label: 'Mã yêu cầu', numeric: true },
-            { key: 'sellerUserId', label: 'Chủ sân', numeric: true },
-            { key: 'amount', label: 'Số tiền', numeric: true },
-            { key: 'status', label: 'Trạng thái' },
-          ]}
-          rows={MOCK_ADMIN_WITHDRAWALS}
-        />
-      )}
+      ) : tab === 'withdrawals' ? <FinanceAdminPanel mode="withdrawals" /> : <FinanceAdminPanel mode="reconciliation" />}
     </div>
   );
 }

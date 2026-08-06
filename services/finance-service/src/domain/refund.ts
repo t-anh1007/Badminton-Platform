@@ -115,6 +115,10 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
         refType: 'booking',
         refId: payload.bookingId,
       });
+      await tx.bookingRevenue.updateMany({
+        where: { bookingId: payload.bookingId },
+        data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal } },
+      });
     }
     await tx.processedEvent.create({ data: { eventId } });
   });

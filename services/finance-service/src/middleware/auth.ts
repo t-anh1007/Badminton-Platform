@@ -19,3 +19,13 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Access token không hợp lệ.' } });
   }
 }
+
+export function requireRole(role: string) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!req.user?.roles.includes(role)) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Không có quyền thực hiện thao tác này.' } });
+      return;
+    }
+    next();
+  };
+}

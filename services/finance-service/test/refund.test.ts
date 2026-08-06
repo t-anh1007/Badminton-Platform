@@ -38,7 +38,10 @@ async function setupConfirmedFinance(gross = 200000n) {
     });
   });
   const platformBefore = (await prisma.wallet.findFirst({ where: { walletType: 'platform' } }))?.available ?? 0n;
-  await recordBookingRevenue(randomUUID(), { bookingId, businessUserId, gross: gross.toString() });
+  await recordBookingRevenue(randomUUID(), {
+    bookingId, businessUserId, gross: gross.toString(), venueId: randomUUID(),
+    endAt: new Date(Date.now() + 48 * 3_600_000).toISOString(), source: 'marketplace',
+  });
   return { bookingId, userId, businessUserId, gross, platformBefore };
 }
 
@@ -64,10 +67,13 @@ describe('FIN-07/08 — consumer BookingCancelled', () => {
       const personal = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.userId, walletType: 'personal' } });
       const business = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.businessUserId, walletType: 'business' } });
       const platform = await prisma.wallet.findFirstOrThrow({ where: { walletType: 'platform' } });
+      const platformForBooking = (await prisma.ledgerEntry.findMany({
+        where: { walletId: platform.id, refId: fixture.bookingId },
+      })).reduce((sum, entry) => sum + entry.amount, 0n);
       expect(personal.available).toBe(expectedRefund);
       expect(business.pending).toBe(expectedNet);
-      expect(platform.available - fixture.platformBefore).toBe(expectedCommission);
-      expect(personal.available + business.pending + (platform.available - fixture.platformBefore)).toBe(200000n);
+      expect(platformForBooking).toBe(expectedCommission);
+      expect(personal.available + business.pending + platformForBooking).toBe(200000n);
 
       const reversals = await prisma.ledgerEntry.findMany({ where: { refId: fixture.bookingId, type: 'refund' } });
       expect(reversals.map((entry) => entry.amount).sort((a, b) => Number(a - b))).toEqual(
@@ -157,7 +163,10 @@ describe('FIN-07/08 — consumer BookingCancelled', () => {
     const personal = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.userId, walletType: 'personal' } });
     const business = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.businessUserId, walletType: 'business' } });
     const platform = await prisma.wallet.findFirstOrThrow({ where: { walletType: 'platform' } });
-    expect([personal.available, business.pending, platform.available - fixture.platformBefore]).toEqual([200000n, 0n, 0n]);
+    const platformForBooking = (await prisma.ledgerEntry.findMany({
+      where: { walletId: platform.id, refId: fixture.bookingId },
+    })).reduce((sum, entry) => sum + entry.amount, 0n);
+    expect([personal.available, business.pending, platformForBooking]).toEqual([200000n, 0n, 0n]);
     for (const entry of original) {
       expect(await prisma.ledgerEntry.findUnique({ where: { id: entry.id } })).toMatchObject(entry);
     }

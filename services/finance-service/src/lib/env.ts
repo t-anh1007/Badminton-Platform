@@ -16,4 +16,5 @@ export const env = {
   // nhập credential SePay production vào code. Xác thực chữ ký/HMAC thật để lại
   // khi tích hợp SePay production.
   sepayWebhookSecret: process.env.SEPAY_WEBHOOK_SECRET ?? 'dev-sepay-secret-change-me',
+  webOrigins: (process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(',').map((origin) => origin.trim()).filter(Boolean),
 };

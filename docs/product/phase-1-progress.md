@@ -28,7 +28,7 @@ không dừng chờ PO 10 lần.
 | 3 | G3 | Claude | **self-verify OK** | 25/25 | ✅ (xem §3) | 2026-08-06 |
 | 4 | G4 | Claude | **self-verify OK, đã commit `a94701d`** | 32/32 | ✅ (xem §3) | 2026-08-06 |
 | 5 | G5 | Codex | **self-verify OK, D22 review không còn P0/P1/P2** | 24/24 | ✅ (xem §3) | 2026-08-06 |
-| 6 | G6 | Claude | chưa bắt đầu | 0/26 | — | — |
+| 6 | G6 | Codex | **self-verify OK, D22 review không còn P0/P1** | 26/26 | ✅ (xem §3) | 2026-08-06 |
 | 7 | G7 | Claude | chưa bắt đầu | 0/14 | — | — |
 
 Trạng thái: `chưa bắt đầu` · `đang làm` · `đã test` · `self-verify OK` · `báo cáo PO`.
@@ -200,32 +200,32 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-FIN-08-3 | G5 | services/finance-service/test/refund.test.ts | — | pass | platform commission bị đảo đủ |
 | AC-FIN-08-4 | G5 | services/finance-service/test/refund.test.ts | — | pass | ba vế sau hủy = 200k, toàn bộ ở personal |
 | AC-FIN-08-5 | G5 | services/finance-service/test/refund.test.ts | — | pass | bút toán gốc còn nguyên; điều chỉnh là entry mới |
-| AC-FIN-09-4 | G6 |  |  | todo |  |
-| AC-FIN-09-5 | G6 |  |  | todo |  |
-| AC-FIN-09-6 | G6 |  |  | todo |  |
-| AC-FIN-10-1 | G6 |  |  | todo |  |
-| AC-FIN-10-2 | G6 |  |  | todo |  |
-| AC-FIN-10-3 | G6 |  |  | todo |  |
-| AC-FIN-10-4 | G6 |  |  | todo |  |
-| AC-FIN-10-5 | G6 |  |  | todo |  |
-| AC-FIN-10-6 | G6 |  |  | todo |  |
-| AC-FIN-11-1 | G6 |  |  | todo |  |
-| AC-FIN-11-2 | G6 |  |  | todo |  |
-| AC-FIN-11-3 | G6 |  |  | todo |  |
-| AC-FIN-11-4 | G6 |  |  | todo |  |
-| AC-FIN-11-5 | G6 |  |  | todo |  |
-| AC-FIN-11-6 | G6 |  |  | todo |  |
-| AC-FIN-14-1 | G6 |  |  | todo |  |
-| AC-FIN-14-2 | G6 |  |  | todo |  |
-| AC-FIN-14-3 | G6 |  |  | todo |  |
-| AC-FIN-14-4 | G6 |  |  | todo |  |
-| AC-FIN-14-5 | G6 |  |  | todo |  |
-| AC-FIN-14-6 | G6 |  |  | todo |  |
-| AC-FIN-14-7 | G6 |  |  | todo |  |
-| AC-FIN-14-8 | G6 |  |  | todo |  |
-| AC-FIN-14-9 | G6 |  |  | todo |  |
-| AC-FIN-14-10 | G6 |  |  | todo |  |
-| AC-FIN-14-11 | G6 |  |  | todo |  |
+| AC-FIN-09-4 | G6 | services/finance-service/test/g6Revenue.test.ts | — | pass | scheduler chuyển đúng booking pending → available sau 24h |
+| AC-FIN-09-5 | G6 | services/finance-service/test/g6Revenue.test.ts | — | pass | tranh chấp chỉ giữ pending của booking liên quan |
+| AC-FIN-09-6 | G6 | services/finance-service/test/g6Revenue.test.ts | — | pass | booking nội bộ bị loại và không sinh hoa hồng |
+| AC-FIN-10-1 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | available → reserved, tổng ví không đổi, không ledger |
+| AC-FIN-10-2 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | từ chối vượt available, số dư giữ nguyên |
+| AC-FIN-10-3 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | từ chối yêu cầu thứ hai đang pending |
+| AC-FIN-10-4 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | chủ sân hủy: reserved trả về available |
+| AC-FIN-10-5 | G6 | services/finance-service/test/g6Http.test.ts | — | pass | player bị chặn ở API provider |
+| AC-FIN-10-6 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | hai yêu cầu đồng thời chỉ một thành công |
+| AC-FIN-11-1 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | webhook tiền ra đúng số: paid + payout + PayoutCompleted |
+| AC-FIN-11-2 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | replay webhook không thêm payout |
+| AC-FIN-11-3 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | lệch số tiền vào unmatched, không tự ghi ledger |
+| AC-FIN-11-4 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | Admin reject hoàn reserved và ghi audit có lý do |
+| AC-FIN-11-5 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | lý do rỗng bị từ chối |
+| AC-FIN-11-6 | G6 | services/finance-service/test/g6Withdrawal.test.ts | — | pass | available + reserved + payout bảo toàn doanh thu ròng |
+| AC-FIN-14-1 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | tiền vào không khớp không đổi ví và vào queue |
+| AC-FIN-14-2 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | gán tay topup đúng ví, ledger, allocation và audit |
+| AC-FIN-14-3 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | Admin gán tiền ra đủ đưa yêu cầu sang paid |
+| AC-FIN-14-4 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | chi thiếu tạo partially_paid và giữ đúng reserved còn lại |
+| AC-FIN-14-5 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | sự kiện đã matched không được xử lý lại |
+| AC-FIN-14-6 | G6 | services/finance-service/test/g6Http.test.ts | — | pass | mọi thao tác đối soát bắt buộc lý do |
+| AC-FIN-14-7 | G6 | services/finance-service/test/g6Reconciliation.test.ts + services/finance-service/test/topup.test.ts | — | pass | allocation đủ số tiền, đúng hướng, đối ứng không dùng lại |
+| AC-FIN-14-8 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | bảo toàn toàn luồng G6; nhánh dispute được mở rộng tại G7 theo handoff |
+| AC-FIN-14-9 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | chốt chi thiếu trả reserved còn lại, không đảo payout |
+| AC-FIN-14-10 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | không thể reject sau khi đã payout một phần |
+| AC-FIN-14-11 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | chi vượt tách payout + out_of_scope đủ tổng sự kiện |
 | AC-FIN-12-1 | G7 |  |  | todo |  |
 | AC-FIN-12-2 | G7 |  |  | todo |  |
 | AC-FIN-12-3 | G7 |  |  | todo |  |
@@ -701,6 +701,36 @@ không khớp payment/release/commission bị từ chối và bút toán G4 còn
 **D22:** reviewer Codex độc lập xác nhận không còn P0/P1/P2 sau hai vòng
 remediation. Residual không chặn: test UI hiện ở mức component/SSR; tương tác
 browser thật được giữ trong tám hành trình Playwright của gate cuối phase.
+
+### G6 — 2026-08-06 — ✅ self-verify OK + D22 không còn P0/P1 (26/26 pass)
+
+**Phạm vi:** FIN-09-4…6, FIN-10, FIN-11 và FIN-14. Doanh thu marketplace được
+ghi theo từng booking, tự chuyển `pending → available` sau 24 giờ và chỉ hoãn
+booking có tranh chấp mở. Rút tiền giữ tài sản trong phân vùng `reserved`, xử lý
+webhook tiền ra idempotent, hỗ trợ từ chối/hủy/chi thiếu/chi vượt, và bắt buộc
+audit lý do cho thao tác Admin.
+
+**Đối soát và bảo toàn:** mỗi `SEPAY_EVENT` có allocation đủ tổng tiền; đối ứng
+topup/payout trỏ tới `LedgerEntry.id` thật và bị ràng buộc không được dùng cho
+hai sự kiện. Kiểm thử hệ thống phủ nạp tiền, thanh toán số dư, thanh toán trực
+tiếp SePay, hoàn một phần, release và payout; phần dispute của AC-FIN-14-8 được
+handoff giao mở rộng tại G7 cùng FIN-12/FIN-13.
+
+**UI/API:** provider xem/lọc doanh thu, ba phân vùng ví, tạo/hủy yêu cầu rút và
+thông tin ngân hàng; Admin xử lý withdrawal và queue đối soát. API kiểm vai
+provider/Admin ở server; người chơi không có ví business không thấy panel này.
+
+**Điều kiện migration đã ghi nhận theo D22:** migration G6 chỉ áp dụng cho schema
+Phase 1 clean/pre-production, phù hợp gate migrate CSDL rỗng của Gboot; không
+backfill fixture G4 cục bộ. Trước mọi môi trường có dữ liệu cần giữ, phải có
+rehydration/backfill riêng cho metadata doanh thu booking và đối ứng SePay cũ.
+
+**Bằng chứng fresh gate:** finance-service 10 file, 68/68 test pass; web 2 file,
+3/3 test pass; venue-booking-service 17 file, 104/104 pass trên schema sạch;
+Prisma validate + migrate deploy, root typecheck 9 workspace và root production
+build đều exit 0. D22 round 2 xác nhận không còn P0/P1; hai residual UX P2 được
+sửa trước gate cuối (`FinancePanel` ẩn khi không có ví business và reload ngay
+sau khi tạo withdrawal).
 
 ## 4. Self-verification cuối mỗi milestone
 

@@ -51,4 +51,12 @@ describe('FIN-01 — Xem số dư và lịch sử giao dịch', () => {
 
     await expect(getWalletLedger(userA, walletB.id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
+
+  it('BR-FIN-03: primitive ledger từ chối mọi bút toán làm bất kỳ phân vùng nào âm', async () => {
+    const wallet = await seedBusinessBalance(fakeUserId(), 100000n);
+    await expect(prisma.$transaction((tx) => postLedgerEntry(tx, {
+      walletId: wallet.id, amount: -1n, type: 'payout', refType: 'withdrawal', refId: fakeUserId(), field: 'reserved',
+    }))).rejects.toMatchObject({ code: 'NEGATIVE_BALANCE' });
+    expect((await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } })).reserved).toBe(0n);
+  });
 });
