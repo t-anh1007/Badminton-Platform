@@ -200,6 +200,7 @@ model BookingRevenue {
   endAt            DateTime
   releaseAt        DateTime
   releasedAt       DateTime?
+  cancelledAt      DateTime?
   createdAt        DateTime @default(now())
 
   @@index([businessUserId, releaseAt])
@@ -243,14 +244,18 @@ model Dispute {
   refType         String
   refId           String
   /// D11: liên kết tới booking (venue-booking-service) — không FK chéo schema.
-  bookingId       String
+  bookingId       String        @unique
   raiserUserId    String
+  reason          String        @default("")
   evidence        Json?
   status          DisputeStatus @default(open)
   resolution      String?
+  resolutionAmount BigInt?
   decidedByUserId String?
   /// D11: mốc hạn 24 giờ tính từ lúc ca kết thúc — hoãn giải phóng doanh thu tới khi qua mốc này.
   deadlineAt      DateTime
+  createdAt       DateTime      @default(now())
+  resolvedAt      DateTime?
 
   @@map("disputes")
 }

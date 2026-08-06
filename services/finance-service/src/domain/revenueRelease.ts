@@ -26,6 +26,25 @@ export async function listBusinessRevenue(businessUserId: string, filters: Reven
 }
 
 /** FIN-09/BR-FIN-16: chuyển phân vùng nội bộ, không sinh ledger. */
+export async function releaseBookingRevenue(bookingId: string, now = new Date()): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${bookingId}))) AS booking_lock`;
+    const revenue = await tx.bookingRevenue.findUnique({ where: { bookingId } });
+    if (!revenue || revenue.releasedAt || revenue.releaseAt > now) return false;
+    const openDispute = await tx.dispute.findFirst({ where: { bookingId: revenue.bookingId, status: 'open' } });
+    if (openDispute) return false;
+    await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${revenue.businessWalletId} FOR UPDATE`;
+    const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: revenue.businessWalletId } });
+    if (wallet.pending < revenue.net) throw new Error('Doanh thu pending không đủ để đáo hạn');
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: { pending: { decrement: revenue.net }, available: { increment: revenue.net } },
+    });
+    await tx.bookingRevenue.update({ where: { bookingId: revenue.bookingId }, data: { releasedAt: now } });
+    return true;
+  });
+}
+
 export async function releaseMatureRevenue(now = new Date()): Promise<number> {
   const candidates = await prisma.bookingRevenue.findMany({
     where: { releasedAt: null, releaseAt: { lte: now } },
@@ -33,23 +52,7 @@ export async function releaseMatureRevenue(now = new Date()): Promise<number> {
   });
   let released = 0;
   for (const candidate of candidates) {
-    const didRelease = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${candidate.bookingId}))) AS booking_lock`;
-      const revenue = await tx.bookingRevenue.findUnique({ where: { bookingId: candidate.bookingId } });
-      if (!revenue || revenue.releasedAt || revenue.releaseAt > now) return false;
-      const openDispute = await tx.dispute.findFirst({ where: { bookingId: revenue.bookingId, status: 'open' } });
-      if (openDispute) return false;
-      await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${revenue.businessWalletId} FOR UPDATE`;
-      const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: revenue.businessWalletId } });
-      if (wallet.pending < revenue.net) throw new Error('Doanh thu pending không đủ để đáo hạn');
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { pending: { decrement: revenue.net }, available: { increment: revenue.net } },
-      });
-      await tx.bookingRevenue.update({ where: { bookingId: revenue.bookingId }, data: { releasedAt: now } });
-      return true;
-    });
-    if (didRelease) released += 1;
+    if (await releaseBookingRevenue(candidate.bookingId, now)) released += 1;
   }
   return released;
 }

@@ -27,6 +27,19 @@ export interface ReconciliationRow {
   id: string; direction: 'in' | 'out'; amount: string; rawRef: string; receivedAt: string;
 }
 export interface WalletRow { id: string; walletType: string; available: string; pending: string; reserved: string; currency: string }
+export interface DisputeEligibleRow {
+  bookingId: string; venueId: string; gross: string; endAt: string; deadlineAt: string;
+}
+export interface DisputeRow {
+  id: string; bookingId: string; raiserUserId: string; reason: string; evidence: string[];
+  status: 'open' | 'resolved'; resolution: 'full_refund' | 'partial_refund' | 'rejected' | null;
+  resolutionAmount: string | null; deadlineAt: string; createdAt: string; resolvedAt: string | null;
+  revenue?: { gross: string; net: string; commission: string; endAt: string; releaseAt: string; releasedAt: string | null } | null;
+  ledgerEntries?: Array<{
+    id: string; amount: string; type: string; refType: string; refId: string; before: string; after: string; ts: string;
+    wallet: { walletType: string; userId: string | null };
+  }>;
+}
 
 export const getMyWallets = () => api<WalletRow[]>('/wallets/me');
 export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {
@@ -44,3 +57,10 @@ export const getReconciliationQueue = () => api<ReconciliationRow[]>('/admin/rec
 export const reconcileIncoming = (id: string, userId: string, reason: string) => api(`/admin/reconciliation/${id}/incoming`, { method: 'POST', body: JSON.stringify({ userId, reason }) });
 export const reconcileOutgoing = (id: string, withdrawalRequestId: string, reason: string) => api(`/admin/reconciliation/${id}/outgoing`, { method: 'POST', body: JSON.stringify({ withdrawalRequestId, reason }) });
 export const markOutOfScope = (id: string, reason: string) => api(`/admin/reconciliation/${id}/out-of-scope`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const getEligibleDisputeBookings = () => api<DisputeEligibleRow[]>('/players/me/dispute-eligible');
+export const getMyDisputes = () => api<DisputeRow[]>('/players/me/disputes');
+export const createDispute = (body: { bookingId: string; reason: string; evidence: string[] }) =>
+  api<DisputeRow>('/players/me/disputes', { method: 'POST', body: JSON.stringify(body) });
+export const getAdminDisputes = () => api<DisputeRow[]>('/admin/disputes');
+export const resolveDispute = (id: string, body: { decision: 'full_refund' | 'partial_refund' | 'rejected'; amount?: string; reason: string }) =>
+  api<DisputeRow>(`/admin/disputes/${id}/resolve`, { method: 'POST', body: JSON.stringify(body) });

@@ -29,7 +29,7 @@ không dừng chờ PO 10 lần.
 | 4 | G4 | Claude | **self-verify OK, đã commit `a94701d`** | 32/32 | ✅ (xem §3) | 2026-08-06 |
 | 5 | G5 | Codex | **self-verify OK, D22 review không còn P0/P1/P2** | 24/24 | ✅ (xem §3) | 2026-08-06 |
 | 6 | G6 | Codex | **self-verify OK, D22 review không còn P0/P1** | 26/26 | ✅ (xem §3) | 2026-08-06 |
-| 7 | G7 | Claude | chưa bắt đầu | 0/14 | — | — |
+| 7 | G7 | Codex | **self-verify OK, D22 không còn P0/P1; residual migration đã ghi** | 14/14 | ✅ (xem §3) | 2026-08-06 |
 
 Trạng thái: `chưa bắt đầu` · `đang làm` · `đã test` · `self-verify OK` · `báo cáo PO`.
 PO nghiệm thu ghi ở §5, chỉ cuối phase.
@@ -226,20 +226,20 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-FIN-14-9 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | chốt chi thiếu trả reserved còn lại, không đảo payout |
 | AC-FIN-14-10 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | không thể reject sau khi đã payout một phần |
 | AC-FIN-14-11 | G6 | services/finance-service/test/g6Reconciliation.test.ts | — | pass | chi vượt tách payout + out_of_scope đủ tổng sự kiện |
-| AC-FIN-12-1 | G7 |  |  | todo |  |
-| AC-FIN-12-2 | G7 |  |  | todo |  |
-| AC-FIN-12-3 | G7 |  |  | todo |  |
-| AC-FIN-12-4 | G7 |  |  | todo |  |
-| AC-FIN-12-5 | G7 |  |  | todo |  |
-| AC-FIN-12-6 | G7 |  |  | todo |  |
-| AC-FIN-13-1 | G7 |  |  | todo |  |
-| AC-FIN-13-2 | G7 |  |  | todo |  |
-| AC-FIN-13-3 | G7 |  |  | todo |  |
-| AC-FIN-13-4 | G7 |  |  | todo |  |
-| AC-FIN-13-5 | G7 |  |  | todo |  |
-| AC-FIN-13-6 | G7 |  |  | todo |  |
-| AC-FIN-13-7 | G7 |  |  | todo |  |
-| AC-FIN-13-8 | G7 |  |  | todo |  |
+| AC-FIN-12-1 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | mở dispute trong cửa sổ và scheduler giữ đúng booking pending |
+| AC-FIN-12-2 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | đồng hồ giả lập 30h trả DISPUTE_EXPIRED |
+| AC-FIN-12-3 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | ca chưa kết thúc trả BOOKING_NOT_ENDED |
+| AC-FIN-12-4 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | unique booking + booking lock chặn tranh chấp thứ hai |
+| AC-FIN-12-5 | G7 | services/finance-service/test/g7Dispute.test.ts + services/finance-service/test/g7Http.test.ts | — | pass | chỉ người đã thanh toán booking được gửi |
+| AC-FIN-12-6 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | race đúng mốc 24h lặp 20 lần, chỉ open hoặc release thắng |
+| AC-FIN-13-1 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | hoàn toàn bộ đảo personal/business/platform trong một transaction |
+| AC-FIN-13-2 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | hoàn 80k và release đúng 108k ròng còn lại |
+| AC-FIN-13-3 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | bác không thêm ledger và release toàn bộ net |
+| AC-FIN-13-4 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | chặn hoàn vượt giá trị còn lại |
+| AC-FIN-13-5 | G7 | services/finance-service/test/g7Dispute.test.ts + services/finance-service/test/g7Http.test.ts | — | pass | lý do Admin rỗng bị từ chối |
+| AC-FIN-13-6 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | booking lock + trạng thái resolved chặn quyết định lại |
+| AC-FIN-13-7 | G7 | services/finance-service/test/g7Dispute.test.ts | — | pass | bút toán booking gốc còn nguyên, điều chỉnh dùng ref dispute mới |
+| AC-FIN-13-8 | G7 | services/finance-service/test/g7Dispute.test.ts + services/finance-service/test/g6Reconciliation.test.ts | — | pass | ba quyết định và full-system scenario đều bảo toàn giá trị |
 
 ## 3. Nhật ký thực thi (tất cả milestone — Claude execute)
 
@@ -731,6 +731,36 @@ Prisma validate + migrate deploy, root typecheck 9 workspace và root production
 build đều exit 0. D22 round 2 xác nhận không còn P0/P1; hai residual UX P2 được
 sửa trước gate cuối (`FinancePanel` ẩn khi không có ví business và reload ngay
 sau khi tạo withdrawal).
+
+### G7 — 2026-08-06 — ✅ self-verify OK + D22 không còn P0/P1 (14/14 pass)
+
+**Phạm vi:** FIN-12 và FIN-13. Người chơi chỉ thấy/gửi tranh chấp cho booking
+của mình đã kết thúc nhưng chưa hết 24 giờ; booking đã hủy, kể cả mức hoàn 0%,
+không được tranh chấp để hoàn lần hai. `createDispute` và scheduler dùng chung
+advisory lock theo booking, nên race đúng mốc 24 giờ chỉ có một kết quả thắng.
+
+**Quyết định Admin:** hàng đợi hiển thị lý do, bằng chứng, gross/net/commission
+và lịch sử ledger liên quan. Ba quyết định full refund, partial refund hoặc reject
+đều bắt buộc lý do, ghi audit; hai nhánh hoàn đảo ba vế bằng entry append-only,
+còn phần doanh thu ròng sau quyết định chuyển sang available. Form amount/reason
+được tách riêng từng dispute để tránh dùng nhầm dữ liệu cũ giữa các hồ sơ.
+
+**Bảo toàn cuối gói chạm tiền:** test race chạy 20 lần. Test AC-FIN-14-8 hoàn
+chỉnh phủ nạp, thanh toán bằng balance, thanh toán trực tiếp SePay, hủy hoàn 50%,
+tranh chấp hoàn một phần, release và payout; đo delta tổng tài sản của **mọi ví**
+trong DB, giữ nguyên số sự kiện unmatched toàn hệ thống, và kiểm allocation đủ
+từng sự kiện. Full/partial/rejected đều có proof BR-FIN-15 riêng.
+
+**Điều kiện migration:** `cancelledAt` áp dụng cho schema Phase 1
+clean/pre-production. Môi trường giữ dữ liệu phải backfill các hủy G5 cũ từ lịch
+sử event venue-booking trước khi deploy; riêng hủy 0% không thể suy ra chỉ từ
+ledger refund.
+
+**Bằng chứng fresh gate:** finance-service 12 file, 79/79 test pass tuần tự;
+web 3 file, 5/5 test pass; Prisma validate + 7 migration deploy; root typecheck
+9 workspace, root production build và `git diff --check` đều exit 0. Reviewer
+D22 độc lập xác nhận không còn P0/P1; residual migration đã được ghi caveat và
+residual UI shared input đã được sửa trước commit.
 
 ## 4. Self-verification cuối mỗi milestone
 

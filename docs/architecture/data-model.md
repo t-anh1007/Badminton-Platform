@@ -215,6 +215,8 @@ erDiagram
         timestamptz endAt
         timestamptz releaseAt
         timestamptz releasedAt
+        timestamptz cancelledAt "đã hủy — không còn đủ điều kiện tranh chấp"
+        timestamptz createdAt
     }
     SEPAY_ALLOCATION {
         uuid id PK
@@ -238,13 +240,17 @@ erDiagram
         uuid id PK
         string refType
         uuid refId
-        uuid bookingId "liên kết tới booking — D11 (venue-booking, không FK chéo schema)"
+        uuid bookingId UK "liên kết duy nhất tới booking — D11 (venue-booking, không FK chéo schema)"
         uuid raiserUserId
+        string reason
         jsonb evidence
         enum status "open|resolved"
         string resolution
+        bigint resolutionAmount
         uuid decidedByUserId
         timestamptz deadlineAt "mốc hạn 24 giờ từ lúc ca kết thúc — D11"
+        timestamptz createdAt
+        timestamptz resolvedAt
     }
 ```
 

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { AdminTable } from '../components/AdminTable';
 import { MOCK_ADMIN_PROVIDERS } from '../data/mock';
 import { FinanceAdminPanel } from '../components/FinanceAdminPanel';
+import { DisputeAdminPanel } from '../components/DisputeAdminPanel';
 
-type Tab = 'providers' | 'withdrawals' | 'reconciliation';
+type Tab = 'providers' | 'withdrawals' | 'reconciliation' | 'disputes';
 
 /**
  * Quản trị — DESIGN.md: giao diện TỔNG HỢP các chức năng Admin nằm trong
@@ -37,6 +38,7 @@ export function AdminPage() {
         >
           Yêu cầu rút tiền
         </button>
+        <button type="button" onClick={() => setTab('disputes')} className={`text-caption rounded-full px-4 py-2 ${tab === 'disputes' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'}`}>Tranh chấp</button>
       </div>
 
       {tab === 'providers' ? (
@@ -49,7 +51,8 @@ export function AdminPage() {
           ]}
           rows={MOCK_ADMIN_PROVIDERS}
         />
-      ) : tab === 'withdrawals' ? <FinanceAdminPanel mode="withdrawals" /> : <FinanceAdminPanel mode="reconciliation" />}
+      ) : tab === 'withdrawals' ? <FinanceAdminPanel mode="withdrawals" />
+        : tab === 'reconciliation' ? <FinanceAdminPanel mode="reconciliation" /> : <DisputeAdminPanel />}
     </div>
   );
 }

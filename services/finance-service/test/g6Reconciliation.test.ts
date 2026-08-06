@@ -9,7 +9,7 @@ import { createTopupIntent } from '../src/domain/topup.js';
 import { payBookingWithBalance } from '../src/domain/payment.js';
 import { recordBookingRevenue } from '../src/domain/revenue.js';
 import { refundCancelledBooking } from '../src/domain/refund.js';
-import { releaseMatureRevenue } from '../src/domain/revenueRelease.js';
+import { createDispute, resolveDispute } from '../src/domain/dispute.js';
 import { seedBusinessBalance } from './helpers.js';
 import {
   assignIncomingEvent, assignOutgoingEvent, finalizePartialWithdrawal,
@@ -132,7 +132,11 @@ describe('FIN-14 — đối soát giao dịch chưa khớp', () => {
     expect(await prisma.sepayEvent.count({ where: { id: { in: [inEvent.id, (await prisma.sepayEvent.findUniqueOrThrow({ where: { externalRef: outRef } })).id] }, status: 'unmatched' } })).toBe(0);
   });
 
-  it('AC-FIN-14-8: nạp + balance booking + booking SePay + hoàn 50% + release + payout bảo toàn toàn bộ các vế liên quan', async () => {
+  it('AC-FIN-14-8 gate G7: nạp + hai đường thanh toán + hoàn 50% + tranh chấp + payout bảo toàn hệ thống', async () => {
+    const totalWalletAssets = async () => (await prisma.wallet.findMany())
+      .reduce((sum, wallet) => sum + wallet.available + wallet.pending + wallet.reserved, 0n);
+    const globalWalletBefore = await totalWalletAssets();
+    const unmatchedBefore = await prisma.sepayEvent.count({ where: { status: 'unmatched' } });
     const balanceBookingId = randomUUID();
     const directBookingId = randomUUID();
     const balanceUserId = randomUUID();
@@ -159,23 +163,27 @@ describe('FIN-14 — đối soát giao dịch chưa khớp', () => {
       await handleIncomingTransfer({ externalRef: directRef, amount: 200000n, rawRef: directCode });
 
       await recordBookingRevenue(randomUUID(), { bookingId: balanceBookingId, businessUserId: balanceBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() + 10 * 3_600_000).toISOString(), source: 'marketplace' });
-      await recordBookingRevenue(randomUUID(), { bookingId: directBookingId, businessUserId: directBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() - 25 * 3_600_000).toISOString(), source: 'marketplace' });
+      await recordBookingRevenue(randomUUID(), { bookingId: directBookingId, businessUserId: directBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), source: 'marketplace' });
       await refundCancelledBooking(randomUUID(), { bookingId: balanceBookingId, userId: balanceUserId, businessUserId: balanceBusinessUserId, gross: '200000', refundPercent: 50, reason: 'self' });
-      await releaseMatureRevenue(new Date());
+      const dispute = await createDispute(directUserId, { bookingId: directBookingId, reason: 'Dịch vụ không đúng', evidence: ['proof'] });
+      await resolveDispute(adminId, dispute.id, { decision: 'partial_refund', amount: 80000n, reason: 'Hoàn theo bằng chứng' });
 
       const withdrawal = await createWithdrawal(directBusinessUserId, { amount: 100000n, ...bank });
       const payoutRef = randomUUID();
       await handleOutgoingTransfer({ externalRef: payoutRef, amount: 100000n, rawRef: withdrawal.transferCode });
 
       const personal = await prisma.wallet.findFirstOrThrow({ where: { userId: balanceUserId, walletType: 'personal' } });
+      const directPersonal = await prisma.wallet.findFirstOrThrow({ where: { userId: directUserId, walletType: 'personal' } });
       const balanceBusiness = await prisma.wallet.findFirstOrThrow({ where: { userId: balanceBusinessUserId, walletType: 'business' } });
       const directBusiness = await prisma.wallet.findFirstOrThrow({ where: { userId: directBusinessUserId, walletType: 'business' } });
       const platform = await prisma.wallet.findFirstOrThrow({ where: { walletType: 'platform' } });
-      const platformForScenario = (await prisma.ledgerEntry.findMany({ where: { walletId: platform.id, refId: { in: [balanceBookingId, directBookingId] } } })).reduce((sum, row) => sum + row.amount, 0n);
-      const walletAssets = personal.available + balanceBusiness.pending + balanceBusiness.available + balanceBusiness.reserved + directBusiness.pending + directBusiness.available + directBusiness.reserved + platformForScenario;
+      const platformForScenario = (await prisma.ledgerEntry.findMany({ where: { walletId: platform.id, refId: { in: [balanceBookingId, directBookingId, dispute.id] } } })).reduce((sum, row) => sum + row.amount, 0n);
+      const walletAssets = personal.available + directPersonal.available + balanceBusiness.pending + balanceBusiness.available + balanceBusiness.reserved + directBusiness.pending + directBusiness.available + directBusiness.reserved + platformForScenario;
       const bankNet = 300000n + 200000n - 100000n;
       expect(walletAssets).toBe(bankNet);
-      expect([personal.available, balanceBusiness.pending, directBusiness.available, platformForScenario]).toEqual([200000n, 90000n, 80000n, 30000n]);
+      expect((await totalWalletAssets()) - globalWalletBefore).toBe(bankNet);
+      expect(await prisma.sepayEvent.count({ where: { status: 'unmatched' } })).toBe(unmatchedBefore);
+      expect([personal.available, directPersonal.available, balanceBusiness.pending, directBusiness.available, platformForScenario]).toEqual([200000n, 80000n, 90000n, 8000n, 22000n]);
 
       const events = await prisma.sepayEvent.findMany({ where: { externalRef: { in: [topupRef, directRef, payoutRef] } }, include: { allocations: true } });
       expect(events).toHaveLength(3);

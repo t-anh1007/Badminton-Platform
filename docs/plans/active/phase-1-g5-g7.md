@@ -96,7 +96,7 @@ Out of scope:
 - [x] Implement and verify G5; independent D22 review found no remaining P0/P1/P2.
 - [x] Commit G5 on `TuanAnh` at `854b67a`.
 - [x] Reconcile and implement G6; verify, independently review, and commit G6.
-- [ ] Reconcile and implement G7; verify, independently review, and commit G7.
+- [x] Reconcile and implement G7; verify, independently review, and commit G7.
 - [ ] Implement and pass all eight phase-level Playwright journeys.
 - [ ] Run final repository-wide and finance-conservation gates.
 - [ ] Record final result and move this plan to `docs/plans/completed/`.
@@ -116,6 +116,11 @@ Out of scope:
   disposable local G4 fixtures. Before applying G6 to any retained-data
   environment, create and validate a separate rehydration/backfill for booking
   revenue metadata and legacy SePay allocation counterparts.
+- 2026-08-06: The same clean/pre-production precondition applies to G7's
+  `BookingRevenue.cancelledAt` marker. It protects every cancellation processed
+  after G7; a retained-data deployment must first backfill earlier G5 refunds
+  (including 0% cancellations, which cannot be inferred from refund ledger rows
+  alone) from the venue-booking event history.
 
 ## Validation
 

@@ -9,6 +9,10 @@ import {
   listUnmatchedEvents, markEventOutOfScope,
 } from '../domain/reconciliation.js';
 import { prisma } from '../lib/prisma.js';
+import {
+  createDispute, listAdminDisputes, listEligibleDisputeBookings,
+  listMyDisputes, resolveDispute,
+} from '../domain/dispute.js';
 
 export const financeOperationsRouter = Router();
 const positiveAmount = z.string().regex(/^[1-9]\d*$/);
@@ -19,6 +23,14 @@ const withdrawalSchema = z.object({
   bankAccountName: z.string().trim().min(1),
 });
 const reasonSchema = z.object({ reason: z.string().trim().min(1) });
+const createDisputeSchema = reasonSchema.extend({
+  bookingId: z.string().uuid(), evidence: z.array(z.string().trim().min(1)).max(10).default([]),
+});
+const resolveDisputeSchema = z.discriminatedUnion('decision', [
+  reasonSchema.extend({ decision: z.literal('full_refund') }),
+  reasonSchema.extend({ decision: z.literal('partial_refund'), amount: positiveAmount.transform(BigInt) }),
+  reasonSchema.extend({ decision: z.literal('rejected') }),
+]);
 
 financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
@@ -89,4 +101,45 @@ financeOperationsRouter.post('/admin/reconciliation/:id/out-of-scope', requireAu
   const { reason } = reasonSchema.parse(req.body);
   await markEventOutOfScope(actor, req.params.id!, reason);
   res.json({ id: req.params.id, status: 'out_of_scope' });
+}));
+
+financeOperationsRouter.get('/players/me/dispute-eligible', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const rows = await listEligibleDisputeBookings(userId);
+  res.json(rows.map((row) => ({
+    bookingId: row.bookingId, venueId: row.venueId, gross: row.gross.toString(),
+    endAt: row.endAt, deadlineAt: row.releaseAt,
+  })));
+}));
+
+financeOperationsRouter.get('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const rows = await listMyDisputes(userId);
+  res.json(rows.map((row) => ({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null })));
+}));
+
+financeOperationsRouter.post('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const row = await createDispute(userId, createDisputeSchema.parse(req.body));
+  res.status(201).json({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null });
+}));
+
+financeOperationsRouter.get('/admin/disputes', requireAuth, requireRole('admin'), h(async (_req, res) => {
+  const rows = await listAdminDisputes();
+  res.json(rows.map((row) => ({
+    ...row,
+    resolutionAmount: row.resolutionAmount?.toString() ?? null,
+    revenue: row.revenue ? {
+      ...row.revenue, gross: row.revenue.gross.toString(), net: row.revenue.net.toString(), commission: row.revenue.commission.toString(),
+    } : null,
+    ledgerEntries: row.ledgerEntries.map((entry) => ({
+      ...entry, amount: entry.amount.toString(), before: entry.before.toString(), after: entry.after.toString(),
+    })),
+  })));
+}));
+
+financeOperationsRouter.post('/admin/disputes/:id/resolve', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const actor = (req as AuthenticatedRequest).user!.id;
+  const row = await resolveDispute(actor, req.params.id!, resolveDisputeSchema.parse(req.body));
+  res.json({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null });
 }));

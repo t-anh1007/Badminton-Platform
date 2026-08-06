@@ -1,6 +1,7 @@
 import { Card } from '../components/Card';
 import { MOCK_BOOKING_HISTORY } from '../data/mock';
 import { FinancePanel } from '../components/FinancePanel';
+import { DisputePanel } from '../components/DisputePanel';
 
 export function ProfilePage() {
   return (
@@ -41,6 +42,7 @@ export function ProfilePage() {
           </Card>
         ))}
       </div>
+      <DisputePanel />
       <FinancePanel />
     </div>
   );

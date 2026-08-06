@@ -117,8 +117,12 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
       });
       await tx.bookingRevenue.updateMany({
         where: { bookingId: payload.bookingId },
-        data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal } },
+        data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal }, cancelledAt: new Date() },
       });
+    } else {
+      // Refund 0% vẫn là booking đã hủy và tuyệt đối không được mở tranh chấp
+      // sau giờ chơi để nhận thêm một khoản hoàn lần hai.
+      await tx.bookingRevenue.updateMany({ where: { bookingId: payload.bookingId }, data: { cancelledAt: new Date() } });
     }
     await tx.processedEvent.create({ data: { eventId } });
   });
