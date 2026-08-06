@@ -12,6 +12,11 @@ export default defineConfig({
 function apiProxy() {
   return {
     proxy: {
+      '/api/account': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/api\/account/, ''),
+      },
       '/api/venue': {
         target: 'http://localhost:3002',
         changeOrigin: true,

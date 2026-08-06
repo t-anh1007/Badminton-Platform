@@ -5,6 +5,7 @@
 node_modules/
 dist/
 *.tsbuildinfo
+output/
 
 # Env (giữ .env.example, bỏ .env thật)
 .env

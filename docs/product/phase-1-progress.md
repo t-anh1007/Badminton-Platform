@@ -1,7 +1,7 @@
 ---
 type: progress-log + test-ledger
 phase: 1
-status: in-progress
+status: implemented-awaiting-po-acceptance
 updated: 2026-08-06
 purpose: Bằng chứng bàn giao GĐ1 — trạng thái milestone + test ledger từng AC (198 dòng). KHÁC coverage-matrix.md (file kia theo dõi spec đã duyệt; file này theo dõi implementation đã test pass).
 ---
@@ -24,7 +24,7 @@ không dừng chờ PO 10 lần.
 | 0b | G0 | Claude | **self-verify OK** | — (12/12 thay đổi) | ✅ (xem §3) | 2026-08-06 |
 | 0c | Gdesign | Claude | **self-verify OK** | — (5/5 proof) | ✅ (xem §3) | 2026-08-06 |
 | 1 | G1 | Claude | **self-verify OK** | 34/34 (08-3 xong ở G2, 08-4 xong ở G3, 02-5 xong ở G4) | ✅ (xem §3) | 2026-08-06 |
-| 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận) | ✅ (xem §3) | 2026-08-06 |
+| 2 | G2 | Claude | **self-verify OK; 2 AC cross-service đã đóng tại G4/final E2E** | 43/43 | ✅ (xem §3) | 2026-08-06 |
 | 3 | G3 | Claude | **self-verify OK** | 25/25 | ✅ (xem §3) | 2026-08-06 |
 | 4 | G4 | Claude | **self-verify OK, đã commit `a94701d`** | 32/32 | ✅ (xem §3) | 2026-08-06 |
 | 5 | G5 | Codex | **self-verify OK, D22 review không còn P0/P1/P2** | 24/24 | ✅ (xem §3) | 2026-08-06 |
@@ -80,10 +80,10 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-VEN-01-2 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
 | AC-VEN-01-3 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
 | AC-VEN-01-4 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
-| AC-VEN-02-1 | G2 |  |  | blocked | BLOCKED — chờ PO xác nhận phạm vi cross-service (event ProviderApproved chưa có trong catalog; sửa account-service ngoài scope boundary G2 đã ghi). Đã hỏi Codex, khuyến nghị xin PO xác nhận. Phần venue-only (status pending->approved) đã pass ở test bổ sung trong provider.test.ts. |
+| AC-VEN-02-1 | G2/G4 | services/venue-booking-service/test/provider.test.ts + services/account-service/test/providerRole.test.ts + services/finance-service/test/g4Saga.test.ts | e2e/phase-1.spec.ts (HT2) | pass | D25 đã phê duyệt `ProviderApproved`; test xuyên venue/account/finance chứng minh cộng vai `provider`, giữ vai `player` và tạo ví `business` số dư 0. |
 | AC-VEN-02-2 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
 | AC-VEN-02-3 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
-| AC-VEN-02-4 | G2 |  |  | blocked | BLOCKED — cần G3 (booking flow) + G4 (finance payment/wallet debit) để thực sự "đặt sân... trừ ví cá nhân". |
+| AC-VEN-02-4 | G2/G4 | services/venue-booking-service/test/provider.test.ts + services/finance-service/test/g4Saga.test.ts | e2e/phase-1.spec.ts (HT2, HT3) | pass | NCC đã duyệt vẫn đặt sân dưới vai người chơi; luồng thanh toán trừ ví `personal`, không dùng ví `business`. |
 | AC-VEN-02-5 | G2 | services/venue-booking-service/test/provider.test.ts | — | pass | services/venue-booking-service/test/provider.test.ts |
 | AC-VEN-03-1 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
 | AC-VEN-03-2 | G2 | services/venue-booking-service/test/venue.test.ts | — | pass | services/venue-booking-service/test/venue.test.ts |
@@ -764,23 +764,37 @@ residual UI shared input đã được sửa trước commit.
 
 ## 4. Self-verification cuối mỗi milestone
 
-_(mỗi milestone: kết quả review diff, kiểm scope không lệch, và xác nhận đủ điều kiện sang gói kế —
-Claude ghi tại đây)_
+### Gate cuối Phase 1 — 2026-08-06 — ✅ implemented, chờ PO nghiệm thu
+
+- Ledger có đúng 198 dòng AC và 198/198 ở trạng thái `pass`; không còn
+  `todo`, `blocked` hoặc `fail`.
+- `npm test --workspaces --if-present` xanh trên schema venue sạch riêng:
+  account 35 pass/2 skip, finance 79/79, venue 104/104 và web 5/5.
+- `npm run e2e` xanh 8/8 hành trình Chromium; mỗi hành trình sinh trace tại
+  `output/playwright/test-results/` (artifact runtime không commit).
+- `npm run typecheck`, `npm run build`, Prisma validate cho 5 schema,
+  Prisma migrate deploy hiện hành và `git diff --check` đều exit 0.
+- Gate finance bao gồm kiểm tra trực tiếp `LEDGER_ENTRY`, conservation toàn hệ
+  thống, refund/reversal, payout, reconciliation, idempotency và race boundary.
+
+Schema venue cục bộ lâu ngày có nhiều fixture không được dọn nên 5 test search
+chạm timeout 15 giây; cùng suite xanh 104/104 trong 12,56 giây trên schema sạch
+`venue_gate_20260806_repository`. Không xóa hay thay đổi dữ liệu schema hiện hành.
 
 ## 5. PO nghiệm thu (chỉ cuối phase hoặc khi escalation)
 
-_(để trống tới khi cả 198 AC pass, 8 E2E phase-level xanh và kiểm thử độc lập cuối phase xong;
-PO ký nhận tại đây)_
+Implementation gate đã đủ 198/198 AC và 8/8 E2E. Phần này vẫn để PO ký nhận;
+Codex không tự ghi nhận nghiệm thu hoặc merge vào `main`.
 
 ## 6. Playwright E2E phase-level (8 hành trình)
 
 | # | Hành trình | Chạm gói | Spec file | Status | Trace/evidence |
 |---|---|---|---|---|---|
-| 1 | Đăng ký → xác minh → đăng nhập → cập nhật hồ sơ | G1 |  | todo |  |
-| 2 | Đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá | G1,G2 |  | todo |  |
-| 3 | Tìm sân → giữ slot → thanh toán → booking confirmed | G3,G4 |  | todo |  |
-| 4 | Tự hủy và hoàn tiền theo bậc | G5 |  | todo |  |
-| 5 | Phía sân hủy và hoàn 100% | G5 |  | todo |  |
-| 6 | Doanh thu pending → available → rút tiền | G6 |  | todo |  |
-| 7 | Tranh chấp trong 24 giờ → Admin xử lý | G7 |  | todo |  |
-| 8 | Đối soát giao dịch chưa khớp | G6 |  | todo |  |
+| 1 | Đăng ký → xác minh → đăng nhập → cập nhật hồ sơ | G1 | e2e/phase-1.spec.ts | pass | Playwright HT1; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 2 | Đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá | G1,G2 | e2e/phase-1.spec.ts | pass | Playwright HT2; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 3 | Tìm sân → giữ slot → thanh toán → booking confirmed | G3,G4 | e2e/phase-1.spec.ts | pass | Playwright HT3; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 4 | Tự hủy và hoàn tiền theo bậc | G5 | e2e/phase-1.spec.ts | pass | Playwright HT4; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 5 | Phía sân hủy và hoàn 100% | G5 | e2e/phase-1.spec.ts | pass | Playwright HT5; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 6 | Doanh thu pending → available → rút tiền | G6 | e2e/phase-1.spec.ts | pass | Playwright HT6; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 7 | Tranh chấp trong 24 giờ → Admin xử lý | G7 | e2e/phase-1.spec.ts | pass | Playwright HT7; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+| 8 | Đối soát giao dịch chưa khớp | G6 | e2e/phase-1.spec.ts | pass | Playwright HT8; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |

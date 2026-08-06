@@ -47,9 +47,9 @@ export function BookingCancellationPanel() {
     if (!pendingCancellation) return;
     try {
       const result = await cancelMyBooking(pendingCancellation.booking.id);
-      setMessage(`Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`);
       setPendingCancellation(null);
       await loadBookings();
+      setMessage(`Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Không thể hủy booking.');
     }

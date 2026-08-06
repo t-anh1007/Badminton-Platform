@@ -4,7 +4,7 @@ Date: 2026-08-06
 
 ## Status
 
-Active
+Completed
 
 ## Outcome
 
@@ -97,9 +97,9 @@ Out of scope:
 - [x] Commit G5 on `TuanAnh` at `854b67a`.
 - [x] Reconcile and implement G6; verify, independently review, and commit G6.
 - [x] Reconcile and implement G7; verify, independently review, and commit G7.
-- [ ] Implement and pass all eight phase-level Playwright journeys.
-- [ ] Run final repository-wide and finance-conservation gates.
-- [ ] Record final result and move this plan to `docs/plans/completed/`.
+- [x] Implement and pass all eight phase-level Playwright journeys.
+- [x] Run final repository-wide and finance-conservation gates.
+- [x] Record final result and move this plan to `docs/plans/completed/`.
 
 ## Decisions
 
@@ -134,4 +134,10 @@ Out of scope:
 
 ## Result
 
-Pending implementation and fresh verification.
+Completed on branch `TuanAnh`. G5, G6, and G7 were committed independently;
+the final gate adds real account UI integration plus eight Playwright journeys.
+The authoritative ledger records 198/198 AC passing. Fresh verification passed:
+account 35 tests (2 skipped), finance 79, venue 104 on an isolated clean schema,
+web 5, Playwright 8/8, root typecheck/build, Prisma validation/deploy, and the
+finance conservation scenario. The retained-data migration caveats above remain
+deployment preconditions; PO acceptance and merge to `main` remain with the user.

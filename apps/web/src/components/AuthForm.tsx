@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { login, register, verifyEmail } from '../lib/accountApi';
 
 type Mode = 'login' | 'register' | 'verify';
 
@@ -8,19 +9,32 @@ const TITLES: Record<Mode, string> = {
   verify: 'Xác minh email',
 };
 
-/**
- * Form auth — baseline cho ACC-01 (đăng ký), ACC-02 (xác minh), ACC-03
- * (đăng nhập). Chỉ UI khung + trạng thái lỗi/thành công giả lập — chưa gọi
- * API thật (thuộc G1).
- */
+/** ACC-01..03: đăng ký, xác minh và đăng nhập qua account-service thật. */
 export function AuthForm() {
   const [mode, setMode] = useState<Mode>('login');
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [code, setCode] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Gdesign: chỉ mô phỏng trạng thái, logic thật thuộc G1.
-    setStatus('success');
+    try {
+      if (mode === 'register') {
+        const result = await register({ email, password, displayName });
+        setMessage(result.message); setMode('verify');
+      } else if (mode === 'verify') {
+        const result = await verifyEmail({ email, code });
+        setMessage(result.message); setMode('login');
+      } else {
+        const session = await login({ email, password });
+        window.localStorage.setItem('accessToken', session.accessToken);
+        window.localStorage.setItem('refreshToken', session.refreshToken);
+        window.localStorage.setItem('roles', JSON.stringify(session.roles));
+        setMessage('Đăng nhập thành công.');
+      }
+    } catch (error) { setMessage((error as Error).message); }
   };
 
   return (
@@ -32,7 +46,7 @@ export function AuthForm() {
             type="button"
             onClick={() => {
               setMode(m);
-              setStatus('idle');
+              setMessage('');
             }}
             className={`rounded-full px-3 py-1 text-caption transition-colors ${
               mode === m ? 'bg-primary-navy text-on-dark' : 'bg-bg-light text-text-primary/60'
@@ -51,6 +65,8 @@ export function AuthForm() {
           <input
             type="email"
             required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             placeholder="ban@vidu.com"
             className="rounded-lg border border-slate/20 px-3 py-2 outline-none focus:border-primary-blue"
           />
@@ -62,9 +78,18 @@ export function AuthForm() {
             <input
               type="password"
               required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
               className="rounded-lg border border-slate/20 px-3 py-2 outline-none focus:border-primary-blue"
             />
+          </label>
+        )}
+
+        {mode === 'register' && (
+          <label className="text-body flex flex-col gap-1">
+            Tên hiển thị
+            <input type="text" required value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Nguyễn Văn A" className="rounded-lg border border-slate/20 px-3 py-2 outline-none focus:border-primary-blue" />
           </label>
         )}
 
@@ -74,6 +99,8 @@ export function AuthForm() {
             <input
               type="text"
               required
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
               placeholder="6 chữ số"
               className="text-figures rounded-lg border border-slate/20 px-3 py-2 outline-none focus:border-primary-blue"
             />
@@ -87,11 +114,7 @@ export function AuthForm() {
           {TITLES[mode]}
         </button>
 
-        {status === 'success' && (
-          <p className="text-body rounded-lg bg-court-green/10 px-3 py-2 text-court-green">
-            Thành công (mock) — logic thật thuộc G1.
-          </p>
-        )}
+        {message && <p role="status" className="text-body rounded-lg bg-court-green/10 px-3 py-2 text-court-green">{message}</p>}
       </form>
     </div>
   );
