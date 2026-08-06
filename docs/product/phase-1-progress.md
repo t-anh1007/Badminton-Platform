@@ -26,8 +26,8 @@ không dừng chờ PO 10 lần.
 | 1 | G1 | Claude | **self-verify OK** | 34/34 (08-3 xong ở G2, 08-4 xong ở G3, 02-5 xong ở G4) | ✅ (xem §3) | 2026-08-06 |
 | 2 | G2 | Claude | **self-verify OK** | 41/43 (2 blocked, chờ PO xác nhận) | ✅ (xem §3) | 2026-08-06 |
 | 3 | G3 | Claude | **self-verify OK** | 25/25 | ✅ (xem §3) | 2026-08-06 |
-| 4 | G4 | Claude | self-verify OK, **chờ commit** (đã sửa xong sau Codex review, chờ PO tự review lại) | 32/32 | ✅ (xem §3) | 2026-08-06 |
-| 5 | G5 | Claude | chưa bắt đầu | 0/24 | — | — |
+| 4 | G4 | Claude | **self-verify OK, đã commit `a94701d`** | 32/32 | ✅ (xem §3) | 2026-08-06 |
+| 5 | G5 | Codex | **self-verify OK, D22 review không còn P0/P1/P2** | 24/24 | ✅ (xem §3) | 2026-08-06 |
 | 6 | G6 | Claude | chưa bắt đầu | 0/26 | — | — |
 | 7 | G7 | Claude | chưa bắt đầu | 0/14 | — | — |
 
@@ -176,30 +176,30 @@ PO nghiệm thu ghi ở §5, chỉ cuối phase.
 | AC-FIN-09-1 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
 | AC-FIN-09-2 | G4 | services/finance-service/test/g4Saga.test.ts (ba vế cân bằng, kiểm trực tiếp LEDGER_ENTRY) | — | pass | services/finance-service/test/g4Saga.test.ts |
 | AC-FIN-09-3 | G4 | services/finance-service/test/g4Saga.test.ts | — | pass | services/finance-service/test/g4Saga.test.ts |
-| AC-BOK-09-1 | G5 |  |  | todo |  |
-| AC-BOK-09-2 | G5 |  |  | todo |  |
-| AC-BOK-09-3 | G5 |  |  | todo |  |
-| AC-BOK-09-4 | G5 |  |  | todo |  |
-| AC-BOK-09-5 | G5 |  |  | todo |  |
-| AC-BOK-09-6 | G5 |  |  | todo |  |
-| AC-BOK-09-7 | G5 |  |  | todo |  |
-| AC-BOK-10-1 | G5 |  |  | todo |  |
-| AC-BOK-10-2 | G5 |  |  | todo |  |
-| AC-BOK-10-3 | G5 |  |  | todo |  |
-| AC-BOK-10-4 | G5 |  |  | todo |  |
-| AC-BOK-10-5 | G5 |  |  | todo |  |
-| AC-BOK-10-6 | G5 |  |  | todo |  |
-| AC-FIN-07-1 | G5 |  |  | todo |  |
-| AC-FIN-07-2 | G5 |  |  | todo |  |
-| AC-FIN-07-3 | G5 |  |  | todo |  |
-| AC-FIN-07-4 | G5 |  |  | todo |  |
-| AC-FIN-07-5 | G5 |  |  | todo |  |
-| AC-FIN-07-6 | G5 |  |  | todo |  |
-| AC-FIN-08-1 | G5 |  |  | todo |  |
-| AC-FIN-08-2 | G5 |  |  | todo |  |
-| AC-FIN-08-3 | G5 |  |  | todo |  |
-| AC-FIN-08-4 | G5 |  |  | todo |  |
-| AC-FIN-08-5 | G5 |  |  | todo |  |
+| AC-BOK-09-1 | G5 | services/venue-booking-service/test/cancellation.test.ts + services/finance-service/test/refund.test.ts | — | pass | HTTP hủy 100% + LEDGER_ENTRY đảo ba vế |
+| AC-BOK-09-2 | G5 | services/venue-booking-service/test/cancellation.test.ts + services/finance-service/test/refund.test.ts | — | pass | HTTP hủy 50% + LEDGER_ENTRY đảo ba vế |
+| AC-BOK-09-3 | G5 | services/venue-booking-service/test/cancellation.test.ts + services/finance-service/test/refund.test.ts | — | pass | HTTP hủy 0% + không có refund entry |
+| AC-BOK-09-4 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | booking cancelled không còn chặn slot |
+| AC-BOK-09-5 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | từ chối khi ca đã bắt đầu |
+| AC-BOK-09-6 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | dùng policySnapshot cũ |
+| AC-BOK-09-7 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | updateMany có điều kiện + một Outbox event |
+| AC-BOK-10-1 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | đổi courtId, giữ giờ/giá/status |
+| AC-BOK-10-2 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | sân bận không xuất hiện trong danh sách thay thế |
+| AC-BOK-10-3 | G5 | services/venue-booking-service/test/cancellation.test.ts + services/finance-service/test/refund.test.ts | — | pass | provider_fault luôn refundPercent=100 + đảo ba vế |
+| AC-BOK-10-4 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | reason rỗng bị Zod từ chối |
+| AC-BOK-10-5 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | provider khác nhận FORBIDDEN_NOT_OWNER |
+| AC-BOK-10-6 | G5 | services/venue-booking-service/test/cancellation.test.ts | — | pass | courtChangedAt sinh ghi chú chi tiết booking |
+| AC-FIN-07-1 | G5 | services/finance-service/test/refund.test.ts | — | pass | personal +200k, business.pending đảo -180k, platform -20k |
+| AC-FIN-07-2 | G5 | services/finance-service/test/refund.test.ts | — | pass | personal +100k, business.pending còn 90k |
+| AC-FIN-07-3 | G5 | services/finance-service/test/refund.test.ts | — | pass | không refund, pending/commission giữ nguyên |
+| AC-FIN-07-4 | G5 | services/finance-service/test/refund.test.ts | — | pass | platform giữ đúng 10k sau hoàn 50% |
+| AC-FIN-07-5 | G5 | services/finance-service/test/refund.test.ts | — | pass | kiểm bảo toàn 200k cho cả ba mức |
+| AC-FIN-07-6 | G5 | services/finance-service/test/refund.test.ts | — | pass | replay cùng event không thêm ledger entry |
+| AC-FIN-08-1 | G5 | services/finance-service/test/refund.test.ts | — | pass | provider_fault hoàn personal 100% |
+| AC-FIN-08-2 | G5 | services/finance-service/test/refund.test.ts | — | pass | business.pending về giá trị trước booking |
+| AC-FIN-08-3 | G5 | services/finance-service/test/refund.test.ts | — | pass | platform commission bị đảo đủ |
+| AC-FIN-08-4 | G5 | services/finance-service/test/refund.test.ts | — | pass | ba vế sau hủy = 200k, toàn bộ ở personal |
+| AC-FIN-08-5 | G5 | services/finance-service/test/refund.test.ts | — | pass | bút toán gốc còn nguyên; điều chỉnh là entry mới |
 | AC-FIN-09-4 | G6 |  |  | todo |  |
 | AC-FIN-09-5 | G6 |  |  | todo |  |
 | AC-FIN-09-6 | G6 |  |  | todo |  |
@@ -672,8 +672,35 @@ pass (thêm test double-pay đồng thời, overpay, ví platform đồng thời
 ProviderApproved qua queue thật).
 
 _(Milestone kế: G5 — Hủy, hoàn tiền và điều chỉnh (24 AC) song song G6 — Doanh thu, đối soát, tranh
-chấp (26 AC), theo đồ thị phụ thuộc của master goal. **G4 chưa commit** — chờ PO tự chạy lại Codex
-review lần nữa theo đúng model đã chỉ định.)_
+chấp (26 AC), theo đồ thị phụ thuộc của master goal. G4 đã commit tại `a94701d`.)_
+
+### G5 — 2026-08-06 — ✅ self-verify OK + D22 review sạch (24/24 pass)
+
+**Phạm vi:** BOK-09, BOK-10, FIN-07, FIN-08. Người chơi tự hủy theo đúng
+`policySnapshot` ở ba bậc 100/50/0; phía sân đổi sân con cùng cơ sở hoặc hủy có
+lý do và hoàn 100%. `BookingCancelled` đi qua Outbox; finance consumer idempotent
+đảo đủ ba vế bằng bút toán append-only.
+
+**Bổ sung schema có phê duyệt PO:** `Booking.courtChangedAt` nullable là dấu tối
+thiểu để AC-BOK-10-6 hiển thị ghi chú đổi sân. Không lưu lịch sử sân cũ và không
+mở rộng chính sách D12.
+
+**UI:** `BookingPage` có khu vực booking của người chơi (tải danh sách, xem mức
+hoàn và hủy) cùng khu vực provider tìm sân thay thế, đổi sân con hoặc hủy kèm lý
+do. API client mặc định gọi same-origin `/api/venue`, có proxy cho Vite dev/preview;
+triển khai khác origin dùng `VITE_VENUE_BOOKING_URL` cùng allowlist `WEB_ORIGIN`.
+
+**Bằng chứng self-verify sau remediation D22:** venue-booking-service 104/104 pass;
+finance-service 41/41 pass sạch (gồm saga RabbitMQ thật); test UI G5 1/1 pass;
+root typecheck 9 workspace, root production build, migration deploy và
+`git diff --check` đều exit 0. Test tài chính đọc trực tiếp
+`LEDGER_ENTRY`/delta ví platform và chứng minh tổng ba vế riêng booking luôn bằng
+200.000 ở cả ba mức hoàn; replay kể cả event ID mới không sinh entry mới; payload
+không khớp payment/release/commission bị từ chối và bút toán G4 còn nguyên.
+
+**D22:** reviewer Codex độc lập xác nhận không còn P0/P1/P2 sau hai vòng
+remediation. Residual không chặn: test UI hiện ở mức component/SSR; tương tác
+browser thật được giữ trong tám hành trình Playwright của gate cuối phase.
 
 ## 4. Self-verification cuối mỗi milestone
 

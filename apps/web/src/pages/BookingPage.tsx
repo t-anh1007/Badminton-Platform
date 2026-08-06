@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SlotGrid } from '../components/SlotGrid';
 import { MOCK_COURTS } from '../data/mock';
+import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
 
 /** Đếm ngược giữ chỗ 10 phút — baseline UI, logic thật (Redis) thuộc G3. */
 function HoldCountdown() {
@@ -49,6 +50,7 @@ export function BookingPage() {
           Tiếp tục (mock)
         </button>
       </div>
+      <BookingCancellationPanel />
     </div>
   );
 }

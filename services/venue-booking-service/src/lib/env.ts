@@ -9,4 +9,8 @@ export const env = {
   databaseUrl: required('VENUE_BOOKING_DATABASE_URL'),
   rabbitmqUrl: process.env.RABBITMQ_URL ?? 'amqp://guest:guest@localhost:5672',
   jwtSecret: process.env.JWT_SECRET ?? 'change-me-in-real-env',
+  webOrigins: (process.env.WEB_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };

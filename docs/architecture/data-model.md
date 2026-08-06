@@ -131,6 +131,7 @@ erDiagram
         jsonb policySnapshot
         bigint priceSnapshot
         timestamptz createdAt
+        timestamptz courtChangedAt "nullable — BOK-10-6, dấu booking đã được phía sân đổi sân con"
     }
 ```
 **Chống đặt trùng:** `EXCLUDE` constraint trên `(courtId, timeRange)` cho booking `confirmed` + advisory lock khi tạo hold.

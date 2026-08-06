@@ -218,6 +218,9 @@ model Booking {
   /// có còn "trong hạn" hay không khi PaymentCompleted / payment-status đến,
   /// mà không cần lưu lại Hold đã dùng.
   holdExpiresAt DateTime? @db.Timestamptz(3)
+  /// BOK-10-6: dấu tối thiểu để chi tiết booking thông báo rằng phía sân đã
+  /// chuyển booking sang sân con khác. PO duyệt bổ sung schema ngày 2026-08-06.
+  courtChangedAt DateTime? @db.Timestamptz(3)
 
   @@map("bookings")
 }

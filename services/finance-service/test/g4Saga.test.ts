@@ -26,6 +26,7 @@ import { bootstrapEventConsumption as vbConsume } from '../../venue-booking-serv
 import { bootstrapEventPublishing as vbPublish } from '../../venue-booking-service/src/lib/rabbitmq.js';
 import { createHold } from '../../venue-booking-service/src/domain/hold.js';
 import { createBookingFromHold } from '../../venue-booking-service/src/domain/booking.js';
+import { cancelBookingByPlayer } from '../../venue-booking-service/src/domain/cancellation.js';
 import { approveProvider } from '../../venue-booking-service/src/domain/provider.js';
 import { createApprovedProvider, makeCourtSearchable, fakeUserId as vbFakeUserId } from '../../venue-booking-service/test/helpers.js';
 
@@ -277,6 +278,35 @@ describe('G4-fix P1: chống double-pay bằng số dư (khóa ví + unique inde
     expect(wallet!.available).toBe(300000n); // 500k - 200k (đúng MỘT lần)
     const payments = await prisma.ledgerEntry.findMany({ where: { refId: booking.id, type: 'payment' } });
     expect(payments).toHaveLength(1);
+  }, IT_TIMEOUT_MS);
+});
+
+describe('G5 contract: BookingCancelled qua Outbox/RabbitMQ -> finance refund ledger', () => {
+  it('tu huy booking da thanh toan tao refund va dao ba ve qua queue that', async () => {
+    const { userId, booking } = await setupHeldBooking(200000);
+    await seedPersonalBalance(userId, 300000n);
+    await payBookingWithBalance(userId, booking.id);
+    await waitFor(
+      () => vbPrisma.booking.findUniqueOrThrow({ where: { id: booking.id } }),
+      (value) => value.status === 'confirmed',
+    );
+    await waitFor(
+      () => prisma.ledgerEntry.count({ where: { refId: booking.id, type: 'release' } }),
+      (count) => count === 1,
+    );
+
+    const cancellation = await cancelBookingByPlayer(userId, booking.id);
+    const expectedRefund = 200000n * BigInt(cancellation.refundPercent) / 100n;
+    const refundEntries = await waitFor(
+      () => prisma.ledgerEntry.findMany({ where: { refId: booking.id, type: 'refund' } }),
+      (entries) => expectedRefund === 0n ? entries.length === 0 : entries.length === 3,
+    );
+
+    const personal = await prisma.wallet.findFirstOrThrow({ where: { userId, walletType: 'personal' } });
+    expect(personal.available).toBe(100000n + expectedRefund);
+    if (expectedRefund > 0n) {
+      expect(refundEntries.reduce((sum, entry) => sum + entry.amount, 0n)).toBe(0n);
+    }
   }, IT_TIMEOUT_MS);
 });
 

@@ -11,6 +11,25 @@ afterAll(async () => {
 
 const app = createApp();
 
+describe('browser deployment boundary', () => {
+  it('allows the configured web origin to call the service and preflight credentials', async () => {
+    const response = await request(app)
+      .options('/players/me/bookings')
+      .set('Origin', 'http://localhost:5173')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization,content-type');
+
+    expect(response.status).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(response.headers['access-control-allow-headers'].toLowerCase()).toContain('authorization');
+  });
+
+  it('does not reflect an unconfigured origin', async () => {
+    const response = await request(app).get('/health').set('Origin', 'https://untrusted.example');
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});
+
 function tomorrowAt(hour: number) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + 1);

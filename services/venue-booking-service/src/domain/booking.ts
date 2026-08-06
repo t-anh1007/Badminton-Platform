@@ -95,7 +95,7 @@ export async function listMyBookings(userId: string) {
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */
 export async function getMyBookingDetail(userId: string, bookingId: string) {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { court: { include: { venue: true } } } });
   if (!booking || booking.source !== 'marketplace') {
     throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
   }
@@ -104,5 +104,9 @@ export async function getMyBookingDetail(userId: string, bookingId: string) {
   }
   const hoursUntilStart = (booking.startAt.getTime() - Date.now()) / 3_600_000;
   // BR-BOK-06: đọc từ policySnapshot của CHÍNH booking, không phải hằng hiện hành.
-  return { booking, expectedRefundPercent: getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart) };
+  return {
+    booking,
+    expectedRefundPercent: getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart),
+    courtChangeNote: booking.courtChangedAt ? 'Booking đã được phía sân chuyển sang sân con khác.' : null,
+  };
 }

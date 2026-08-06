@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
 
 const HOLD_DURATION_MS = 10 * 60_000; // BR-BOK-02
 
@@ -53,6 +54,7 @@ export async function createHold(userId: string, input: CreateHoldInput) {
   try {
     return await prisma.$transaction(async (tx) => {
       const now = new Date();
+      await lockCourtSchedule(tx, input.courtId);
 
       // Reap hold hết hạn của CHÍNH sân này — giữ đúng nghĩa cho EXCLUDE
       // constraint vô điều kiện (xem migration): mọi dòng còn lại trong bảng

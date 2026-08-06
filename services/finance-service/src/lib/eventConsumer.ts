@@ -5,8 +5,14 @@ import { env } from './env.js';
 import { handleUserRegistered, handleProviderApproved } from '../domain/walletProvisioning.js';
 import { recordBookingRevenue } from '../domain/revenue.js';
 import { creditLatePayment } from '../domain/latePayment.js';
+import { refundCancelledBooking, type BookingCancelledPayload } from '../domain/refund.js';
 
 const QUEUE_NAME = 'finance.domain-events';
+
+/** G5 FIN-07/08 — public entrypoint shared by RabbitMQ and integration tests. */
+export async function handleBookingCancelled(eventId: string, payload: unknown): Promise<void> {
+  await refundCancelledBooking(eventId, payload);
+}
 
 function eventIdOf(msg: ConsumeMessage): string {
   // BUG tự phát hiện ở G4 — xem giải thích đầy đủ ở
@@ -32,6 +38,8 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
       await recordBookingRevenue(eventId, envelope.payload as { bookingId: string; businessUserId: string; gross: string });
     } else if (envelope.type === 'PaymentTooLate') {
       await creditLatePayment(eventId, envelope.payload as { bookingId: string; userId: string | null; amount: string });
+    } else if (envelope.type === 'BookingCancelled') {
+      await handleBookingCancelled(eventId, envelope.payload);
     }
     channel.ack(msg);
   } catch (err) {
@@ -49,9 +57,20 @@ export async function bootstrapEventConsumption(): Promise<() => Promise<void>> 
   await channel.bindQueue(QUEUE_NAME, 'domain-events', 'ProviderApproved');
   await channel.bindQueue(QUEUE_NAME, 'domain-events', 'BookingConfirmed');
   await channel.bindQueue(QUEUE_NAME, 'domain-events', 'PaymentTooLate');
-  await channel.consume(QUEUE_NAME, (msg) => void onMessage(channel, msg));
+  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'BookingCancelled');
+  const inFlight = new Set<Promise<void>>();
+  const { consumerTag } = await channel.consume(QUEUE_NAME, (msg) => {
+    const task = onMessage(channel, msg);
+    inFlight.add(task);
+    void task.finally(() => inFlight.delete(task));
+  });
 
   return async () => {
+    // Stop new deliveries first, then let ack/nack for current messages finish
+    // before closing the channel. This keeps test/runtime shutdown from calling
+    // nack on an already closed channel.
+    await channel.cancel(consumerTag);
+    await Promise.allSettled([...inFlight]);
     await channel.close();
     await connection.close();
   };

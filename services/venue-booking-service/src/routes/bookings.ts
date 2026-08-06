@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { h } from './handler.js';
 import { createBookingFromHold, getPaymentStatus, listMyBookings, getMyBookingDetail } from '../domain/booking.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireRole } from '../middleware/auth.js';
+import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
 export const bookingRouter = Router();
 
@@ -25,6 +27,16 @@ bookingRouter.post(
     const userId = (req as AuthenticatedRequest).user!.id;
     const booking = await createBookingFromHold(userId, holdId);
     res.status(201).json(serializeBooking(booking));
+  }),
+);
+
+bookingRouter.post(
+  '/admin/bookings/:id/cancel',
+  requireAuth,
+  requireRole('admin'),
+  h(async (req, res) => {
+    const { reason } = providerCancelSchema.parse(req.body);
+    res.status(200).json(await cancelBookingByAdmin(req.params.id!, reason));
   }),
 );
 
@@ -58,6 +70,49 @@ bookingRouter.get(
   h(async (req, res) => {
     const userId = (req as AuthenticatedRequest).user!.id;
     const result = await getMyBookingDetail(userId, req.params.id!);
-    res.status(200).json({ booking: serializeBooking(result.booking), expectedRefundPercent: result.expectedRefundPercent });
+    res.status(200).json({ booking: serializeBooking(result.booking), expectedRefundPercent: result.expectedRefundPercent, courtChangeNote: result.courtChangeNote });
+  }),
+);
+
+bookingRouter.post(
+  '/players/me/bookings/:id/cancel',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(await cancelBookingByPlayer(userId, req.params.id!));
+  }),
+);
+
+bookingRouter.get(
+  '/providers/bookings/:id/replacement-courts',
+  requireAuth,
+  requireRole('provider'),
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json({ courts: await listReplacementCourts(userId, req.params.id!) });
+  }),
+);
+
+const changeCourtSchema = z.object({ courtId: z.string().uuid() });
+bookingRouter.post(
+  '/providers/bookings/:id/change-court',
+  requireAuth,
+  requireRole('provider'),
+  h(async (req, res) => {
+    const { courtId } = changeCourtSchema.parse(req.body);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(serializeBooking(await changeBookingCourt(userId, req.params.id!, courtId)));
+  }),
+);
+
+const providerCancelSchema = z.object({ reason: z.string().trim().min(1) });
+bookingRouter.post(
+  '/providers/bookings/:id/cancel',
+  requireAuth,
+  requireRole('provider'),
+  h(async (req, res) => {
+    const { reason } = providerCancelSchema.parse(req.body);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(await cancelBookingByProvider(userId, req.params.id!, reason));
   }),
 );

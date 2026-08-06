@@ -1,0 +1,136 @@
+import { useEffect, useState } from 'react';
+import {
+  cancelMyBooking,
+  cancelProviderBooking,
+  changeBookingCourt,
+  getBookingDetail,
+  getMyUpcomingBookings,
+  getReplacementCourts,
+  type BookingSummary,
+} from '../lib/venueBookingApi';
+
+const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+
+export function BookingCancellationPanel() {
+  const [bookings, setBookings] = useState<BookingSummary[]>([]);
+  const [message, setMessage] = useState('Đăng nhập để tải booking thật.');
+  const [providerBookingId, setProviderBookingId] = useState('');
+  const [replacementCourtId, setReplacementCourtId] = useState('');
+  const [providerReason, setProviderReason] = useState('');
+  const [pendingCancellation, setPendingCancellation] = useState<{ booking: BookingSummary; refundPercent: number } | null>(null);
+
+  async function loadBookings() {
+    try {
+      const result = await getMyUpcomingBookings();
+      setBookings(result);
+      setMessage(result.length === 0 ? 'Bạn chưa có booking sắp tới.' : '');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không tải được booking.');
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage.getItem('accessToken')) void loadBookings();
+  }, []);
+
+  async function previewCancellation(booking: BookingSummary) {
+    try {
+      const detail = await getBookingDetail(booking.id);
+      setPendingCancellation({ booking, refundPercent: detail.expectedRefundPercent });
+      setMessage('Kiểm tra số tiền hoàn bên dưới rồi xác nhận hủy.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể xem mức hoàn.');
+    }
+  }
+
+  async function confirmCancellation() {
+    if (!pendingCancellation) return;
+    try {
+      const result = await cancelMyBooking(pendingCancellation.booking.id);
+      setMessage(`Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`);
+      setPendingCancellation(null);
+      await loadBookings();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể hủy booking.');
+    }
+  }
+
+  async function findReplacement() {
+    try {
+      const result = await getReplacementCourts(providerBookingId.trim());
+      setMessage(result.courts.length === 0
+        ? 'Không còn sân con trống; chỉ có thể hủy và hoàn 100%.'
+        : `Sân trống: ${result.courts.map((court) => `${court.name} (${court.id})`).join(', ')}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không tải được sân thay thế.');
+    }
+  }
+
+  async function changeCourt() {
+    try {
+      await changeBookingCourt(providerBookingId.trim(), replacementCourtId.trim());
+      setMessage('Đã chuyển booking sang sân con mới; người chơi sẽ thấy ghi chú thay đổi.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể đổi sân.');
+    }
+  }
+
+  async function cancelAsProvider() {
+    try {
+      await cancelProviderBooking(providerBookingId.trim(), providerReason.trim());
+      setMessage('Đã hủy do lỗi phía sân và yêu cầu hoàn 100%.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể hủy booking.');
+    }
+  }
+
+  return (
+    <section className="mt-14 grid gap-6 lg:grid-cols-2" aria-label="Quản lý booking G5">
+      <div className="rounded-2xl bg-bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-h2 !text-2xl">Booking của tôi</h2>
+          <button type="button" onClick={() => void loadBookings()} className="rounded-full bg-primary-navy px-4 py-2 text-caption text-on-dark">
+            Tải lại
+          </button>
+        </div>
+        <div className="space-y-3">
+          {bookings.map((booking) => (
+            <article key={booking.id} className="rounded-xl border border-slate/15 p-4">
+              <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? booking.courtId}</p>
+              <p className="text-body text-text-primary/70">{new Date(booking.startAt).toLocaleString('vi-VN')} · {money.format(Number(booking.priceSnapshot))}</p>
+              <button type="button" onClick={() => void previewCancellation(booking)} className="mt-3 rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">
+                Xem mức hoàn
+              </button>
+            </article>
+          ))}
+        </div>
+        <p className="text-body mt-4 text-text-primary/60">Hệ thống luôn hiển thị số tiền hoàn trước bước Xác nhận hủy.</p>
+        {pendingCancellation ? (
+          <div className="mt-4 rounded-xl bg-accent-shuttle/25 p-4">
+            <p className="font-semibold">Bạn sẽ được hoàn {pendingCancellation.refundPercent}% — {money.format(Number(pendingCancellation.booking.priceSnapshot) * pendingCancellation.refundPercent / 100)}.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => void confirmCancellation()} className="rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">Xác nhận hủy</button>
+              <button type="button" onClick={() => setPendingCancellation(null)} className="rounded-full border border-slate/20 px-4 py-2 text-caption !text-text-primary">Giữ booking</button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl bg-primary-navy p-6 text-on-dark shadow-sm">
+        <h2 className="text-h2 !text-2xl">Quản lý sự cố phía sân</h2>
+        <p className="text-body mt-2 text-on-dark/70">Đổi sân con cùng cơ sở hoặc hủy kèm hoàn 100%.</p>
+        <div className="mt-4 grid gap-3">
+          <input value={providerBookingId} onChange={(event) => setProviderBookingId(event.target.value)} placeholder="Mã booking" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void findReplacement()} className="rounded-full bg-accent-shuttle px-4 py-2 text-caption text-court-green">Tìm sân trống</button>
+          </div>
+          <input value={replacementCourtId} onChange={(event) => setReplacementCourtId(event.target.value)} placeholder="Mã sân con thay thế" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
+          <button type="button" onClick={() => void changeCourt()} className="rounded-full border border-on-dark/30 px-4 py-2 text-caption text-on-dark">Đổi sân con</button>
+          <input value={providerReason} onChange={(event) => setProviderReason(event.target.value)} placeholder="Lý do hủy bắt buộc" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
+          <button type="button" onClick={() => void cancelAsProvider()} className="rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">Hủy và hoàn 100%</button>
+        </div>
+      </div>
+      <p role="status" className="text-body lg:col-span-2">{message}</p>
+    </section>
+  );
+}
