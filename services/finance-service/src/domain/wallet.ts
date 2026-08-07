@@ -14,6 +14,22 @@ export async function getOrCreateWallet(
   return tx.wallet.create({ data: { userId, walletType, available: 0n } });
 }
 
+/** D16: tạo ví platform singleton trước transaction doanh thu. Partial unique
+ * index `wallets_platform_singleton` là chốt cuối cùng khi hai BookingConfirmed
+ * đầu tiên đến đồng thời; sau P2002, transaction tạo ví đã kết thúc nên có thể
+ * đọc lại an toàn bằng Prisma client mới. */
+export async function ensurePlatformWallet() {
+  const existing = await prisma.wallet.findFirst({ where: { userId: null, walletType: 'platform' } });
+  if (existing) return existing;
+
+  try {
+    return await prisma.wallet.create({ data: { userId: null, walletType: 'platform', available: 0n } });
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'P2002') throw error;
+    return prisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } });
+  }
+}
+
 /** FIN-01 — Xem số dư ví của chính mình (AC-FIN-01-1..4). Trả về cả ví
  * personal lẫn business nếu có (một user có thể có cả hai — BR-FIN, D3). */
 export async function getWalletsForUser(userId: string) {

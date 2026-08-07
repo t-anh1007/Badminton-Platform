@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { getOrCreateWallet, postLedgerEntry } from './wallet.js';
+import { ensurePlatformWallet, getOrCreateWallet, postLedgerEntry } from './wallet.js';
 import { COMMISSION_RATE_PERCENT } from '../lib/constants.js';
 import { z } from 'zod';
 
@@ -36,6 +36,9 @@ const bookingConfirmedSchema = z.object({
  * chính. */
 export async function recordBookingRevenue(eventId: string, rawPayload: BookingConfirmedPayload): Promise<void> {
   const payload = bookingConfirmedSchema.parse(rawPayload);
+  // Tạo singleton ngoài transaction ghi doanh thu để P2002 do hai event đầu
+  // cùng lúc không làm abort transaction chứa các bút toán ba vế.
+  if (payload.source === 'marketplace') await ensurePlatformWallet();
   const gross = BigInt(payload.gross);
   // Chia nguyên bằng BigInt — net = gross - commission đảm bảo net+commission
   // LUÔN đúng bằng gross tuyệt đối (không phụ thuộc làm tròn), đúng BR-FIN-15.

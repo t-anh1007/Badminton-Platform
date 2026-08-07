@@ -23,6 +23,20 @@ async function revenueFixture(hoursAfterEnd = 25) {
 afterAll(async () => prisma.$disconnect());
 
 describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
+  it('xử lý hai BookingConfirmed đồng thời trên ví platform chưa tồn tại', async () => {
+    const events = [0, 1].map(() => ({
+      bookingId: randomUUID(),
+      businessUserId: randomUUID(),
+      venueId: randomUUID(),
+      gross: '200000',
+      endAt: new Date().toISOString(),
+      source: 'marketplace' as const,
+    }));
+
+    await expect(Promise.all(events.map((payload) => recordBookingRevenue(randomUUID(), payload)))).resolves.toBeDefined();
+    expect(await prisma.wallet.count({ where: { userId: null, walletType: 'platform' } })).toBe(1);
+  });
+
   it('AC-FIN-09-4: qua endAt + 24h chuyển đúng khoản pending sang available, không sinh ledger nội bộ', async () => {
     const fixture = await revenueFixture(25);
     const walletBefore = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.businessUserId, walletType: 'business' } });

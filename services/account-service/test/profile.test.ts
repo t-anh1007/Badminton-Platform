@@ -42,6 +42,17 @@ describe('ACC-07 — Quản lý hồ sơ cá nhân (qua API thật)', () => {
     expect(res.body.playerProfile.displayName).toBe('Ten Moi');
   });
 
+  it('không trả passwordHash trong response hồ sơ của chính mình', async () => {
+    const user = await createLoggedInUser('Không lộ mật khẩu');
+
+    const res = await request(app)
+      .get('/profile/me')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .expect(200);
+
+    expect(res.body).not.toHaveProperty('passwordHash');
+  });
+
   it('AC-ACC-07-2: thử sửa email qua gọi API trực tiếp -> API từ chối', async () => {
     const user = await createLoggedInUser('A');
 

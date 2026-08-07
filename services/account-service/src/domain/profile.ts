@@ -39,7 +39,18 @@ export async function updateOwnProfile(userId: string, input: UpdateProfileInput
 export async function getOwnProfile(userId: string) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    include: { playerProfile: true },
+    // Chỉ chọn các field là contract của UI. Không trả nguyên Prisma User vì
+    // nó chứa passwordHash và có thể lộ thêm field nội bộ khi model đổi.
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      roles: true,
+      verified: true,
+      status: true,
+      createdAt: true,
+      playerProfile: true,
+    },
   });
   return user;
 }
