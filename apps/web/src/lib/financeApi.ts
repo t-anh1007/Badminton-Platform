@@ -42,6 +42,7 @@ export interface DisputeRow {
 }
 
 export const getMyWallets = () => api<WalletRow[]>('/wallets/me');
+export const payBookingBalance = (bookingId: string) => api<{ message: string }>(`/bookings/${bookingId}/pay/balance`, { method: 'POST' });
 export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {
   const query = new URLSearchParams(Object.entries(filters ?? {}).filter((entry): entry is [string, string] => Boolean(entry[1])));
   return api<RevenueRow[]>(`/providers/me/revenue${query.size ? `?${query}` : ''}`);

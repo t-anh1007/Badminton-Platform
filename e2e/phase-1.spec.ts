@@ -133,32 +133,31 @@ test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', as
   expect((await venueDb.provider.findUniqueOrThrow({ where: { id: provider.id } })).status).toBe('approved');
 });
 
-test('HT3 tìm sân → giữ slot → thanh toán → confirmed', async ({ page, request }) => {
+test('HT3 tìm sân → giữ slot → thanh toán → confirmed', async ({ page }) => {
   const playerId = randomUUID();
   await seedAccountIdentity(playerId);
   const accessToken = token(playerId);
   const startAt = new Date(Date.now() + 48 * 3_600_000);
   startAt.setMinutes(0, 0, 0);
   const { venue, court } = await seedCourt(randomUUID(), startAt);
-  const search = await request.get(`${VENUE}/search?lat=10.7769&lng=106.7009&radiusKm=5`);
-  expect((await search.json()).some((row: { venueId: string }) => row.venueId === venue.id)).toBeTruthy();
-  const selected = await request.post(`${VENUE}/courts/${court.id}/select-slot`, { headers: auth(accessToken), data: { startAt: startAt.toISOString(), durationMinutes: 60 } });
-  const selection = await selected.json();
-  expect(selected.ok()).toBeTruthy();
-  const holdResponse = await request.post(`${VENUE}/holds`, { headers: auth(accessToken), data: { courtId: court.id, startAt: startAt.toISOString(), endAt: selection.endAt } });
-  const hold = await holdResponse.json();
-  const bookingResponse = await request.post(`${VENUE}/bookings`, { headers: auth(accessToken), data: { holdId: hold.id } });
-  const booking = await bookingResponse.json();
   const wallet = await financeDb.wallet.create({ data: { userId: playerId, walletType: 'personal', available: 300000n } });
   await financeDb.ledgerEntry.create({ data: { walletId: wallet.id, amount: 300000n, type: 'topup', refType: 'topup', refId: randomUUID(), before: 0n, after: 300000n } });
-  expect((await request.post(`${FINANCE}/bookings/${booking.id}/pay/balance`, { headers: auth(accessToken), data: {} })).ok()).toBeTruthy();
-  await handlePaymentCompleted(randomUUID(), { bookingId: booking.id });
-  const confirmedEvent = await venueDb.outbox.findFirstOrThrow({ where: { aggregateId: booking.id, eventType: 'BookingConfirmed' } });
-  await recordBookingRevenue(randomUUID(), confirmedEvent.payload as Parameters<typeof recordBookingRevenue>[1]);
-  await poll(async () => (await venueDb.booking.findUnique({ where: { id: booking.id } }))?.status === 'confirmed' ? booking : null);
   await setSession(page, accessToken);
   await page.goto('/booking');
+  await page.getByLabel('Vĩ độ tìm sân').fill('10.7769');
+  await page.getByLabel('Kinh độ tìm sân').fill('106.7009');
+  await page.getByRole('button', { name: 'Tìm sân', exact: true }).click();
   await expect(page.getByText(venue.name)).toBeVisible();
+  await page.getByRole('article').filter({ hasText: venue.name }).getByRole('button', { name: 'Xem lịch sân' }).click();
+  await page.getByRole('button', { name: /^Chọn / }).first().click();
+  await page.getByRole('button', { name: 'Giữ chỗ' }).click();
+  await page.getByRole('button', { name: 'Tạo booking' }).click();
+  await page.getByRole('button', { name: 'Thanh toán số dư' }).click();
+  const booking = await poll(async () => {
+    const found = await venueDb.booking.findFirst({ where: { userId: playerId, courtId: court.id } });
+    return found?.status === 'confirmed' ? found : null;
+  });
+  expect(booking.status).toBe('confirmed');
 });
 
 test('HT4 người chơi tự hủy và nhận hoàn theo bậc', async ({ page }) => {

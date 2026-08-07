@@ -29,6 +29,58 @@ export interface BookingSummary {
   court?: { name: string; venue?: { name: string } };
 }
 
+export interface VenueSearchRow {
+  venueId: string;
+  name: string;
+  address: string;
+  distanceKm: number;
+  lowestPrice: string | null;
+}
+
+export interface VenueDetail {
+  id: string;
+  name: string;
+  address: string;
+  courts: Array<{ id: string; name: string }>;
+}
+
+export interface AvailabilitySlot {
+  startMinute: number;
+  endMinute: number;
+  available: boolean;
+  price: string | null;
+}
+
+export interface SlotSelection {
+  courtId: string;
+  startAt: string;
+  endAt: string;
+  durationMinutes: number;
+  totalPrice: string;
+}
+
+export interface HoldResult {
+  id: string;
+  courtId: string;
+  startAt: string;
+  endAt: string;
+  expiresAt: string;
+}
+
+export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
+  const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
+  return api<VenueSearchRow[]>(`/search?${query}`);
+}
+
+export const getVenueDetail = (venueId: string) => api<VenueDetail>(`/venues/${venueId}`);
+export const getCourtAvailability = (courtId: string, date: string) =>
+  api<{ closed: boolean; slots: AvailabilitySlot[] }>(`/courts/${courtId}/availability?date=${encodeURIComponent(date)}`);
+export const selectSlot = (courtId: string, body: { startAt: string; durationMinutes: number }) =>
+  api<SlotSelection>(`/courts/${courtId}/select-slot`, { method: 'POST', body: JSON.stringify(body) });
+export const createHold = (body: { courtId: string; startAt: string; endAt: string }) =>
+  api<HoldResult>('/holds', { method: 'POST', body: JSON.stringify(body) });
+export const createBooking = (holdId: string) => api<BookingSummary>('/bookings', { method: 'POST', body: JSON.stringify({ holdId }) });
+
 export async function getMyUpcomingBookings(): Promise<BookingSummary[]> {
   const result = await api<{ upcoming: BookingSummary[] }>('/players/me/bookings');
   return result.upcoming;
