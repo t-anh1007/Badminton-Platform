@@ -104,6 +104,7 @@ test('HT1 đăng ký → xác minh → đăng nhập → cập nhật hồ sơ',
   await page.locator('form').getByRole('button', { name: 'Đăng nhập' }).click();
   await expect(page.getByRole('status')).toContainText('Đăng nhập thành công');
   await page.goto('/profile');
+  await expect(page.getByText('Sân 1 — Q7')).not.toBeVisible();
   await page.getByLabel('Tên hiển thị hồ sơ').fill('Hồ sơ đã cập nhật');
   await page.getByLabel('Số điện thoại hồ sơ').fill('0909000000');
   await page.getByRole('button', { name: 'Lưu hồ sơ' }).click();

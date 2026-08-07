@@ -90,6 +90,11 @@ export async function getMyUpcomingBookings(): Promise<BookingSummary[]> {
   return result.upcoming;
 }
 
+export async function getMyBookingHistory(): Promise<BookingSummary[]> {
+  const result = await api<{ past: BookingSummary[] }>('/players/me/bookings');
+  return result.past;
+}
+
 export function getBookingDetail(id: string) {
   return api<{ booking: BookingSummary; expectedRefundPercent: number; courtChangeNote: string | null }>(`/players/me/bookings/${id}`);
 }
