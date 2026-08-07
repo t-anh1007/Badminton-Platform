@@ -1,0 +1,113 @@
+---
+type: data-model-addendum
+phase: 2
+status: draft-for-po-review
+author: Claude Code
+updated: 2026-08-07
+extends: docs/architecture/data-model.md
+---
+
+# Data Model (phụ lục GĐ2) — matchmaking · community · ai
+
+Schema-per-service (D17): mỗi service sở hữu schema riêng, **không FK/query xuyên schema**. Tham
+chiếu sang service khác (`userId`, `bookingId`...) là **giá trị tham chiếu, không FK**. `ai` không
+có schema domain riêng (chỉ gọi Gemini + đọc dữ liệu service khác qua API); nếu cần lưu cache
+embedding/log thì trong schema `ai`.
+
+## 1. Schema `matchmaking` (service `matchmaking-service`)
+
+### MATCH (kèo)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | uuid PK | |
+| organizerUserId | uuid | tham chiếu account (không FK) |
+| bookingId | uuid | tham chiếu venue-booking (không FK); slot sân của kèo |
+| capacity | int | ≥2 (BR-MMP-03) |
+| feePerSlot | bigint | VND; 0 = miễn phí (BR-MMP-08). Mặc định = giá booking / capacity |
+| skillMin, skillMax | int? | khoảng rating mong muốn (tùy chọn) |
+| status | enum | `open`/`filled`/`confirmed`/`completed`/`cancelled` |
+| cutoffAt | timestamptz | hạn chốt (BR-MMP-07) |
+| createdAt | timestamptz | |
+
+### JOIN (lượt tham gia)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | uuid PK | |
+| matchId | uuid FK→MATCH | trong CÙNG schema nên FK hợp lệ |
+| participantUserId | uuid | tham chiếu account (không FK) |
+| status | enum | `pending`/`approved`/`rejected`/`confirmed`/`withdrawn` |
+| feePaidAt | timestamptz? | mốc trả phí (FIN-05) |
+| approvedAt | timestamptz? | mở cửa sổ trả phí (holdMinutes) |
+| createdAt | timestamptz | |
+| — | | **UNIQUE (matchId, participantUserId)** WHERE status ∉ (rejected, withdrawn) — BR-MMP-04 |
+| — | | Ràng buộc chống chồng chỗ: tổng `confirmed` ≤ capacity (BR-MMP-06, khóa/kiểm tầng CSDL) |
+
+### PASSPORT (rating F-01)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| userId | uuid PK | một player một passport |
+| declaredTier | enum? | 5 bậc khai báo (MMP-09) |
+| ratingMu | double | Glicko-2 μ |
+| ratingRd | double | độ lệch RD (độ bất định) |
+| ratingSigma | double | volatility σ |
+| matchesPlayed | int | |
+| updatedAt | timestamptz | |
+
+### EVALUATION (đánh giá sau trận)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | uuid PK | |
+| matchId | uuid | tham chiếu MATCH cùng schema |
+| raterUserId, rateeUserId | uuid | không tự đánh giá mình (BR-MMP-13) |
+| perceivedTier | enum? / score | trình độ cảm nhận |
+| labels | jsonb? | nhãn tinh thần thi đấu |
+| flagged | boolean | F-07 đánh dấu bất thường |
+| flagReason | text? | |
+| countedAt | timestamptz? | mốc được tính vào rating (null nếu đang chờ duyệt) |
+| createdAt | timestamptz | |
+| — | | UNIQUE (matchId, raterUserId, rateeUserId) — một lượt đánh giá/cặp/kèo |
+
+### Idempotency & outbox (như GĐ1)
+- `Outbox`, `ProcessedEvent` (cùng mẫu GĐ1) trong schema `matchmaking`.
+
+## 2. Schema `community` (service `community-service`)
+
+### POST
+| id uuid PK · authorUserId uuid · body text · status enum(published/hidden/removed) · createdAt · editedAt? |
+
+### COMMENT
+| id uuid PK · postId uuid FK→POST · authorUserId uuid · body text · status enum · createdAt |
+
+### REPORT
+| id uuid PK · reporterUserId uuid · targetType enum(post/comment) · targetId uuid · reason text · status enum(open/actioned/dismissed) · createdAt · UNIQUE(reporterUserId,targetType,targetId) — BR-COM-05 |
+
+### TICKET
+| id uuid PK · requesterUserId uuid · subject text · status enum(open/in_progress/resolved/closed) · createdAt |
+
+### TICKET_MESSAGE
+| id uuid PK · ticketId uuid FK→TICKET · senderUserId uuid · senderRole enum(player/admin) · body text · createdAt |
+
+### MODERATION_AUDIT (append-only)
+| id uuid PK · adminUserId uuid · action text · targetType · targetId · reason · createdAt — BR-COM-04 |
+
+- `Outbox`, `ProcessedEvent` trong schema `community` (consume `AccountLocked`).
+
+## 3. Schema `ai` (service — hoặc `packages/ai` + lưu tối thiểu)
+
+`ai` không sở hữu dữ liệu domain; đọc qua API service khác theo `userId`. Nếu cần lưu:
+- **RAG_DOC** (embedding tài liệu chính sách công khai): id · source · chunk text · embedding vector · updatedAt.
+- **AI_LOG** (audit gọi Gemini, tùy chọn): id · userId · feature(ai01/ai02) · promptHash · createdAt — KHÔNG lưu nội dung nhạy cảm/dữ liệu user khác.
+
+> Dữ liệu của chính user cho AI-02 (booking/ví/kèo) **không nhân bản** vào schema `ai`; truy vấn
+> trực tiếp qua API của service sở hữu theo `userId` (giữ D17, tránh rò chéo).
+
+## 4. Ràng buộc chung
+- Không FK xuyên schema; mọi liên kết cross-service là giá trị tham chiếu.
+- Tiền (phí kèo) KHÔNG lưu ở `matchmaking`; chỉ ở `finance` (ví platform reserved, ref matchId).
+- Migration mỗi service riêng, chạy sạch trên DB rỗng + cách ly quyền schema (như G0 GĐ1).
+
+## 5. Quyết định chờ PO chốt
+1. `ai` là service riêng (có port/schema) hay chỉ `packages/ai` gọi từ các service? (đề xuất:
+   service `ai-service` mỏng cho AI-02 chatbot + endpoint AI-01, dùng `packages/ai` làm client Gemini).
+2. Vector store cho RAG (đề xuất: pgvector trong schema `ai`, hoặc lưu embedding đơn giản nếu tài
+   liệu ít).
