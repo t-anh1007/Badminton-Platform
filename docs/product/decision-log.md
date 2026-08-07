@@ -1,11 +1,11 @@
 ---
 type: decision-log
 status: living
-updated: 2026-08-05
-purpose: Nhật ký quyết định, giả định và mâu thuẫn trong quá trình viết spec GĐ1.
+updated: 2026-08-08
+purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 
-# Decision Log — Spec Giai đoạn 1
+# Decision Log — Sản phẩm
 
 ## 1. Quyết định đã xác nhận
 
@@ -36,6 +36,8 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn trong quá t
 | D23 | 2026-08-06 | **Xác thực webhook SePay ở GĐ1 bằng shared secret qua biến môi trường** (`SEPAY_WEBHOOK_SECRET`), cộng chặn `amount<=0`. Không nhập credential SePay production vào code; xác thực chữ ký/HMAC thật để lại khi tích hợp SePay production sau GĐ1. Sửa lỗi P1 "ai biết matchCode cũng tự tạo được tiền". | FIN-02, FIN-04, FIN-06 |
 | D24 | 2026-08-06 | **Tiền SePay chuyển THỪA: phần đúng giá booking xác nhận booking, phần thừa ghi có vào ví `personal`** người chơi (bảo toàn tiền, nhất quán với xử lý chuyển THIẾU ở AC-FIN-04-2). Ví dụ chuyển 250k cho booking 200k → booking confirmed + 50k vào ví personal. Làm rõ khoảng trống spec AC-FIN-04. | FIN-04, FIN-06 |
 | D25 | 2026-08-06 | **Ví `business` tạo qua sự kiện `ProviderApproved`**, không lazy. venue-booking-service phát `ProviderApproved{providerId, userId}` khi Admin duyệt NCC (VEN-02) → finance-service tạo ví business rỗng + account-service cấp thêm vai `provider` cho user. Đóng dứt điểm `AC-VEN-02-1`/`AC-VEN-02-4` (treo từ G2) và `AC-FIN-01-2`. Mở rộng phạm vi chạm account-service (thêm consumer đầu tiên ở account-service). Nhất quán D3 (vai trò là tập hợp, cộng thêm `provider` khi duyệt). | VEN-02, FIN-01, ACC-07 |
+| D26 | 2026-08-08 | **Tham số F-01/MMP-09:** Glicko-2 dùng tâm bậc `1100/1300/1500/1700/1900`, ngưỡng `<1200/<1400/<1600/<1800/≥1800`, cold-start `RD=350`, `σ=0.06`, `τ=0.5`; `RD≥200` là độ bất định cao. Khai lại tối đa mỗi 30 ngày; khi đã có lịch sử chỉ dịch rating về tâm bậc mới theo `25% × min(RD/350,1)`, chặn `±50`, không ghi đè RD/σ. **PO duyệt bundle 2026-08-08.** | MMP-09, MMP-11, F-01 |
+| D27 | 2026-08-08 | **Runtime F-01/MMP-11:** M4 phát `RatingPeriodReady` nội bộ qua RabbitMQ khi đánh giá đã hợp lệ, payload mang `matchId`, `userId` và Glicko results đã xác thực; M1 consume idempotent theo message ID và cập nhật Passport đúng một lần. Điểm đánh giá tổng hợp của Passport riêng là trung bình tâm bậc của EVALUATION có `countedAt != null`, `flagged=false`; bản công khai không lộ điểm này. **PO duyệt 2026-08-08.** | MMP-11, F-01 |
 
 ### Lý do đáng ghi nhớ
 

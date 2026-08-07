@@ -78,6 +78,7 @@ model Passport {
   ratingRd       Float
   ratingSigma    Float
   matchesPlayed  Int        @default(0)
+  declaredAt     DateTime?  @db.Timestamptz(3)
   updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
 
   @@map("passports")

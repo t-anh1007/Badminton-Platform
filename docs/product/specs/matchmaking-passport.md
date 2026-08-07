@@ -4,7 +4,7 @@ module: matchmaking-passport
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-07
+updated: 2026-08-08
 source: docs/SCOPE_BASELINE.md §2.5, docs/product/phasing.md §4, docs/architecture/system-architecture.md §6.3
 ---
 
@@ -199,12 +199,14 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 
 ### MMP-09 — Khai báo trình độ chuẩn hóa
 - **Actor**: người chơi. **Workflow**: chọn 1 trong 5 bậc (Mới chơi/Y/TB/TB+/BC) → hệ thống khởi
-  tạo rating cold-start (F-01) với độ bất định cao. Có thể khai lại (giới hạn tần suất 【PO-REVIEW】).
+  tạo rating cold-start (F-01) với độ bất định cao. **D26:** có thể khai lại tối đa 1 lần/30 ngày.
+  Khi đã có lịch sử, rating chỉ dịch về tâm bậc mới theo `25% × min(RD/350, 1)`, chặn tối đa
+  `±50` điểm; không ghi đè rating/RD/σ đã học.
 - **BR**: gắn F-01.
 
 **AC**
 - `AC-MMP-09-1` — Given player mới, When khai báo bậc "TB", Then rating khởi tạo quanh TB với độ bất định (RD) cao.
-- `AC-MMP-09-2` — Given player đã có lịch sử đánh giá, When khai lại bậc, Then hệ thống KHÔNG ghi đè rating đã học mà chỉ điều chỉnh có kiểm soát (chống gian lận hạ bậc). 【PO-REVIEW: mức ảnh hưởng】
+- `AC-MMP-09-2` — Given player đã có lịch sử đánh giá, When khai lại bậc, Then hệ thống KHÔNG ghi đè rating đã học mà chỉ điều chỉnh có kiểm soát theo D26 (chống gian lận hạ bậc).
 
 ### MMP-10 — Đánh giá sau trận
 - **Actor**: người chơi (`confirmed` của kèo `completed`). **Workflow**: sau `BookingCompleted`, mở
@@ -221,7 +223,8 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 ### MMP-11 — Xem Player Passport
 - **Actor**: người chơi (của mình); người khác xem bản công khai rút gọn.
 - **Workflow**: hiển thị bậc hiện tại + rating có độ bất định (F-01), số kèo đã chơi, điểm đánh giá
-  tổng hợp (đã lọc F-07), lịch sử gần đây.
+  tổng hợp (đã lọc F-07), lịch sử gần đây. **D27:** điểm tổng hợp = trung bình tâm bậc của các
+  EVALUATION có `countedAt != null`, `flagged=false`; bản công khai không trả trường này.
 - **BR**: chỉ nội dung phù hợp; không lộ dữ liệu nhạy cảm người khác (bất biến #9 tinh thần công khai).
 
 **AC**
@@ -236,8 +239,12 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - **Mô hình**: Glicko-2 (rating μ, độ lệch RD, volatility σ). Cold-start từ MMP-09 (bậc khai báo →
   μ khởi tạo, RD cao). Sau mỗi kèo `completed` có đánh giá hợp lệ, cập nhật μ/RD/σ. Ánh xạ μ → 5
   bậc hiển thị (Mới chơi/Y/TB/TB+/BC) theo ngưỡng cố định; RD cao → hiển thị "đang xác định trình độ".
+  **D27:** M4 phát `RatingPeriodReady` nội bộ khi evaluation hợp lệ; M1 consume idempotent theo
+  message ID và cập nhật Passport đúng một lần từ Glicko results đã xác thực trong event.
 - **Vì sao Glicko-2**: xử lý độ bất định + số trận ít (đúng bối cảnh đồ án cold-start), chuẩn học
-  thuật, giải thích được. 【PO-REVIEW: ngưỡng ánh xạ μ→5 bậc; hằng số τ】.
+  thuật, giải thích được. **D26:** tâm cold-start = `1100/1300/1500/1700/1900`, ngưỡng bậc
+  `<1200 / <1400 / <1600 / <1800 / ≥1800`, `RD=350`, `σ=0.06`, `τ=0.5`; `RD≥200` hiển thị
+  "đang xác định trình độ" (RD bằng hoặc lớn hơn một bề rộng bậc).
 
 **AC**
 - `AC-F01-1` — Given player khai "TB" (chưa trận), When xem, Then bậc "TB" + cờ độ bất định cao (RD lớn).
@@ -307,7 +314,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 2. Rút sau cutoff: nhị phân không-hoàn (đề xuất) hay bậc thang như booking.
 3. Xử lý phí gom dư (đề xuất: chia đều, không cho đặt phí cao hơn phần chia → không dư).
 4. MMP-08-3: hủy kèo đã confirmed áp luồng hủy booking GĐ1 (đề xuất) — xác nhận.
-5. MMP-09 khai lại bậc: tần suất + mức ảnh hưởng lên rating đã học.
-6. F-01: ngưỡng ánh xạ μ→5 bậc, hằng số τ Glicko-2.
+5. ~~MMP-09 khai lại bậc: tần suất + mức ảnh hưởng lên rating đã học.~~ ✅ D26, PO chốt 2026-08-08.
+6. ~~F-01: ngưỡng ánh xạ μ→5 bậc, hằng số τ Glicko-2.~~ ✅ D26, PO chốt 2026-08-08.
 7. MMP-13 cửa sổ đánh giá (đề xuất 72h).
 8. F-07: ngưỡng outlier (đề xuất |z|>2.5) + định nghĩa thông đồng.

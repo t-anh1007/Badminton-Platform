@@ -15,6 +15,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 |---|---|---|
 | P2-G0 | pass | `scripts/p2-g0-isolation.ps1` (clean DB migrations, denied cross-schema reads, zero cross-schema FK, DB guards 4/4); unit tests 4/4; workspace typecheck/build; Codex standards/spec re-review: no findings |
 | P2-Gd | pass | `docs/DESIGN.md` covers Kèo/Passport/Community/AI shells, responsive and required states; workspace typecheck/build; Codex standards/spec review findings resolved |
+| P2-M1 | pass | `matchmaking-service`: default 15/15, RabbitMQ E2E 1/1, isolated DB guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -44,18 +45,18 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-MMP-08-1 | P2-M2 |  |  |
 | AC-MMP-08-2 | P2-M2 |  |  |
 | AC-MMP-08-3 | P2-M2 |  |  |
-| AC-MMP-09-1 | P2-M1 |  |  |
-| AC-MMP-09-2 | P2-M1 |  |  |
+| AC-MMP-09-1 | P2-M1 | `test/passport.test.ts` — cold-start TB returns rating 1500, RD 350 and high uncertainty over HTTP | pass |
+| AC-MMP-09-2 | P2-M1 | `test/passport.test.ts` — bounded re-declaration preserves learned RD/σ; 30-day boundary and concurrent requests serialized | pass |
 | AC-MMP-10-1 | P2-M4 |  |  |
 | AC-MMP-10-2 | P2-M4 |  |  |
 | AC-MMP-10-3 | P2-M4 |  |  |
 | AC-MMP-10-4 | P2-M4 |  |  |
-| AC-MMP-11-1 | P2-M1 |  |  |
-| AC-MMP-11-2 | P2-M1 |  |  |
-| AC-F01-1 | P2-M1 |  |  |
-| AC-F01-2 | P2-M1 |  |  |
-| AC-F01-3 | P2-M1 |  |  |
-| AC-F01-4 | P2-M1 |  |  |
+| AC-MMP-11-1 | P2-M1 | `test/passport.test.ts` — own HTTP view returns rating/RD, 5-match history and exact filtered evaluation mean | pass |
+| AC-MMP-11-2 | P2-M1 | `test/passport.test.ts` — public HTTP view is exactly userId + tier + matchesPlayed | pass |
+| AC-F01-1 | P2-M1 | `test/rating.test.ts` — approved TB cold-start center and high-RD state | pass |
+| AC-F01-2 | P2-M1 | `test/rating.test.ts` + `test/passport.test.ts` + `test/ratingRabbit.e2e.test.ts` — stronger-opponent wins raise μ/reduce RD; broker event persists once across replay | pass |
+| AC-F01-3 | P2-M1 | `test/rating.test.ts` — equal μ with RD 300 vs 80 exposes high vs established confidence | pass |
+| AC-F01-4 | P2-M1 | `test/rating.test.ts` — order-independent identical output plus canonical Glicko-2 worked example | pass |
 | AC-F02-1 | P2-M6 |  |  |
 | AC-F02-2 | P2-M6 |  |  |
 | AC-F02-3 | P2-M6 |  |  |

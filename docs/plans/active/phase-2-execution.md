@@ -52,7 +52,8 @@ Out of scope:
 
 - [x] P2-G0 — schema, skeleton, Outbox/ProcessedEvent and isolation proof.
 - [x] P2-Gd — four Phase 2 page shells added to the existing design baseline.
-- [ ] P2-M1 through P2-M9 — sequential dependency gates.
+- [x] P2-M1 — Glicko-2 rating, standardized declarations and private/public Passport views.
+- [ ] P2-M2 through P2-M9 — sequential dependency gates.
 - [ ] P2-Mfe and P2-final — real-API UI, E2E, 100 percent AC audit.
 
 ## Decisions
@@ -75,3 +76,8 @@ open until P2-final.
 P2-Gd completed 2026-08-08: `docs/DESIGN.md` now defines Kèo, Player Passport, Cộng đồng & hỗ trợ
 cá nhân, and Trợ lý AI shells on the existing ACTL-like/no-3D baseline; workspace typecheck/build
 passed and Codex review findings were resolved.
+
+P2-M1 completed 2026-08-08: D26 rating/declaration parameters and D27 runtime policy are recorded;
+Glicko-2 matches the canonical worked example, Passport APIs enforce private/public views, and
+`RatingPeriodReady` updates rating idempotently through real RabbitMQ. Focused tests, clean isolated
+migrations/DB guards, workspace typecheck/build, Harness status/doctor, and both Codex review axes pass.
