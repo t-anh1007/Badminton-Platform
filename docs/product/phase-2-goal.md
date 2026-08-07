@@ -61,8 +61,8 @@ P2-G0 ─> P2-Gd ─> P2-M1 ─> P2-M2 ─> P2-M3 ─> (P2-M4 ∥ P2-M5 ∥ P2-M
 | P2-G0 | Schema + skeleton | data-model-phase-2; `matchmaking`/`community` nối eventbus/outbox; `packages/ai` giữ skeleton; test cách ly schema | GĐ1 |
 | P2-Gd | Design baseline GĐ2 | page shell kèo/passport/community/AI-chat trên DESIGN.md (không dựng lại) | P2-G0 |
 | P2-M1 | Rating F-01 + Passport | F-01, MMP-09, MMP-11 | P2-G0 |
-| P2-M2 | Kèo lifecycle | MMP-01..08 + sự kiện MatchCreated/JoinApproved/MatchConfirmed/MatchCancelled | P2-M1 |
-| P2-M3 | FIN-05 phí kèo | finance-match-fee; bảo toàn ba vế | P2-M2 |
+| P2-M2 | Kèo lifecycle phi tiền | MMP-01..05 + AC-MMP-06-3 + contract event MatchCreated/JoinApproved/MatchConfirmed/MatchCancelled (D30) | P2-M1 |
+| P2-M3 | FIN-05 + lifecycle tích hợp | finance-match-fee + AC-MMP-06-1/2/4 + AC-MMP-07-1/2/3 + AC-MMP-08-1/2/3; E2E ledger/venue thật (D30) | P2-M2 |
 | P2-M4 | Đánh giá + F-07 | MMP-10, F-07 | P2-M2 |
 | P2-M5 | F-03 ghép kèo live (WS) | F-03 (WS thẳng matchmaking) | P2-M2 |
 | P2-M6 | F-02 độ hợp + F-04 gom nhóm | F-02, F-04 | P2-M1, P2-M2 |

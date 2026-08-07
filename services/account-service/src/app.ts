@@ -2,6 +2,7 @@ import express from 'express';
 import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
 import { adminRouter } from './routes/admin.js';
+import { internalRouter } from './routes/internal.js';
 
 const SERVICE_NAME = 'account-service';
 
@@ -16,6 +17,7 @@ export function createApp() {
   app.use('/auth', authRouter);
   app.use('/profile', profileRouter);
   app.use('/admin', adminRouter);
+  app.use('/internal', internalRouter);
 
   return app;
 }

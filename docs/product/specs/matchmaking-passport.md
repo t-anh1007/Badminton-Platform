@@ -82,11 +82,11 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | BR-MMP-04 | Một player chỉ có **một** JOIN không-kết-thúc trên một kèo (không tự nhân bản chỗ). |
 | BR-MMP-05 | Chỉ chuyển `approved → confirmed` khi phí `feePerSlot` đã trả thành công (FIN-05). Chỗ chưa trả phí không giữ vô hạn: hết `holdMinutes` (mặc định 10') kể từ lúc `approved` mà chưa trả → tự nhả về `pending`/giải phóng chỗ. Tái dùng cơ chế giữ 10' GĐ1 (bất biến #2). |
 | BR-MMP-06 | Chống chồng chỗ: tổng JOIN `confirmed` + suất tổ chức ≤ `capacity`, kiểm ở tầng CSDL (ràng buộc/khóa), không chỉ tầng ứng dụng — tương tự chống double-booking GĐ1 (bất biến #4). |
-| BR-MMP-07 | Kèo chỉ `confirmed` khi tổng phí gom đủ thanh toán `bookingId` và booking chuyển `confirmed`. Nếu tới **hạn chốt** (`cutoffAt`, mặc định = giờ bắt đầu ca − X phút 【PO-REVIEW: X=60】) mà chưa đủ người/tiền → kèo `cancelled`, hoàn toàn bộ phí đã trả về ví cá nhân, và **hold/booking sân được nhả** (slot bán lại được). |
+| BR-MMP-07 | Kèo chỉ `confirmed` khi tổng phí gom đủ thanh toán `bookingId` và booking chuyển `confirmed`. **D28:** hạn chốt `cutoffAt = giờ bắt đầu ca − 60 phút`. Nếu tới hạn chốt mà chưa đủ người/tiền → kèo `cancelled`, hoàn toàn bộ phí đã trả về ví cá nhân, và **hold/booking sân được nhả** (slot bán lại được). |
 | BR-MMP-08 | `feePerSlot ≥ 0`. Nếu `= 0` (kèo giao lưu miễn phí) thì bỏ qua bước trả phí; xác nhận chỗ ngay khi duyệt; booking sân do người tổ chức tự thanh toán theo luồng GĐ1 (không gom phí). |
 | BR-MMP-09 | Rút khỏi kèo (MMP-07): trước `cutoffAt` được hoàn phí 100% về ví cá nhân; từ `cutoffAt` trở đi KHÔNG hoàn (phần này bù chi phí sân đã chốt — logic tương tự BR-BOK-05). 【PO-REVIEW: có áp bậc thang như hủy booking không, hay nhị phân trước/sau cutoff】 |
 | BR-MMP-10 | Suất của người tổ chức KHÔNG tự trả phí cho chính mình (không P2P). Người tổ chức chịu phần sân của mình bằng cách: tổng phí người khác gom + phần tổ chức tự thanh toán (nếu thiếu) = giá booking. Xem BR-MMP-11. |
-| BR-MMP-11 | **Bảo toàn giá trị FIN-05**: (tổng phí participant đã trả) + (phần tổ chức tự thanh toán) = giá `bookingId`. Không tạo tiền, không mất tiền. Nếu gom dư (tổ chức đặt phí cao hơn phần chia) → 【PO-REVIEW: hoàn phần dư về tổ chức hay giữ platform】. Đề xuất mặc định: chia đều `giá booking / capacity`, không cho đặt phí tùy ý cao hơn phần chia, nên không phát sinh dư. |
+| BR-MMP-11 | **Bảo toàn giá trị FIN-05 — D29**: không cho đặt phí tùy ý. `feePerSlot = floor(giá booking / capacity)`; (tổng phí participant đã trả) + (phần organizer tự thanh toán, gồm số lẻ phép chia) = giá `bookingId`. Không tạo tiền, không mất tiền, không gom dư, không P2P. |
 | BR-MMP-12 | Rating/Passport chỉ cập nhật từ kèo `completed` có đánh giá hợp lệ (đã qua F-07). Kèo `cancelled` không ảnh hưởng rating. |
 | BR-MMP-13 | Đánh giá sau trận chỉ mở cho JOIN `confirmed` của kèo `completed`, trong cửa sổ 【PO-REVIEW: 72 giờ】 sau `BookingCompleted`; chỉ đánh giá người CÙNG kèo; không tự đánh giá mình. |
 | BR-MMP-14 | Quyền: người tổ chức chỉ thao tác kèo của mình; người tham gia chỉ thấy/thao tác JOIN của mình. Kiểm ở tầng API. |
@@ -136,8 +136,11 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 
 ### MMP-03 — Xem chi tiết kèo
 - **Actor**: khách/người chơi. **Quyền**: công khai.
-- **Workflow**: xem thông tin kèo: sân/giờ/địa điểm, tổ chức (tên hiển thị + bậc trình độ), danh
+- **Workflow**: xem thông tin kèo: sân/giờ/địa điểm, tổ chức (tên hiển thị thật khi hồ sơ
+  `public`; nhãn cố định “Người tổ chức” khi hồ sơ `private`, theo D31) + bậc trình độ, danh
   sách người đã `confirmed` (ẩn danh tính nhạy cảm), số chỗ trống, phí, hạn chốt.
+- **BR-D31**: API account trả thêm `identityVisibility=public|hidden`; không được truyền tên thật
+  của hồ sơ `private` qua ranh giới service. Bậc trình độ và dữ liệu kèo không bị ẩn.
 - **Ngoài phạm vi**: chat trong kèo (không có realtime chat ở GĐ2 ngoài F-03 signalling).
 
 **AC**
@@ -310,9 +313,9 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - Chuyển tiền ngang hàng giữa người dùng (phá bất biến #6).
 
 ## 9. Quyết định chờ PO chốt (tổng hợp `【PO-REVIEW】`)
-1. `cutoffAt` = giờ bắt đầu − X phút (đề xuất X=60).
+1. ~~`cutoffAt` = giờ bắt đầu − X phút (đề xuất X=60).~~ ✅ D28, PO chốt 60 phút ngày 2026-08-08.
 2. Rút sau cutoff: nhị phân không-hoàn (đề xuất) hay bậc thang như booking.
-3. Xử lý phí gom dư (đề xuất: chia đều, không cho đặt phí cao hơn phần chia → không dư).
+3. ~~Xử lý phí gom dư.~~ ✅ D29, PO chốt chia đều bắt buộc, organizer bù phần thiếu/số lẻ ngày 2026-08-08.
 4. MMP-08-3: hủy kèo đã confirmed áp luồng hủy booking GĐ1 (đề xuất) — xác nhận.
 5. ~~MMP-09 khai lại bậc: tần suất + mức ảnh hưởng lên rating đã học.~~ ✅ D26, PO chốt 2026-08-08.
 6. ~~F-01: ngưỡng ánh xạ μ→5 bậc, hằng số τ Glicko-2.~~ ✅ D26, PO chốt 2026-08-08.

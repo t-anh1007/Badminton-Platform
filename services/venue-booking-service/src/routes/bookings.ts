@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getPaymentStatus, listMyBookings, getMyBookingDetail } from '../domain/booking.js';
+import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, getMyBookingDetail } from '../domain/booking.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
@@ -47,6 +47,13 @@ bookingRouter.get(
   h(async (req, res) => {
     const status = await getPaymentStatus(req.params.id!);
     res.status(200).json(status);
+  }),
+);
+
+bookingRouter.get(
+  '/internal/bookings/:id/match-context',
+  h(async (req, res) => {
+    res.status(200).json(await getMatchContext(req.params.id!));
   }),
 );
 

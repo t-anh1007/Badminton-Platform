@@ -29,6 +29,25 @@ async function setupHeldBooking(price = 200000) {
 }
 
 describe('BOK-07 — Tạo booking đặt sân', () => {
+  it('P2-M2: concurrent retries for one hold return exactly one booking', async () => {
+    const userId = fakeUserId();
+    const provider = await createApprovedProvider();
+    const { court } = await makeCourtSearchable(provider.id, undefined, 200000);
+    const hold = await createHold(userId, {
+      courtId: court.id,
+      startAt: tomorrowAt(13),
+      endAt: tomorrowAt(14),
+    });
+
+    const bookings = await Promise.all(Array.from(
+      { length: 8 },
+      () => createBookingFromHold(userId, hold.id),
+    ));
+
+    expect(new Set(bookings.map((booking) => booking.id))).toEqual(new Set([bookings[0]!.id]));
+    expect(await prisma.booking.count({ where: { holdId: hold.id } })).toBe(1);
+  });
+
   it('AC-BOK-07-1: hold còn hạn, PaymentCompleted về -> booking confirmed, hold bị xóa Ở BƯỚC XÁC NHẬN (không phải lúc tạo booking), BookingConfirmed phát đúng một lần', async () => {
     const { booking } = await setupHeldBooking();
     // G4-fix: hold VẪN CÒN sau khi tạo booking (giữ tới bước xác nhận, chống

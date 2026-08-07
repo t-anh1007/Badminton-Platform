@@ -1,11 +1,40 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { publicMatchProfileSchema } from '@khoaluantn/shared';
 
 export interface UpdateProfileInput {
   displayName?: string;
   avatarUrl?: string;
   phone?: string;
   visibility?: 'public' | 'private';
+}
+
+export async function getPublicMatchProfile(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      verified: true,
+      status: true,
+      roles: true,
+      playerProfile: { select: { displayName: true, visibility: true } },
+    },
+  });
+  if (
+    !user
+    || !user.verified
+    || user.status !== 'active'
+    || !user.roles.includes('player')
+    || !user.playerProfile
+  ) {
+    throw new AppError('PLAYER_NOT_FOUND', 'Không tìm thấy người chơi.', 404);
+  }
+  const identityVisibility = user.playerProfile.visibility === 'public' ? 'public' : 'hidden';
+  return publicMatchProfileSchema.parse({
+    userId: user.id,
+    displayName: identityVisibility === 'public' ? user.playerProfile.displayName : 'Người tổ chức',
+    identityVisibility,
+  });
 }
 
 /** ACC-07 — Cập nhật hồ sơ CỦA CHÍNH MÌNH (AC-ACC-07-1..3).

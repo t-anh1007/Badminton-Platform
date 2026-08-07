@@ -16,35 +16,36 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-G0 | pass | `scripts/p2-g0-isolation.ps1` (clean DB migrations, denied cross-schema reads, zero cross-schema FK, DB guards 4/4); unit tests 4/4; workspace typecheck/build; Codex standards/spec re-review: no findings |
 | P2-Gd | pass | `docs/DESIGN.md` covers Kèo/Passport/Community/AI shells, responsive and required states; workspace typecheck/build; Codex standards/spec review findings resolved |
 | P2-M1 | pass | `matchmaking-service`: default 15/15, RabbitMQ E2E 1/1, isolated DB guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
+| P2-M2 | pass | `matchmaking-service`: 36 pass + real HTTP chain/race 1/1; `account-service`: 38 pass; `venue-booking-service`: isolated DB migration + 107 pass; schema isolation guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
-| AC-MMP-01-1 | P2-M2 |  |  |
-| AC-MMP-01-2 | P2-M2 |  |  |
-| AC-MMP-01-3 | P2-M2 |  |  |
-| AC-MMP-01-4 | P2-M2 |  |  |
-| AC-MMP-02-1 | P2-M2 |  |  |
-| AC-MMP-02-2 | P2-M2 |  |  |
-| AC-MMP-02-3 | P2-M2 |  |  |
-| AC-MMP-02-4 | P2-M2 |  |  |
-| AC-MMP-03-1 | P2-M2 |  |  |
-| AC-MMP-03-2 | P2-M2 |  |  |
-| AC-MMP-04-1 | P2-M2 |  |  |
-| AC-MMP-04-2 | P2-M2 |  |  |
-| AC-MMP-04-3 | P2-M2 |  |  |
-| AC-MMP-05-1 | P2-M2 |  |  |
-| AC-MMP-05-2 | P2-M2 |  |  |
-| AC-MMP-05-3 | P2-M2 |  |  |
-| AC-MMP-06-1 | P2-M2 |  |  |
-| AC-MMP-06-2 | P2-M2 |  |  |
-| AC-MMP-06-3 | P2-M2 |  |  |
-| AC-MMP-06-4 | P2-M2 |  |  |
-| AC-MMP-07-1 | P2-M2 |  |  |
-| AC-MMP-07-2 | P2-M2 |  |  |
-| AC-MMP-07-3 | P2-M2 |  |  |
-| AC-MMP-08-1 | P2-M2 |  |  |
-| AC-MMP-08-2 | P2-M2 |  |  |
-| AC-MMP-08-3 | P2-M2 |  |  |
+| AC-MMP-01-1 | P2-M2 | `test/matches.test.ts` — public search excludes filled/zero-slot matches | pass |
+| AC-MMP-01-2 | P2-M2 | `test/matches.test.ts` — skill-range intersection filter | pass |
+| AC-MMP-01-3 | P2-M2 | `test/matches.test.ts` — `cutoffAt` boundary excluded per D28 | pass |
+| AC-MMP-01-4 | P2-M2 | `test/matches.test.ts` — unmatched filters return an empty collection | pass |
+| AC-MMP-02-1 | P2-M2 | `test/matches.test.ts` + `test/matchServiceChain.e2e.test.ts` — split fee, MatchCreated and six concurrent real-HTTP hold retries yield one booking/match/outbox | pass |
+| AC-MMP-02-2 | P2-M2 | `test/matches.test.ts` — organizer ownership/active-hold check rejects foreign booking | pass |
+| AC-MMP-02-3 | P2-M2 | `test/matches.test.ts` — HTTP validation rejects capacity below two | pass |
+| AC-MMP-02-4 | P2-M2 | `test/matches.test.ts` — free match persists zero participant fee | pass |
+| AC-MMP-03-1 | P2-M2 | `test/matches.test.ts` + account `test/matchProfile.test.ts` — venue/time/fee/slots/tier plus D31 public/private identity contract | pass |
+| AC-MMP-03-2 | P2-M2 | `test/matches.test.ts` — unauthenticated detail is visible with `canJoin=false` | pass |
+| AC-MMP-04-1 | P2-M2 | `test/matches.test.ts` — open match creates JOIN `pending` | pass |
+| AC-MMP-04-2 | P2-M2 | `test/matches.test.ts` + partial unique DB guard — duplicate active JOIN rejected | pass |
+| AC-MMP-04-3 | P2-M2 | `test/matches.test.ts` — filled match rejects join | pass |
+| AC-MMP-05-1 | P2-M2 | `test/matches.test.ts` — organizer lists pending+tier, approves and emits one JoinApproved; reject path transitions to `rejected` | pass |
+| AC-MMP-05-2 | P2-M2 | `test/matches.test.ts` — non-organizer approve/list/reject return 403 | pass |
+| AC-MMP-05-3 | P2-M2 | `test/matches.test.ts` — T+10 minute sweep returns unpaid approval to pending and async scheduler drains on shutdown | pass |
+| AC-MMP-06-1 | P2-M3 |  |  |
+| AC-MMP-06-2 | P2-M3 |  |  |
+| AC-MMP-06-3 | P2-M2 | `test/matches.test.ts` — free approval confirms without payment; concurrent last-slot approvals serialize to one 200/one 409 and never exceed capacity | pass |
+| AC-MMP-06-4 | P2-M3 |  |  |
+| AC-MMP-07-1 | P2-M3 |  |  |
+| AC-MMP-07-2 | P2-M3 |  |  |
+| AC-MMP-07-3 | P2-M3 |  |  |
+| AC-MMP-08-1 | P2-M3 |  |  |
+| AC-MMP-08-2 | P2-M3 |  |  |
+| AC-MMP-08-3 | P2-M3 |  |  |
 | AC-MMP-09-1 | P2-M1 | `test/passport.test.ts` — cold-start TB returns rating 1500, RD 350 and high uncertainty over HTTP | pass |
 | AC-MMP-09-2 | P2-M1 | `test/passport.test.ts` — bounded re-declaration preserves learned RD/σ; 30-day boundary and concurrent requests serialized | pass |
 | AC-MMP-10-1 | P2-M4 |  |  |

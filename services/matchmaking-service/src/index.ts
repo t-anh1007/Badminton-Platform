@@ -2,11 +2,13 @@ import { prisma } from './lib/prisma.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { bootstrapRatingEventConsumption } from './lib/ratingEventConsumer.js';
 import { createApp } from './app.js';
+import { startJoinExpiryScheduler } from './domain/joins.js';
 
 const SERVICE_NAME = 'matchmaking-service';
 const PORT = Number(process.env.MATCHMAKING_PORT ?? 3004);
 
 const app = createApp();
+const stopJoinExpiryScheduler = startJoinExpiryScheduler();
 
 const server = app.listen(PORT, () => {
   // eslint-disable-next-line no-console
@@ -23,6 +25,7 @@ void bootstrapRatingEventConsumption()
   .catch((err) => console.error(`[${SERVICE_NAME}] RabbitMQ rating consumer unavailable`, err));
 
 async function shutdown(): Promise<void> {
+  await stopJoinExpiryScheduler();
   await stopConsuming?.();
   await stopPublishing?.();
   await prisma.$disconnect();

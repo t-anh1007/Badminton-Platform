@@ -42,7 +42,7 @@ enum SkillTier {
 model Match {
   id              String      @id @default(uuid())
   organizerUserId String
-  bookingId       String
+  bookingId       String      @unique
   capacity        Int
   feePerSlot      BigInt
   skillMin        SkillTier?

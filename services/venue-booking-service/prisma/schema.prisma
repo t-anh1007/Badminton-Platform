@@ -196,6 +196,9 @@ model Hold {
 
 model Booking {
   id      String @id @default(uuid())
+  /// Idempotency key for converting a player hold into a marketplace booking.
+  /// Nullable for internal and pre-existing bookings; unique when present.
+  holdId  String? @unique
   courtId String
   court   Court  @relation(fields: [courtId], references: [id])
   /// G2: đổi từ Unsupported("tstzrange") — xem ghi chú ở Hold.

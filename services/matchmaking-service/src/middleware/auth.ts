@@ -20,6 +20,14 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   }
 }
 
+export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (!req.headers.authorization) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+}
+
 export function requirePlayer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   if (!req.user?.roles.includes('player')) {
     res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chỉ người chơi được thao tác Passport.' } });

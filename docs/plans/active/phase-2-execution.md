@@ -53,12 +53,17 @@ Out of scope:
 - [x] P2-G0 — schema, skeleton, Outbox/ProcessedEvent and isolation proof.
 - [x] P2-Gd — four Phase 2 page shells added to the existing design baseline.
 - [x] P2-M1 — Glicko-2 rating, standardized declarations and private/public Passport views.
-- [ ] P2-M2 through P2-M9 — sequential dependency gates.
+- [x] P2-M2 — non-financial match lifecycle, D31 identity privacy and same-hold/capacity race guards.
+- [ ] P2-M3 through P2-M9 — sequential dependency gates.
 - [ ] P2-Mfe and P2-final — real-API UI, E2E, 100 percent AC audit.
 
 ## Decisions
 
 - 2026-08-08: PO chose `packages/ai` over a separate AI service, preserving ADR 0002.
+- 2026-08-08: PO fixed match `cutoffAt` at 60 minutes before slot start (D28).
+- 2026-08-08: PO required equal match-fee splitting with organizer absorbing the exact remainder (D29).
+- 2026-08-08: PO reassigned nine money-integrated MMP-06/07/08 ACs from M2 to M3 to remove the lifecycle/ledger dependency cycle without waiving any AC (D30).
+- 2026-08-08: PO required private organizer profiles to expose only the fixed label “Người tổ chức”; public profiles keep their display name (D31).
 
 ## Validation
 
@@ -81,3 +86,9 @@ P2-M1 completed 2026-08-08: D26 rating/declaration parameters and D27 runtime po
 Glicko-2 matches the canonical worked example, Passport APIs enforce private/public views, and
 `RatingPeriodReady` updates rating idempotently through real RabbitMQ. Focused tests, clean isolated
 migrations/DB guards, workspace typecheck/build, Harness status/doctor, and both Codex review axes pass.
+
+P2-M2 completed 2026-08-08: MMP-01..05 and AC-MMP-06-3 pass with real account/venue HTTP contracts,
+D31 private organizer identity protection, idempotent same-hold conversion, organizer review APIs,
+and locked free-slot capacity enforcement. Account 38, matchmaking 36, venue isolated 107 and real
+service-chain 1 tests pass; clean migrations/isolation, workspace typecheck/build, Harness and both
+Codex review axes pass with no remaining code findings.
