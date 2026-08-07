@@ -4,12 +4,12 @@ scope: Giai đoạn 1 (toàn bộ)
 kind: orchestration-goal (goal điều phối, chạy theo milestone có cổng kiểm)
 phase: 1
 status: draft-for-review
-executor: Claude Code (toàn bộ 10 milestone Gboot..G7 — không Codex)
-reviewer: Claude self-verification (unit/integration/contract/Playwright E2E + review diff + kiểm scope)
+executor: Claude Code (Gboot..G4); Codex (G5..G7 và remediation sau review)
+reviewer: self-verification theo milestone (unit/integration/contract/Playwright E2E + review diff + kiểm scope)
 final_acceptance: PO (Tuan Anh) — chỉ nghiệm thu cuối phase
 commission_rate_r: 0.10 (D19, 2026-08-06; AC tham số hóa theo r)
 created: 2026-08-06
-revised: 2026-08-06 (PO đính chính D21: Claude thực thi trọn goal, bỏ Hybrid/Codex; thêm 8 E2E phase-level)
+revised: 2026-08-07 (đồng bộ executor thực tế G5..G7 và remediation sau review)
 source: docs/product/phase-1-handoff.md (Gboot..G7) + docs/DESIGN.md + 4 spec ở docs/product/specs/
 ---
 
@@ -21,18 +21,18 @@ source: docs/product/phase-1-handoff.md (Gboot..G7) + docs/DESIGN.md + 4 spec �
 > Gate của G1…G7 ở [phase-1-handoff.md](phase-1-handoff.md); Gboot ở [gboot-goal.md](gboot-goal.md);
 > Gdesign ở [gdesign-goal.md](gdesign-goal.md). File này tham chiếu, không lặp lại.
 
-## Vai trò (đính chính PO 2026-08-06 — D21)
+## Vai trò (ghi nhận thực tế thực thi)
 
 | Vai | Ai | Trách nhiệm |
 |---|---|---|
-| Executor | **Claude Code** | Thực thi **toàn bộ** 10 milestone Gboot→G7: implementation backend/frontend |
-| Reviewer / QA | **Claude self-verification** | unit + integration + contract + Playwright E2E; review diff; kiểm scope; kiểm thử độc lập cuối phase |
+| Executor | **Claude Code** | Thực thi Gboot→G4: implementation backend/frontend |
+| Executor | **Codex** | Thực thi G5→G7 và remediation R1→R5 theo plan PO duyệt |
+| Reviewer / QA | **Self-verification theo milestone** | unit + integration + contract + Playwright E2E; review diff; kiểm scope |
 | Nghiệm thu | **PO (Tuan Anh)** | Chỉ nghiệm thu **cuối phase**, hoặc khi có escalation |
 
-> **Không Codex.** Phiên goal này Claude làm trọn từ đầu đến cuối — không giao task, không
-> dispatch, không phụ thuộc Codex. **[CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) KHÔNG
-> áp dụng cho goal này** (xem [D21](decision-log.md)). Cổng chuyển milestone do Claude tự kiểm
-> chứng quyết, có evidence ghi vào `phase-1-progress.md`.
+> D21 ban đầu phân công Claude Code thực thi trọn goal. Lịch sử thực tế thay đổi: G5→G7 và
+> remediation sau review do Codex thực hiện; bảng executor trong file này và progress log là
+> nguồn ghi nhận hiện hành. PO vẫn là người duy nhất nghiệm thu cuối phase.
 
 ---
 
@@ -76,7 +76,7 @@ actl.me ~90% theo định nghĩa ở [§1.1](../DESIGN.md)) — sẵn sàng bàn
 
 ```
 Gboot ─> G0 ─> Gdesign ─> G1 ─> G2 ─> G3 ─> G4 ─> (G5 ∥ G6) ─> G7
-                    [Claude Code thực thi toàn bộ]
+       [Claude Code]                         [Codex]
 ```
 
 | # | Gói | Exec | Outcome một dòng | AC | Gate chi tiết |
@@ -88,9 +88,9 @@ Gboot ─> G0 ─> Gdesign ─> G1 ─> G2 ─> G3 ─> G4 ─> (G5 ∥ G6) ─>
 | 2 | **G2** | Claude | Duyệt NCC, khai báo cơ sở/sân/giờ/giá/quy tắc, lịch hợp nhất, booking quầy | 43 | [handoff G2](phase-1-handoff.md) |
 | 3 | **G3** | Claude | Tìm sân (list+map), xem lịch trống+giá, giữ chỗ 10 phút chống đua | 25 | [handoff G3](phase-1-handoff.md) |
 | 4 | **G4** | Claude | Thanh toán số dư/SePay, xác nhận trong hold, ghi doanh thu + hoa hồng `r=10%` ba vế cân | 32 | [handoff G4](phase-1-handoff.md) |
-| 5 | **G5** | Claude | Hủy hoàn theo bậc thang, đổi sân con; đảo đủ ba vế của G4 | 24 | [handoff G5](phase-1-handoff.md) |
-| 6 | **G6** | Claude | Theo dõi doanh thu, đáo hạn `pending→available`, rút tiền, đối soát | 26 | [handoff G6](phase-1-handoff.md) |
-| 7 | **G7** | Claude | Khiếu nại trong 24h, Admin xử dứt điểm; **E2E đa booking + bảo toàn hệ thống** | 14 | [handoff G7](phase-1-handoff.md) |
+| 5 | **G5** | Codex | Hủy hoàn theo bậc thang, đổi sân con; đảo đủ ba vế của G4 | 24 | [handoff G5](phase-1-handoff.md) |
+| 6 | **G6** | Codex | Theo dõi doanh thu, đáo hạn `pending→available`, rút tiền, đối soát | 26 | [handoff G6](phase-1-handoff.md) |
+| 7 | **G7** | Codex | Khiếu nại trong 24h, Admin xử dứt điểm; **E2E đa booking + bảo toàn hệ thống** | 14 | [handoff G7](phase-1-handoff.md) |
 
 - **`apps/web`:** loại khỏi **Gboot + G0** (đó là backend/schema); **có mặt từ Gdesign trở đi**.
   Mỗi gói G1…G7 build UI của nó trên baseline Gdesign.

@@ -2,7 +2,7 @@
 type: progress-log + test-ledger
 phase: 1
 status: implemented-awaiting-po-acceptance
-updated: 2026-08-06
+updated: 2026-08-07
 purpose: Bằng chứng bàn giao GĐ1 — trạng thái milestone + test ledger từng AC (198 dòng). KHÁC coverage-matrix.md (file kia theo dõi spec đã duyệt; file này theo dõi implementation đã test pass).
 ---
 
@@ -11,10 +11,10 @@ purpose: Bằng chứng bàn giao GĐ1 — trạng thái milestone + test ledger
 Nguồn goal: [phase-1-goal.md](phase-1-goal.md). Chuỗi 10 milestone:
 `Gboot → G0 → Gdesign → G1 → G2 → G3 → G4 → (G5 ∥ G6) → G7`.
 
-Executor: **Claude Code** cho toàn bộ 10 milestone (không Codex — xem [D21](decision-log.md)).
-Cổng chuyển milestone do **Claude self-verification** quyết (test pass + review diff + kiểm scope,
-có evidence). **PO chỉ nghiệm thu cuối phase** hoặc khi có escalation. Nhờ vậy goal chạy xuyên GĐ1
-không dừng chờ PO 10 lần.
+Executor thực tế: **Claude Code** cho Gboot→G4; **Codex** cho G5→G7 và remediation R1→R5.
+Cổng chuyển milestone do self-verification của executor quyết (test pass + review diff + kiểm scope,
+có evidence). **PO chỉ nghiệm thu cuối phase** hoặc khi có escalation. Bản ghi này thay thế mô tả
+"không Codex" cũ của D21, vốn không còn khớp lịch sử thực thi.
 
 ## 1. Trạng thái milestone
 
@@ -798,3 +798,13 @@ Codex không tự ghi nhận nghiệm thu hoặc merge vào `main`.
 | 6 | Doanh thu pending → available → rút tiền | G6 | e2e/phase-1.spec.ts | pass | Playwright HT6; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
 | 7 | Tranh chấp trong 24 giờ → Admin xử lý | G7 | e2e/phase-1.spec.ts | pass | Playwright HT7; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
 | 8 | Đối soát giao dịch chưa khớp | G6 | e2e/phase-1.spec.ts | pass | Playwright HT8; trace sinh tại `output/playwright/test-results/` khi chạy `npm run e2e` |
+
+## 7. Remediation sau review Phase 1 (2026-08-07)
+
+| Mốc | Finding | Thay đổi và bằng chứng đã chạy |
+|---|---|---|
+| R1 | F4, F3 | `5c9cd1f`: `/profile/me` không còn trả `passwordHash`; tạo ví `platform` tự phục hồi P2002. Focused account 4/4, finance 6/6; account 36 pass/2 skip, finance 80/80; typecheck và build exit 0. |
+| R2 | F1 | `12cd852`: BookingPage dùng API tìm sân/slot/hold/booking/thanh toán; HT3 browser thật pass (1/1). |
+| R3 | F1, F5 | `865d786`: AdminPage tải NCC pending và duyệt qua API; route `/admin` redirect player; HT2 browser thật pass (1/1). |
+| R4 | F1 | `4e2f243`: ProfilePage dùng `/wallets/me` và `/players/me/bookings`, đã xóa booking mock; HT1 browser thật pass (1/1). |
+| R5 | F2 | Đồng bộ executor trong goal/progress với lịch sử thực tế; cổng kiểm thử phase chạy sau R5 trước khi báo PO. |
