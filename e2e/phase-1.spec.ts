@@ -177,7 +177,7 @@ test('HT4 người chơi tự hủy và nhận hoàn theo bậc', async ({ page 
   await page.getByRole('button', { name: 'Xem mức hoàn' }).click();
   await expect(page.getByText(/Bạn sẽ được hoàn 100%/)).toBeVisible();
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
-  await expect(page.getByRole('status')).toContainText('hoàn 100%');
+  await expect(page.getByLabel('Quản lý booking G5').getByRole('status')).toContainText('hoàn 100%');
   const cancellation = await poll(() => venueDb.outbox.findFirst({ where: { aggregateId: seeded.booking.id, eventType: 'BookingCancelled' } }));
   await refundCancelledBooking(randomUUID(), cancellation.payload);
   await poll(() => financeDb.ledgerEntry.findFirst({ where: { refType: 'booking', refId: seeded.booking.id, type: 'refund', amount: 200000n } }));
@@ -192,7 +192,7 @@ test('HT5 phía sân hủy và hoàn 100%', async ({ page }) => {
   await incident.getByPlaceholder('Mã booking').fill(seeded.booking.id);
   await incident.getByPlaceholder('Lý do hủy bắt buộc').fill('Sân mất điện');
   await incident.getByRole('button', { name: 'Hủy và hoàn 100%' }).click();
-  await expect(page.getByRole('status')).toContainText('hoàn 100%');
+  await expect(page.getByLabel('Quản lý booking G5').getByRole('status')).toContainText('hoàn 100%');
   const cancellation = await poll(() => venueDb.outbox.findFirst({ where: { aggregateId: seeded.booking.id, eventType: 'BookingCancelled' } }));
   await refundCancelledBooking(randomUUID(), cancellation.payload);
   await poll(() => financeDb.ledgerEntry.findFirst({ where: { refType: 'booking', refId: seeded.booking.id, type: 'refund', amount: 200000n } }));
