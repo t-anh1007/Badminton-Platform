@@ -9,7 +9,7 @@
 ## 1. Product Context
 
 A web application combining **court booking** (e-commerce-style reservation flow) with a
-**player community/forum** and **competitive ranking system** for badminton players.
+**public player community**, match-making and an uncertainty-aware **Player Passport**.
 
 Backend: microservices architecture — **5 services + API Gateway** (`account-service`,
 `venue-booking-service`, `finance-service`, `matchmaking-service`, `community-service` + gateway;
@@ -42,7 +42,7 @@ Cụ thể "giống 90%" nghĩa là:
 | Thứ tự section trên trang, cấu trúc layout tổng thể | Nội dung chữ/copy thật của actl.me (viết lại bằng tiếng Việt, đúng sản phẩm cầu lông) |
 | Nhịp spacing, tỉ lệ typography (H1/H2/Body/Caption) | Model 3D `.glb`, canvas WebGL, thư viện Lenis smooth-scroll |
 | Ngôn ngữ motion: cách hover đổi màu, cách menu overlay full-screen bung ra, cách card nhấc lên khi hover, cách section fade/slide-in khi cuộn tới | Logo, ảnh, icon gốc của actl.me |
-| Hành vi UX: nav bar sticky đổi nền khi cuộn, menu overlay full-screen thay vì dropdown nhỏ, ranking/leaderboard dạng list đậm số liệu | Cảnh hero 3D xoay theo scroll — thay bằng ảnh tĩnh/illustration + parallax CSS nhẹ (mục 2.3) |
+| Hành vi UX: nav bar sticky đổi nền khi cuộn, menu overlay full-screen thay vì dropdown nhỏ, Passport/rating-history dạng list đậm số liệu | Cảnh hero 3D xoay theo scroll — thay bằng ảnh tĩnh/illustration + parallax CSS nhẹ (mục 2.3) |
 | Cảm giác "thể thao cạnh tranh, cao cấp" qua contrast màu tối/sáng mạnh, chữ hoa đậm | Bất kỳ thứ gì cần WebGL/canvas/particle 3D |
 
 Khi viết prompt cho Stitch hoặc code component, luôn diễn đạt theo hai cột trên: mô tả đúng
@@ -78,7 +78,7 @@ khi thấy yêu cầu "giống actl.me 90%".
 
 - **Font chính:** Geist (sans-serif) — heading đậm, chữ hoa, letter-spacing rộng cho slogan
   (giống "PLAY. COMPETE. CLIMB THE RANKINGS.")
-- **Font số liệu:** Geist Mono — dùng riêng cho: điểm ranking, tỉ số trận đấu, mã đặt sân,
+- **Font số liệu:** Geist Mono — dùng riêng cho: rating/RD trong Passport, tỉ số trận đấu, mã đặt sân,
   đồng hồ đếm ngược giữ chỗ
 - **Scale gợi ý:**
   - H1 (Hero slogan): 48–64px, font-weight 800, uppercase, line-height 1.1
@@ -108,8 +108,9 @@ khi thấy yêu cầu "giống actl.me 90%".
   flat SVG, ~64px) chuyển động nảy/xoay nhẹ bằng **CSS `@keyframes`** (translateY lên
   xuống hoặc rotate, KHÔNG dùng Framer Motion để giữ bundle nhẹ). Overlay tự ẩn (fade-out
   CSS transition ~300ms) khi các asset chính của trang đã tải xong.
-- **Ranking/Leaderboard:** bảng dạng list, mỗi row = avatar + tên + điểm (Geist Mono) +
-  mũi tên tăng/giảm hạng (icon SVG màu xanh lá/đỏ), hàng top 1-3 có highlight màu accent.
+- **Passport/Rating summary:** rating và độ bất định dùng Geist Mono; bậc hiển thị bằng badge,
+  lịch sử trận dạng list. RD cao phải hiện nhãn "đang xác định trình độ", không biến rating thành
+  leaderboard/gamification ngoài phạm vi.
 - **Card pattern:** border-radius trung bình (12–16px), shadow nhẹ, hover = translateY(-2px)
   + shadow tăng nhẹ (transition 150ms, KHÔNG dùng 3D transform/tilt).
 
@@ -125,12 +126,13 @@ khi thấy yêu cầu "giống actl.me 90%".
 | — | → | **Hồ sơ cá nhân** | `account-service` (ACC-07) | **GĐ1** |
 | Tournaments | → | **Sự kiện / Giải đấu nội bộ** (tuỳ chọn) | mở rộng tương lai | sau GĐ2 |
 | App | → | *(bỏ — không có app)* | — | — |
-| Ranking | → | **Bảng xếp hạng** | `matchmaking-service` | GĐ2 |
+| Ranking | → | **Player Passport** (bậc, rating, độ bất định, lịch sử) | `matchmaking-service` | GĐ2 |
+| *(mới)* | → | **Kèo** (tìm/tạo/tham gia/quản lý/Tìm nhanh) | `matchmaking-service` | GĐ2 |
 | Gallery | → | **Cộng đồng / Diễn đàn** (feed, bài viết) | `community-service` | GĐ2 |
-| Testimonials | → | **Đánh giá / Phản hồi** | — (đánh giá booking **không** thuộc GĐ1, D7) | GĐ2 |
-| Contact | → | **Liên hệ / Hỗ trợ** | Static content | GĐ1 |
+| Testimonials | → | **Đánh giá sau trận** | `matchmaking-service` | GĐ2 |
+| Contact | → | **Liên hệ** | Static content | GĐ1 |
 | *(mới)* | → | **Đặt sân (Booking)** — trang trung tâm | `venue-booking-service` + Redis | **GĐ1** |
-| *(mới)* | → | **Thông báo** | cross-cutting (không service riêng) | GĐ2 |
+| *(mới)* | → | **Trợ lý AI** (gợi ý kèo + chatbot có nguồn) | `packages/ai` qua service sở hữu luồng | GĐ2 |
 | *(mới)* | → | **Quản trị (Admin)** | giao diện tổng hợp trong service nghiệp vụ (ACC/VEN/FIN) | **GĐ1** |
 
 ---
@@ -147,15 +149,36 @@ khi thấy yêu cầu "giống actl.me 90%".
 3. **Đặt sân (Booking)** — lịch grid slot theo giờ/sân, trạng thái slot (trống/đang giữ/đã đặt),
    countdown giữ chỗ Redis, luồng thanh toán 3 bước.
 4. **Hồ sơ cá nhân** — profile, ví cá nhân/kinh doanh, lịch sử booking (ACC-07). *(Không gồm
-   bảng xếp hạng — xếp hạng thuộc GĐ2.)*
+   Player Passport/rating — thuộc GĐ2.)*
 5. **Quản trị (Admin)** — bảng quản lý duyệt NCC / người dùng / rút tiền / tranh chấp, dạng
    table, là giao diện tổng hợp các chức năng Admin nằm trong service nghiệp vụ (ACC/VEN/FIN).
 
-**GĐ2 — dựng sau, cùng baseline (không thuộc Gdesign GĐ1):**
+**GĐ2 — P2-Gd chốt page shell, cùng baseline GĐ1:**
 
-6. **Cộng đồng/Diễn đàn** — feed bài viết, tạo bài "tìm đối", nhóm/CLB. *(GĐ2 — `community-service`.)*
-7. **Bảng xếp hạng** — leaderboard, lịch sử trận đấu. *(GĐ2 — `matchmaking-service`.)*
-8. **Thông báo** — danh sách thông báo. *(GĐ2 — cross-cutting.)*
+6. **Kèo** — tìm/lọc, tạo, xem chi tiết, gửi yêu cầu, organizer xét duyệt, rút/hủy và panel
+   Tìm nhanh realtime. *(GĐ2 — `matchmaking-service`.)*
+7. **Player Passport** — bậc, rating, độ bất định, lịch sử và đánh giá sau trận; bản xem người
+   khác luôn rút gọn dữ liệu công khai. *(GĐ2 — `matchmaking-service`.)*
+8. **Cộng đồng & hỗ trợ cá nhân** — feed công khai, bài viết/bình luận/report, moderation Admin và ticket
+   riêng user↔Admin. Không nhóm kín/CLB/tin nhắn riêng. *(GĐ2 — `community-service`.)*
+9. **Trợ lý AI** — gợi ý kèo có giải thích và chatbot RAG có nguồn; chỉ hướng dẫn/dẫn tới luồng
+   nghiệp vụ, không tự tạo JOIN, hủy booking, hoàn tiền hay moderation. *(`packages/ai` dùng chung.)*
+
+### 4.1 Cấu trúc page shell GĐ2 (P2-Gd)
+
+Mọi shell tái dùng `AppLayout`, nav sticky, card, badge và token hiện có. P2-Gd chỉ chốt bố cục;
+P2-Mfe phải nối API thật, không để mock/placeholder thành bằng chứng hoàn thành.
+
+| Shell | Desktop | Mobile | Trạng thái bắt buộc |
+|---|---|---|---|
+| **Kèo** | Cột lọc trái + danh sách kèo giữa + panel Tìm nhanh/giải thích độ hợp bên phải; chi tiết dùng hero thông tin sân/giờ/phí và drawer yêu cầu tham gia | Bộ lọc thành bottom sheet; card một cột; CTA tham gia cố định đáy, không che countdown giữ chỗ | loading skeleton; empty không có kèo; cutoff/filled; JOIN pending/approved/confirmed; lỗi thanh toán/realtime có đường thử lại |
+| **Player Passport** | Header avatar+bậc; khối rating/RD; lịch sử trận và đánh giá; owner có CTA khai báo/đánh giá, public view chỉ bản rút gọn | Các khối xếp dọc; rating số lớn bằng Geist Mono; lịch sử thành card | cold-start/RD cao; chưa có trận; đánh giá đang flagged chờ Admin; public privacy-safe |
+| **Cộng đồng & hỗ trợ** | Feed trung tâm, composer phía trên, rail phải cho report/ticket; Admin dùng queue + audit table cùng pattern Admin GĐ1 | Feed một cột; composer/report/ticket mở full-screen sheet; moderation table thành stacked rows | public guest; empty feed; post hidden/removed; report open/actioned/dismissed; ticket open/in-progress/resolved/closed; 403 rõ ràng |
+| **Trợ lý AI** | Hai tab: Gợi ý kèo và Chat hỗ trợ; mỗi gợi ý có điểm+giải thích; câu trả lời chat có source chips và CTA mở luồng chuẩn | Tab dạng segmented control; chat full-height trong content area; source chips cuộn ngang | Gemini fallback; AI tạm bận; không có gợi ý; nguồn công khai/dữ liệu của chính user; action request luôn trả hướng dẫn, không tự thi hành |
+
+**Motion GĐ2:** WS proposal và tin nhắn mới chỉ fade/slide nhẹ 150–250ms; không auto-scroll cưỡng
+bức, không 3D. Badge `Live` dùng đỏ đế cầu `#E63946`, trạng thái thanh toán/confirmed dùng accent
+shuttle; `prefers-reduced-motion` phải tắt chuyển động không thiết yếu.
 
 ---
 

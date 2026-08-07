@@ -14,6 +14,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | Milestone | Result | Evidence |
 |---|---|---|
 | P2-G0 | pass | `scripts/p2-g0-isolation.ps1` (clean DB migrations, denied cross-schema reads, zero cross-schema FK, DB guards 4/4); unit tests 4/4; workspace typecheck/build; Codex standards/spec re-review: no findings |
+| P2-Gd | pass | `docs/DESIGN.md` covers Kèo/Passport/Community/AI shells, responsive and required states; workspace typecheck/build; Codex standards/spec review findings resolved |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|

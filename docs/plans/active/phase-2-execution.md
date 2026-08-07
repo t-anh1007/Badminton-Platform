@@ -51,7 +51,8 @@ Out of scope:
 ## Progress
 
 - [x] P2-G0 — schema, skeleton, Outbox/ProcessedEvent and isolation proof.
-- [ ] P2-Gd through P2-M9 — sequential dependency gates.
+- [x] P2-Gd — four Phase 2 page shells added to the existing design baseline.
+- [ ] P2-M1 through P2-M9 — sequential dependency gates.
 - [ ] P2-Mfe and P2-final — real-API UI, E2E, 100 percent AC audit.
 
 ## Decisions
@@ -70,3 +71,7 @@ P2-G0 completed 2026-08-08: clean isolated migrations for `matchmaking` and `com
 cross-schema access, zero cross-schema FK, atomic Outbox leases, DB capacity/self-rating guards,
 workspace typecheck/build, and two-axis Codex review with no remaining findings. Phase result remains
 open until P2-final.
+
+P2-Gd completed 2026-08-08: `docs/DESIGN.md` now defines Kèo, Player Passport, Cộng đồng & hỗ trợ
+cá nhân, and Trợ lý AI shells on the existing ACTL-like/no-3D baseline; workspace typecheck/build
+passed and Codex review findings were resolved.
