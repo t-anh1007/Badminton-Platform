@@ -1,5 +1,5 @@
 // matchmaking-service — Prisma schema (schema-per-service, D17/ADR 0004).
-// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
+// P2-G0: lược đồ theo docs/architecture/data-model-phase-2.md §1.
 // Bất biến: service này CHỈ định nghĩa/đụng tới schema "matchmaking" của chính nó;
 // không FK, không model tham chiếu bảng của service khác.
 
@@ -13,4 +13,111 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("MATCHMAKING_DATABASE_URL")
+}
+
+enum MatchStatus {
+  open
+  filled
+  confirmed
+  completed
+  cancelled
+}
+
+enum JoinStatus {
+  pending
+  approved
+  rejected
+  confirmed
+  withdrawn
+}
+
+enum SkillTier {
+  newcomer
+  beginner
+  intermediate
+  intermediate_plus
+  advanced
+}
+
+model Match {
+  id              String      @id @default(uuid())
+  organizerUserId String
+  bookingId       String
+  capacity        Int
+  feePerSlot      BigInt
+  skillMin        SkillTier?
+  skillMax        SkillTier?
+  status          MatchStatus @default(open)
+  cutoffAt        DateTime    @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  joins           Join[]
+  evaluations     Evaluation[]
+
+  @@index([status, cutoffAt])
+  @@map("matches")
+}
+
+model Join {
+  id                String     @id @default(uuid())
+  matchId           String
+  participantUserId String
+  status            JoinStatus @default(pending)
+  feePaidAt         DateTime?  @db.Timestamptz(3)
+  approvedAt        DateTime?  @db.Timestamptz(3)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  match             Match      @relation(fields: [matchId], references: [id])
+
+  @@index([matchId, status])
+  @@map("joins")
+}
+
+model Passport {
+  userId         String     @id
+  declaredTier   SkillTier?
+  ratingMu       Float
+  ratingRd       Float
+  ratingSigma    Float
+  matchesPlayed  Int        @default(0)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@map("passports")
+}
+
+model Evaluation {
+  id            String     @id @default(uuid())
+  matchId       String
+  raterUserId   String
+  rateeUserId   String
+  perceivedTier SkillTier?
+  labels        Json?
+  flagged       Boolean    @default(false)
+  flagReason    String?
+  countedAt     DateTime?  @db.Timestamptz(3)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  match         Match      @relation(fields: [matchId], references: [id])
+
+  @@unique([matchId, raterUserId, rateeUserId])
+  @@index([matchId, flagged])
+  @@map("evaluations")
+}
+
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  claimedAt     DateTime? @db.Timestamptz(3)
+  publishedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([publishedAt, claimedAt, createdAt])
+  @@map("outbox")
+}
+
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("processed_events")
 }

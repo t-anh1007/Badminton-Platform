@@ -7,12 +7,12 @@ updated: 2026-08-07
 extends: docs/architecture/data-model.md
 ---
 
-# Data Model (phụ lục GĐ2) — matchmaking · community · ai
+# Data Model (phụ lục GĐ2) — matchmaking · community · AI library
 
 Schema-per-service (D17): mỗi service sở hữu schema riêng, **không FK/query xuyên schema**. Tham
-chiếu sang service khác (`userId`, `bookingId`...) là **giá trị tham chiếu, không FK**. `ai` không
-có schema domain riêng (chỉ gọi Gemini + đọc dữ liệu service khác qua API); nếu cần lưu cache
-embedding/log thì trong schema `ai`.
+chiếu sang service khác (`userId`, `bookingId`...) là **giá trị tham chiếu, không FK**. AI là
+`packages/ai` theo ADR 0002, không có service/schema riêng; mọi persistence tương lai phải được PO
+chốt trong schema của service sở hữu.
 
 ## 1. Schema `matchmaking` (service `matchmaking-service`)
 
@@ -92,14 +92,19 @@ embedding/log thì trong schema `ai`.
 
 - `Outbox`, `ProcessedEvent` trong schema `community` (consume `AccountLocked`).
 
-## 3. Schema `ai` (service — hoặc `packages/ai` + lưu tối thiểu)
+## 3. AI dùng chung qua `packages/ai` (không có schema/service riêng)
 
-`ai` không sở hữu dữ liệu domain; đọc qua API service khác theo `userId`. Nếu cần lưu:
-- **RAG_DOC** (embedding tài liệu chính sách công khai): id · source · chunk text · embedding vector · updatedAt.
-- **AI_LOG** (audit gọi Gemini, tùy chọn): id · userId · feature(ai01/ai02) · promptHash · createdAt — KHÔNG lưu nội dung nhạy cảm/dữ liệu user khác.
+**PO chốt 2026-08-08:** AI giữ là thư viện TypeScript dùng chung theo ADR 0002. `packages/ai`
+chỉ chứa client Gemini, interface và guardrail; không có port, migration, schema hay dữ liệu domain.
+`matchmaking-service` gọi thư viện cho AI-01, còn `community-service` gọi cho AI-02.
 
-> Dữ liệu của chính user cho AI-02 (booking/ví/kèo) **không nhân bản** vào schema `ai`; truy vấn
-> trực tiếp qua API của service sở hữu theo `userId` (giữ D17, tránh rò chéo).
+Dữ liệu của chính user cho AI-02 (booking/ví/kèo) **không nhân bản**; service sở hữu dữ liệu truy
+vấn phần của chính user theo `userId` qua API/event contract phù hợp rồi chỉ gửi ngữ cảnh đã lọc
+vào thư viện. Không có truy vấn chéo schema và không đưa dữ liệu user khác vào prompt.
+
+RAG policy/AI audit chỉ được thêm persistence khi PO chốt vector store; vị trí lưu phải thuộc
+schema của service gọi AI hoặc một quyết định kiến trúc mới được PO phê duyệt, không tự tạo schema
+`ai` trái ADR 0002.
 
 ## 4. Ràng buộc chung
 - Không FK xuyên schema; mọi liên kết cross-service là giá trị tham chiếu.
@@ -107,7 +112,7 @@ embedding/log thì trong schema `ai`.
 - Migration mỗi service riêng, chạy sạch trên DB rỗng + cách ly quyền schema (như G0 GĐ1).
 
 ## 5. Quyết định chờ PO chốt
-1. `ai` là service riêng (có port/schema) hay chỉ `packages/ai` gọi từ các service? (đề xuất:
-   service `ai-service` mỏng cho AI-02 chatbot + endpoint AI-01, dùng `packages/ai` làm client Gemini).
-2. Vector store cho RAG (đề xuất: pgvector trong schema `ai`, hoặc lưu embedding đơn giản nếu tài
-   liệu ít).
+1. **Đã chốt 2026-08-08:** AI là `packages/ai` dùng chung theo ADR 0002; không tạo `ai-service`
+   hoặc schema `ai`.
+2. Vector store cho RAG: cần PO chốt vị trí lưu tương thích với quyết định trên; không dùng
+   schema `ai`. Đề xuất sẽ được trình trước P2-M9.

@@ -1,5 +1,5 @@
 // community-service — Prisma schema (schema-per-service, D17/ADR 0004).
-// Gboot: CHƯA có model nào. Lược đồ nghiệp vụ được áp ở G0.
+// P2-G0: lược đồ theo docs/architecture/data-model-phase-2.md §2.
 // Bất biến: service này CHỈ định nghĩa/đụng tới schema "community" của chính nó;
 // không FK, không model tham chiếu bảng của service khác.
 
@@ -13,4 +13,132 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("COMMUNITY_DATABASE_URL")
+}
+
+enum ContentStatus {
+  published
+  hidden
+  removed
+}
+
+enum ReportTargetType {
+  post
+  comment
+}
+
+enum ReportStatus {
+  open
+  actioned
+  dismissed
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+enum TicketSenderRole {
+  player
+  admin
+}
+
+model Post {
+  id           String        @id @default(uuid())
+  authorUserId String
+  body         String
+  status       ContentStatus @default(published)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  editedAt     DateTime?     @db.Timestamptz(3)
+  comments     Comment[]
+
+  @@index([status, createdAt])
+  @@map("posts")
+}
+
+model Comment {
+  id           String        @id @default(uuid())
+  postId       String
+  authorUserId String
+  body         String
+  status       ContentStatus @default(published)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  post         Post          @relation(fields: [postId], references: [id])
+
+  @@index([postId, status, createdAt])
+  @@map("comments")
+}
+
+model Report {
+  id             String           @id @default(uuid())
+  reporterUserId String
+  targetType     ReportTargetType
+  targetId       String
+  reason         String
+  status         ReportStatus     @default(open)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@unique([reporterUserId, targetType, targetId])
+  @@index([status, createdAt])
+  @@map("reports")
+}
+
+model Ticket {
+  id              String       @id @default(uuid())
+  requesterUserId String
+  subject         String
+  status          TicketStatus @default(open)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  messages        TicketMessage[]
+
+  @@index([requesterUserId, status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String           @id @default(uuid())
+  ticketId   String
+  senderUserId String
+  senderRole TicketSenderRole
+  body       String
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  ticket     Ticket           @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+model ModerationAudit {
+  id          String   @id @default(uuid())
+  adminUserId String
+  action      String
+  targetType  String
+  targetId    String
+  reason      String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([targetType, targetId, createdAt])
+  @@map("moderation_audits")
+}
+
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  claimedAt     DateTime? @db.Timestamptz(3)
+  publishedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([publishedAt, claimedAt, createdAt])
+  @@map("outbox")
+}
+
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("processed_events")
 }

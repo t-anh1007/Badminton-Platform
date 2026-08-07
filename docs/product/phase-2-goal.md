@@ -29,7 +29,7 @@ source: 4 spec GĐ2 trong docs/product/specs/ + docs/architecture/data-model-pha
 - `docs/product/specs/community-support.md` (COM-01..08)
 - `docs/product/specs/ai-assist.md` (AI-01, AI-02 — Gemini)
 - `docs/product/specs/finance-match-fee.md` (FIN-05)
-- `docs/architecture/data-model-phase-2.md` (schema matchmaking/community/ai)
+- `docs/architecture/data-model-phase-2.md` (schema matchmaking/community + `packages/ai`)
 - Nền tảng GĐ1: `AGENTS.md`, `docs/WORKFLOW.md`, `docs/SCOPE_BASELINE.md §4` (9 bất biến),
   `docs/decisions/` (ADR 0002/0003/0004), code GĐ1 (mẫu outbox/idempotency/ledger/hold).
 
@@ -39,8 +39,9 @@ của GĐ2 chạy được và pass **toàn bộ AC** trong 4 spec, trên khung 
 frontend nối API thật (không mock shell — rút kinh nghiệm F1 GĐ1).
 
 ## Success condition (khách quan)
-1. **Cổng cấu trúc:** 3 service (`matchmaking`, `community`, `ai`) migrate sạch trên DB rỗng, cách
-   ly quyền schema (test âm), không FK/query xuyên schema.
+1. **Cổng cấu trúc:** 2 service domain (`matchmaking`, `community`) migrate sạch trên DB rỗng,
+   cách ly quyền schema (test âm), không FK/query xuyên schema. AI giữ là thư viện dùng chung
+   `packages/ai` theo ADR 0002, không có service/schema riêng.
 2. **Cổng nghiệp vụ:** mọi AC trong 4 spec đạt `pass` trong test ledger `phase-2-progress.md`
    (Codex điền dần; thước đo "done", KHÔNG dùng coverage-matrix).
 3. **Cổng bảo toàn tiền (FIN-05):** `AC-FIN-05-8` — một kèo chạy trọn vòng + một kèo hủy, sau khi
@@ -57,7 +58,7 @@ P2-G0 ─> P2-Gd ─> P2-M1 ─> P2-M2 ─> P2-M3 ─> (P2-M4 ∥ P2-M5 ∥ P2-M
 ```
 | # | Milestone | Nội dung (spec) | Phụ thuộc |
 |---|---|---|---|
-| P2-G0 | Schema + skeleton | data-model-phase-2; service nối eventbus/outbox; test cách ly schema | GĐ1 |
+| P2-G0 | Schema + skeleton | data-model-phase-2; `matchmaking`/`community` nối eventbus/outbox; `packages/ai` giữ skeleton; test cách ly schema | GĐ1 |
 | P2-Gd | Design baseline GĐ2 | page shell kèo/passport/community/AI-chat trên DESIGN.md (không dựng lại) | P2-G0 |
 | P2-M1 | Rating F-01 + Passport | F-01, MMP-09, MMP-11 | P2-G0 |
 | P2-M2 | Kèo lifecycle | MMP-01..08 + sự kiện MatchCreated/JoinApproved/MatchConfirmed/MatchCancelled | P2-M1 |
@@ -71,7 +72,24 @@ P2-G0 ─> P2-Gd ─> P2-M1 ─> P2-M2 ─> P2-M3 ─> (P2-M4 ∥ P2-M5 ∥ P2-M
 | P2-Mfe | Frontend GĐ2 | nối UI thật mọi UC | các M tương ứng |
 | P2-final | Cổng cuối phase | E2E + bảo toàn FIN-05 + ledger đủ pass | tất cả |
 
-## Ràng buộc xuyên suốt (9 bất biến SCOPE_BASELINE §4 + GĐ1)
+## Quy tắc hoàn thành 100% — KHÔNG được bỏ qua âm thầm
+
+Đây là điều kiện bắt buộc, cao hơn tốc độ:
+
+1. **Mọi AC trong 4 spec đều phải đạt `pass` hoặc được PO tường minh miễn trừ.** Không có trạng
+   thái thứ ba. Cấm: đánh dấu AC là "để sau", "known issue", "out of scope tạm thời", "TODO" rồi
+   tự chuyển milestone kế mà không dừng hỏi PO.
+2. **Gặp khó (AC không rõ cách làm, spec mâu thuẫn, thiếu quyết định, lỗi khó sửa) → DỪNG và hỏi
+   PO ngay tại chỗ đó.** Không tự suy diễn để "cho xong", không âm thầm nới lỏng AC, không tự ý
+   đổi acceptance criteria để dễ pass hơn.
+3. **Không được coi một milestone "xong" nếu còn AC chưa pass trong milestone đó.** Nếu bị chặn bởi
+   một AC, dừng NGAY tại AC đó — không nhảy sang AC/milestone tiếp theo rồi quay lại sau (tạo nợ ẩn
+   dễ bị quên). Ghi rõ trạng thái "blocked — chờ PO" vào `phase-2-progress.md` cho đúng AC đó.
+4. **Trước khi báo "Giai đoạn 2 hoàn tất"**, tự rà lại: đếm số AC `pass` trong ledger so với tổng số
+   AC trong 4 spec — phải khớp 100%, không làm tròn, không ước lượng "gần đủ".
+5. Mọi lần dừng hỏi PO đều phải nêu **rõ AC/quyết định cụ thể bị chặn**, không hỏi chung chung.
+
+
 - Schema-per-service (D17): không FK/query xuyên schema; giao tiếp API/event.
 - Tiền (FIN-05): bảo toàn giá trị + ledger append-only; phí góp qua platform, KHÔNG ngang hàng (#6).
 - AI chỉ hỗ trợ + giải thích, KHÔNG tự hành động nhạy cảm (#8).
@@ -89,8 +107,9 @@ P2-G0 ─> P2-Gd ─> P2-M1 ─> P2-M2 ─> P2-M3 ─> (P2-M4 ∥ P2-M5 ∥ P2-M
 - Gặp `【PO-REVIEW】` trong spec ảnh hưởng tiền/quyền/trạng thái mà chưa có quyết định → dừng, hỏi PO.
 
 ## Done when
-Cả 5 success condition pass; test ledger `phase-2-progress.md` đủ AC `pass` có evidence; E2E xanh;
-PO nghiệm thu cuối phase.
+Cả 5 success condition pass; **100% AC trong 4 spec `pass` trong `phase-2-progress.md`** (đếm khớp
+tuyệt đối, không xấp xỉ) có evidence; E2E xanh; không còn AC ở trạng thái `blocked` chưa được PO
+quyết; PO nghiệm thu cuối phase.
 
 ## Quyết định `【PO-REVIEW】` cần chốt trước/trong khi build
 Tổng hợp ở cuối mỗi spec (matchmaking §9, community §8, ai §6, finance-match-fee §7, data-model §5).
