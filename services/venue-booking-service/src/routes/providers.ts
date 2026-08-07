@@ -1,12 +1,18 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { registerProvider, approveProvider, rejectProvider } from '../domain/provider.js';
+import { listProviders, registerProvider, approveProvider, rejectProvider } from '../domain/provider.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 
 export const providerRouter = Router();
 
 const registerSchema = z.object({ orgName: z.string(), contact: z.unknown().optional() });
+const listSchema = z.object({ status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional() });
+
+providerRouter.get('/', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const { status } = listSchema.parse(req.query);
+  res.status(200).json(await listProviders(status));
+}));
 
 providerRouter.post(
   '/',

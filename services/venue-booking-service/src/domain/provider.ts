@@ -7,6 +7,10 @@ export interface RegisterProviderInput {
   contact?: unknown;
 }
 
+export function listProviders(status?: 'pending' | 'approved' | 'rejected' | 'suspended') {
+  return prisma.provider.findMany({ where: status ? { status } : undefined, orderBy: { id: 'asc' } });
+}
+
 /** VEN-01 — Đăng ký nhà cung cấp sân (AC-VEN-01-1..3).
  *
  * AC-VEN-01-4 (chưa xác minh email -> từ chối) được bảo đảm Ở TẦNG KHÁC, không

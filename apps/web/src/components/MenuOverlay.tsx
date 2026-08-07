@@ -14,6 +14,8 @@ const LINKS: { to: string; label: string }[] = [
  * "Download App" (dự án không có app di động).
  */
 export function MenuOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const roles = (() => { try { const token = localStorage.getItem('accessToken'); return token ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).roles as string[] : []; } catch { return []; } })();
+  const links = LINKS.filter((link) => link.to !== '/admin' || roles.includes('admin'));
   return (
     <div
       className={`fixed inset-0 z-[60] bg-primary-navy transition-opacity duration-300 ${
@@ -37,7 +39,7 @@ export function MenuOverlay({ open, onClose }: { open: boolean; onClose: () => v
 
         <nav className="flex flex-col gap-3">
           <span className="text-caption">Điều hướng</span>
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <Link
               key={l.to}
               to={l.to}

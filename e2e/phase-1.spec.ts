@@ -119,7 +119,18 @@ test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', as
   const adminId = randomUUID();
   await seedAccountIdentity(adminId, [UserRole.player, UserRole.admin]);
   const adminToken = token(adminId, ['player', 'admin']);
-  expect((await request.post(`${VENUE}/providers/${provider.id}/approve`, { headers: auth(adminToken), data: {} })).ok()).toBeTruthy();
+  await page.goto('/');
+  await page.evaluate((playerToken) => window.localStorage.setItem('accessToken', playerToken), token(userId));
+  await page.goto('/admin');
+  await expect(page).toHaveURL(/\/$/);
+  await page.evaluate((nextAdminToken) => window.localStorage.setItem('accessToken', nextAdminToken), adminToken);
+  await page.goto('/admin');
+  await expect(page.getByRole('heading', { name: 'Quản trị' })).toBeVisible();
+  await page.getByRole('button', { name: `Duyệt ${provider.orgName}` }).click();
+  await poll(async () => {
+    const current = await venueDb.provider.findUnique({ where: { id: provider.id } });
+    return current?.status === 'approved' ? current : null;
+  });
   const providerToken = token(userId, ['player', 'provider']);
   const venueResponse = await request.post(`${VENUE}/venues`, { headers: auth(providerToken), data: { name: 'Sân E2E API', lat: 10.77, lng: 106.7, address: 'TP.HCM' } });
   const venue = await venueResponse.json();
@@ -127,9 +138,6 @@ test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', as
   const court = await courtResponse.json();
   expect((await request.post(`${VENUE}/courts/${court.id}/operating-hours`, { headers: auth(providerToken), data: { weekday: 1, openMinute: 360, closeMinute: 1320 } })).ok()).toBeTruthy();
   expect((await request.post(`${VENUE}/courts/${court.id}/pricing`, { headers: auth(providerToken), data: { rules: [{ weekday: 1, startMinute: 360, endMinute: 1320, price: 200000 }], effectiveFrom: new Date().toISOString() } })).ok()).toBeTruthy();
-  await setSession(page, adminToken);
-  await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Quản trị' })).toBeVisible();
   expect((await venueDb.provider.findUniqueOrThrow({ where: { id: provider.id } })).status).toBe('approved');
 });
 

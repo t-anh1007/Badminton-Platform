@@ -66,6 +66,7 @@ export interface HoldResult {
   endAt: string;
   expiresAt: string;
 }
+export interface ProviderRow { id: string; orgName: string; status: string; }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
   const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
@@ -80,6 +81,9 @@ export const selectSlot = (courtId: string, body: { startAt: string; durationMin
 export const createHold = (body: { courtId: string; startAt: string; endAt: string }) =>
   api<HoldResult>('/holds', { method: 'POST', body: JSON.stringify(body) });
 export const createBooking = (holdId: string) => api<BookingSummary>('/bookings', { method: 'POST', body: JSON.stringify({ holdId }) });
+export const getAdminProviders = () => api<ProviderRow[]>('/providers?status=pending');
+export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
+export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 
 export async function getMyUpcomingBookings(): Promise<BookingSummary[]> {
   const result = await api<{ upcoming: BookingSummary[] }>('/players/me/bookings');

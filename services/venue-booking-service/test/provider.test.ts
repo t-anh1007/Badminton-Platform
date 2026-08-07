@@ -55,6 +55,14 @@ describe('VEN-01 — Đăng ký nhà cung cấp sân', () => {
 });
 
 describe('VEN-02 — Xét duyệt nhà cung cấp sân (phần venue-booking-service)', () => {
+  it('Admin xem được danh sách NCC pending, player bị từ chối', async () => {
+    const provider = await registerProvider(fakeUserId(), { orgName: 'Chờ duyệt' });
+    const admin = signTestAccessToken(fakeUserId(), ['admin']);
+    const list = await request(app).get('/providers?status=pending').set('Authorization', `Bearer ${admin}`).expect(200);
+    expect(list.body.some((row: { id: string }) => row.id === provider.id)).toBe(true);
+    await request(app).get('/providers').set('Authorization', `Bearer ${signTestAccessToken(fakeUserId(), ['player'])}`).expect(403);
+  });
+
   it('AC-VEN-02-2: Admin từ chối kèm lý do -> rejected, lý do hiển thị cho người nộp', async () => {
     const userId = fakeUserId();
     const provider = await registerProvider(userId, { orgName: 'A' });
