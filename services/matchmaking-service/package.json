@@ -17,6 +17,7 @@
     "test": "dotenv -e ../../.env -- vitest run --no-file-parallelism"
   },
   "dependencies": {
+    "@khoaluantn/ai": "^0.1.0",
     "@khoaluantn/eventbus": "^0.1.0",
     "@khoaluantn/shared": "^0.1.0",
     "@prisma/client": "^5.22.0",

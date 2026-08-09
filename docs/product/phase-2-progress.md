@@ -19,6 +19,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M3 | pass | Fresh isolated migrations for finance/venue/matchmaking; focused AC suites: venue 4/4, matchmaking 33/33, finance 6/6; real HTTP/RabbitMQ/outbox `matchFee.e2e.test.ts` 11/11 including D38 receipt recovery, D39 retry/fencing, D40 authentication and D33 cancellation ordering; workspace typecheck/build; Harness status/doctor; incremental Codex review: no P0-P3 findings |
 | P2-M4 | pass | Fresh isolated matchmaking migrations; HTTP AC/regression `evaluations.test.ts` 10/10 covers D41 window, D42 median/30-day pair detection and out-of-order BookingCompleted recovery; workspace typecheck/build; one Codex spec+correctness review found and resolved three real defects, with no remaining P0-P3 findings |
 | P2-M5 | pass | Fresh isolated matchmaking migrations; real HTTP + Socket.IO `quickMatch.e2e.test.ts` 4/4 covers proposal, ordinary pending JOIN/10-minute JoinApproved hold, final-slot race and disconnect recovery; workspace typecheck/build; Harness status/doctor; one Codex two-axis review resolved the hold-evidence gap with no remaining actionable finding |
+| P2-M6 | pass | `packages/ai` deterministic AC unit suite 6/6 plus isolated real HTTP `compatibility.e2e.test.ts` 2/2; F-02 grounds rating in match skill range and declares unavailable time/location inputs; shared-library-only F-04 creates neither match nor payment; workspace typecheck/build; one Codex two-axis review resolved grounded-input defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -60,16 +61,16 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-F01-2 | P2-M1 | `test/rating.test.ts` + `test/passport.test.ts` + `test/ratingRabbit.e2e.test.ts` — stronger-opponent wins raise μ/reduce RD; broker event persists once across replay | pass |
 | AC-F01-3 | P2-M1 | `test/rating.test.ts` — equal μ with RD 300 vs 80 exposes high vs established confidence | pass |
 | AC-F01-4 | P2-M1 | `test/rating.test.ts` — order-independent identical output plus canonical Glicko-2 worked example | pass |
-| AC-F02-1 | P2-M6 |  |  |
-| AC-F02-2 | P2-M6 |  |  |
-| AC-F02-3 | P2-M6 |  |  |
+| AC-F02-1 | P2-M6 | `packages/ai/test/compatibility.test.ts` — nearby rating/RD with matched facts scores high and names the rating gap; isolated HTTP `test/compatibility.e2e.test.ts` exposes the score to the organizer | pass |
+| AC-F02-2 | P2-M6 | `packages/ai/test/compatibility.test.ts` — 800-point newcomer/advanced gap scores low with concrete skill-gap reason; isolated HTTP regression grounds target in advanced match range, not organizer rating | pass |
+| AC-F02-3 | P2-M6 | `packages/ai/test/compatibility.test.ts` — every score has a non-empty explanation; HTTP response declares unavailable time/location facts instead of inventing a match | pass |
 | AC-F03-1 | P2-M5 | isolated real Socket.IO `test/quickMatch.e2e.test.ts` — authenticated player receives the one-slot open-match proposal over direct matchmaking WS | pass |
 | AC-F03-2 | P2-M5 | isolated real HTTP + Socket.IO `test/quickMatch.e2e.test.ts` — WS accept creates ordinary `pending` JOIN; organizer approval emits exact `JoinApproved.expiresAt = approvedAt + 10m` | pass |
 | AC-F03-3 | P2-M5 | isolated real HTTP + Socket.IO `test/quickMatch.e2e.test.ts` — concurrent WS candidates remain pending; concurrent organizer approvals serialize to one `approved` hold and one `MATCH_FULL` 409 | pass |
 | AC-F03-4 | P2-M5 | isolated real Socket.IO `test/quickMatch.e2e.test.ts` — disconnect before accept writes no JOIN/hold; next player joins and is the only pending request | pass |
-| AC-F04-1 | P2-M6 |  |  |
-| AC-F04-2 | P2-M6 |  |  |
-| AC-F04-3 | P2-M6 |  |  |
+| AC-F04-1 | P2-M6 | `packages/ai/test/compatibility.test.ts` — eight ordered candidates partition into two capacity-four low-variance groups with explanations | pass |
+| AC-F04-2 | P2-M6 | `packages/ai/test/compatibility.test.ts` — proposal requires confirmation and has no created match or payment action | pass |
+| AC-F04-3 | P2-M6 | `packages/ai/test/compatibility.test.ts` — non-divisible candidate count leaves an explicit unmatched remainder, never a forced partial group | pass |
 | AC-F07-1 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — median deviation of two tiers after three peer ratings is flagged with explanation and excluded | pass |
 | AC-F07-2 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — canonical pair lock flags reciprocal top-tier evidence across three completed matches within 30 days | pass |
 | AC-F07-3 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — Admin approves into Passport aggregate or permanently rejects | pass |

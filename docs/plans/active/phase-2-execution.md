@@ -57,7 +57,8 @@ Out of scope:
 - [x] P2-M3 — FIN-05 integrated match-fee lifecycle, D38 receipt recovery, D39 fenced booking resolution and D40 service authentication.
 - [x] P2-M4 — post-match evaluations, D41 72-hour window and D42 fairness flagging with Admin review.
 - [x] P2-M5 — direct Socket.IO Quick Match, D44 organizer-only approval holds and final-slot serialization.
-- [ ] P2-M6 through P2-M9 — remaining backend dependency gates.
+- [x] P2-M6 — deterministic, explained compatibility and proposal-only balanced grouping in shared `packages/ai`.
+- [ ] P2-M7 through P2-M9 — remaining backend dependency gates.
 - [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 

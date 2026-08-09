@@ -354,7 +354,8 @@ describe('MMP-05 — organizer join review', () => {
         participantUserId: join.participantUserId,
         status: 'pending',
         participantTier: 'intermediate',
-        compatibilityScore: null,
+        compatibilityScore: expect.any(Number),
+        compatibilityExplanation: expect.any(String),
       }),
     ]);
   });

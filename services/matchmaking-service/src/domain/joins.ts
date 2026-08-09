@@ -1,8 +1,9 @@
 import { AppError } from '../lib/errors.js';
+import { calculateCompatibility } from '@khoaluantn/ai';
 import type { JoinApprovedPayload } from '@khoaluantn/shared';
 import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
-import { describeRating } from './rating.js';
+import { describeRating, INITIAL_RD, TIER_CENTERS } from './rating.js';
 
 export const JOIN_HOLD_MINUTES = 10;
 
@@ -16,17 +17,42 @@ async function assertOrganizer(matchId: string, organizerUserId: string) {
 }
 
 export async function listPendingJoins(matchId: string, organizerUserId: string) {
-  await assertOrganizer(matchId, organizerUserId);
+  const match = await assertOrganizer(matchId, organizerUserId);
   const joins = await prisma.join.findMany({
     where: { matchId, status: 'pending' },
     orderBy: { createdAt: 'asc' },
   });
   const passports = await prisma.passport.findMany({
-    where: { userId: { in: joins.map((join) => join.participantUserId) } },
+    where: {
+      userId: {
+        in: [match.organizerUserId, ...joins.map((join) => join.participantUserId)],
+      },
+    },
   });
   const byUserId = new Map(passports.map((passport) => [passport.userId, passport]));
+  const organizerPassport = byUserId.get(match.organizerUserId);
+  const rangeMin = match.skillMin ?? match.skillMax;
+  const rangeMax = match.skillMax ?? match.skillMin;
+  const targetRating = rangeMin && rangeMax
+    ? (TIER_CENTERS[rangeMin] + TIER_CENTERS[rangeMax]) / 2
+    : (organizerPassport?.ratingMu ?? 1500);
+  const targetRd = organizerPassport?.ratingRd ?? INITIAL_RD;
   return joins.map((join) => {
     const passport = byUserId.get(join.participantUserId);
+    const compatibility = calculateCompatibility({
+      player: {
+        rating: passport?.ratingMu ?? 1500,
+        rd: passport?.ratingRd ?? INITIAL_RD,
+      },
+      match: {
+        targetRating,
+        targetRd,
+        // No preference model is persisted yet. Do not award or claim a match
+        // for time/location until the evidence is available.
+        timeMatches: false,
+        locationMatches: false,
+      },
+    });
     return {
       ...join,
       participantTier: passport
@@ -36,9 +62,8 @@ export async function listPendingJoins(matchId: string, organizerUserId: string)
           sigma: passport.ratingSigma,
         }).tier
         : null,
-      // F-02 is owned by P2-M6; the stable field is present now and populated
-      // by that milestone without changing the MMP-05 HTTP contract.
-      compatibilityScore: null,
+      compatibilityScore: compatibility.score,
+      compatibilityExplanation: compatibility.explanation,
     };
   });
 }
