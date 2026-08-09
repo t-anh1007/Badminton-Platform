@@ -42,7 +42,7 @@ export function FinancePanel() {
         <Card><p className="text-caption">Có thể rút</p><p className="text-figures text-xl">{money(businessWallet?.available ?? '0')}</p></Card>
         <Card><p className="text-caption">Đang giữ cho yêu cầu rút</p><p className="text-figures text-xl">{money(businessWallet?.reserved ?? '0')}</p></Card>
       </div>
-      <div className="mt-4 overflow-x-auto rounded-2xl bg-bg-white p-4">
+      <div className="mt-4 overflow-x-auto rounded-2xl bg-surface p-4">
         <form className="mb-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); reload(); }}>
           <input aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })} placeholder="Venue ID" />
           <input aria-label="Từ ngày" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
@@ -53,14 +53,14 @@ export function FinancePanel() {
           <tbody>{rows.map((row) => <tr key={row.bookingId}><td>{row.bookingId}</td><td>{money(row.gross)}</td><td>{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td>{money(row.commission)}</td><td>{money(row.net)}</td><td>{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : new Date(row.releaseAt).toLocaleString('vi-VN')}</td></tr>)}</tbody>
         </table>
       </div>
-      <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl bg-bg-white p-4 sm:grid-cols-2">
+      <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl bg-surface p-4 sm:grid-cols-2">
         <input aria-label="Số tiền rút" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Tối thiểu 100.000đ" />
         <input aria-label="Ngân hàng" value={form.bankCode} onChange={(e) => setForm({ ...form, bankCode: e.target.value })} placeholder="Mã ngân hàng" />
         <input aria-label="Số tài khoản" value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} placeholder="Số tài khoản" />
         <input aria-label="Tên tài khoản" value={form.bankAccountName} onChange={(e) => setForm({ ...form, bankAccountName: e.target.value })} placeholder="Tên chủ tài khoản" />
-        <button className="rounded-full bg-primary-navy px-4 py-2 text-on-dark" type="submit">Tạo yêu cầu rút</button>
+        <button className="rounded-full bg-green-600 px-4 py-2 text-surface" type="submit">Tạo yêu cầu rút</button>
       </form>
-      <div className="mt-4 space-y-2">{withdrawals.map((row) => <div key={row.id} className="rounded-xl bg-bg-white p-3"><span>{row.transferCode} · {money(row.amount)} · {row.status}</span>{row.status === 'pending' && <button className="ml-3" onClick={() => cancelMyWithdrawal(row.id).then(reload).catch((error: Error) => setMessage(error.message))}>Hủy yêu cầu</button>}</div>)}</div>
+      <div className="mt-4 space-y-2">{withdrawals.map((row) => <div key={row.id} className="rounded-xl bg-surface p-3"><span>{row.transferCode} · {money(row.amount)} · {row.status}</span>{row.status === 'pending' && <button className="ml-3" onClick={() => cancelMyWithdrawal(row.id).then(reload).catch((error: Error) => setMessage(error.message))}>Hủy yêu cầu</button>}</div>)}</div>
       {message && <p className="mt-3 text-sm" role="status">{message}</p>}
     </section>
   );

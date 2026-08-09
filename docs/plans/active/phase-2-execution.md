@@ -61,7 +61,8 @@ Out of scope:
 - [x] P2-M7 — LangChain Gemini matchmaker with verified F-02 evidence selection and fail-closed configuration/fallback.
 - [x] P2-M8 — public-only Community Support, manual moderation and asynchronous support tickets.
 - [x] P2-M9 — AI-02 grounded support assistant without an AI schema/service.
-- [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
+- [x] P2-FE0 — Playo tokens, reusable primitives and light global chrome.
+- [ ] P2-FE1 through P2-FE2 — Playo pages against real APIs.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
 ## Decisions
@@ -151,3 +152,11 @@ locally grounded answers and never execute cancellation; cancellation requests g
 flow. Community JWT authentication now fails closed without `JWT_SECRET`. Focused shared, authenticated
 HTTP and auth tests passed 10/10; workspace typecheck/build and Harness passed. The single review
 resolved retrieval, cancellation-intent, JWT and error-boundary defects.
+
+P2-FE0 completed 2026-08-09: replaced the ACTL visual foundation with self-hosted Inter plus
+Playo canvas/green/ink tokens, retaining Geist Mono only for figures. The new light Navbar, Footer,
+AppLayout, preloader, auth modal and reusable UI primitives are CSS-only and reduced-motion aware;
+the former dark Hero and MenuOverlay were removed. The focused foundation test passed 3/3, Playwright
+checked desktop and 375px mobile chrome with no console errors, and workspace typecheck/build passed.
+The one review fixed unavailable future routes, session refresh after login, focus visibility and toast
+auto-dismiss. GĐ2 page links stay visibly disabled until their real pages arrive in P2-FE1/P2-FE2.

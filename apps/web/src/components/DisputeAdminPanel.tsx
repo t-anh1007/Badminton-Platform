@@ -9,7 +9,7 @@ function DisputeDecisionCard({ row, onDecide }: {
 }) {
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
-  return <article className="rounded-xl bg-bg-white p-4">
+  return <article className="rounded-xl bg-surface p-4">
     <p>{row.bookingId} · {row.status} · hạn {new Date(row.deadlineAt).toLocaleString('vi-VN')}</p>
     <p className="text-sm">{row.reason}</p>
     {row.revenue && <p className="text-sm">Booking: gộp {money(row.revenue.gross)} · ròng còn lại {money(row.revenue.net)} · hoa hồng còn lại {money(row.revenue.commission)}</p>}

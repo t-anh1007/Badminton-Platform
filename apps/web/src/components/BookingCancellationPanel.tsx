@@ -86,48 +86,48 @@ export function BookingCancellationPanel() {
 
   return (
     <section className="mt-14 grid gap-6 lg:grid-cols-2" aria-label="Quản lý booking G5">
-      <div className="rounded-2xl bg-bg-white p-6 shadow-sm">
+      <div className="rounded-2xl bg-surface p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-h2 !text-2xl">Booking của tôi</h2>
-          <button type="button" onClick={() => void loadBookings()} className="rounded-full bg-primary-navy px-4 py-2 text-caption text-on-dark">
+          <button type="button" onClick={() => void loadBookings()} className="rounded-full bg-green-600 px-4 py-2 text-caption text-surface">
             Tải lại
           </button>
         </div>
         <div className="space-y-3">
           {bookings.map((booking) => (
-            <article key={booking.id} className="rounded-xl border border-slate/15 p-4">
+            <article key={booking.id} className="rounded-xl border border-ink-700/15 p-4">
               <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? booking.courtId}</p>
-              <p className="text-body text-text-primary/70">{new Date(booking.startAt).toLocaleString('vi-VN')} · {money.format(Number(booking.priceSnapshot))}</p>
-              <button type="button" onClick={() => void previewCancellation(booking)} className="mt-3 rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">
+              <p className="text-body text-ink-900/70">{new Date(booking.startAt).toLocaleString('vi-VN')} · {money.format(Number(booking.priceSnapshot))}</p>
+              <button type="button" onClick={() => void previewCancellation(booking)} className="mt-3 rounded-full bg-danger px-4 py-2 text-caption text-surface">
                 Xem mức hoàn
               </button>
             </article>
           ))}
         </div>
-        <p className="text-body mt-4 text-text-primary/60">Hệ thống luôn hiển thị số tiền hoàn trước bước Xác nhận hủy.</p>
+        <p className="text-body mt-4 text-ink-900/60">Hệ thống luôn hiển thị số tiền hoàn trước bước Xác nhận hủy.</p>
         {pendingCancellation ? (
-          <div className="mt-4 rounded-xl bg-accent-shuttle/25 p-4">
+          <div className="mt-4 rounded-xl bg-green-600/25 p-4">
             <p className="font-semibold">Bạn sẽ được hoàn {pendingCancellation.refundPercent}% — {money.format(Number(pendingCancellation.booking.priceSnapshot) * pendingCancellation.refundPercent / 100)}.</p>
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => void confirmCancellation()} className="rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">Xác nhận hủy</button>
-              <button type="button" onClick={() => setPendingCancellation(null)} className="rounded-full border border-slate/20 px-4 py-2 text-caption !text-text-primary">Giữ booking</button>
+              <button type="button" onClick={() => void confirmCancellation()} className="rounded-full bg-danger px-4 py-2 text-caption text-surface">Xác nhận hủy</button>
+              <button type="button" onClick={() => setPendingCancellation(null)} className="rounded-full border border-ink-700/20 px-4 py-2 text-caption !text-ink-900">Giữ booking</button>
             </div>
           </div>
         ) : null}
       </div>
 
-      <div className="rounded-2xl bg-primary-navy p-6 text-on-dark shadow-sm">
+      <div className="rounded-2xl bg-green-600 p-6 text-surface shadow-sm">
         <h2 className="text-h2 !text-2xl">Quản lý sự cố phía sân</h2>
-        <p className="text-body mt-2 text-on-dark/70">Đổi sân con cùng cơ sở hoặc hủy kèm hoàn 100%.</p>
+        <p className="text-body mt-2 text-surface/70">Đổi sân con cùng cơ sở hoặc hủy kèm hoàn 100%.</p>
         <div className="mt-4 grid gap-3">
-          <input value={providerBookingId} onChange={(event) => setProviderBookingId(event.target.value)} placeholder="Mã booking" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
+          <input value={providerBookingId} onChange={(event) => setProviderBookingId(event.target.value)} placeholder="Mã booking" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
           <div className="flex gap-2">
-            <button type="button" onClick={() => void findReplacement()} className="rounded-full bg-accent-shuttle px-4 py-2 text-caption text-court-green">Tìm sân trống</button>
+            <button type="button" onClick={() => void findReplacement()} className="rounded-full bg-surface px-4 py-2 text-caption text-green-700">Tìm sân trống</button>
           </div>
-          <input value={replacementCourtId} onChange={(event) => setReplacementCourtId(event.target.value)} placeholder="Mã sân con thay thế" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
-          <button type="button" onClick={() => void changeCourt()} className="rounded-full border border-on-dark/30 px-4 py-2 text-caption text-on-dark">Đổi sân con</button>
-          <input value={providerReason} onChange={(event) => setProviderReason(event.target.value)} placeholder="Lý do hủy bắt buộc" className="rounded-lg bg-bg-white px-3 py-2 text-text-primary" />
-          <button type="button" onClick={() => void cancelAsProvider()} className="rounded-full bg-accent-red px-4 py-2 text-caption text-on-dark">Hủy và hoàn 100%</button>
+          <input value={replacementCourtId} onChange={(event) => setReplacementCourtId(event.target.value)} placeholder="Mã sân con thay thế" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
+          <button type="button" onClick={() => void changeCourt()} className="rounded-full border border-surface/30 px-4 py-2 text-caption text-surface">Đổi sân con</button>
+          <input value={providerReason} onChange={(event) => setProviderReason(event.target.value)} placeholder="Lý do hủy bắt buộc" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
+          <button type="button" onClick={() => void cancelAsProvider()} className="rounded-full bg-danger px-4 py-2 text-caption text-surface">Hủy và hoàn 100%</button>
         </div>
       </div>
       <p role="status" className="text-body lg:col-span-2">{message}</p>

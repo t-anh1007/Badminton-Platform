@@ -7,9 +7,9 @@ export interface Slot {
 }
 
 const STATUS_STYLE: Record<SlotStatus, string> = {
-  available: 'bg-bg-white text-text-primary hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
-  held: 'bg-accent-shuttle/30 text-court-green cursor-not-allowed',
-  booked: 'bg-slate/20 text-text-primary/40 cursor-not-allowed',
+  available: 'bg-surface text-ink-900 hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
+  held: 'bg-green-600/30 text-green-700 cursor-not-allowed',
+  booked: 'bg-ink-700/10 text-ink-900/40 cursor-not-allowed',
 };
 
 const STATUS_LABEL: Record<SlotStatus, string> = {
@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<SlotStatus, string> = {
  */
 export function SlotGrid({ courtName, slots, onSelect }: { courtName: string; slots: Slot[]; onSelect?: (slot: Slot) => void }) {
   return (
-    <div className="rounded-2xl bg-bg-light p-4">
+    <div className="rounded-2xl bg-canvas p-4">
       <h3 className="text-caption mb-3">{courtName}</h3>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {slots.map((slot) => (

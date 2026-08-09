@@ -41,26 +41,26 @@ export function ProfilePage() {
         <Card className="sm:col-span-1">
           <h2 className="text-caption mb-2">Thông tin</h2>
           <p className="text-body font-medium">{profile?.playerProfile?.displayName ?? 'Người chơi'}</p>
-          <p className="text-body text-text-primary/60">{profile?.email ?? 'Đăng nhập để xem hồ sơ'}</p>
+          <p className="text-body text-ink-900/60">{profile?.email ?? 'Đăng nhập để xem hồ sơ'}</p>
         </Card>
 
         <Card className="sm:col-span-1">
           <h2 className="text-caption mb-2">Ví cá nhân</h2>
-          <p className="text-figures text-2xl font-semibold text-court-green">{formatVnd(personalWallet?.available)}</p>
+          <p className="text-figures text-2xl font-semibold text-green-700">{formatVnd(personalWallet?.available)}</p>
         </Card>
 
         <Card className="sm:col-span-1">
           <h2 className="text-caption mb-2">Ví kinh doanh</h2>
-          <p className="text-figures text-2xl font-semibold text-primary-blue">{formatVnd(businessWallet?.available)}</p>
-          {!businessWallet && <p className="text-body text-text-primary/50">Chưa là nhà cung cấp</p>}
+          <p className="text-figures text-2xl font-semibold text-green-700">{formatVnd(businessWallet?.available)}</p>
+          {!businessWallet && <p className="text-body text-ink-900/50">Chưa là nhà cung cấp</p>}
         </Card>
       </div>
 
-      <form onSubmit={saveProfile} className="mt-6 grid gap-3 rounded-2xl bg-bg-white p-4 sm:grid-cols-3">
+      <form onSubmit={saveProfile} className="mt-6 grid gap-3 rounded-2xl bg-surface p-4 sm:grid-cols-3">
         <input aria-label="Tên hiển thị hồ sơ" value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} placeholder="Tên hiển thị" required />
         <input aria-label="Số điện thoại hồ sơ" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Số điện thoại" />
         <select aria-label="Hiển thị hồ sơ" value={form.visibility} onChange={(event) => setForm({ ...form, visibility: event.target.value as 'public' | 'private' })}><option value="public">Công khai</option><option value="private">Riêng tư</option></select>
-        <button type="submit" className="w-fit rounded-full bg-primary-navy px-4 py-2 text-on-dark">Lưu hồ sơ</button>
+        <button type="submit" className="w-fit rounded-full bg-green-600 px-4 py-2 text-surface">Lưu hồ sơ</button>
       </form>
       {message && <p role="status" className="mt-3 text-sm">{message}</p>}
 
@@ -70,7 +70,7 @@ export function ProfilePage() {
           <Card key={booking.id} className="flex items-center justify-between">
             <div>
               <p className="text-body font-medium">{booking.court?.venue?.name ?? 'Sân'} — {booking.court?.name ?? booking.courtId}</p>
-              <p className="text-body text-text-primary/50">{new Date(booking.startAt).toLocaleString('vi-VN')}</p>
+              <p className="text-body text-ink-900/50">{new Date(booking.startAt).toLocaleString('vi-VN')}</p>
             </div>
             <div className="text-right">
               <p className="text-figures font-medium">{formatVnd(booking.priceSnapshot)}</p>
@@ -78,7 +78,7 @@ export function ProfilePage() {
             </div>
           </Card>
         ))}
-        {!history.length && <p className="text-body text-text-primary/50">Chưa có booking đã hoàn tất.</p>}
+        {!history.length && <p className="text-body text-ink-900/50">Chưa có booking đã hoàn tất.</p>}
       </div>
       <DisputePanel />
       <FinancePanel />

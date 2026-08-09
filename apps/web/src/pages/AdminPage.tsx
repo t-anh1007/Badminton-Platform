@@ -29,22 +29,22 @@ export function AdminPage() {
           type="button"
           onClick={() => setTab('providers')}
           className={`text-caption rounded-full px-4 py-2 ${
-            tab === 'providers' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'
+            tab === 'providers' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'
           }`}
         >
           Duyệt nhà cung cấp
         </button>
-        <button type="button" onClick={() => setTab('reconciliation')} className={`text-caption rounded-full px-4 py-2 ${tab === 'reconciliation' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'}`}>Đối soát</button>
+        <button type="button" onClick={() => setTab('reconciliation')} className={`text-caption rounded-full px-4 py-2 ${tab === 'reconciliation' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'}`}>Đối soát</button>
         <button
           type="button"
           onClick={() => setTab('withdrawals')}
           className={`text-caption rounded-full px-4 py-2 ${
-            tab === 'withdrawals' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'
+            tab === 'withdrawals' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'
           }`}
         >
           Yêu cầu rút tiền
         </button>
-        <button type="button" onClick={() => setTab('disputes')} className={`text-caption rounded-full px-4 py-2 ${tab === 'disputes' ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/60'}`}>Tranh chấp</button>
+        <button type="button" onClick={() => setTab('disputes')} className={`text-caption rounded-full px-4 py-2 ${tab === 'disputes' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'}`}>Tranh chấp</button>
       </div>
       {message && <p role="status" className="mb-4 text-sm">{message}</p>}
 
@@ -59,7 +59,7 @@ export function AdminPage() {
           ]}
           rows={providers.map((provider) => ({ id: provider.id, orgName: provider.orgName, status: provider.status, submittedAt: '—' }))}
         />
-        <div className="mt-3 flex flex-wrap gap-2">{providers.map((provider) => <div key={provider.id} className="flex gap-2"><button type="button" onClick={() => void decide(provider.id, true)} className="rounded-full bg-primary-navy px-3 py-2 text-caption text-on-dark">Duyệt {provider.orgName}</button><button type="button" onClick={() => void decide(provider.id, false)} className="rounded-full bg-accent-red px-3 py-2 text-caption text-on-dark">Từ chối {provider.orgName}</button></div>)}</div>
+        <div className="mt-3 flex flex-wrap gap-2">{providers.map((provider) => <div key={provider.id} className="flex gap-2"><button type="button" onClick={() => void decide(provider.id, true)} className="rounded-full bg-green-600 px-3 py-2 text-caption text-surface">Duyệt {provider.orgName}</button><button type="button" onClick={() => void decide(provider.id, false)} className="rounded-full bg-danger px-3 py-2 text-caption text-surface">Từ chối {provider.orgName}</button></div>)}</div>
         </>
       ) : tab === 'withdrawals' ? <FinanceAdminPanel mode="withdrawals" />
         : tab === 'reconciliation' ? <FinanceAdminPanel mode="reconciliation" /> : <DisputeAdminPanel />}

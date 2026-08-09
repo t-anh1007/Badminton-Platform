@@ -20,7 +20,7 @@ function HoldCountdown({ expiresAt }: { expiresAt: string | null }) {
   const minutes = Math.floor(remainingMs / 60_000).toString().padStart(2, '0');
   const seconds = Math.floor((remainingMs % 60_000) / 1000).toString().padStart(2, '0');
   return (
-    <div className="text-figures rounded-full bg-accent-red/10 px-4 py-2 text-sm text-accent-red">
+    <div className="text-figures rounded-full bg-danger-bg px-4 py-2 text-sm text-danger">
       Giữ chỗ còn <span className="font-semibold">{minutes}:{seconds}</span>
     </div>
   );
@@ -103,7 +103,7 @@ export function BookingPage() {
           <div
             key={label}
             className={`text-caption rounded-full px-3 py-1 ${
-              step === i + 1 ? 'bg-primary-navy text-on-dark' : 'bg-bg-white text-text-primary/50'
+              step === i + 1 ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/50'
             }`}
           >
             {i + 1}. {label}
@@ -111,20 +111,20 @@ export function BookingPage() {
         ))}
       </div>
 
-      <form onSubmit={(event) => { event.preventDefault(); void findVenues(); }} className="mb-6 grid gap-3 rounded-2xl bg-bg-white p-4 sm:grid-cols-3">
+      <form onSubmit={(event) => { event.preventDefault(); void findVenues(); }} className="mb-6 grid gap-3 rounded-2xl bg-surface p-4 sm:grid-cols-3">
         <input aria-label="Vĩ độ tìm sân" value={lat} onChange={(event) => setLat(event.target.value)} inputMode="decimal" placeholder="Vĩ độ" required />
         <input aria-label="Kinh độ tìm sân" value={lng} onChange={(event) => setLng(event.target.value)} inputMode="decimal" placeholder="Kinh độ" required />
-        <button type="submit" disabled={loading} className="rounded-full bg-primary-navy px-4 py-2 text-caption text-on-dark">Tìm sân</button>
+        <button type="submit" disabled={loading} className="rounded-full bg-green-600 px-4 py-2 text-caption text-surface">Tìm sân</button>
       </form>
       {message && <p role="status" className="mb-4 text-sm">{message}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
-        {venues.map((venue) => <article key={venue.venueId} className="rounded-2xl bg-bg-white p-4 shadow-sm"><h2 className="text-h2 !text-xl">{venue.name}</h2><p className="text-body">{venue.address}</p><button type="button" disabled={loading} onClick={() => void showVenue(venue.venueId)} className="mt-3 rounded-full bg-primary-navy px-4 py-2 text-caption text-on-dark">Xem lịch {detail?.id === venue.venueId ? detail.courts[0]?.name ?? 'sân' : 'sân'}</button></article>)}
+        {venues.map((venue) => <article key={venue.venueId} className="rounded-2xl bg-surface p-4 shadow-sm"><h2 className="text-h2 !text-xl">{venue.name}</h2><p className="text-body">{venue.address}</p><button type="button" disabled={loading} onClick={() => void showVenue(venue.venueId)} className="mt-3 rounded-full bg-green-600 px-4 py-2 text-caption text-surface">Xem lịch {detail?.id === venue.venueId ? detail.courts[0]?.name ?? 'sân' : 'sân'}</button></article>)}
       </div>
       {detail && <div className="mt-6"><SlotGrid courtName={detail.courts[0]?.name ?? detail.name} slots={slots} onSelect={(slot) => void chooseSlot(slot)} /></div>}
       <div className="mt-8 flex flex-wrap justify-end gap-3">
-        {selection && !hold && <button type="button" disabled={loading} onClick={() => void reserve()} className="rounded-full bg-accent-shuttle px-6 py-3 text-caption text-court-green">Giữ chỗ</button>}
-        {hold && !booking && <button type="button" disabled={loading} onClick={() => void makeBooking()} className="rounded-full bg-accent-shuttle px-6 py-3 text-caption text-court-green">Tạo booking</button>}
-        {booking && <button type="button" disabled={loading} onClick={() => void payBalance()} className="rounded-full bg-accent-shuttle px-6 py-3 text-caption text-court-green">Thanh toán số dư</button>}
+        {selection && !hold && <button type="button" disabled={loading} onClick={() => void reserve()} className="rounded-full bg-green-600 px-6 py-3 text-caption text-surface">Giữ chỗ</button>}
+        {hold && !booking && <button type="button" disabled={loading} onClick={() => void makeBooking()} className="rounded-full bg-green-600 px-6 py-3 text-caption text-surface">Tạo booking</button>}
+        {booking && <button type="button" disabled={loading} onClick={() => void payBalance()} className="rounded-full bg-green-600 px-6 py-3 text-caption text-surface">Thanh toán số dư</button>}
       </div>
       <BookingCancellationPanel />
     </div>
