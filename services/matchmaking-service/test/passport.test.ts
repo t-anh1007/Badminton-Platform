@@ -27,10 +27,24 @@ function newUser(): { userId: string; token: string } {
 
 afterAll(async () => {
   const userIds = [...createdUsers];
-  await prisma.evaluation.deleteMany({ where: { rateeUserId: { in: userIds } } });
-  await prisma.match.deleteMany({ where: { organizerUserId: { in: userIds } } });
+  const ownedMatches = await prisma.match.findMany({
+    where: { organizerUserId: { in: userIds } },
+    select: { id: true },
+  });
+  const ownedMatchIds = ownedMatches.map((match) => match.id);
+  await prisma.evaluation.deleteMany({
+    where: {
+      OR: [{ rateeUserId: { in: userIds } }, { raterUserId: { in: userIds } }, { matchId: { in: ownedMatchIds } }],
+    },
+  });
+  await prisma.join.deleteMany({ where: { matchId: { in: ownedMatchIds } } });
+  await prisma.match.deleteMany({
+    where: { organizerUserId: { in: userIds } },
+  });
   await prisma.passport.deleteMany({ where: { userId: { in: userIds } } });
-  await prisma.processedEvent.deleteMany({ where: { eventId: { in: [...processedEventIds] } } });
+  await prisma.processedEvent.deleteMany({
+    where: { eventId: { in: [...processedEventIds] } },
+  });
   await prisma.$disconnect();
 });
 
@@ -135,16 +149,36 @@ describe('MMP-11 — Player Passport views', () => {
         matchesPlayed: 5,
       },
     });
-    const matches = await Promise.all(Array.from({ length: 5 }, (_, index) =>
-      prisma.match.create({ data: {
-        organizerUserId: user.userId,
-        bookingId: randomUUID(),
-        capacity: 4,
-        feePerSlot: 0n,
-        status: 'completed' as const,
-        cutoffAt: new Date(Date.now() - (index + 1) * 60_000),
-      } }),
-    ));
+    const matches = await Promise.all(
+      Array.from({ length: 5 }, (_, index) =>
+        prisma.match.create({
+          data: {
+            organizerUserId: user.userId,
+            bookingId: randomUUID(),
+            capacity: 4,
+            feePerSlot: 0n,
+            status: 'completed' as const,
+            cutoffAt: new Date(Date.now() - (index + 1) * 60_000),
+            completedAt: new Date(`2026-08-0${index + 1}T10:00:00.000Z`),
+          },
+        }),
+      ),
+    );
+    const evaluatedPeerId = randomUUID();
+    await prisma.join.createMany({
+      data: [
+        {
+          matchId: matches[4]!.id,
+          participantUserId: evaluatedPeerId,
+          status: 'confirmed',
+        },
+        {
+          matchId: matches[4]!.id,
+          participantUserId: randomUUID(),
+          status: 'pending',
+        },
+      ],
+    });
     await prisma.evaluation.createMany({
       data: [
         {
@@ -161,6 +195,7 @@ describe('MMP-11 — Player Passport views', () => {
           perceivedTier: 'advanced',
           countedAt: new Date(),
           flagged: true,
+          reviewStatus: 'pending',
         },
         {
           matchId: matches[2]!.id,
@@ -182,13 +217,17 @@ describe('MMP-11 — Player Passport views', () => {
           perceivedTier: 'beginner',
           countedAt: new Date(),
         },
+        {
+          matchId: matches[4]!.id,
+          raterUserId: user.userId,
+          rateeUserId: evaluatedPeerId,
+          perceivedTier: 'intermediate',
+          countedAt: new Date(),
+        },
       ],
     });
 
-    const response = await request(app)
-      .get('/passports/me')
-      .set('Authorization', `Bearer ${user.token}`)
-      .expect(200);
+    const response = await request(app).get('/passports/me').set('Authorization', `Bearer ${user.token}`).expect(200);
 
     expect(response.body).toMatchObject({
       userId: user.userId,
@@ -199,8 +238,17 @@ describe('MMP-11 — Player Passport views', () => {
       matchesPlayed: 5,
       evaluationScore: (1100 + 1300 + 1300) / 3,
       evaluationCount: 3,
+      flaggedEvaluationCount: 1,
     });
     expect(response.body.recentMatches).toHaveLength(5);
+    expect(response.body.recentMatches.map((match: { completedAt: string }) => match.completedAt)).toEqual([
+      '2026-08-05T10:00:00.000Z',
+      '2026-08-04T10:00:00.000Z',
+      '2026-08-03T10:00:00.000Z',
+      '2026-08-02T10:00:00.000Z',
+      '2026-08-01T10:00:00.000Z',
+    ]);
+    expect(response.body.recentMatches[0].evaluationCandidates).toEqual([{ userId: evaluatedPeerId, submitted: true }]);
   });
 
   it('AC-MMP-11-2: public view exposes only tier and match count', async () => {
@@ -218,7 +266,11 @@ describe('MMP-11 — Player Passport views', () => {
 
     const response = await request(app).get(`/passports/${user.userId}`).expect(200);
 
-    expect(response.body).toEqual({ userId: user.userId, tier: 'advanced', matchesPlayed: 12 });
+    expect(response.body).toEqual({
+      userId: user.userId,
+      tier: 'advanced',
+      matchesPlayed: 12,
+    });
     expect(response.body).not.toHaveProperty('rating');
     expect(response.body).not.toHaveProperty('rd');
     expect(response.body).not.toHaveProperty('recentMatches');
@@ -250,9 +302,13 @@ describe('F-01 — idempotent runtime rating updates', () => {
     };
 
     await handleRatingPeriodReady(eventId, payload);
-    const afterFirst = await prisma.passport.findUniqueOrThrow({ where: { userId: user.userId } });
+    const afterFirst = await prisma.passport.findUniqueOrThrow({
+      where: { userId: user.userId },
+    });
     await handleRatingPeriodReady(eventId, payload);
-    const afterReplay = await prisma.passport.findUniqueOrThrow({ where: { userId: user.userId } });
+    const afterReplay = await prisma.passport.findUniqueOrThrow({
+      where: { userId: user.userId },
+    });
 
     expect(afterFirst.ratingMu).toBeGreaterThan(1600);
     expect(afterFirst.ratingRd).toBeLessThan(350);

@@ -25,6 +25,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M9 | pass | Shared LangChain grounded-answer selection + read-only policy corpus `packages/ai/test/supportAssistant.test.ts` 3/3; authenticated real HTTP `community-service/test/supportAssistant.e2e.test.ts` 6/6 + fail-closed auth 1/1; own-booking API only, cited retrieval, no-action cancellation guidance, privacy and Gemini/venue fallback; workspace typecheck/build; one Codex two-axis review resolved retrieval, intent, JWT and error-boundary defects |
 | P2-FE0 | pass | `apps/web/test/playoFoundation.test.tsx` 3/3; Playwright desktop/mobile chrome check with zero console errors; workspace typecheck/build; one Codex review resolved dead future-route links, auth-session refresh, avatar focus and toast timeout |
 | P2-FE1 | pass | `apps/web/test/playoFoundation.test.tsx`, `playoPhase1Pages.test.tsx`, `bookingCancellation.test.tsx` 7/7; workspace typecheck and web build; local Playwright desktop/mobile inspection of Home, Auth, Venue error-state and Booking error-state; one Codex diff review resolved auth continuation/reset, hold expiry, provider visibility, admin confirmation, profile-cancelled and real-field rendering defects |
+| P2-FE2 | pass | current UI AC suites 8/8 plus review-fix regressions 7/7; focused Match detail 5/5, Passport owner 1/1 and Community projection 3/3; workspace typecheck/build; Playwright desktop Match/Community and 390px Assistant inspection with no console error; one two-axis diff review resolved lifecycle/payment/evaluation/ticket/status defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -159,3 +160,23 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-UI-07-2 | P2-FE1 | four GĐ1 operation areas; finance/dispute/reject mutations require reason and confirmation modal | pass |
 | AC-UI-07-3 | P2-FE1 | real admin providers/finance/dispute clients retained behind existing App role guard | pass |
 | AC-UI-07-4 | P2-FE1 | semantic provider badges plus empty/error and horizontally scrollable mobile table | pass |
+| AC-UI-08-1 | P2-FE2 | `playoPhase2Match.test.tsx` + `MatchListPage` — real list API, Playo cards, data-derived singles/doubles and open/full labels, no sport filter | pass |
+| AC-UI-08-2 | P2-FE2 | authenticated owner/participant Match detail projections cover pending/approved/confirmed/filled; sticky CTA and expired 10-minute hold reload use the durable state machine | pass |
+| AC-UI-08-3 | P2-FE2 | `QuickMatchPanel` uses direct authenticated Socket.IO; accept creates only pending and organizer approval remains the sole 10-minute hold trigger (D44) | pass |
+| AC-UI-08-4 | P2-FE2 | real participant and organizer balance/SePay endpoints, withdrawal and confirmed cancellation flows are wired; backend remains money authority | pass |
+| AC-UI-08-5 | P2-FE2 | Vietnamese loading/empty/error/auth states, responsive 2-to-1 detail and sticky mobile CTA inspected with Playwright | pass |
+| AC-UI-09-1 | P2-FE2 | `PassportPage` renders real owner rating/history and PO-approved same-match evaluation candidates; per-match result/rating delta explicitly exempted by PO because not persisted | pass |
+| AC-UI-09-2 | P2-FE2 | owner rating block maps RD to high/established uncertainty and contains no leaderboard | pass |
+| AC-UI-09-3 | P2-FE2 | real Passport API preserves D31: public view remains exactly userId/tier/matchesPlayed; evaluation candidates are owner-only | pass |
+| AC-UI-09-4 | P2-FE2 | cold-start declaration CTA, pending flagged count and real MMP-10 evaluation modal/72-hour window are rendered; rating delta exemption is the explicit PO decision above | pass |
+| AC-UI-09-5 | P2-FE2 | focused Passport owner HTTP 1/1 plus `playoPhase2Passport.test.tsx`; responsive Playo cards and Vietnamese states | pass |
+| AC-UI-10-1 | P2-FE2 | public feed/detail, composer, published-comment count, edit/remove/comment/report all call real Community APIs | pass |
+| AC-UI-10-2 | P2-FE2 | private Support page lists conversations/statuses; Admin reply plus confirmed resolved/closed transitions use real ticket endpoints; moderation stays in Admin | pass |
+| AC-UI-10-3 | P2-FE2 | implementation exposes only public text posts/comments and private support tickets, with no groups/clubs/DM/likes | pass |
+| AC-UI-10-4 | P2-FE2 | PO-approved `/posts/mine` and `/reports/mine` show author/reporter statuses; ticket states and 403/auth branches are explicit | pass |
+| AC-UI-10-5 | P2-FE2 | Community projection HTTP 3/3 and UI Community/Moderation suites; real `/api/community` proxy, Vietnamese states and 3-to-1 responsive layout | pass |
+| AC-UI-11-1 | P2-FE2 | `AssistantPage` has Playo segmented Gợi ý kèo/Chat hỗ trợ tabs | pass |
+| AC-UI-11-2 | P2-FE2 | real AI match suggestions show deterministic F-02 score + grounded explanation; CTA only navigates to Match detail and never creates JOIN | pass |
+| AC-UI-11-3 | P2-FE2 | real support assistant renders backend-owned policy/own-user source chips and maps only the approved own-booking action path | pass |
+| AC-UI-11-4 | P2-FE2 | Gemini fallback labels shortened F-02 explanation; chat preserves history and adds Vietnamese temporary-busy response | pass |
+| AC-UI-11-5 | P2-FE2 | `playoPhase2Assistant.test.tsx`, real Matchmaking/Community clients, full-height chat and mobile 390px chip/segmented inspection | pass |

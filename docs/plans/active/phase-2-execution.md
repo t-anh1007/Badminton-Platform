@@ -63,7 +63,7 @@ Out of scope:
 - [x] P2-M9 — AI-02 grounded support assistant without an AI schema/service.
 - [x] P2-FE0 — Playo tokens, reusable primitives and light global chrome.
 - [x] P2-FE1 — Playo GĐ1 pages 01–07 against real GĐ1 APIs.
-- [ ] P2-FE2 — Playo GĐ2 pages 08–11 against real GĐ2 APIs.
+- [x] P2-FE2 — Playo GĐ2 pages 08–11 against real GĐ2 APIs.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
 ## Decisions
@@ -168,3 +168,12 @@ HTTP API; unsupported venue fields are hidden rather than fabricated. The focuse
 workspace typecheck and web build passed, and desktop/mobile browser checks covered Home, Auth, Venue
 and Booking states. The one diff review corrected auth continuation and recovery, expired holds,
 provider-only controls, Admin confirmation/audit reasons, cancelled-history and venue data rendering.
+
+P2-FE2 completed 2026-08-09: Match list/detail, Quick Match, Passport, Community/Support and the
+AI Assistant now use the real Phase 2 HTTP/Socket.IO contracts on the Playo foundation. Owner-only
+Passport projections expose only confirmed same-match evaluation candidates approved by PO; public
+Passport remains unchanged, and the PO explicitly exempted unavailable per-match result/rating delta.
+The current UI AC suites passed 8/8, review-fix regressions passed 7/7, focused Match/Passport/Community
+projection tests passed, and workspace typecheck/build plus desktop/mobile Playwright inspection passed.
+The single two-axis diff review found and the implementation resolved lifecycle detail, organizer payment,
+hold expiry, evaluation, ticket status and data-derived label defects. Phase result remains open until P2-final.

@@ -27,6 +27,21 @@ function apiProxy() {
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/finance/, ''),
       },
+      '/api/matchmaking': {
+        target: 'http://localhost:3004',
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/api\/matchmaking/, ''),
+      },
+      '/api/community': {
+        target: 'http://localhost:3005',
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/api\/community/, ''),
+      },
+      '/socket.io': {
+        target: 'http://localhost:3004',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   }
 }

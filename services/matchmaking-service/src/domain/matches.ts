@@ -42,13 +42,13 @@ export async function createMatch(
   input: CreateMatchInput,
   now = new Date(),
 ) {
-  const bookingId = input.bookingId
-    ?? await venueBookingClient.createBookingFromHold(input.holdId!, authorization);
+  const bookingId = input.bookingId ?? (await venueBookingClient.createBookingFromHold(input.holdId!, authorization));
   const context = await venueBookingClient.getMatchContext(bookingId);
-  const heldByOrganizer = context?.status === 'held'
-    && context.ownerUserId === organizerUserId
-    && context.holdExpiresAt !== null
-    && new Date(context.holdExpiresAt) > now;
+  const heldByOrganizer =
+    context?.status === 'held' &&
+    context.ownerUserId === organizerUserId &&
+    context.holdExpiresAt !== null &&
+    new Date(context.holdExpiresAt) > now;
   if (!context || !heldByOrganizer) {
     throw new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Slot sân không còn được organizer giữ hợp lệ.');
   }
@@ -59,19 +59,18 @@ export async function createMatch(
   }
   const price = BigInt(context.priceSnapshot);
   const feePerSlot = input.feeMode === 'free' ? 0n : price / BigInt(input.capacity);
-  const organizerContribution = input.feeMode === 'free'
-    ? price
-    : price - feePerSlot * BigInt(input.capacity - 1);
+  const organizerContribution = input.feeMode === 'free' ? price : price - feePerSlot * BigInt(input.capacity - 1);
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
     const existing = await tx.match.findUnique({ where: { bookingId } });
     if (existing) {
-      const sameRequest = existing.organizerUserId === organizerUserId
-        && existing.capacity === input.capacity
-        && existing.feePerSlot === feePerSlot
-        && existing.skillMin === (input.skillMin ?? null)
-        && existing.skillMax === (input.skillMax ?? null);
+      const sameRequest =
+        existing.organizerUserId === organizerUserId &&
+        existing.capacity === input.capacity &&
+        existing.feePerSlot === feePerSlot &&
+        existing.skillMin === (input.skillMin ?? null) &&
+        existing.skillMax === (input.skillMax ?? null);
       if (!sameRequest) {
         throw new AppError(409, 'BOOKING_MATCH_ALREADY_EXISTS', 'Booking đã được dùng cho một kèo khác.');
       }
@@ -108,11 +107,7 @@ export async function createMatch(
   });
 }
 
-function skillIntersects(
-  skill: SkillTier | undefined,
-  min: SkillTier | null,
-  max: SkillTier | null,
-): boolean {
+function skillIntersects(skill: SkillTier | undefined, min: SkillTier | null, max: SkillTier | null): boolean {
   if (!skill) return true;
   const requested = TIER_ORDER[skill];
   return requested >= (min ? TIER_ORDER[min] : 0) && requested <= (max ? TIER_ORDER[max] : 4);
@@ -141,38 +136,50 @@ export async function findPublicMatches(
       cutoffAt: { gt: now },
       ...(filters.feeMax === undefined ? {} : { feePerSlot: { lte: filters.feeMax } }),
     },
-    include: { joins: { where: { status: { in: ['approved', 'confirmed'] } }, select: { id: true } } },
+    include: {
+      joins: {
+        where: { status: { in: ['approved', 'confirmed'] } },
+        select: { id: true },
+      },
+    },
   });
 
-  const hydrated = await Promise.all(candidates.map(async (match) => ({
-    match,
-    context: await venueBookingClient.getMatchContext(match.bookingId),
-  })));
+  const hydrated = await Promise.all(
+    candidates.map(async (match) => ({
+      match,
+      context: await venueBookingClient.getMatchContext(match.bookingId),
+    })),
+  );
 
-  return hydrated.flatMap(({ match, context }) => {
-    const openSlots = match.capacity - 1 - match.joins.length;
-    if (
-      !context
-      || openSlots < filters.minOpenSlots
-      || !skillIntersects(filters.skill, match.skillMin, match.skillMax)
-      || !contextMatches(context, filters)
-    ) return [];
+  return hydrated
+    .flatMap(({ match, context }) => {
+      const openSlots = match.capacity - 1 - match.joins.length;
+      if (
+        !context ||
+        openSlots < filters.minOpenSlots ||
+        !skillIntersects(filters.skill, match.skillMin, match.skillMax) ||
+        !contextMatches(context, filters)
+      )
+        return [];
 
-    return [{
-      id: match.id,
-      organizerUserId: match.organizerUserId,
-      capacity: match.capacity,
-      openSlots,
-      feePerSlot: match.feePerSlot.toString(),
-      skillMin: match.skillMin,
-      skillMax: match.skillMax,
-      cutoffAt: match.cutoffAt,
-      startAt: context.startAt,
-      endAt: context.endAt,
-      court: context.court,
-      venue: context.venue,
-    }];
-  }).sort((left, right) => left.startAt.localeCompare(right.startAt));
+      return [
+        {
+          id: match.id,
+          organizerUserId: match.organizerUserId,
+          capacity: match.capacity,
+          openSlots,
+          feePerSlot: match.feePerSlot.toString(),
+          skillMin: match.skillMin,
+          skillMax: match.skillMax,
+          cutoffAt: match.cutoffAt,
+          startAt: context.startAt,
+          endAt: context.endAt,
+          court: context.court,
+          venue: context.venue,
+        },
+      ];
+    })
+    .sort((left, right) => left.startAt.localeCompare(right.startAt));
 }
 
 export async function getPublicMatchDetail(
@@ -184,9 +191,29 @@ export async function getPublicMatchDetail(
 ) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { joins: { where: { status: { in: ['approved', 'confirmed'] } }, select: { id: true, status: true } } },
+    include: {
+      joins: {
+        where: { status: { in: ['pending', 'approved', 'confirmed'] } },
+        select: {
+          id: true,
+          participantUserId: true,
+          status: true,
+          approvedAt: true,
+        },
+      },
+    },
   });
-  if (!match || match.status !== 'open' || match.cutoffAt <= now) {
+  if (!match) {
+    throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
+  }
+
+  const ownJoin = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
+  const isOrganizer = requester?.id === match.organizerUserId;
+  const isPubliclyOpen = match.status === 'open' && match.cutoffAt > now;
+  const canViewOwnLifecycle = Boolean(
+    requester && (isOrganizer || ownJoin) && ['open', 'filled', 'confirmed'].includes(match.status),
+  );
+  if (!isPubliclyOpen && !canViewOwnLifecycle) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
@@ -199,9 +226,11 @@ export async function getPublicMatchDetail(
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
-  const openSlots = match.capacity - 1 - match.joins.length;
+  const reservedJoins = match.joins.filter((join) => join.status === 'approved' || join.status === 'confirmed');
+  const openSlots = match.capacity - 1 - reservedJoins.length;
   return {
     id: match.id,
+    status: match.status,
     capacity: match.capacity,
     openSlots,
     feePerSlot: match.feePerSlot.toString(),
@@ -217,19 +246,33 @@ export async function getPublicMatchDetail(
       identityVisibility: organizerProfile.identityVisibility,
       tier: organizerPassport
         ? describeRating({
-          rating: organizerPassport.ratingMu,
-          rd: organizerPassport.ratingRd,
-          sigma: organizerPassport.ratingSigma,
-        }).tier
+            rating: organizerPassport.ratingMu,
+            rd: organizerPassport.ratingRd,
+            sigma: organizerPassport.ratingSigma,
+          }).tier
         : null,
     },
-    confirmedParticipants: match.joins.filter((join) => join.status === 'confirmed').length,
+    confirmedParticipants: reservedJoins.filter((join) => join.status === 'confirmed').length,
     actions: {
       canJoin: Boolean(
-        requester?.roles.includes('player')
-        && requester.id !== match.organizerUserId
-        && openSlots > 0,
+        requester?.roles.includes('player') &&
+        match.status === 'open' &&
+        match.cutoffAt > now &&
+        requester.id !== match.organizerUserId &&
+        !ownJoin &&
+        openSlots > 0,
       ),
+      isOrganizer,
+      canPayOrganizerContribution: Boolean(
+        isOrganizer && match.status === 'filled' && match.feePerSlot > 0n && !match.organizerContributionPaidAt,
+      ),
+      ownJoin: ownJoin
+        ? {
+            id: ownJoin.id,
+            status: ownJoin.status,
+            approvedAt: ownJoin.approvedAt,
+          }
+        : null,
     },
   };
 }
@@ -246,7 +289,9 @@ export async function requestJoin(matchId: string, participantUserId: string, no
       throw new AppError(409, 'ORGANIZER_ALREADY_PARTICIPATES', 'Organizer đã chiếm một chỗ trong kèo.');
     }
     const [reservedCount, activeJoin] = await Promise.all([
-      tx.join.count({ where: { matchId, status: { in: ['approved', 'confirmed'] } } }),
+      tx.join.count({
+        where: { matchId, status: { in: ['approved', 'confirmed'] } },
+      }),
       tx.join.findFirst({
         where: {
           matchId,

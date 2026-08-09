@@ -73,11 +73,14 @@ export async function applyRatingPeriodInTransaction(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))`;
   const current = await tx.passport.findUnique({ where: { userId } });
   if (!current) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Player Passport chưa tồn tại.');
-  const next = updateRating({
-    rating: current.ratingMu,
-    rd: current.ratingRd,
-    sigma: current.ratingSigma,
-  }, results);
+  const next = updateRating(
+    {
+      rating: current.ratingMu,
+      rd: current.ratingRd,
+      sigma: current.ratingSigma,
+    },
+    results,
+  );
   return tx.passport.update({
     where: { userId },
     data: {
@@ -90,22 +93,46 @@ export async function applyRatingPeriodInTransaction(
 }
 
 async function findRecentCompletedMatches(userId: string) {
-  return prisma.match.findMany({
+  const matches = await prisma.match.findMany({
     where: {
       status: 'completed',
-      OR: [
-        { organizerUserId: userId },
-        { joins: { some: { participantUserId: userId, status: 'confirmed' } } },
-      ],
+      OR: [{ organizerUserId: userId }, { joins: { some: { participantUserId: userId, status: 'confirmed' } } }],
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { completedAt: 'desc' },
     take: 20,
-    select: { id: true, bookingId: true, createdAt: true },
+    select: {
+      id: true,
+      bookingId: true,
+      completedAt: true,
+      organizerUserId: true,
+      joins: {
+        where: { status: 'confirmed' },
+        select: { participantUserId: true },
+      },
+      evaluations: {
+        where: { raterUserId: userId },
+        select: { rateeUserId: true },
+      },
+    },
+  });
+  return matches.map((match) => {
+    const submittedRatees = new Set(match.evaluations.map((evaluation) => evaluation.rateeUserId));
+    const peerUserIds = new Set([match.organizerUserId, ...match.joins.map((join) => join.participantUserId)]);
+    peerUserIds.delete(userId);
+    return {
+      id: match.id,
+      bookingId: match.bookingId,
+      completedAt: match.completedAt,
+      evaluationCandidates: [...peerUserIds].map((peerUserId) => ({
+        userId: peerUserId,
+        submitted: submittedRatees.has(peerUserId),
+      })),
+    };
   });
 }
 
 export async function getOwnPassport(userId: string) {
-  const [passport, countedEvaluations] = await Promise.all([
+  const [passport, countedEvaluations, flaggedEvaluationCount] = await Promise.all([
     prisma.passport.findUnique({ where: { userId } }),
     prisma.evaluation.findMany({
       where: {
@@ -116,19 +143,28 @@ export async function getOwnPassport(userId: string) {
       },
       select: { perceivedTier: true },
     }),
+    prisma.evaluation.count({
+      where: { rateeUserId: userId, flagged: true, reviewStatus: 'pending' },
+    }),
   ]);
   if (!passport) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Player Passport chưa tồn tại.');
-  const evaluationScore = countedEvaluations.length === 0
-    ? null
-    : countedEvaluations.reduce((total, evaluation) =>
-      total + TIER_CENTERS[evaluation.perceivedTier!], 0) / countedEvaluations.length;
+  const evaluationScore =
+    countedEvaluations.length === 0
+      ? null
+      : countedEvaluations.reduce((total, evaluation) => total + TIER_CENTERS[evaluation.perceivedTier!], 0) /
+        countedEvaluations.length;
   return {
     userId,
     declaredTier: passport.declaredTier,
-    ...describeRating({ rating: passport.ratingMu, rd: passport.ratingRd, sigma: passport.ratingSigma }),
+    ...describeRating({
+      rating: passport.ratingMu,
+      rd: passport.ratingRd,
+      sigma: passport.ratingSigma,
+    }),
     matchesPlayed: passport.matchesPlayed,
     evaluationScore,
     evaluationCount: countedEvaluations.length,
+    flaggedEvaluationCount,
     recentMatches: await findRecentCompletedMatches(userId),
     updatedAt: passport.updatedAt,
   };
