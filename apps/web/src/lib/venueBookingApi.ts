@@ -14,7 +14,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const body = await response.json() as T & { error?: { message?: string } };
+  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu.');
   return body;
 }
@@ -33,6 +33,9 @@ export interface VenueSearchRow {
   venueId: string;
   name: string;
   address: string;
+  lat: number;
+  lng: number;
+  amenities: unknown;
   distanceKm: number;
   lowestPrice: string | null;
 }
@@ -41,6 +44,10 @@ export interface VenueDetail {
   id: string;
   name: string;
   address: string;
+  lat: number;
+  lng: number;
+  amenities: unknown;
+  images: unknown;
   courts: Array<{ id: string; name: string }>;
 }
 

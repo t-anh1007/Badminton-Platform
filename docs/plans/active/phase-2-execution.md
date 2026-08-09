@@ -62,7 +62,8 @@ Out of scope:
 - [x] P2-M8 — public-only Community Support, manual moderation and asynchronous support tickets.
 - [x] P2-M9 — AI-02 grounded support assistant without an AI schema/service.
 - [x] P2-FE0 — Playo tokens, reusable primitives and light global chrome.
-- [ ] P2-FE1 through P2-FE2 — Playo pages against real APIs.
+- [x] P2-FE1 — Playo GĐ1 pages 01–07 against real GĐ1 APIs.
+- [ ] P2-FE2 — Playo GĐ2 pages 08–11 against real GĐ2 APIs.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
 ## Decisions
@@ -160,3 +161,10 @@ the former dark Hero and MenuOverlay were removed. The focused foundation test p
 checked desktop and 375px mobile chrome with no console errors, and workspace typecheck/build passed.
 The one review fixed unavailable future routes, session refresh after login, focus visibility and toast
 auto-dismiss. GĐ2 page links stay visibly disabled until their real pages arrive in P2-FE1/P2-FE2.
+
+P2-FE1 completed 2026-08-09: split the Phase 1 surface into Home, Auth, Venue List, Venue Detail,
+Booking, Profile and Admin routes on the Playo foundation. Every UI mutation calls the existing GĐ1
+HTTP API; unsupported venue fields are hidden rather than fabricated. The focused UI suite passed 7/7,
+workspace typecheck and web build passed, and desktop/mobile browser checks covered Home, Auth, Venue
+and Booking states. The one diff review corrected auth continuation and recovery, expired holds,
+provider-only controls, Admin confirmation/audit reasons, cancelled-history and venue data rendering.

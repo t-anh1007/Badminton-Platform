@@ -1,68 +1,67 @@
-import { useState } from 'react';
-import { AdminTable } from '../components/AdminTable';
-import { useEffect } from 'react';
-import { approveProvider, getAdminProviders, rejectProvider, type ProviderRow } from '../lib/venueBookingApi';
-import { FinanceAdminPanel } from '../components/FinanceAdminPanel';
+import { useEffect, useState } from 'react';
 import { DisputeAdminPanel } from '../components/DisputeAdminPanel';
+import { FinanceAdminPanel } from '../components/FinanceAdminPanel';
+import { Badge, Button, EmptyState, Modal, Tabs, TextArea } from '../components/ui';
+import { approveProvider, getAdminProviders, rejectProvider, type ProviderRow } from '../lib/venueBookingApi';
 
 type Tab = 'providers' | 'withdrawals' | 'reconciliation' | 'disputes';
 
-/**
- * Quản trị — DESIGN.md: giao diện TỔNG HỢP các chức năng Admin nằm trong
- * service nghiệp vụ (ACC-08, VEN-02, FIN-11, FIN-13...), không phải service
- * riêng. Gdesign chỉ dựng khung table + mock; logic thật ở G1..G7.
- */
+function providerBadgeTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
+  return status === 'approved' ? 'success' : status === 'pending' ? 'warning' : status === 'rejected' ? 'danger' : 'neutral';
+}
+
 export function AdminPage() {
   const [tab, setTab] = useState<Tab>('providers');
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [message, setMessage] = useState('');
-  const loadProviders = async () => { try { setProviders(await getAdminProviders()); } catch (error) { setMessage((error as Error).message); } };
-  useEffect(() => { void loadProviders(); }, []);
-  const decide = async (id: string, approved: boolean) => { try { if (approved) await approveProvider(id); else await rejectProvider(id, 'Từ chối bởi quản trị viên.'); await loadProviders(); } catch (error) { setMessage((error as Error).message); } };
+  const [rejecting, setRejecting] = useState<ProviderRow | null>(null);
+  const [reason, setReason] = useState('');
+
+  const load = async () => {
+    try {
+      setProviders(await getAdminProviders());
+    } catch (caught) {
+      setMessage((caught as Error).message);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const approve = async (id: string) => {
+    try {
+      await approveProvider(id);
+      setMessage('Đã duyệt nhà cung cấp.');
+      await load();
+    } catch (caught) {
+      setMessage((caught as Error).message);
+    }
+  };
+
+  const reject = async () => {
+    if (!rejecting) return;
+    if (!reason.trim()) { setMessage('Nhập lý do trước khi từ chối.'); return; }
+    try {
+      await rejectProvider(rejecting.id, reason);
+      setMessage('Đã từ chối nhà cung cấp.');
+      setRejecting(null);
+      setReason('');
+      await load();
+    } catch (caught) {
+      setMessage((caught as Error).message);
+    }
+  };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-      <h1 className="text-h2 mb-8">Quản trị</h1>
+    <main className="page-container py-8 sm:py-12">
+      <p className="text-caption text-green-700">Khu vực vận hành</p>
+      <h1 className="mt-1 text-h1">Quản trị</h1>
+      <p className="mt-2 text-sm text-ink-500">Các hàng chờ tác nghiệp được lấy từ service nghiệp vụ hiện có.</p>
+      <div className="mt-6"><Tabs tabs={[{ value: 'providers', label: 'Duyệt NCC' }, { value: 'withdrawals', label: 'Rút tiền' }, { value: 'reconciliation', label: 'Đối soát' }, { value: 'disputes', label: 'Tranh chấp' }]} value={tab} onChange={setTab} /></div>
+      {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
 
-      <div className="mb-6 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setTab('providers')}
-          className={`text-caption rounded-full px-4 py-2 ${
-            tab === 'providers' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'
-          }`}
-        >
-          Duyệt nhà cung cấp
-        </button>
-        <button type="button" onClick={() => setTab('reconciliation')} className={`text-caption rounded-full px-4 py-2 ${tab === 'reconciliation' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'}`}>Đối soát</button>
-        <button
-          type="button"
-          onClick={() => setTab('withdrawals')}
-          className={`text-caption rounded-full px-4 py-2 ${
-            tab === 'withdrawals' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'
-          }`}
-        >
-          Yêu cầu rút tiền
-        </button>
-        <button type="button" onClick={() => setTab('disputes')} className={`text-caption rounded-full px-4 py-2 ${tab === 'disputes' ? 'bg-green-600 text-surface' : 'bg-surface text-ink-900/60'}`}>Tranh chấp</button>
-      </div>
-      {message && <p role="status" className="mb-4 text-sm">{message}</p>}
+      {tab === 'providers' ? <section className="mt-6">{providers.length ? <div className="overflow-x-auto rounded-2xl border border-line bg-surface"><table className="w-full min-w-[720px] text-left text-sm"><thead className="sticky top-0 bg-canvas text-caption"><tr><th className="px-4 py-3">ID</th><th className="px-4 py-3">Nhà cung cấp</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3 text-right">Hành động</th></tr></thead><tbody>{providers.map((provider) => <tr key={provider.id} className="border-t border-line hover:bg-green-50"><td className="px-4 py-3 text-figures text-xs">{provider.id}</td><td className="px-4 py-3 font-medium">{provider.orgName}</td><td className="px-4 py-3"><Badge tone={providerBadgeTone(provider.status)}>{provider.status}</Badge></td><td className="px-4 py-3"><div className="flex justify-end gap-2"><Button size="sm" onClick={() => void approve(provider.id)}>Duyệt</Button><Button tone="danger" size="sm" onClick={() => setRejecting(provider)}>Từ chối</Button></div></td></tr>)}</tbody></table></div> : <EmptyState title="Không có mục chờ xử lý" description="Nhà cung cấp gửi yêu cầu sẽ xuất hiện tại đây." />}</section> : tab === 'withdrawals' ? <section className="mt-6"><FinanceAdminPanel mode="withdrawals" /></section> : tab === 'reconciliation' ? <section className="mt-6"><FinanceAdminPanel mode="reconciliation" /></section> : <section className="mt-6"><DisputeAdminPanel /></section>}
 
-      {tab === 'providers' ? (
-        <>
-        <AdminTable
-          columns={[
-            { key: 'id', label: 'ID', numeric: true },
-            { key: 'orgName', label: 'Tên nhà cung cấp' },
-            { key: 'status', label: 'Trạng thái' },
-            { key: 'submittedAt', label: 'Ngày nộp' },
-          ]}
-          rows={providers.map((provider) => ({ id: provider.id, orgName: provider.orgName, status: provider.status, submittedAt: '—' }))}
-        />
-        <div className="mt-3 flex flex-wrap gap-2">{providers.map((provider) => <div key={provider.id} className="flex gap-2"><button type="button" onClick={() => void decide(provider.id, true)} className="rounded-full bg-green-600 px-3 py-2 text-caption text-surface">Duyệt {provider.orgName}</button><button type="button" onClick={() => void decide(provider.id, false)} className="rounded-full bg-danger px-3 py-2 text-caption text-surface">Từ chối {provider.orgName}</button></div>)}</div>
-        </>
-      ) : tab === 'withdrawals' ? <FinanceAdminPanel mode="withdrawals" />
-        : tab === 'reconciliation' ? <FinanceAdminPanel mode="reconciliation" /> : <DisputeAdminPanel />}
-    </div>
+      <Modal open={Boolean(rejecting)} title="Từ chối nhà cung cấp" onClose={() => setRejecting(null)}><p className="text-sm text-ink-500">Nêu lý do để lưu cùng quyết định cho {rejecting?.orgName}.</p><label className="mt-4 grid gap-1.5 text-sm font-medium">Lý do<TextArea required value={reason} onChange={(event) => setReason(event.target.value)} /></label><Button tone="danger" className="mt-5" onClick={() => void reject()}>Xác nhận từ chối</Button></Modal>
+    </main>
   );
 }

@@ -15,7 +15,7 @@ function ShuttlecockMark() {
 }
 
 type NavigationItem = { label: string; to?: string };
-const navItems: readonly NavigationItem[] = [{ to: '/booking', label: 'Đặt sân' }, { label: 'Kèo' }, { label: 'Cộng đồng' }];
+const navItems: readonly NavigationItem[] = [{ to: '/venues', label: 'Đặt sân' }, { label: 'Kèo' }, { label: 'Cộng đồng' }];
 
 export function Navbar({ onOpenAuth, sessionVersion }: { onOpenAuth: () => void; sessionVersion?: number }) {
   const [menuOpen, setMenuOpen] = useState(false);

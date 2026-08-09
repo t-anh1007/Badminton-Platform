@@ -24,6 +24,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M8 | pass | Fresh isolated Community migrations; real HTTP AC `test/community.e2e.test.ts` 9/9 + AccountLocked consumer 1/1 and Account producer regression 5/5 (2 historical skips); public-only content, verified-player gate, audited moderation/restore, private async tickets and versioned idempotent lock projection; workspace typecheck/build; one Codex two-axis review resolved restore and event-order/retry/shutdown defects |
 | P2-M9 | pass | Shared LangChain grounded-answer selection + read-only policy corpus `packages/ai/test/supportAssistant.test.ts` 3/3; authenticated real HTTP `community-service/test/supportAssistant.e2e.test.ts` 6/6 + fail-closed auth 1/1; own-booking API only, cited retrieval, no-action cancellation guidance, privacy and Gemini/venue fallback; workspace typecheck/build; one Codex two-axis review resolved retrieval, intent, JWT and error-boundary defects |
 | P2-FE0 | pass | `apps/web/test/playoFoundation.test.tsx` 3/3; Playwright desktop/mobile chrome check with zero console errors; workspace typecheck/build; one Codex review resolved dead future-route links, auth-session refresh, avatar focus and toast timeout |
+| P2-FE1 | pass | `apps/web/test/playoFoundation.test.tsx`, `playoPhase1Pages.test.tsx`, `bookingCancellation.test.tsx` 7/7; workspace typecheck and web build; local Playwright desktop/mobile inspection of Home, Auth, Venue error-state and Booking error-state; one Codex diff review resolved auth continuation/reset, hold expiry, provider visibility, admin confirmation, profile-cancelled and real-field rendering defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -121,3 +122,40 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-FIN-05-6 | P2-M3 | `matchPayments.test.ts` + `matchFee.e2e.test.ts` â€” no MatchFunding/fee ledger; organizer pays booking through FIN-03 real API | pass |
 | AC-FIN-05-7 | P2-M3 | `matchPayments.test.ts` + `matchFee.e2e.test.ts` â€” capacity race refunds loser immediately without stranded reserve | pass |
 | AC-FIN-05-8 | P2-M3 | `matchFee.e2e.test.ts` â€” completed + cancelled matches, empty RabbitMQ queues, scoped system-value conservation | pass |
+| AC-UI-01-1 | P2-FE1 | `HomePage` + desktop/mobile Playwright inspection — bright green split Hero stacks at mobile | pass |
+| AC-UI-01-2 | P2-FE1 | `playoFoundation.test.tsx` + source scan — no sport grid/store CTA/navy legacy token | pass |
+| AC-UI-01-3 | P2-FE1 | `HomePage` explains the intentional hidden carousel until a PO-selected location; CTA opens real `/venues` search | pass |
+| AC-UI-01-4 | P2-FE1 | `HomePage` renders four Vietnamese native accordion questions | pass |
+| AC-UI-01-5 | P2-FE1 | shared `Footer` inspected in desktop/mobile browser; no store badge | pass |
+| AC-UI-01-6 | P2-FE1 | Playwright 390px and 1440px screenshots; light preloader/skeleton state present | pass |
+| AC-UI-02-1 | P2-FE1 | `AuthForm` + `Modal` test/browser — two-column desktop, single-column mobile, X/backdrop/Esc/focus trap | pass |
+| AC-UI-02-2 | P2-FE1 | `AuthForm` only exposes real email/password register/login APIs; no SMS OTP | pass |
+| AC-UI-02-3 | P2-FE1 | `AuthForm` rendered tabs, required fields, inline error/status states | pass |
+| AC-UI-02-4 | P2-FE1 | `playoPhase1Pages.test.tsx` verifies email resend UI; real verify/resend/reset APIs and modal-close navigation wired | pass |
+| AC-UI-02-5 | P2-FE1 | `accountApi` real login stores access/refresh/roles; AuthPage routes successful login to profile | pass |
+| AC-UI-03-1 | P2-FE1 | `VenueListPage` has one badminton list, no sport/coaching/event tabs | pass |
+| AC-UI-03-2 | P2-FE1 | `VenueListPage` maps city/location query to lat/lng and calls real `searchVenues` | pass |
+| AC-UI-03-3 | P2-FE1 | real VenueCard shows bookable badge/name/address/distance/price; unsupported image/rating fields remain hidden per page API rule | pass |
+| AC-UI-03-4 | P2-FE1 | client name filter plus radius and distance/name sort update the real result set | pass |
+| AC-UI-03-5 | P2-FE1 | 3/2/1 grid and Vietnamese loading/empty/error states inspected | pass |
+| AC-UI-04-1 | P2-FE1 | `VenueDetailPage` has breadcrumb/header/sticky CTA; real image carousel renders only when API supplies images | pass |
+| AC-UI-04-2 | P2-FE1 | real detail renders badminton courts only; no multi-sport section or invented values | pass |
+| AC-UI-04-3 | P2-FE1 | real amenities and map render when returned; unsupported operating-time field is intentionally omitted | pass |
+| AC-UI-04-4 | P2-FE1 | real `venueId` CTA creates `/booking?venueId=` with mobile fixed CTA | pass |
+| AC-UI-04-5 | P2-FE1 | 2→1 layout and Vietnamese loading/empty/error/404 branches implemented | pass |
+| AC-UI-05-1 | P2-FE1 | `BookingPage` renders bright two-column schedule/summary and three-step indicator | pass |
+| AC-UI-05-2 | P2-FE1 | source scan/browser shows no sport selector or karma banner | pass |
+| AC-UI-05-3 | P2-FE1 | `SlotGrid` renders available, own real hold, own confirmed booking and API-ambiguous unavailable states without mislabeling holds as bookings | pass |
+| AC-UI-05-4 | P2-FE1 | `HoldCountdown` expiry clears hold/selection/booking, reloads real availability and prompts selection again | pass |
+| AC-UI-05-5 | P2-FE1 | real hold/create-booking, balance payment and SePay intent/match code clients are wired | pass |
+| AC-UI-05-6 | P2-FE1 | 401-sensitive action opens auth modal, retries after real login; Vietnamese loading/empty/error and mobile summary layout present | pass |
+| AC-UI-06-1 | P2-FE1 | `ProfilePage` bright two-column sticky user card and tabs | pass |
+| AC-UI-06-2 | P2-FE1 | source scan — no Karma/Gift Cards/Playpals and only project data shown | pass |
+| AC-UI-06-3 | P2-FE1 | real booking APIs populate Sắp tới/Đã qua/Đã hủy segments | pass |
+| AC-UI-06-4 | P2-FE1 | real personal/business balances, wallet-ledger entries and SePay top-up intent | pass |
+| AC-UI-06-5 | P2-FE1 | real `DisputePanel` is mounted from profile tab | pass |
+| AC-UI-06-6 | P2-FE1 | real profile update/change-password forms, Vietnamese empty/error and responsive grid | pass |
+| AC-UI-07-1 | P2-FE1 | bright admin DataTable has green tabs, sticky header and action column | pass |
+| AC-UI-07-2 | P2-FE1 | four GĐ1 operation areas; finance/dispute/reject mutations require reason and confirmation modal | pass |
+| AC-UI-07-3 | P2-FE1 | real admin providers/finance/dispute clients retained behind existing App role guard | pass |
+| AC-UI-07-4 | P2-FE1 | semantic provider badges plus empty/error and horizontally scrollable mobile table | pass |

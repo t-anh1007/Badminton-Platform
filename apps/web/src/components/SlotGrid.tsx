@@ -1,4 +1,4 @@
-export type SlotStatus = 'available' | 'held' | 'booked';
+export type SlotStatus = 'available' | 'held' | 'booked' | 'unavailable';
 
 export interface Slot {
   time: string;
@@ -10,18 +10,17 @@ const STATUS_STYLE: Record<SlotStatus, string> = {
   available: 'bg-surface text-ink-900 hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
   held: 'bg-green-600/30 text-green-700 cursor-not-allowed',
   booked: 'bg-ink-700/10 text-ink-900/40 cursor-not-allowed',
+  unavailable: 'bg-ink-700/10 text-ink-900/40 cursor-not-allowed',
 };
 
 const STATUS_LABEL: Record<SlotStatus, string> = {
   available: 'Trống',
   held: 'Đang giữ',
   booked: 'Đã đặt',
+  unavailable: 'Đã kín',
 };
 
-/**
- * Slot grid — baseline cho BOK-04/05/06: lịch trống theo giờ/sân, trạng thái
- * slot + giá. Countdown giữ chỗ Redis là mock ở đây, thật thuộc G3.
- */
+/** Slot state and price rendered from the real availability response. */
 export function SlotGrid({ courtName, slots, onSelect }: { courtName: string; slots: Slot[]; onSelect?: (slot: Slot) => void }) {
   return (
     <div className="rounded-2xl bg-canvas p-4">

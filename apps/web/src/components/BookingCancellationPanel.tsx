@@ -11,7 +11,18 @@ import {
 
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
+function hasProviderRole(): boolean {
+  try {
+    const token = window.localStorage.getItem('accessToken');
+    const roles = token ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).roles as string[] : [];
+    return roles.includes('provider');
+  } catch {
+    return false;
+  }
+}
+
 export function BookingCancellationPanel() {
+  const isProvider = hasProviderRole();
   const [bookings, setBookings] = useState<BookingSummary[]>([]);
   const [message, setMessage] = useState('Đăng nhập để tải booking thật.');
   const [providerBookingId, setProviderBookingId] = useState('');
@@ -116,7 +127,7 @@ export function BookingCancellationPanel() {
         ) : null}
       </div>
 
-      <div className="rounded-2xl bg-green-600 p-6 text-surface shadow-sm">
+      <div className={isProvider ? 'rounded-2xl bg-green-600 p-6 text-surface shadow-sm' : 'hidden'}>
         <h2 className="text-h2 !text-2xl">Quản lý sự cố phía sân</h2>
         <p className="text-body mt-2 text-surface/70">Đổi sân con cùng cơ sở hoặc hủy kèm hoàn 100%.</p>
         <div className="mt-4 grid gap-3">

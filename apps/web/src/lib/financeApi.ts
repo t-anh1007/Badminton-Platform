@@ -10,7 +10,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
   });
-  const body = await response.json() as T & { error?: { message?: string } };
+  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu tài chính.');
   return body;
 }
@@ -27,6 +27,8 @@ export interface ReconciliationRow {
   id: string; direction: 'in' | 'out'; amount: string; rawRef: string; receivedAt: string;
 }
 export interface WalletRow { id: string; walletType: string; available: string; pending: string; reserved: string; currency: string }
+export interface WalletLedgerEntry { id: string; amount: string; type: string; refType: string; refId: string; before: string; after: string; ts: string }
+export interface WalletLedgerResult { wallet: WalletRow; entries: WalletLedgerEntry[] }
 export interface DisputeEligibleRow {
   bookingId: string; venueId: string; gross: string; endAt: string; deadlineAt: string;
 }
@@ -42,7 +44,10 @@ export interface DisputeRow {
 }
 
 export const getMyWallets = () => api<WalletRow[]>('/wallets/me');
+export const getWalletLedger = (walletId: string) => api<WalletLedgerResult>(`/wallets/${walletId}/ledger`);
+export const createTopupIntent = (amount: string) => api<{ intentId: string; matchCode: string; amount: string }>('/wallet/topup-intents', { method: 'POST', body: JSON.stringify({ amount }) });
 export const payBookingBalance = (bookingId: string) => api<{ message: string }>(`/bookings/${bookingId}/pay/balance`, { method: 'POST' });
+export const createBookingSepayIntent = (bookingId: string) => api<{ intentId: string; matchCode: string; amount: string }>(`/bookings/${bookingId}/pay/sepay`, { method: 'POST' });
 export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {
   const query = new URLSearchParams(Object.entries(filters ?? {}).filter((entry): entry is [string, string] => Boolean(entry[1])));
   return api<RevenueRow[]>(`/providers/me/revenue${query.size ? `?${query}` : ''}`);

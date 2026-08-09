@@ -14,11 +14,11 @@ export function AppLayout() {
     <div className="flex min-h-screen flex-col bg-canvas">
       <Preloader />
       <Navbar onOpenAuth={() => setAuthOpen(true)} sessionVersion={sessionVersion} />
-      <main className="flex-1">
-        <Outlet />
-      </main>
+      <main className="flex-1"><Outlet /></main>
       <Footer />
-      <Modal open={authOpen} title="Chào mừng bạn" onClose={() => setAuthOpen(false)}><AuthForm onAuthenticated={() => { setSessionVersion((version) => version + 1); setAuthOpen(false); }} /></Modal>
+      <Modal open={authOpen} title="Chào mừng bạn" onClose={() => setAuthOpen(false)}>
+        <AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setSessionVersion((version) => version + 1); setAuthOpen(false); }} />
+      </Modal>
     </div>
   );
 }
