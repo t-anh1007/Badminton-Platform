@@ -129,6 +129,9 @@ ID liên service là giá trị opaque, không FK/query chéo schema.
 | id uuid PK · adminUserId uuid · action text · targetType · targetId · reason · createdAt — BR-COM-04 |
 
 - `Outbox`, `ProcessedEvent` trong schema `community` (consume `AccountLocked`).
+- `ACCOUNT_LOCK` (`userId` opaque PK, `locked`, `stateVersion`, `updatedAt`) là projection nội bộ
+  idempotent của `AccountLocked`; `stateVersion` tăng đơn điệu do account-service phát để event chậm
+  không thể ghi đè trạng thái khóa mới hơn. Không có FK sang account.
 
 ## 3. AI dùng chung qua `packages/ai` (không có schema/service riêng)
 

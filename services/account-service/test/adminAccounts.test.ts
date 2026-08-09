@@ -109,7 +109,10 @@ describe('ACC-08 — Quản lý quyền truy cập tài khoản (khóa / khôi p
       where: { aggregateId: target.userId, eventType: 'AccountLocked' },
       orderBy: { createdAt: 'asc' },
     });
-    expect((lockEvent.payload as { locked: boolean }).locked).toBe(true);
+    expect((lockEvent.payload as { locked: boolean; stateVersion: number })).toMatchObject({
+      locked: true,
+      stateVersion: 1,
+    });
 
     await unlockAccount(admin.userId, target.userId, 'test unlock');
     const events = await prisma.outbox.findMany({
@@ -117,6 +120,9 @@ describe('ACC-08 — Quản lý quyền truy cập tài khoản (khóa / khôi p
       orderBy: { createdAt: 'asc' },
     });
     expect(events).toHaveLength(2);
-    expect((events[1]!.payload as { locked: boolean }).locked).toBe(false);
+    expect((events[1]!.payload as { locked: boolean; stateVersion: number })).toMatchObject({
+      locked: false,
+      stateVersion: 2,
+    });
   });
 });

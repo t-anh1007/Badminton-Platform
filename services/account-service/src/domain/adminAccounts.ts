@@ -18,7 +18,11 @@ export async function lockAccount(adminUserId: string, targetUserId: string, rea
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: targetUserId }, data: { status: 'locked' } });
+    const updated = await tx.user.update({
+      where: { id: targetUserId },
+      data: { status: 'locked', accountLockVersion: { increment: 1 } },
+      select: { accountLockVersion: true },
+    });
     await tx.accountAudit.create({
       data: { actorUserId: adminUserId, action: 'lock', targetUserId, reason },
     });
@@ -28,7 +32,13 @@ export async function lockAccount(adminUserId: string, targetUserId: string, rea
       aggregateType: 'User',
       aggregateId: targetUserId,
       eventType: 'AccountLocked',
-      payload: { userId: targetUserId, locked: true, reason, actorUserId: adminUserId },
+      payload: {
+        userId: targetUserId,
+        locked: true,
+        reason,
+        actorUserId: adminUserId,
+        stateVersion: updated.accountLockVersion,
+      },
     });
   });
 
@@ -48,7 +58,11 @@ export async function unlockAccount(adminUserId: string, targetUserId: string, r
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: targetUserId }, data: { status: 'active' } });
+    const updated = await tx.user.update({
+      where: { id: targetUserId },
+      data: { status: 'active', accountLockVersion: { increment: 1 } },
+      select: { accountLockVersion: true },
+    });
     await tx.accountAudit.create({
       data: { actorUserId: adminUserId, action: 'unlock', targetUserId, reason },
     });
@@ -56,7 +70,13 @@ export async function unlockAccount(adminUserId: string, targetUserId: string, r
       aggregateType: 'User',
       aggregateId: targetUserId,
       eventType: 'AccountLocked',
-      payload: { userId: targetUserId, locked: false, reason, actorUserId: adminUserId },
+      payload: {
+        userId: targetUserId,
+        locked: false,
+        reason,
+        actorUserId: adminUserId,
+        stateVersion: updated.accountLockVersion,
+      },
     });
   });
 }

@@ -59,7 +59,8 @@ Out of scope:
 - [x] P2-M5 — direct Socket.IO Quick Match, D44 organizer-only approval holds and final-slot serialization.
 - [x] P2-M6 — deterministic, explained compatibility and proposal-only balanced grouping in shared `packages/ai`.
 - [x] P2-M7 — LangChain Gemini matchmaker with verified F-02 evidence selection and fail-closed configuration/fallback.
-- [ ] P2-M8 through P2-M9 — remaining backend dependency gates.
+- [x] P2-M8 — public-only Community Support, manual moderation and asynchronous support tickets.
+- [ ] P2-M9 — remaining backend dependency gate.
 - [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
@@ -132,3 +133,13 @@ explicit acceptance creates the ordinary pending JOIN, and organizer approval al
 lock, so concurrent final-slot candidates produce one hold. The isolated real HTTP/Socket.IO suite
 passed 4/4, workspace typecheck/build and Harness passed, and the single two-axis Codex review left no
 actionable finding.
+
+P2-M8 completed 2026-08-09: Community now serves a public text-only feed (post maximum 5,000
+characters; comment/report/ticket-message maximum 1,000; ticket subject maximum 120), verified-player
+creation, soft deletion, one-report-per-target Outbox delivery, audited Admin hide/remove/dismiss and
+restore, and requester/Admin-only asynchronous tickets. `AccountLocked` is a versioned, idempotent
+Community projection: delayed lock events cannot overwrite a newer unlock and malformed envelopes do
+not requeue forever. Fresh isolated migrations passed; Community HTTP/consumer tests 10/10 and focused
+Account producer regression 5/5 (two historical skipped tests) passed, followed by workspace
+typecheck/build and Harness. The required one two-axis review found and the implementation resolved
+the temporary-hide restore and event ordering/retry/shutdown defects.

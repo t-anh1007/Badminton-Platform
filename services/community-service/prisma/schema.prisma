@@ -122,6 +122,16 @@ model ModerationAudit {
   @@map("moderation_audits")
 }
 
+// Local, idempotent projection of AccountLocked. The account is never a FK.
+model AccountLock {
+  userId       String   @id
+  locked       Boolean
+  stateVersion Int
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("account_locks")
+}
+
 model Outbox {
   id            String    @id @default(uuid())
   aggregateType String

@@ -46,9 +46,10 @@ model User {
   passwordHash String
   /// D3: enum đơn giá trị -> tập hợp vai trò.
   roles        UserRole[]
-  verified     Boolean    @default(false)
-  status       UserStatus @default(active)
-  createdAt    DateTime   @default(now())
+    verified     Boolean    @default(false)
+    status       UserStatus @default(active)
+    accountLockVersion Int  @default(0)
+    createdAt    DateTime   @default(now())
 
   playerProfile  PlayerProfile?
   verifications  Verification[]

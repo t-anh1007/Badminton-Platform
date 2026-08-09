@@ -21,6 +21,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M5 | pass | Fresh isolated matchmaking migrations; real HTTP + Socket.IO `quickMatch.e2e.test.ts` 4/4 covers proposal, ordinary pending JOIN/10-minute JoinApproved hold, final-slot race and disconnect recovery; workspace typecheck/build; Harness status/doctor; one Codex two-axis review resolved the hold-evidence gap with no remaining actionable finding |
 | P2-M6 | pass | `packages/ai` deterministic AC unit suite 6/6 plus isolated real HTTP `compatibility.e2e.test.ts` 2/2; F-02 grounds rating in match skill range and declares unavailable time/location inputs; shared-library-only F-04 creates neither match nor payment; workspace typecheck/build; one Codex two-axis review resolved grounded-input defects |
 | P2-M7 | pass | Shared LangChain Gemini adapter `test/geminiMatchmaker.test.ts` 3/3 plus isolated real HTTP `test/aiMatchmaker.e2e.test.ts` 2/2; deterministic F-02 ranking, private/public prompt boundary, no-auto-JOIN and failure/timeout fallback; workspace typecheck/build; one Codex two-axis review resolved grounded-output and timeout defects |
+| P2-M8 | pass | Fresh isolated Community migrations; real HTTP AC `test/community.e2e.test.ts` 9/9 + AccountLocked consumer 1/1 and Account producer regression 5/5 (2 historical skips); public-only content, verified-player gate, audited moderation/restore, private async tickets and versioned idempotent lock projection; workspace typecheck/build; one Codex two-axis review resolved restore and event-order/retry/shutdown defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -76,29 +77,29 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-F07-2 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — canonical pair lock flags reciprocal top-tier evidence across three completed matches within 30 days | pass |
 | AC-F07-3 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — Admin approves into Passport aggregate or permanently rejects | pass |
 | AC-F07-4 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — flag only explains/excludes; it does not alter Glicko rating or punish | pass |
-| AC-COM-01-1 | P2-M8 |  |  |
-| AC-COM-01-2 | P2-M8 |  |  |
-| AC-COM-01-3 | P2-M8 |  |  |
-| AC-COM-02-1 | P2-M8 |  |  |
-| AC-COM-02-2 | P2-M8 |  |  |
-| AC-COM-02-3 | P2-M8 |  |  |
-| AC-COM-03-1 | P2-M8 |  |  |
-| AC-COM-03-2 | P2-M8 |  |  |
-| AC-COM-04-1 | P2-M8 |  |  |
-| AC-COM-04-2 | P2-M8 |  |  |
-| AC-COM-05-1 | P2-M8 |  |  |
-| AC-COM-05-2 | P2-M8 |  |  |
-| AC-COM-05-3 | P2-M8 |  |  |
-| AC-COM-06-1 | P2-M8 |  |  |
-| AC-COM-06-2 | P2-M8 |  |  |
-| AC-COM-07-1 | P2-M8 |  |  |
-| AC-COM-07-2 | P2-M8 |  |  |
-| AC-COM-07-3 | P2-M8 |  |  |
-| AC-COM-07-4 | P2-M8 |  |  |
-| AC-COM-08-1 | P2-M8 |  |  |
-| AC-COM-08-2 | P2-M8 |  |  |
-| AC-COM-08-3 | P2-M8 |  |  |
-| AC-COM-08-4 | P2-M8 |  |  |
+| AC-COM-01-1 | P2-M8 | isolated HTTP `test/community.e2e.test.ts` - feed excludes hidden/removed posts | pass |
+| AC-COM-01-2 | P2-M8 | isolated unauthenticated HTTP feed/detail requests succeed | pass |
+| AC-COM-01-3 | P2-M8 | isolated HTTP feed returns an empty `posts` array without error | pass |
+| AC-COM-02-1 | P2-M8 | isolated HTTP verified-player post is immediately `published` and appears publicly | pass |
+| AC-COM-02-2 | P2-M8 | isolated HTTP rejects empty or >5,000-character text-only post payloads | pass |
+| AC-COM-02-3 | P2-M8 | versioned `AccountLocked` projection blocks post creation; stale lock cannot overwrite newer unlock | pass |
+| AC-COM-03-1 | P2-M8 | isolated HTTP author edit changes body and sets `editedAt` | pass |
+| AC-COM-03-2 | P2-M8 | isolated HTTP non-author edit receives 403 | pass |
+| AC-COM-04-1 | P2-M8 | isolated HTTP author delete persists `removed` and hides public post | pass |
+| AC-COM-04-2 | P2-M8 | isolated HTTP non-author delete receives 403 | pass |
+| AC-COM-05-1 | P2-M8 | isolated HTTP comment on published post appears in public detail | pass |
+| AC-COM-05-2 | P2-M8 | isolated HTTP comment on removed post receives 409 | pass |
+| AC-COM-05-3 | P2-M8 | isolated HTTP own comment soft-removes; another author receives 403 | pass |
+| AC-COM-06-1 | P2-M8 | isolated HTTP report writes open Report + atomic `ContentReported` Outbox while post remains published | pass |
+| AC-COM-06-2 | P2-M8 | isolated HTTP repeated reporter/target report receives 409 | pass |
+| AC-COM-07-1 | P2-M8 | isolated HTTP Admin removal sets target removed/report actioned and appends audit | pass |
+| AC-COM-07-2 | P2-M8 | isolated HTTP dismiss leaves published target and marks report dismissed | pass |
+| AC-COM-07-3 | P2-M8 | isolated HTTP non-Admin moderation request receives 403 | pass |
+| AC-COM-07-4 | P2-M8 | isolated HTTP audit checks retain removed records; hidden content has audited Admin restore only | pass |
+| AC-COM-08-1 | P2-M8 | isolated HTTP creates open ticket with player message; requester/Admin-only list/detail access | pass |
+| AC-COM-08-2 | P2-M8 | isolated HTTP Admin reply transitions ticket to `in_progress` and is visible to requester | pass |
+| AC-COM-08-3 | P2-M8 | isolated HTTP other player ticket detail receives 403 | pass |
+| AC-COM-08-4 | P2-M8 | isolated HTTP Admin transition follows `in_progress` -> `resolved` -> `closed` | pass |
 | AC-AI-01-1 | P2-M7 | isolated HTTP `test/aiMatchmaker.e2e.test.ts` — three public open matches rank by deterministic F-02 score and each carries an explanation | pass |
 | AC-AI-01-2 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` — Gemini may select only verified F-02 reason indexes; local renderer always returns concrete text | pass |
 | AC-AI-01-3 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` + isolated HTTP `test/aiMatchmaker.e2e.test.ts` — provider error or 4-second timeout returns short deterministic fallback without failing the request | pass |
