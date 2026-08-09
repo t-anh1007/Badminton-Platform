@@ -81,7 +81,7 @@ AI cần dữ liệu kèo). Mỗi milestone: self-verify (test AC + typecheck + 
 | # | Milestone | Nội dung | Phụ thuộc |
 |---|---|---|---|
 | P2-G0 | Schema + skeleton | Data-model + migration matchmaking/community/ai; service nối eventbus/outbox; test cách ly schema | GĐ1 xong |
-| P2-Gd | Design baseline GĐ2 | Page shell kèo/passport/community/AI-chat trên DESIGN.md baseline (không dựng lại) | P2-G0 |
+| ~~P2-Gd~~ | ~~Design baseline GĐ2~~ | **BỎ (D-UI5, 2026-08-09):** baseline actl.me bị loại; thay bằng **P2-FE0** (nền tảng Playo). Xem `phase-2-goal.md` + `PLAN_PHASE2.5.md`. | — |
 | P2-M1 | Rating F-01 + Passport | Engine rating có độ bất định (D-P2-1); MMP-09 khai báo trình độ; MMP-11 xem Passport | P2-G0 |
 | P2-M2 | Kèo lifecycle | MMP-01..08 (tìm/tạo/chi tiết/tham gia/duyệt/xác nhận/rút/hủy); phát event `MatchCreated/JoinApproved/MatchConfirmed/MatchCancelled` | P2-M1 |
 | P2-M3 | FIN-05 phí kèo | finance consume event matchmaking; thu phí vào ví platform giữ tạm → giải ngân/hoàn (D-P2-2); **bảo toàn ba vế** | P2-M2 |
@@ -91,7 +91,7 @@ AI cần dữ liệu kèo). Mỗi milestone: self-verify (test AC + typecheck + 
 | P2-M7 | AI-01 matchmaker (Gemini) | Gợi ý kèo có giải thích, xây trên F-02; Gemini qua `packages/ai` (D-P2-6) | P2-M6 |
 | P2-M8 | community-support | COM-01..08 (bài viết/bình luận/báo cáo/kiểm duyệt/ticket) | P2-G0 (độc lập, có thể sớm) |
 | P2-M9 | AI-02 chatbot RAG (Gemini) | RAG trên chính sách + dữ liệu của chính user (D-P2-5) | P2-M8, GĐ1 data |
-| P2-Mfe | Frontend GĐ2 | Nối UI thật cho toàn bộ UC trên baseline (rút kinh nghiệm F1 GĐ1: KHÔNG để mock) | các M tương ứng |
+| P2-FE0/FE1/FE2 | Frontend GĐ2 (design **Playo**) | Thay P2-Mfe. FE0 nền tảng Playo (thay theme actl.me) → FE1 trang GĐ1 (re-skin + tách trang) → FE2 trang GĐ2. Nối API thật, KHÔNG mock. Theo `docs/design/`. | P2-FE0 + M tương ứng |
 | P2-final | Cổng cuối phase | E2E các hành trình kèo/community/AI + bảo toàn giá trị FIN-05 + ledger AC đủ pass | tất cả |
 
 ## Ràng buộc xuyên suốt (giữ nguyên từ GĐ1)
@@ -138,6 +138,14 @@ Tuân thủ "Ràng buộc xuyên suốt" và dừng theo "Pause rules" trong pha
 không FK/query xuyên schema; phí kèo bảo toàn ba vế + không ngang hàng; AI không tự hành động (#8);
 frontend nối API thật không mock. Gặp 【PO-REVIEW】 chạm tiền/quyền chưa chốt → dừng hỏi PO.
 
-Cổng cuối: 5 success condition + E2E xanh + AC-FIN-05-8 bảo toàn giá trị. Báo cáo tách: kết quả,
-bằng chứng, rủi ro. Không tự nghiệm thu — dừng chờ PO.
+QUY TẮC HOÀN THÀNH 100% (xem "Quy tắc hoàn thành 100%" trong phase-2-goal.md — bắt buộc, quan
+trọng hơn tốc độ): mọi AC phải `pass` hoặc được PO tường minh miễn trừ, không có trạng thái thứ ba.
+Cấm tự đánh dấu AC "để sau"/"known issue"/TODO rồi âm thầm chuyển milestone kế. Gặp khó ở một AC cụ
+thể → DỪNG NGAY tại đó, hỏi PO rõ ràng (nêu đúng mã AC/quyết định bị chặn), KHÔNG nhảy sang việc
+khác để "né" rồi quay lại sau. Trước khi báo hoàn tất Giai đoạn 2, tự đếm AC pass/tổng AC trong 4
+spec — phải khớp 100% tuyệt đối.
+
+Cổng cuối: 5 success condition + E2E xanh + AC-FIN-05-8 bảo toàn giá trị + 100% AC pass (không AC
+nào ở trạng thái blocked chưa PO quyết). Báo cáo tách: kết quả, bằng chứng, rủi ro. Không tự nghiệm
+thu — dừng chờ PO.
 ```

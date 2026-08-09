@@ -1,5 +1,13 @@
 # DESIGN.md — Badminton Community Booking Platform
 
+> ⚠️ **Superseded một phần từ Giai đoạn 2.5 (2026-08-09).** Ngôn ngữ thị giác
+> actl.me trong §1.1 và §2 (màu tối/navy/vàng, menu overlay, hero parallax) được
+> **thay thế** bởi ngôn ngữ Playo (sáng/trắng-xám/xanh lá) — xem
+> [`docs/design/design-system.md`](design/design-system.md) và
+> [`PLAN_PHASE2.5.md`](../PLAN_PHASE2.5.md). **Giữ nguyên** ràng buộc hiệu năng §1
+> và §5 (không WebGL/3D/video nền; motion CSS-only). Tài liệu này vẫn đúng cho
+> baseline GĐ1/GĐ2 đã dựng; GĐ2.5 re-skin lên trên.
+
 > Design reference: adapted from actl.me (ACTL – Dubai Private Tennis League) visual language,
 > re-purposed for badminton, web-only (no native mobile app), and stripped of heavy 3D/WebGL
 > animation for free-tier hosting performance.
