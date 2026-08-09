@@ -45,7 +45,11 @@ async function setupConfirmedBooking(hoursUntilStart: number, price = 200000n) {
 }
 
 describe('BOK-09 — Người chơi hủy booking', () => {
-  for (const [hours, refundPercent] of [[30, 100], [10, 50], [2, 0]] as const) {
+  for (const [hours, refundPercent] of [
+    [30, 100],
+    [10, 50],
+    [2, 0],
+  ] as const) {
     it(`AC-BOK-09-1..3: hủy trước ${hours}h phát đúng refundPercent=${refundPercent}`, async () => {
       const { playerId, booking } = await setupConfirmedBooking(hours);
       const token = signTestAccessToken(playerId, ['player']);
@@ -60,7 +64,9 @@ describe('BOK-09 — Người chơi hủy booking', () => {
       const stored = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
       expect(stored.status).toBe('cancelled');
       expect(stored.cancellationReason).toBe('self');
-      const events = await prisma.outbox.findMany({ where: { aggregateId: booking.id, eventType: 'BookingCancelled' } });
+      const events = await prisma.outbox.findMany({
+        where: { aggregateId: booking.id, eventType: 'BookingCancelled' },
+      });
       expect(events).toHaveLength(1);
       expect(events[0]!.payload).toMatchObject({
         bookingId: booking.id,
@@ -86,7 +92,10 @@ describe('BOK-09 — Người chơi hủy booking', () => {
   it('AC-BOK-09-5: không cho hủy khi ca đã bắt đầu', async () => {
     const { playerId, booking } = await setupConfirmedBooking(-1);
     const token = signTestAccessToken(playerId, ['player']);
-    const response = await request(app).post(`/players/me/bookings/${booking.id}/cancel`).set('Authorization', `Bearer ${token}`).send();
+    const response = await request(app)
+      .post(`/players/me/bookings/${booking.id}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send();
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe('BOOKING_ALREADY_STARTED');
   });
@@ -98,17 +107,27 @@ describe('BOK-09 — Người chơi hủy booking', () => {
       data: { policySnapshot: { tiers: [{ minHoursBeforeStart: 0, refundPercent: 25 }] } },
     });
     const token = signTestAccessToken(playerId, ['player']);
-    const response = await request(app).post(`/players/me/bookings/${booking.id}/cancel`).set('Authorization', `Bearer ${token}`).send();
+    const response = await request(app)
+      .post(`/players/me/bookings/${booking.id}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send();
     expect(response.body.refundPercent).toBe(25);
   });
 
   it('AC-BOK-09-7: bấm hủy hai lần chỉ phát một BookingCancelled', async () => {
     const { playerId, booking } = await setupConfirmedBooking(30);
     const token = signTestAccessToken(playerId, ['player']);
-    const first = await request(app).post(`/players/me/bookings/${booking.id}/cancel`).set('Authorization', `Bearer ${token}`).send();
-    const second = await request(app).post(`/players/me/bookings/${booking.id}/cancel`).set('Authorization', `Bearer ${token}`).send();
+    const first = await request(app)
+      .post(`/players/me/bookings/${booking.id}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send();
+    const second = await request(app)
+      .post(`/players/me/bookings/${booking.id}/cancel`)
+      .set('Authorization', `Bearer ${token}`)
+      .send();
     expect(first.status).toBe(200);
-    expect(second.status).toBe(409);
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual(first.body);
     expect(await prisma.outbox.count({ where: { aggregateId: booking.id, eventType: 'BookingCancelled' } })).toBe(1);
   });
 });
@@ -160,10 +179,14 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
 
   it('AC-BOK-10-2: không liệt kê sân con đóng cửa hoặc ngoài giờ hoạt động', async () => {
     const { providerUserId, booking, replacementCourt } = await setupConfirmedBooking(30);
-    const dayStart = new Date(Date.UTC(booking.startAt.getUTCFullYear(), booking.startAt.getUTCMonth(), booking.startAt.getUTCDate()));
+    const dayStart = new Date(
+      Date.UTC(booking.startAt.getUTCFullYear(), booking.startAt.getUTCMonth(), booking.startAt.getUTCDate()),
+    );
     await prisma.closure.create({ data: { courtId: replacementCourt.id, date: dayStart, reason: 'Bảo trì' } });
     const token = signTestAccessToken(providerUserId, ['player', 'provider']);
-    const closed = await request(app).get(`/providers/bookings/${booking.id}/replacement-courts`).set('Authorization', `Bearer ${token}`);
+    const closed = await request(app)
+      .get(`/providers/bookings/${booking.id}/replacement-courts`)
+      .set('Authorization', `Bearer ${token}`);
     expect(closed.body.courts).toEqual([]);
 
     await prisma.closure.delete({ where: { courtId_date: { courtId: replacementCourt.id, date: dayStart } } });
@@ -171,7 +194,9 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       where: { courtId_weekday: { courtId: replacementCourt.id, weekday: booking.startAt.getUTCDay() } },
       data: { openMinute: 0, closeMinute: 1 },
     });
-    const outsideHours = await request(app).get(`/providers/bookings/${booking.id}/replacement-courts`).set('Authorization', `Bearer ${token}`);
+    const outsideHours = await request(app)
+      .get(`/providers/bookings/${booking.id}/replacement-courts`)
+      .set('Authorization', `Bearer ${token}`);
     expect(outsideHours.body.courts).toEqual([]);
   });
 
@@ -184,8 +209,14 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       .send({ reason: 'Sân gặp sự cố' });
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('cancelled');
-    const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: booking.id, eventType: 'BookingCancelled' } });
-    expect(event.payload).toMatchObject({ refundPercent: 100, reason: 'provider_fault', cancellationNote: 'Sân gặp sự cố' });
+    const event = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: booking.id, eventType: 'BookingCancelled' },
+    });
+    expect(event.payload).toMatchObject({
+      refundPercent: 100,
+      reason: 'provider_fault',
+      cancellationNote: 'Sân gặp sự cố',
+    });
   });
 
   it('AC-BOK-10-4: phía sân hủy không có lý do bị từ chối', async () => {
@@ -219,7 +250,9 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ reason: 'Vi phạm nghiêm trọng' });
     expect(response.status).toBe(200);
-    const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: booking.id, eventType: 'BookingCancelled' } });
+    const event = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: booking.id, eventType: 'BookingCancelled' },
+    });
     expect(event.payload).toMatchObject({ reason: 'platform_admin', refundPercent: 100 });
   });
 

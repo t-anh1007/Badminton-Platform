@@ -33,13 +33,17 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
       source: 'marketplace' as const,
     }));
 
-    await expect(Promise.all(events.map((payload) => recordBookingRevenue(randomUUID(), payload)))).resolves.toBeDefined();
+    await expect(
+      Promise.all(events.map((payload) => recordBookingRevenue(randomUUID(), payload))),
+    ).resolves.toBeDefined();
     expect(await prisma.wallet.count({ where: { userId: null, walletType: 'platform' } })).toBe(1);
   });
 
   it('AC-FIN-09-4: qua endAt + 24h chuyển đúng khoản pending sang available, không sinh ledger nội bộ', async () => {
     const fixture = await revenueFixture(25);
-    const walletBefore = await prisma.wallet.findFirstOrThrow({ where: { userId: fixture.businessUserId, walletType: 'business' } });
+    const walletBefore = await prisma.wallet.findFirstOrThrow({
+      where: { userId: fixture.businessUserId, walletType: 'business' },
+    });
     const ledgerCount = await prisma.ledgerEntry.count({ where: { refId: fixture.bookingId } });
 
     expect(await releaseMatureRevenue(new Date())).toBeGreaterThanOrEqual(1);
@@ -47,7 +51,9 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
     const wallet = await prisma.wallet.findUniqueOrThrow({ where: { id: walletBefore.id } });
     expect([wallet.pending, wallet.available]).toEqual([0n, 180000n]);
     expect(await prisma.ledgerEntry.count({ where: { refId: fixture.bookingId } })).toBe(ledgerCount);
-    expect((await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } })).releasedAt).not.toBeNull();
+    expect(
+      (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } })).releasedAt,
+    ).not.toBeNull();
   });
 
   it('AC-FIN-09-5: tranh chấp open chỉ hoãn booking đó, booking khác vẫn release', async () => {
@@ -55,23 +61,56 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
     const released = await revenueFixture(25);
     await prisma.dispute.create({
       data: {
-        refType: 'booking', refId: blocked.bookingId, bookingId: blocked.bookingId,
-        raiserUserId: randomUUID(), deadlineAt: new Date(Date.now() + 3_600_000), status: 'open',
+        refType: 'booking',
+        refId: blocked.bookingId,
+        bookingId: blocked.bookingId,
+        raiserUserId: randomUUID(),
+        deadlineAt: new Date(Date.now() + 3_600_000),
+        status: 'open',
       },
     });
 
     await releaseMatureRevenue(new Date());
 
-    expect((await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: blocked.bookingId } })).releasedAt).toBeNull();
-    expect((await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: released.bookingId } })).releasedAt).not.toBeNull();
+    expect(
+      (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: blocked.bookingId } })).releasedAt,
+    ).toBeNull();
+    expect(
+      (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: released.bookingId } })).releasedAt,
+    ).not.toBeNull();
+  });
+
+  it('skips cancelled revenue without blocking other mature bookings', async () => {
+    const cancelled = await revenueFixture(25);
+    const releasable = await revenueFixture(25);
+    const cancelledRevenue = await prisma.bookingRevenue.update({
+      where: { bookingId: cancelled.bookingId },
+      data: { cancelledAt: new Date() },
+    });
+    await prisma.wallet.update({
+      where: { id: cancelledRevenue.businessWalletId },
+      data: { pending: 0n },
+    });
+
+    await expect(releaseMatureRevenue(new Date())).resolves.toBeGreaterThanOrEqual(1);
+    expect(
+      (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: cancelled.bookingId } })).releasedAt,
+    ).toBeNull();
+    expect(
+      (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: releasable.bookingId } })).releasedAt,
+    ).not.toBeNull();
   });
 
   it('AC-FIN-09-6: booking internal không tạo revenue/commission và không xuất hiện', async () => {
     const bookingId = randomUUID();
     const businessUserId = randomUUID();
     await recordBookingRevenue(randomUUID(), {
-      bookingId, businessUserId, venueId: randomUUID(), gross: '200000',
-      endAt: new Date().toISOString(), source: 'internal',
+      bookingId,
+      businessUserId,
+      venueId: randomUUID(),
+      gross: '200000',
+      endAt: new Date().toISOString(),
+      source: 'internal',
     });
 
     expect(await prisma.bookingRevenue.findUnique({ where: { bookingId } })).toBeNull();
@@ -89,10 +128,16 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
 
   it('BookingConfirmed malformed không thể tạo tiền', async () => {
     const bookingId = randomUUID();
-    await expect(recordBookingRevenue(randomUUID(), {
-      bookingId, businessUserId: randomUUID(), gross: '-200000', venueId: randomUUID(),
-      endAt: new Date().toISOString(), source: 'marketplace',
-    })).rejects.toBeDefined();
+    await expect(
+      recordBookingRevenue(randomUUID(), {
+        bookingId,
+        businessUserId: randomUUID(),
+        gross: '-200000',
+        venueId: randomUUID(),
+        endAt: new Date().toISOString(),
+        source: 'marketplace',
+      }),
+    ).rejects.toBeDefined();
     expect(await prisma.ledgerEntry.count({ where: { refId: bookingId } })).toBe(0);
   });
 });

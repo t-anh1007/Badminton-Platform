@@ -55,7 +55,9 @@ async function seedCourt(providerUserId: string, startAt: Date) {
   const provider = await venueDb.provider.create({ data: { userId: providerUserId, orgName: `E2E Provider ${randomUUID()}`, status: 'approved' } });
   const venue = await venueDb.venue.create({ data: { providerId: provider.id, name: `E2E Venue ${randomUUID()}`, lat: 10.7769, lng: 106.7009, address: 'TP.HCM' } });
   const court = await venueDb.court.create({ data: { venueId: venue.id, name: 'Sân E2E' } });
-  const weekday = startAt.getDay();
+  // Availability accepts an ISO calendar date and evaluates it in UTC.
+  // Match that contract instead of the runner machine's local timezone.
+  const weekday = new Date(`${startAt.toISOString().slice(0, 10)}T00:00:00.000Z`).getUTCDay();
   await venueDb.operatingHour.create({ data: { courtId: court.id, weekday, openMinute: 0, closeMinute: 1439 } });
   await venueDb.bookingRule.create({ data: { courtId: court.id, stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 120 } });
   await venueDb.pricingRule.create({ data: { courtId: court.id, weekday, startMinute: 0, endMinute: 1439, price: 200000n, effectiveFrom: new Date(Date.now() - 86_400_000) } });
@@ -91,7 +93,7 @@ test('HT1 đăng ký → xác minh → đăng nhập → cập nhật hồ sơ',
   const email = `e2e-${randomUUID()}@example.test`;
   const password = 'Password123';
   await page.goto('/auth');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).first().click();
+  await page.getByRole('tab', { name: 'Đăng ký', exact: true }).click();
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu').fill(password);
   await page.getByLabel('Tên hiển thị').fill('Người chơi E2E');
@@ -102,19 +104,21 @@ test('HT1 đăng ký → xác minh → đăng nhập → cập nhật hồ sơ',
   await page.locator('form').getByRole('button', { name: 'Xác minh email' }).click();
   await expect(page.getByRole('status')).toContainText('Xác minh thành công');
   await page.locator('form').getByRole('button', { name: 'Đăng nhập' }).click();
-  await expect(page.getByRole('status')).toContainText('Đăng nhập thành công');
-  await page.goto('/profile');
-  await expect(page.getByText('Sân 1 — Q7')).not.toBeVisible();
-  await page.getByLabel('Tên hiển thị hồ sơ').fill('Hồ sơ đã cập nhật');
-  await page.getByLabel('Số điện thoại hồ sơ').fill('0909000000');
-  await page.getByRole('button', { name: 'Lưu hồ sơ' }).click();
+  await page.waitForURL(/\/profile$/);
+  await page.getByRole('button', { name: 'Cập nhật thông tin' }).click();
+  await page.getByLabel('Tên hiển thị').fill('Hồ sơ đã cập nhật');
+  await page.getByLabel('Số điện thoại').fill('0909000000');
+  await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
   await expect(page.getByRole('status').first()).toContainText('Đã cập nhật hồ sơ');
 });
 
 test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', async ({ page, request }) => {
   const userId = randomUUID();
   await seedAccountIdentity(userId);
-  const registered = await request.post(`${VENUE}/providers`, { headers: auth(token(userId)), data: { orgName: 'NCC E2E' } });
+  const registered = await request.post(`${VENUE}/providers`, {
+    headers: auth(token(userId)),
+    data: { orgName: `NCC E2E ${randomUUID()}` },
+  });
   expect(registered.ok()).toBeTruthy();
   const provider = await registered.json();
   const adminId = randomUUID();
@@ -127,7 +131,7 @@ test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', as
   await page.evaluate((nextAdminToken) => window.localStorage.setItem('accessToken', nextAdminToken), adminToken);
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Quản trị' })).toBeVisible();
-  await page.getByRole('button', { name: `Duyệt ${provider.orgName}` }).click();
+  await page.getByRole('row', { name: new RegExp(provider.orgName) }).getByRole('button', { name: 'Duyệt' }).click();
   await poll(async () => {
     const current = await venueDb.provider.findUnique({ where: { id: provider.id } });
     return current?.status === 'approved' ? current : null;
@@ -152,14 +156,11 @@ test('HT3 tìm sân → giữ slot → thanh toán → confirmed', async ({ page
   const wallet = await financeDb.wallet.create({ data: { userId: playerId, walletType: 'personal', available: 300000n } });
   await financeDb.ledgerEntry.create({ data: { walletId: wallet.id, amount: 300000n, type: 'topup', refType: 'topup', refId: randomUUID(), before: 0n, after: 300000n } });
   await setSession(page, accessToken);
-  await page.goto('/booking');
-  await page.getByLabel('Vĩ độ tìm sân').fill('10.7769');
-  await page.getByLabel('Kinh độ tìm sân').fill('106.7009');
-  await page.getByRole('button', { name: 'Tìm sân', exact: true }).click();
-  await expect(page.getByText(venue.name)).toBeVisible();
-  await page.getByRole('article').filter({ hasText: venue.name }).getByRole('button', { name: 'Xem lịch sân' }).click();
+  await page.goto(`/booking?venueId=${venue.id}`);
+  await expect(page.getByRole('heading', { name: venue.name })).toBeVisible();
+  await page.getByLabel('Ngày').fill(startAt.toISOString().slice(0, 10));
   await page.getByRole('button', { name: /^Chọn / }).first().click();
-  await page.getByRole('button', { name: 'Giữ chỗ' }).click();
+  await page.getByRole('button', { name: 'Giữ chỗ 10 phút' }).click();
   await page.getByRole('button', { name: 'Tạo booking' }).click();
   await page.getByRole('button', { name: 'Thanh toán số dư' }).click();
   const booking = await poll(async () => {
@@ -173,7 +174,7 @@ test('HT4 người chơi tự hủy và nhận hoàn theo bậc', async ({ page 
   const startAt = new Date(Date.now() + 30 * 3_600_000);
   const seeded = await seedConfirmedBooking({ startAt, endAt: new Date(startAt.getTime() + 3_600_000) });
   await setSession(page, token(seeded.playerId));
-  await page.goto('/booking');
+  await page.goto('/profile');
   await page.getByRole('button', { name: 'Xem mức hoàn' }).click();
   await expect(page.getByText(/Bạn sẽ được hoàn 100%/)).toBeVisible();
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
@@ -187,7 +188,7 @@ test('HT5 phía sân hủy và hoàn 100%', async ({ page }) => {
   const startAt = new Date(Date.now() + 2 * 3_600_000);
   const seeded = await seedConfirmedBooking({ startAt, endAt: new Date(startAt.getTime() + 3_600_000) });
   await setSession(page, token(seeded.providerId, ['player', 'provider']));
-  await page.goto('/booking');
+  await page.goto('/profile');
   const incident = page.getByRole('heading', { name: 'Quản lý sự cố phía sân' }).locator('..');
   await incident.getByPlaceholder('Mã booking').fill(seeded.booking.id);
   await incident.getByPlaceholder('Lý do hủy bắt buộc').fill('Sân mất điện');
@@ -202,12 +203,12 @@ test('HT6 doanh thu pending → available → tạo yêu cầu rút', async ({ p
   const endAt = new Date(Date.now() - 25 * 3_600_000);
   const seeded = await seedConfirmedBooking({ startAt: new Date(endAt.getTime() - 3_600_000), endAt });
   await setSession(page, token(seeded.providerId, ['player', 'provider']));
-  await page.goto('/profile');
+  await page.goto('/profile?tab=wallet');
   const finance = page.getByRole('heading', { name: 'Doanh thu và rút tiền' }).locator('..');
-  await expect(finance.getByText('180.000đ').first()).toBeVisible();
+  await expect(finance.getByText(/180[.,]000/).first()).toBeVisible();
   await releaseBookingRevenue(seeded.booking.id, new Date());
   await page.reload();
-  await expect(finance.getByText('180.000đ').first()).toBeVisible();
+  await expect(finance.getByText(/180[.,]000/).first()).toBeVisible();
   await page.getByLabel('Số tiền rút').fill('100000');
   await page.getByLabel('Ngân hàng').fill('VCB');
   await page.getByLabel('Số tài khoản').fill('0123456789');
@@ -222,7 +223,7 @@ test('HT7 tranh chấp trong 24 giờ → Admin hoàn một phần', async ({ br
   const playerContext = await browser.newContext();
   await playerContext.addInitScript((value) => window.localStorage.setItem('accessToken', value), token(seeded.playerId));
   const player = await playerContext.newPage();
-  await player.goto('http://127.0.0.1:5173/profile');
+  await player.goto('http://127.0.0.1:5173/profile?tab=disputes');
   await player.getByLabel('Lý do tranh chấp').fill('Dịch vụ không đúng cam kết');
   await player.getByLabel('Bằng chứng').fill('https://example.test/proof.jpg');
   await player.getByRole('button', { name: 'Gửi tranh chấp' }).click();
@@ -232,14 +233,17 @@ test('HT7 tranh chấp trong 24 giờ → Admin hoàn một phần', async ({ br
   const adminContext = await browser.newContext();
   const adminId = randomUUID();
   await seedAccountIdentity(adminId, [UserRole.player, UserRole.admin]);
-  await adminContext.addInitScript((value) => window.localStorage.setItem('accessToken', value), token(adminId, ['player', 'admin']));
   const admin = await adminContext.newPage();
+  await admin.goto('http://127.0.0.1:5173/');
+  await admin.evaluate((accessToken) => window.localStorage.setItem('accessToken', accessToken), token(adminId, ['player', 'admin']));
   await admin.goto('http://127.0.0.1:5173/admin');
-  await admin.getByRole('button', { name: 'Tranh chấp' }).click();
+  await expect(admin.getByRole('heading', { name: 'Quản trị' })).toBeVisible();
+  await admin.getByRole('tab', { name: 'Tranh chấp' }).click();
   await admin.getByLabel(`Số tiền hoàn một phần ${seeded.booking.id}`).fill('80000');
   await admin.getByLabel(`Lý do quyết định ${seeded.booking.id}`).fill('Hoàn theo bằng chứng');
   const card = admin.getByText(seeded.booking.id).locator('..');
   await card.getByRole('button', { name: 'Hoàn một phần' }).click();
+  await admin.getByRole('button', { name: 'Xác nhận', exact: true }).click();
   await expect(admin.getByRole('status')).toContainText('Đã giải quyết');
   expect((await financeDb.dispute.findUniqueOrThrow({ where: { id: dispute.id } })).resolutionAmount).toBe(80000n);
   await Promise.all([playerContext.close(), adminContext.close()]);
@@ -256,13 +260,16 @@ test('HT8 Admin đối soát giao dịch tiền vào chưa khớp', async ({ pag
   await financeDb.wallet.create({ data: { userId, walletType: 'personal', available: 0n } });
   const adminId = randomUUID();
   await seedAccountIdentity(adminId, [UserRole.player, UserRole.admin]);
-  await setSession(page, token(adminId, ['player', 'admin']));
+  await page.goto('/');
+  await page.evaluate((accessToken) => window.localStorage.setItem('accessToken', accessToken), token(adminId, ['player', 'admin']));
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Đối soát' }).click();
+  await expect(page.getByRole('heading', { name: 'Quản trị' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Đối soát' }).click();
   await page.getByLabel('Đối tượng gán').fill(userId);
   await page.getByLabel('Lý do đối soát').fill('Đã xác minh chủ khoản tiền');
   const eventCard = page.getByText(new RegExp(rawRef)).locator('..');
   await eventCard.getByRole('button', { name: 'Gán ví cá nhân' }).click();
+  await page.getByRole('button', { name: 'Xác nhận', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Đã xử lý');
   expect((await financeDb.sepayEvent.findUniqueOrThrow({ where: { externalRef } })).status).toBe('matched_manual');
 });

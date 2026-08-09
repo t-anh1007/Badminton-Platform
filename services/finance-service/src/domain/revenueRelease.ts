@@ -30,7 +30,7 @@ export async function releaseBookingRevenue(bookingId: string, now = new Date())
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${bookingId}))) AS booking_lock`;
     const revenue = await tx.bookingRevenue.findUnique({ where: { bookingId } });
-    if (!revenue || revenue.releasedAt || revenue.releaseAt > now) return false;
+    if (!revenue || revenue.releasedAt || revenue.cancelledAt || revenue.releaseAt > now) return false;
     const openDispute = await tx.dispute.findFirst({ where: { bookingId: revenue.bookingId, status: 'open' } });
     if (openDispute) return false;
     await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${revenue.businessWalletId} FOR UPDATE`;
@@ -47,7 +47,7 @@ export async function releaseBookingRevenue(bookingId: string, now = new Date())
 
 export async function releaseMatureRevenue(now = new Date()): Promise<number> {
   const candidates = await prisma.bookingRevenue.findMany({
-    where: { releasedAt: null, releaseAt: { lte: now } },
+    where: { releasedAt: null, cancelledAt: null, releaseAt: { lte: now } },
     select: { bookingId: true },
   });
   let released = 0;

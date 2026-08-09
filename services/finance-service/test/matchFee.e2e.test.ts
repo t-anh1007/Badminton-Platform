@@ -39,11 +39,13 @@ let venueBaseUrl = '';
 let stopFinanceConsumer: StopConsumer | undefined;
 let stopMatchmakingConsumer: StopConsumer | undefined;
 let stopVenueConsumer: StopConsumer | undefined;
-let financeResolutionBarrier: {
-  matchId: string;
-  entered: () => void;
-  released: Promise<void>;
-} | undefined;
+let financeResolutionBarrier:
+  | {
+      matchId: string;
+      entered: () => void;
+      released: Promise<void>;
+    }
+  | undefined;
 const originalVenueBookingServiceUrl = process.env.VENUE_BOOKING_SERVICE_URL;
 const originalInternalServiceToken = process.env.INTERNAL_SERVICE_TOKEN;
 const internalServiceToken = 'p2-m3-e2e-internal-service-token';
@@ -82,7 +84,7 @@ async function listen(server: Server): Promise<string> {
 
 async function close(server: Server | undefined): Promise<void> {
   if (!server?.listening) return;
-  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 
 async function startScopedRelay(client: OutboxClient, aggregateIds: Set<string>): Promise<StopRelay> {
@@ -124,7 +126,7 @@ async function postJson<T>(
     headers: { authorization, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const payload = await response.json() as T;
+  const payload = (await response.json()) as T;
   expect(response.status).toBe(expectedStatus);
   return payload;
 }
@@ -155,9 +157,13 @@ async function startSettlementGate(options?: {
   holdOnlyFirst?: boolean;
 }) {
   let release!: () => void;
-  const released = new Promise<void>((resolve) => { release = resolve; });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let entered!: () => void;
-  const enteredPromise = new Promise<void>((resolve) => { entered = resolve; });
+  const enteredPromise = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   let settlementCalls = 0;
   const server = createServer(async (req, res) => {
     try {
@@ -206,23 +212,30 @@ async function startSettlementGate(options?: {
   return {
     baseUrl: await listen(server),
     waitUntilSettlementEntered: () => enteredPromise,
-    get settlementCalls() { return settlementCalls; },
+    get settlementCalls() {
+      return settlementCalls;
+    },
     releaseSettlement: release,
     stop: () => close(server),
   };
 }
 
 async function waitForQueuesToDrain() {
-  await waitFor(async () => {
-    const { connection, channel } = await connectRabbitMQ(RABBITMQ_URL);
-    try {
-      const counts = await Promise.all(Object.values(queueNames).map(async (queue) => (await channel.checkQueue(queue)).messageCount));
-      return counts;
-    } finally {
-      await channel.close();
-      await connection.close();
-    }
-  }, (counts) => counts.every((count) => count === 0));
+  await waitFor(
+    async () => {
+      const { connection, channel } = await connectRabbitMQ(RABBITMQ_URL);
+      try {
+        const counts = await Promise.all(
+          Object.values(queueNames).map(async (queue) => (await channel.checkQueue(queue)).messageCount),
+        );
+        return counts;
+      } finally {
+        await channel.close();
+        await connection.close();
+      }
+    },
+    (counts) => counts.every((count) => count === 0),
+  );
 }
 
 /** Pause Finance's MatchBookingResolved consumer before it touches domain
@@ -230,9 +243,13 @@ async function waitForQueuesToDrain() {
  * events first, without taking any cross-service database lock. */
 function pauseFinanceMatchBookingResolution(matchId: string) {
   let release!: () => void;
-  const released = new Promise<void>((resolve) => { release = resolve; });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let acquired!: () => void;
-  const acquiredLock = new Promise<void>((resolve) => { acquired = resolve; });
+  const acquiredLock = new Promise<void>((resolve) => {
+    acquired = resolve;
+  });
   financeResolutionBarrier = { matchId, entered: acquired, released };
   return {
     waitUntilLocked: () => acquiredLock,
@@ -271,12 +288,7 @@ async function createHeldBooking(organizerUserId: string, price = MATCH_PRICE, h
   return { booking, providerUserId };
 }
 
-async function createSplitMatch(
-  organizerUserId: string,
-  capacity = 4,
-  price = MATCH_PRICE,
-  hoursUntilStart = 6,
-) {
+async function createSplitMatch(organizerUserId: string, capacity = 4, price = MATCH_PRICE, hoursUntilStart = 6) {
   const { booking, providerUserId } = await createHeldBooking(organizerUserId, price, hoursUntilStart);
   const created = await postJson<{ id: string; bookingId: string; feePerSlot: string }>(
     matchmakingBaseUrl,
@@ -297,12 +309,7 @@ async function createSplitMatch(
   return { matchId: created.id, bookingId: booking.id, providerUserId, fee, price };
 }
 
-async function approveAndPayParticipant(
-  matchId: string,
-  organizerUserId: string,
-  participantUserId: string,
-  waitForConfirmation = true,
-) {
+async function approveParticipant(matchId: string, organizerUserId: string, participantUserId: string) {
   userIds.push(participantUserId);
   const join = await postJson<{ id: string }>(
     matchmakingBaseUrl,
@@ -312,33 +319,40 @@ async function approveAndPayParticipant(
     201,
   );
   matchAggregateIds.add(join.id);
-  await postJson(
-    matchmakingBaseUrl,
-    `/matches/${matchId}/joins/${join.id}/approve`,
-    auth(organizerUserId),
-    {},
-    200,
-  );
+  await postJson(matchmakingBaseUrl, `/matches/${matchId}/joins/${join.id}/approve`, auth(organizerUserId), {}, 200);
   const contribution = await waitFor(
     () => financePrisma.matchContribution.findUnique({ where: { joinId: join.id } }),
     (item) => item !== null,
   );
   financeAggregateIds.add(contribution.id);
-  await seedPersonalBalance(participantUserId, contribution.amount);
-  await postJson(
-    financeBaseUrl,
-    `/matches/${matchId}/joins/${join.id}/pay/balance`,
-    auth(participantUserId),
-    {},
-    200,
-  );
+  return { joinId: join.id, contributionId: contribution.id, participantUserId, amount: contribution.amount };
+}
+
+async function payApprovedParticipant(
+  matchId: string,
+  participant: Awaited<ReturnType<typeof approveParticipant>>,
+  waitForConfirmation = true,
+) {
+  const { joinId, contributionId, participantUserId, amount } = participant;
+  await seedPersonalBalance(participantUserId, amount);
+  await postJson(financeBaseUrl, `/matches/${matchId}/joins/${joinId}/pay/balance`, auth(participantUserId), {}, 200);
   if (waitForConfirmation) {
     await waitFor(
-      () => matchmakingPrisma.join.findUniqueOrThrow({ where: { id: join.id } }),
+      () => matchmakingPrisma.join.findUniqueOrThrow({ where: { id: joinId } }),
       (item) => item.status === 'confirmed',
     );
   }
-  return { joinId: join.id, contributionId: contribution.id, participantUserId, amount: contribution.amount };
+  return { joinId, contributionId, participantUserId, amount };
+}
+
+async function approveAndPayParticipant(
+  matchId: string,
+  organizerUserId: string,
+  participantUserId: string,
+  waitForConfirmation = true,
+) {
+  const participant = await approveParticipant(matchId, organizerUserId, participantUserId);
+  return payApprovedParticipant(matchId, participant, waitForConfirmation);
 }
 
 async function payOrganizerContribution(matchId: string, organizerUserId: string) {
@@ -359,10 +373,7 @@ async function payOrganizerContribution(matchId: string, organizerUserId: string
 async function assetTotal(scopedUserIds: string[]): Promise<bigint> {
   const wallets = await financePrisma.wallet.findMany({
     where: {
-      OR: [
-        { userId: { in: scopedUserIds } },
-        { userId: null, walletType: 'platform' },
-      ],
+      OR: [{ userId: { in: scopedUserIds } }, { userId: null, walletType: 'platform' }],
     },
   });
   return wallets.reduce((sum, wallet) => sum + wallet.available + wallet.pending + wallet.reserved, 0n);
@@ -401,10 +412,10 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       },
     });
     stopVenueConsumer = await bootstrapVenueConsumer({ queueName: queueNames.venue, deleteQueueOnStop: true });
-    stopMatchmakingConsumer = await bootstrapMatchLifecycleEventConsumption(
-      new HttpVenueBookingClient(venueBaseUrl),
-      { queueName: queueNames.matchmaking, deleteQueueOnStop: true },
-    );
+    stopMatchmakingConsumer = await bootstrapMatchLifecycleEventConsumption(new HttpVenueBookingClient(venueBaseUrl), {
+      queueName: queueNames.matchmaking,
+      deleteQueueOnStop: true,
+    });
     stopRelays.push(
       await startScopedRelay(matchmakingPrisma, matchAggregateIds),
       await startScopedRelay(financePrisma, financeAggregateIds),
@@ -413,14 +424,25 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
   }, 30000);
 
   afterAll(async () => {
-    await Promise.allSettled([stopFinanceConsumer?.(), stopVenueConsumer?.(), stopMatchmakingConsumer?.()].filter(Boolean));
+    await Promise.allSettled(
+      [stopFinanceConsumer?.(), stopVenueConsumer?.(), stopMatchmakingConsumer?.()].filter(Boolean),
+    );
     await Promise.allSettled(stopRelays.map((stop) => stop()));
     await Promise.allSettled([close(financeServer), close(matchmakingServer), close(venueServer)]);
 
     const [matchRows, financeRows, venueRows] = await Promise.all([
-      matchmakingPrisma.outbox.findMany({ where: { aggregateId: { in: [...matchAggregateIds] } }, select: { id: true, eventType: true } }),
-      financePrisma.outbox.findMany({ where: { aggregateId: { in: [...financeAggregateIds] } }, select: { id: true, eventType: true } }),
-      venuePrisma.outbox.findMany({ where: { aggregateId: { in: [...venueAggregateIds] } }, select: { id: true, eventType: true } }),
+      matchmakingPrisma.outbox.findMany({
+        where: { aggregateId: { in: [...matchAggregateIds] } },
+        select: { id: true, eventType: true },
+      }),
+      financePrisma.outbox.findMany({
+        where: { aggregateId: { in: [...financeAggregateIds] } },
+        select: { id: true, eventType: true },
+      }),
+      venuePrisma.outbox.findMany({
+        where: { aggregateId: { in: [...venueAggregateIds] } },
+        select: { id: true, eventType: true },
+      }),
     ]);
     const processedIds = [...eventIds(matchRows), ...eventIds(financeRows), ...eventIds(venueRows)];
     await Promise.all([
@@ -430,25 +452,28 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     ]);
 
     const contributions = await financePrisma.matchContribution.findMany({
-      where: { matchId: { in: matchIds } }, select: { id: true },
+      where: { matchId: { in: matchIds } },
+      select: { id: true },
     });
     const ledgerRefs = [...bookingIds, ...matchIds, ...contributions.map((item) => item.id)];
     const scopedWallets = await financePrisma.wallet.findMany({
-      where: { userId: { in: userIds } }, select: { id: true },
+      where: { userId: { in: userIds } },
+      select: { id: true },
     });
     const platformAfter = await financePrisma.wallet.findFirst({ where: { userId: null, walletType: 'platform' } });
     if (platformBefore) {
       await financePrisma.wallet.update({
         where: { id: platformBefore.id },
-        data: { available: platformBefore.available, pending: platformBefore.pending, reserved: platformBefore.reserved },
+        data: {
+          available: platformBefore.available,
+          pending: platformBefore.pending,
+          reserved: platformBefore.reserved,
+        },
       });
     }
     await financePrisma.ledgerEntry.deleteMany({
       where: {
-        OR: [
-          { refId: { in: ledgerRefs } },
-          { walletId: { in: scopedWallets.map((wallet) => wallet.id) } },
-        ],
+        OR: [{ refId: { in: ledgerRefs } }, { walletId: { in: scopedWallets.map((wallet) => wallet.id) } }],
       },
     });
     const sepayEvents = await financePrisma.sepayEvent.findMany({
@@ -490,9 +515,13 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const organizerUserId = randomUUID();
     userIds.push(organizerUserId);
     const completed = await createSplitMatch(organizerUserId);
-    const completedParticipants = await Promise.all(
+    const completedApproved = await Promise.all(
       [randomUUID(), randomUUID(), randomUUID()].map((participantUserId) =>
-        approveAndPayParticipant(completed.matchId, organizerUserId, participantUserId)),
+        approveParticipant(completed.matchId, organizerUserId, participantUserId),
+      ),
+    );
+    const completedParticipants = await Promise.all(
+      completedApproved.map((participant) => payApprovedParticipant(completed.matchId, participant)),
     );
     await waitFor(
       () => matchmakingPrisma.match.findUniqueOrThrow({ where: { id: completed.matchId } }),
@@ -517,14 +546,26 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     );
 
     const completedFunding = await financePrisma.matchFunding.findUniqueOrThrow({
-      where: { matchId: completed.matchId }, include: { contributions: true },
+      where: { matchId: completed.matchId },
+      include: { contributions: true },
     });
-    expect(completedFunding.contributions.reduce((sum, contribution) => sum + contribution.amount, 0n)).toBe(MATCH_PRICE);
-    expect(completedFunding.contributions.map((contribution) => contribution.status)).toEqual(['settled', 'settled', 'settled', 'settled']);
-    const platformAfterSettlement = await financePrisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } });
+    expect(completedFunding.contributions.reduce((sum, contribution) => sum + contribution.amount, 0n)).toBe(
+      MATCH_PRICE,
+    );
+    expect(completedFunding.contributions.map((contribution) => contribution.status)).toEqual([
+      'settled',
+      'settled',
+      'settled',
+      'settled',
+    ]);
+    const platformAfterSettlement = await financePrisma.wallet.findFirstOrThrow({
+      where: { userId: null, walletType: 'platform' },
+    });
     expect(platformAfterSettlement.reserved).toBe(platformBefore?.reserved ?? 0n);
     expect(platformAfterSettlement.available).toBe((platformBefore?.available ?? 0n) + COMMISSION);
-    const business = await financePrisma.wallet.findFirstOrThrow({ where: { userId: completed.providerUserId, walletType: 'business' } });
+    const business = await financePrisma.wallet.findFirstOrThrow({
+      where: { userId: completed.providerUserId, walletType: 'business' },
+    });
     expect(business.pending).toBe(MATCH_PRICE - COMMISSION);
 
     const completedEndAt = new Date(Date.now() - 1_000);
@@ -541,17 +582,15 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const cancelledOrganizerUserId = randomUUID();
     userIds.push(cancelledOrganizerUserId);
     const cancelled = await createSplitMatch(cancelledOrganizerUserId);
-    const cancelledParticipants = await Promise.all(
+    const cancelledApproved = await Promise.all(
       [randomUUID(), randomUUID()].map((participantUserId) =>
-        approveAndPayParticipant(cancelled.matchId, cancelledOrganizerUserId, participantUserId)),
+        approveParticipant(cancelled.matchId, cancelledOrganizerUserId, participantUserId),
+      ),
     );
-    await postJson(
-      matchmakingBaseUrl,
-      `/matches/${cancelled.matchId}/cancel`,
-      auth(cancelledOrganizerUserId),
-      {},
-      200,
+    const cancelledParticipants = await Promise.all(
+      cancelledApproved.map((participant) => payApprovedParticipant(cancelled.matchId, participant)),
     );
+    await postJson(matchmakingBaseUrl, `/matches/${cancelled.matchId}/cancel`, auth(cancelledOrganizerUserId), {}, 200);
     await waitFor(
       () => financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: cancelled.matchId } }),
       (funding) => funding.status === 'cancelled',
@@ -560,43 +599,81 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       () => venuePrisma.booking.findUniqueOrThrow({ where: { id: cancelled.bookingId } }),
       (booking) => booking.status === 'cancelled',
     );
-    const cancelledContributions = await financePrisma.matchContribution.findMany({ where: { matchId: cancelled.matchId } });
-    expect(cancelledContributions.filter((contribution) => contribution.role === 'participant').map((contribution) => contribution.status))
-      .toEqual(['refunded', 'refunded']);
+    const cancelledContributions = await financePrisma.matchContribution.findMany({
+      where: { matchId: cancelled.matchId },
+    });
+    expect(
+      cancelledContributions
+        .filter((contribution) => contribution.role === 'participant')
+        .map((contribution) => contribution.status),
+    ).toEqual(['refunded', 'refunded']);
 
     const cancelledParticipantUserIds = await matchmakingPrisma.join.findMany({
       where: { id: { in: cancelledParticipants.map((participant) => participant.joinId) } },
       select: { participantUserId: true },
     });
     const refundedWallets = await financePrisma.wallet.findMany({
-      where: { userId: { in: cancelledParticipantUserIds.map((join) => join.participantUserId) }, walletType: 'personal' },
+      where: {
+        userId: { in: cancelledParticipantUserIds.map((join) => join.participantUserId) },
+        walletType: 'personal',
+      },
     });
     expect(refundedWallets.map((wallet) => wallet.available).sort()).toEqual([MATCH_FEE, MATCH_FEE]);
-    expect((await financePrisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } })).reserved)
-      .toBe(platformBefore?.reserved ?? 0n);
+    expect(
+      (await financePrisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } })).reserved,
+    ).toBe(platformBefore?.reserved ?? 0n);
 
     const raceOrganizerUserId = randomUUID();
     userIds.push(raceOrganizerUserId);
     const race = await createSplitMatch(raceOrganizerUserId, 2);
-    const raceParticipants = await Promise.all(
-      [randomUUID(), randomUUID()].map((participantUserId) =>
-        approveAndPayParticipant(race.matchId, raceOrganizerUserId, participantUserId, false)),
+    const raceParticipantUserIds = [randomUUID(), randomUUID()];
+    userIds.push(...raceParticipantUserIds);
+    const raceJoins = await Promise.all(
+      raceParticipantUserIds.map(async (participantUserId) => {
+        const join = await postJson<{ id: string }>(
+          matchmakingBaseUrl,
+          `/matches/${race.matchId}/joins`,
+          auth(participantUserId),
+          {},
+          201,
+        );
+        matchAggregateIds.add(join.id);
+        return { ...join, participantUserId };
+      }),
     );
-    const raceJoins = await waitFor(
-      () => matchmakingPrisma.join.findMany({ where: { id: { in: raceParticipants.map((participant) => participant.joinId) } } }),
-      (joins) => joins.every((join) => join.status === 'confirmed' || join.status === 'rejected'),
+    const platformBeforeRace = await financePrisma.wallet.findFirstOrThrow({
+      where: { userId: null, walletType: 'platform' },
+    });
+    const approvals = await Promise.all(
+      raceJoins.map(async (join) => {
+        const response = await fetch(`${matchmakingBaseUrl}/matches/${race.matchId}/joins/${join.id}/approve`, {
+          method: 'POST',
+          headers: { authorization: auth(raceOrganizerUserId), 'content-type': 'application/json' },
+          body: '{}',
+        });
+        return {
+          join,
+          status: response.status,
+          payload: (await response.json()) as { error?: { code?: string } },
+        };
+      }),
     );
-    expect(raceJoins.filter((join) => join.status === 'confirmed')).toHaveLength(1);
-    const rejected = raceJoins.find((join) => join.status === 'rejected')!;
-    const loser = raceParticipants.find((participant) => participant.joinId === rejected.id)!;
-    await waitFor(
-      () => financePrisma.matchContribution.findUniqueOrThrow({ where: { id: loser.contributionId } }),
-      (contribution) => contribution.status === 'refunded',
+    expect(approvals.map((approval) => approval.status).sort()).toEqual([200, 409]);
+    const rejectedApproval = approvals.find((approval) => approval.status === 409)!;
+    expect(rejectedApproval.payload.error?.code).toBe('MATCH_FULL');
+    const winningApproval = approvals.find((approval) => approval.status === 200)!;
+    const winningContribution = await waitFor(
+      () => financePrisma.matchContribution.findUnique({ where: { joinId: winningApproval.join.id } }),
+      (contribution) => contribution !== null,
     );
-    expect(await financePrisma.wallet.findFirstOrThrow({ where: { userId: loser.participantUserId, walletType: 'personal' } }))
-      .toMatchObject({ available: race.fee });
-    expect((await financePrisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } })).reserved)
-      .toBe((platformBefore?.reserved ?? 0n) + race.fee);
+    financeAggregateIds.add(winningContribution.id);
+    expect(
+      await financePrisma.matchContribution.findUnique({ where: { joinId: rejectedApproval.join.id } }),
+    ).toBeNull();
+    expect(
+      (await financePrisma.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } })).reserved,
+    ).toBe(platformBeforeRace.reserved);
+    expect(await financePrisma.ledgerEntry.count({ where: { refId: race.matchId } })).toBe(0);
     await postJson(matchmakingBaseUrl, `/matches/${race.matchId}/cancel`, auth(raceOrganizerUserId), {}, 200);
     await waitFor(
       () => financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: race.matchId } }),
@@ -605,15 +682,16 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
 
     const confirmedCancellationOrganizerUserId = randomUUID();
     userIds.push(confirmedCancellationOrganizerUserId);
-    const confirmedCancellation = await createSplitMatch(
-      confirmedCancellationOrganizerUserId,
-      4,
-      200007n,
-      12,
+    const confirmedCancellation = await createSplitMatch(confirmedCancellationOrganizerUserId, 4, 200007n, 12);
+    const confirmedCancellationApproved = await Promise.all(
+      [randomUUID(), randomUUID(), randomUUID()].map((participantUserId) =>
+        approveParticipant(confirmedCancellation.matchId, confirmedCancellationOrganizerUserId, participantUserId),
+      ),
     );
     const confirmedCancellationParticipants = await Promise.all(
-      [randomUUID(), randomUUID(), randomUUID()].map((participantUserId) =>
-        approveAndPayParticipant(confirmedCancellation.matchId, confirmedCancellationOrganizerUserId, participantUserId)),
+      confirmedCancellationApproved.map((participant) =>
+        payApprovedParticipant(confirmedCancellation.matchId, participant),
+      ),
     );
     await payOrganizerContribution(confirmedCancellation.matchId, confirmedCancellationOrganizerUserId);
     await waitFor(
@@ -628,9 +706,10 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       200,
     );
     const bookingCancelled = await waitFor(
-      () => venuePrisma.outbox.findFirst({
-        where: { aggregateId: confirmedCancellation.bookingId, eventType: 'BookingCancelled' },
-      }),
+      () =>
+        venuePrisma.outbox.findFirst({
+          where: { aggregateId: confirmedCancellation.bookingId, eventType: 'BookingCancelled' },
+        }),
       (event) => event !== null,
     );
     expect(bookingCancelled.payload).toMatchObject({ refundPercent: 50, reason: 'self' });
@@ -642,15 +721,21 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const participantRefund = (confirmedCancellation.fee * 50n) / 100n;
     const organizerRefund = refundGross - participantRefund * 3n;
     for (const participant of confirmedCancellationParticipants) {
-      expect(await financePrisma.wallet.findFirstOrThrow({
-        where: { userId: participant.participantUserId, walletType: 'personal' },
-      })).toMatchObject({ available: participantRefund });
+      expect(
+        await financePrisma.wallet.findFirstOrThrow({
+          where: { userId: participant.participantUserId, walletType: 'personal' },
+        }),
+      ).toMatchObject({ available: participantRefund });
     }
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: confirmedCancellationOrganizerUserId, walletType: 'personal' },
-    })).toMatchObject({ available: organizerRefund });
-    expect((await financePrisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: confirmedCancellation.bookingId } })).cancelledAt)
-      .not.toBeNull();
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: confirmedCancellationOrganizerUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: organizerRefund });
+    expect(
+      (await financePrisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: confirmedCancellation.bookingId } }))
+        .cancelledAt,
+    ).not.toBeNull();
 
     const preCutoffOrganizerUserId = randomUUID();
     userIds.push(preCutoffOrganizerUserId);
@@ -675,11 +760,14 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       () => financePrisma.matchContribution.findUniqueOrThrow({ where: { id: preCutoffParticipant.contributionId } }),
       (contribution) => contribution.status === 'refunded',
     );
-    expect(await matchmakingPrisma.match.findUniqueOrThrow({ where: { id: preCutoff.matchId } }))
-      .toMatchObject({ status: 'open' });
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: preCutoffParticipant.participantUserId, walletType: 'personal' },
-    })).toMatchObject({ available: preCutoff.fee });
+    expect(await matchmakingPrisma.match.findUniqueOrThrow({ where: { id: preCutoff.matchId } })).toMatchObject({
+      status: 'open',
+    });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: preCutoffParticipant.participantUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: preCutoff.fee });
 
     const lateWithdrawOrganizerUserId = randomUUID();
     userIds.push(lateWithdrawOrganizerUserId);
@@ -690,7 +778,8 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       randomUUID(),
     );
     await matchmakingPrisma.match.update({
-      where: { id: lateWithdraw.matchId }, data: { cutoffAt: new Date(Date.now() - 1_000) },
+      where: { id: lateWithdraw.matchId },
+      data: { cutoffAt: new Date(Date.now() - 1_000) },
     });
     await postJson(
       matchmakingBaseUrl,
@@ -699,26 +788,41 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       {},
       200,
     );
-    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: lateWithdrawParticipant.contributionId } }))
-      .toMatchObject({ status: 'paid' });
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: lateWithdrawParticipant.participantUserId, walletType: 'personal' },
-    })).toMatchObject({ available: 0n });
-    await postJson(matchmakingBaseUrl, `/matches/${lateWithdraw.matchId}/cancel`, auth(lateWithdrawOrganizerUserId), {}, 200);
+    expect(
+      await financePrisma.matchContribution.findUniqueOrThrow({
+        where: { id: lateWithdrawParticipant.contributionId },
+      }),
+    ).toMatchObject({ status: 'paid' });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: lateWithdrawParticipant.participantUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: 0n });
+    await postJson(
+      matchmakingBaseUrl,
+      `/matches/${lateWithdraw.matchId}/cancel`,
+      auth(lateWithdrawOrganizerUserId),
+      {},
+      200,
+    );
     await waitFor(
-      () => financePrisma.matchContribution.findUniqueOrThrow({ where: { id: lateWithdrawParticipant.contributionId } }),
+      () =>
+        financePrisma.matchContribution.findUniqueOrThrow({ where: { id: lateWithdrawParticipant.contributionId } }),
       (contribution) => contribution.status === 'refunded',
     );
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: lateWithdrawParticipant.participantUserId, walletType: 'personal' },
-    })).toMatchObject({ available: lateWithdraw.fee });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: lateWithdrawParticipant.participantUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: lateWithdraw.fee });
 
     const cutoffOrganizerUserId = randomUUID();
     userIds.push(cutoffOrganizerUserId);
     const cutoff = await createSplitMatch(cutoffOrganizerUserId);
     const cutoffParticipant = await approveAndPayParticipant(cutoff.matchId, cutoffOrganizerUserId, randomUUID());
     await matchmakingPrisma.match.update({
-      where: { id: cutoff.matchId }, data: { cutoffAt: new Date(Date.now() - 1_000) },
+      where: { id: cutoff.matchId },
+      data: { cutoffAt: new Date(Date.now() - 1_000) },
     });
     expect(await cancelMatchesAtCutoff()).toBeGreaterThanOrEqual(1);
     await waitFor(
@@ -731,9 +835,19 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     );
 
     await waitForQueuesToDrain();
-    const expectedSeededValue = MATCH_PRICE + MATCH_FEE * 2n + MATCH_PRICE + confirmedCancellation.price
-      + preCutoff.fee + lateWithdraw.fee + cutoff.fee;
-    expect(await assetTotal(userIds)).toBe((platformBefore?.available ?? 0n) + (platformBefore?.pending ?? 0n) + (platformBefore?.reserved ?? 0n) + expectedSeededValue);
+    const expectedSeededValue =
+      MATCH_PRICE +
+      MATCH_FEE * 2n +
+      confirmedCancellation.price +
+      preCutoff.fee +
+      lateWithdraw.fee +
+      cutoff.fee;
+    expect(await assetTotal(userIds)).toBe(
+      (platformBefore?.available ?? 0n) +
+        (platformBefore?.pending ?? 0n) +
+        (platformBefore?.reserved ?? 0n) +
+        expectedSeededValue,
+    );
 
     // The response IDs are intentionally consumed above: they prove each payment was
     // addressed to that exact contribution, never to another participant or organizer.
@@ -759,7 +873,10 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       await gate.waitUntilSettlementEntered();
       // Finance consumer nacks the deliberate 503; the second attempt is the
       // same UUID command and remains pending behind the gate.
-      await waitFor(() => gate.settlementCalls, (calls) => calls >= 2);
+      await waitFor(
+        () => gate.settlementCalls,
+        (calls) => calls >= 2,
+      );
       const settling = await waitFor(
         () => financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: match.matchId } }),
         (funding) => funding.status === 'settling' && funding.settlementAttemptId !== null,
@@ -769,7 +886,9 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       const withdrawn = await postJson<{ status: string; refunded: boolean }>(
         matchmakingBaseUrl,
         `/matches/${match.matchId}/joins/${participant.joinId}/withdraw`,
-        auth(participantUserId), {}, 200,
+        auth(participantUserId),
+        {},
+        200,
       );
       expect(withdrawn).toMatchObject({ status: 'withdrawn', refunded: true });
 
@@ -789,22 +908,34 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       // consumer path too: it is ignored, never a generic held -> confirmed.
       const { connection, channel } = await connectRabbitMQ(RABBITMQ_URL);
       try {
-        publishEvent(channel, 'PaymentCompleted', {
-          refType: 'matchSettlement', matchId: match.matchId, bookingId: match.bookingId,
-          attemptId: staleAttemptId, venueRevision: 0,
-        }, { messageId: randomUUID() });
+        publishEvent(
+          channel,
+          'PaymentCompleted',
+          {
+            refType: 'matchSettlement',
+            matchId: match.matchId,
+            bookingId: match.bookingId,
+            attemptId: staleAttemptId,
+            venueRevision: 0,
+          },
+          { messageId: randomUUID() },
+        );
       } finally {
         await channel.close();
         await connection.close();
       }
       await waitForQueuesToDrain();
-      expect(await venuePrisma.booking.findUniqueOrThrow({ where: { id: match.bookingId } }))
-        .toMatchObject({ status: 'held' });
-      expect(await matchmakingPrisma.match.findUniqueOrThrow({ where: { id: match.matchId } }))
-        .toMatchObject({ status: 'open' });
-      expect(await financePrisma.ledgerEntry.count({
-        where: { refType: 'booking', refId: match.bookingId, type: 'settlement' },
-      })).toBe(0);
+      expect(await venuePrisma.booking.findUniqueOrThrow({ where: { id: match.bookingId } })).toMatchObject({
+        status: 'held',
+      });
+      expect(await matchmakingPrisma.match.findUniqueOrThrow({ where: { id: match.matchId } })).toMatchObject({
+        status: 'open',
+      });
+      expect(
+        await financePrisma.ledgerEntry.count({
+          where: { refType: 'booking', refId: match.bookingId, type: 'settlement' },
+        }),
+      ).toBe(0);
     } finally {
       gate.releaseSettlement();
       await gate.stop();
@@ -836,16 +967,20 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
         (funding) => funding.status === 'cancelled',
       );
       await waitForQueuesToDrain();
-      expect(await venuePrisma.booking.findUniqueOrThrow({ where: { id: match.bookingId } }))
-        .toMatchObject({ status: 'cancelled' });
-      expect(await financePrisma.matchContribution.findMany({ where: { matchId: match.matchId } }))
-        .toEqual(expect.arrayContaining([
+      expect(await venuePrisma.booking.findUniqueOrThrow({ where: { id: match.bookingId } })).toMatchObject({
+        status: 'cancelled',
+      });
+      expect(await financePrisma.matchContribution.findMany({ where: { matchId: match.matchId } })).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({ id: participant.contributionId, status: 'refunded' }),
           expect.objectContaining({ role: 'organizer', status: 'refunded' }),
-        ]));
-      expect(await financePrisma.ledgerEntry.count({
-        where: { refType: 'booking', refId: match.bookingId, type: 'settlement' },
-      })).toBe(0);
+        ]),
+      );
+      expect(
+        await financePrisma.ledgerEntry.count({
+          where: { refType: 'booking', refId: match.bookingId, type: 'settlement' },
+        }),
+      ).toBe(0);
     } finally {
       gate.releaseSettlement();
       await gate.stop();
@@ -861,21 +996,21 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const match = await createSplitMatch(organizerUserId, 2);
     const participant = await approveAndPayParticipant(match.matchId, organizerUserId, participantUserId);
     const gate = await startSettlementGate({ holdAction: 'cancel', holdOnlyFirst: true });
-    const raceServer = createMatchmakingApp({ venueBookingClient: new HttpVenueBookingClient(gate.baseUrl) })
-      .listen(0, '127.0.0.1');
+    const raceServer = createMatchmakingApp({ venueBookingClient: new HttpVenueBookingClient(gate.baseUrl) }).listen(
+      0,
+      '127.0.0.1',
+    );
     const raceBaseUrl = await listen(raceServer);
     try {
-      const cancellation = postJson(
-        raceBaseUrl,
-        `/matches/${match.matchId}/cancel`,
-        auth(organizerUserId), {}, 200,
-      );
+      const cancellation = postJson(raceBaseUrl, `/matches/${match.matchId}/cancel`, auth(organizerUserId), {}, 200);
       await gate.waitUntilSettlementEntered();
 
       const withdrawn = await postJson<{ status: string; refunded: boolean }>(
         matchmakingBaseUrl,
         `/matches/${match.matchId}/joins/${participant.joinId}/withdraw`,
-        auth(participantUserId), {}, 200,
+        auth(participantUserId),
+        {},
+        200,
       );
       expect(withdrawn).toMatchObject({ status: 'withdrawn', refunded: true });
 
@@ -920,15 +1055,20 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const withdrawn = await postJson<{ status: string; refunded: boolean }>(
       matchmakingBaseUrl,
       `/matches/${match.matchId}/joins/${participant.joinId}/withdraw`,
-      auth(participantUserId), {}, 200,
+      auth(participantUserId),
+      {},
+      200,
     );
     expect(withdrawn).toMatchObject({ status: 'withdrawn', refunded: false });
     await waitForQueuesToDrain();
-    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: participant.contributionId } }))
-      .toMatchObject({ status: 'settled' });
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: participantUserId, walletType: 'personal' },
-    })).toMatchObject({ available: 0n });
+    expect(
+      await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: participant.contributionId } }),
+    ).toMatchObject({ status: 'settled' });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: participantUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: 0n });
   }, 30000);
 
   it('D39/D33: confirmed-booking cancellation retries until contributor settlement is durable', async () => {
@@ -965,10 +1105,12 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
         () => venuePrisma.outbox.findFirst({ where: { aggregateId: match.bookingId, eventType: 'BookingCancelled' } }),
         (event) => event?.publishedAt !== null,
       );
-      expect(await financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: match.matchId } }))
-        .toMatchObject({ status: 'settling' });
-      expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: participant.contributionId } }))
-        .toMatchObject({ status: 'paid' });
+      expect(await financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: match.matchId } })).toMatchObject({
+        status: 'settling',
+      });
+      expect(
+        await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: participant.contributionId } }),
+      ).toMatchObject({ status: 'paid' });
 
       resolutionBarrier.release();
       await waitFor(
@@ -984,7 +1126,8 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       });
       const contributorRefunds = await financePrisma.ledgerEntry.findMany({
         where: {
-          type: 'refund', refType: 'matchFeeCancellation',
+          type: 'refund',
+          refType: 'matchFeeCancellation',
           refId: { in: [participant.contributionId, organizerContribution.id] },
         },
       });
@@ -992,9 +1135,11 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       const organizerWallet = await financePrisma.wallet.findFirstOrThrow({
         where: { userId: organizerUserId, walletType: 'personal' },
       });
-      expect(await financePrisma.ledgerEntry.count({
-        where: { walletId: organizerWallet.id, type: 'refund', refType: 'booking', refId: match.bookingId },
-      })).toBe(0);
+      expect(
+        await financePrisma.ledgerEntry.count({
+          where: { walletId: organizerWallet.id, type: 'refund', refType: 'booking', refId: match.bookingId },
+        }),
+      ).toBe(0);
       await waitForQueuesToDrain();
     } finally {
       resolutionBarrier?.release();
@@ -1023,9 +1168,11 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     const organizerContribution = await financePrisma.matchContribution.findUniqueOrThrow({
       where: { contributionKey: `organizer:${match.matchId}` },
     });
-    expect(await financePrisma.paymentIntent.count({
-      where: { refType: 'matchFee', refId: organizerContribution.id },
-    })).toBe(0);
+    expect(
+      await financePrisma.paymentIntent.count({
+        where: { refType: 'matchFee', refId: organizerContribution.id },
+      }),
+    ).toBe(0);
   });
 
   it('AC-FIN-05-3: a valid organizer SePay intent received after cancellation credits the personal wallet once', async () => {
@@ -1056,14 +1203,21 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     let platformAfterCancellationReserved = platformBeforeReceipt.reserved;
 
     let releaseIntentLock!: () => void;
-    const lockReleased = new Promise<void>((resolve) => { releaseIntentLock = resolve; });
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseIntentLock = resolve;
+    });
     let intentLocked!: () => void;
-    const intentLockReady = new Promise<void>((resolve) => { intentLocked = resolve; });
-    const intentLock = financePrisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intent.intentId} FOR UPDATE`;
-      intentLocked();
-      await lockReleased;
-    }, { timeout: 30_000 });
+    const intentLockReady = new Promise<void>((resolve) => {
+      intentLocked = resolve;
+    });
+    const intentLock = financePrisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intent.intentId} FOR UPDATE`;
+        intentLocked();
+        await lockReleased;
+      },
+      { timeout: 30_000 },
+    );
     await intentLockReady;
 
     const externalRef = randomUUID();
@@ -1078,9 +1232,11 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
         () => financePrisma.matchFunding.findUniqueOrThrow({ where: { matchId: match.matchId } }),
         (funding) => funding.status === 'cancelled',
       );
-      platformAfterCancellationReserved = (await financePrisma.wallet.findFirstOrThrow({
-        where: { id: platformBeforeReceipt.id },
-      })).reserved;
+      platformAfterCancellationReserved = (
+        await financePrisma.wallet.findFirstOrThrow({
+          where: { id: platformBeforeReceipt.id },
+        })
+      ).reserved;
     } finally {
       releaseIntentLock();
       await intentLock;
@@ -1089,21 +1245,30 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     await webhook;
     await postSepayWebhook(externalRef, organizerContribution.amount, intent.matchCode);
 
-    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } }))
-      .toMatchObject({ status: 'failed' });
-    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: organizerContribution.id } }))
-      .toMatchObject({ status: 'pending' });
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: organizerUserId, walletType: 'personal' },
-    })).toMatchObject({ available: organizerContribution.amount });
-    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformBeforeReceipt.id } })).reserved)
-      .toBe(platformAfterCancellationReserved);
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'topup', refType: 'late_match_fee', refId: organizerContribution.id },
-    })).toBe(1);
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'reserve', refType: 'matchFee', refId: organizerContribution.id },
-    })).toBe(0);
+    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } })).toMatchObject({
+      status: 'failed',
+    });
+    expect(
+      await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: organizerContribution.id } }),
+    ).toMatchObject({ status: 'pending' });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: organizerUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: organizerContribution.amount });
+    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformBeforeReceipt.id } })).reserved).toBe(
+      platformAfterCancellationReserved,
+    );
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'topup', refType: 'late_match_fee', refId: organizerContribution.id },
+      }),
+    ).toBe(1);
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'reserve', refType: 'matchFee', refId: organizerContribution.id },
+      }),
+    ).toBe(0);
     expect(await financePrisma.sepayEvent.count({ where: { externalRef } })).toBe(1);
   }, 30000);
 
@@ -1149,32 +1314,44 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     await postSepayWebhook(externalRef, organizerContribution.amount, intent.matchCode);
     await postSepayWebhook(externalRef, organizerContribution.amount, intent.matchCode);
 
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: organizerUserId, walletType: 'personal' },
-    })).toMatchObject({ available: organizerContribution.amount });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: organizerUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: organizerContribution.amount });
     const laterExternalRef = randomUUID();
     sepayExternalRefs.push(laterExternalRef);
     await postSepayWebhook(laterExternalRef, organizerContribution.amount, intent.matchCode);
 
-    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } }))
-      .toMatchObject({ status: 'failed' });
-    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: organizerContribution.id } }))
-      .toMatchObject({ status: 'pending' });
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: organizerUserId, walletType: 'personal' },
-    })).toMatchObject({ available: organizerContribution.amount * 2n });
-    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformAfterWithdrawal.id } })).reserved)
-      .toBe(platformAfterWithdrawal.reserved);
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'topup', refType: 'late_match_fee', refId: organizerContribution.id },
-    })).toBe(2);
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'reserve', refType: 'matchFee', refId: organizerContribution.id },
-    })).toBe(0);
-    expect(await financePrisma.sepayEvent.count({
-      where: { externalRef: { in: [externalRef, laterExternalRef] }, status: 'matched_auto' },
-    }))
-      .toBe(2);
+    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } })).toMatchObject({
+      status: 'failed',
+    });
+    expect(
+      await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: organizerContribution.id } }),
+    ).toMatchObject({ status: 'pending' });
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: organizerUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: organizerContribution.amount * 2n });
+    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformAfterWithdrawal.id } })).reserved).toBe(
+      platformAfterWithdrawal.reserved,
+    );
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'topup', refType: 'late_match_fee', refId: organizerContribution.id },
+      }),
+    ).toBe(2);
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'reserve', refType: 'matchFee', refId: organizerContribution.id },
+      }),
+    ).toBe(0);
+    expect(
+      await financePrisma.sepayEvent.count({
+        where: { externalRef: { in: [externalRef, laterExternalRef] }, status: 'matched_auto' },
+      }),
+    ).toBe(2);
   }, 30000);
 
   it('AC-FIN-05-3: concurrent distinct receipts for one match-fee intent reserve once and credit the terminal receipt', async () => {
@@ -1214,14 +1391,21 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     });
 
     let releaseIntentLock!: () => void;
-    const lockReleased = new Promise<void>((resolve) => { releaseIntentLock = resolve; });
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseIntentLock = resolve;
+    });
     let intentLocked!: () => void;
-    const intentLockReady = new Promise<void>((resolve) => { intentLocked = resolve; });
-    const intentLock = financePrisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intent.intentId} FOR UPDATE`;
-      intentLocked();
-      await lockReleased;
-    }, { timeout: 30_000 });
+    const intentLockReady = new Promise<void>((resolve) => {
+      intentLocked = resolve;
+    });
+    const intentLock = financePrisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intent.intentId} FOR UPDATE`;
+        intentLocked();
+        await lockReleased;
+      },
+      { timeout: 30_000 },
+    );
     await intentLockReady;
 
     const firstExternalRef = randomUUID();
@@ -1239,27 +1423,40 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
     }
     await receipts;
 
-    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } }))
-      .toMatchObject({ status: 'completed' });
-    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: contribution.id } }))
-      .toMatchObject({ status: 'paid' });
-    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformBefore.id } })).reserved)
-      .toBe(platformBefore.reserved + contribution.amount);
-    expect(await financePrisma.wallet.findFirstOrThrow({
-      where: { userId: participantUserId, walletType: 'personal' },
-    })).toMatchObject({ available: contribution.amount });
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'reserve', refType: 'matchFee', refId: contribution.id },
-    })).toBe(1);
-    expect(await financePrisma.ledgerEntry.count({
-      where: { type: 'topup', refType: 'late_match_fee', refId: contribution.id },
-    })).toBe(1);
-    expect(await financePrisma.sepayEvent.count({
-      where: { externalRef: { in: [firstExternalRef, secondExternalRef] }, status: 'matched_auto' },
-    })).toBe(2);
-    expect(await financePrisma.sepayEvent.count({
-      where: { externalRef: { in: [firstExternalRef, secondExternalRef] }, status: 'unmatched' },
-    })).toBe(0);
+    expect(await financePrisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.intentId } })).toMatchObject({
+      status: 'completed',
+    });
+    expect(await financePrisma.matchContribution.findUniqueOrThrow({ where: { id: contribution.id } })).toMatchObject({
+      status: 'paid',
+    });
+    expect((await financePrisma.wallet.findFirstOrThrow({ where: { id: platformBefore.id } })).reserved).toBe(
+      platformBefore.reserved + contribution.amount,
+    );
+    expect(
+      await financePrisma.wallet.findFirstOrThrow({
+        where: { userId: participantUserId, walletType: 'personal' },
+      }),
+    ).toMatchObject({ available: contribution.amount });
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'reserve', refType: 'matchFee', refId: contribution.id },
+      }),
+    ).toBe(1);
+    expect(
+      await financePrisma.ledgerEntry.count({
+        where: { type: 'topup', refType: 'late_match_fee', refId: contribution.id },
+      }),
+    ).toBe(1);
+    expect(
+      await financePrisma.sepayEvent.count({
+        where: { externalRef: { in: [firstExternalRef, secondExternalRef] }, status: 'matched_auto' },
+      }),
+    ).toBe(2);
+    expect(
+      await financePrisma.sepayEvent.count({
+        where: { externalRef: { in: [firstExternalRef, secondExternalRef] }, status: 'unmatched' },
+      }),
+    ).toBe(0);
   }, 30000);
 
   it('AC-FIN-05-6: a free match confirms through the normal organizer booking payment without MatchFunding', async () => {
@@ -1286,7 +1483,13 @@ describeP2FinanceE2E('AC-FIN-05-8 — real HTTP, RabbitMQ and outbox match-fee f
       201,
     );
     matchAggregateIds.add(join.id);
-    await postJson(matchmakingBaseUrl, `/matches/${created.id}/joins/${join.id}/approve`, auth(organizerUserId), {}, 200);
+    await postJson(
+      matchmakingBaseUrl,
+      `/matches/${created.id}/joins/${join.id}/approve`,
+      auth(organizerUserId),
+      {},
+      200,
+    );
     await waitFor(
       () => matchmakingPrisma.match.findUniqueOrThrow({ where: { id: created.id } }),
       (match) => match.status === 'filled',

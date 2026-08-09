@@ -4,7 +4,7 @@ Date: 2026-08-08
 
 ## Status
 
-Active
+Implementation validated — awaiting PO acceptance
 
 ## Outcome
 
@@ -64,7 +64,7 @@ Out of scope:
 - [x] P2-FE0 — Playo tokens, reusable primitives and light global chrome.
 - [x] P2-FE1 — Playo GĐ1 pages 01–07 against real GĐ1 APIs.
 - [x] P2-FE2 — Playo GĐ2 pages 08–11 against real GĐ2 APIs.
-- [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
+- [x] P2-final — all executable gates pass: real-API UI, E2E, 100 percent AC and AC-UI audit; awaiting PO acceptance.
 
 ## Decisions
 
@@ -85,7 +85,7 @@ Out of scope:
 - 2026-08-09: PO set the MMP-10 evaluation window to 72 hours after `BookingCompleted` (D41).
 - 2026-08-09: PO set F-07 to flag median deviations of at least two tiers with at least three same-match ratings, and reciprocal top-tier pairs across three completed matches in 30 days (D42); it only flags/explains for Admin review.
 - 2026-08-09: PO clarified that subjective MMP-10 perceived tiers contribute only to Passport aggregation, never an inferred Glicko score; `RatingPeriodReady` requires a verified score source (D43).
-- 2026-08-09: PO required Quick Match acceptance to create only `pending`; organizer approval alone opens the 10-minute payment hold. `approved` and `confirmed` reserve capacity, while `pending` does not (D44).
+- 2026-08-09: PO required Quick Match acceptance to create only `pending`; organizer approval alone opens the 10-minute payment hold. `approved` and `confirmed` reserve capacity, while `pending` does not (D44). PO confirmed at P2-final that this capacity rule applies to every JOIN: the losing final-slot approval returns `MATCH_FULL` before any contribution, debit, reserve or ledger; stale payment receipt handling remains D38.
 
 ## Validation
 
@@ -177,3 +177,10 @@ The current UI AC suites passed 8/8, review-fix regressions passed 7/7, focused 
 projection tests passed, and workspace typecheck/build plus desktop/mobile Playwright inspection passed.
 The single two-axis diff review found and the implementation resolved lifecycle detail, organizer payment,
 hold expiry, evaluation, ticket status and data-derived label defects. Phase result remains open until P2-final.
+
+P2-final validated 2026-08-10: the clean P2-G0 isolation gate passed 4/4; clean real-API Playwright
+journeys HT1â€“HT10 passed 10/10 with an isolated database and RabbitMQ vhost; the clean full-workspace
+regression passed Account 38, Community 23, Finance 98, Matchmaking 75, Venue 110 and Web 20; workspace
+typecheck/build passed. FIN-05-8 conservation passed, all 95 AC references from the four specs are
+ledger `pass`, all 57 AC-UI entries are `pass`, and the legacy-actl scan is empty. Implementation is
+ready for PO acceptance; this document does not record self-acceptance.

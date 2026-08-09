@@ -1,8 +1,8 @@
 ---
 type: acceptance-test-ledger
 phase: 2
-status: active
-updated: 2026-08-09
+status: awaiting-po-acceptance
+updated: 2026-08-10
 ---
 
 # Phase 2 Acceptance Test Ledger
@@ -13,6 +13,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 
 | Milestone | Result | Evidence |
 |---|---|---|
+| P2-final | pass — awaiting PO acceptance | P2-G0 clean isolation 4/4; clean real-API Playwright journeys HT1–HT10 10/10 with isolated DB/RabbitMQ; full workspace regression (account 38, community 23, finance 98, matchmaking 75, venue 110, web 20); workspace typecheck/build; FIN-05-8 conservation; ledger 95/95 spec AC and 57/57 UI AC; final Codex diff review found no new defect | 
 | P2-G0 | pass | `scripts/p2-g0-isolation.ps1` (clean DB migrations, denied cross-schema reads, zero cross-schema FK, DB guards 4/4); unit tests 4/4; workspace typecheck/build; Codex standards/spec re-review: no findings |
 | P2-M1 | pass | `matchmaking-service`: default 15/15, RabbitMQ E2E 1/1, isolated DB guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 | P2-M2 | pass | `matchmaking-service`: 36 pass + real HTTP chain/race 1/1; `account-service`: 38 pass; `venue-booking-service`: isolated DB migration + 107 pass; schema isolation guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
@@ -29,6 +30,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
+| AC-FIN-14-8 | P2-final | inherited GĐ1 conservation reference in FIN-05; `finance-service/test/g6Reconciliation.test.ts` exercises both system-value gates and passed in the clean full-workspace regression | pass |
 | AC-MMP-01-1 | P2-M2 | `test/matches.test.ts` — public search excludes filled/zero-slot matches | pass |
 | AC-MMP-01-2 | P2-M2 | `test/matches.test.ts` — skill-range intersection filter | pass |
 | AC-MMP-01-3 | P2-M2 | `test/matches.test.ts` — `cutoffAt` boundary excluded per D28 | pass |
@@ -121,7 +123,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-FIN-05-4 | P2-M3 | `matchFee.test.ts` + `matchFee.e2e.test.ts` â€” whole held-match cancellation refunds paid contributions and clears reserved | pass |
 | AC-FIN-05-5 | P2-M3 | `matchFee.test.ts` + `matchFee.e2e.test.ts` â€” held pre-cutoff refund, confirmed/late no individual refund, D35 override | pass |
 | AC-FIN-05-6 | P2-M3 | `matchPayments.test.ts` + `matchFee.e2e.test.ts` â€” no MatchFunding/fee ledger; organizer pays booking through FIN-03 real API | pass |
-| AC-FIN-05-7 | P2-M3 | `matchPayments.test.ts` + `matchFee.e2e.test.ts` â€” capacity race refunds loser immediately without stranded reserve | pass |
+| AC-FIN-05-7 | P2-M3/P2-final | `matchPayments.test.ts` + real HTTP/RabbitMQ `matchFee.e2e.test.ts` â€” D44 final-slot organizer approvals serialize to one `approved` and one `MATCH_FULL`; rejected candidate has zero contribution, debit, platform reserve and ledger | pass |
 | AC-FIN-05-8 | P2-M3 | `matchFee.e2e.test.ts` â€” completed + cancelled matches, empty RabbitMQ queues, scoped system-value conservation | pass |
 | AC-UI-01-1 | P2-FE1 | `HomePage` + desktop/mobile Playwright inspection — bright green split Hero stacks at mobile | pass |
 | AC-UI-01-2 | P2-FE1 | `playoFoundation.test.tsx` + source scan — no sport grid/store CTA/navy legacy token | pass |

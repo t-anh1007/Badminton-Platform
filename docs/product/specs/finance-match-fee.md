@@ -4,7 +4,7 @@ module: finance-disputes
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-07
+updated: 2026-08-09
 extends: docs/product/specs/finance-disputes.md
 source: docs/product/phasing.md §4.2, docs/architecture/system-architecture.md §6.3
 ---
@@ -90,7 +90,7 @@ hoàn phí) — matchmaking consume để cập nhật JOIN/MATCH.
 - `AC-FIN-05-5` — Given participant rút trước cutoff khi booking còn `held`, Then hoàn 50k + chỗ
   trống lại; booking đã confirmed thì D36 không hoàn riêng. Rút từ cutoff và kèo vẫn diễn ra → không hoàn. Nếu cả kèo hủy thì D33/D35 áp dụng.
 - `AC-FIN-05-6` — Given kèo miễn phí, When xác nhận, Then không phát sinh dòng tiền phí; tổ chức thanh toán booking theo FIN-03/04.
-- `AC-FIN-05-7` — Given hai participant trả phí cho chỗ cuối đồng thời, When xử lý, Then chỉ một `confirmed` chiếm chỗ, người kia được hoàn ngay (không giữ tiền sai).
+- `AC-FIN-05-7` — Given hai organizer approval đồng thời cho chỗ cuối, When xử lý, Then chỉ một JOIN thành `approved`, JOIN còn lại nhận `MATCH_FULL`; candidate bị từ chối không có contribution, debit, platform reserve hay ledger. Finance vẫn idempotent/fail-safe với `PaymentCompleted` stale hoặc receipt SePay đến muộn theo AC-FIN-05-3.
 - `AC-FIN-05-8` (cổng bảo toàn) — Given một kèo chạy trọn vòng (thu phí → confirmed → completed) và một kèo khác bị hủy (hoàn phí), When hàng chờ rỗng, Then bảo toàn giá trị mức hệ thống pass (tương tự AC-FIN-14-8 GĐ1).
 
 ## 6. Ngoài phạm vi

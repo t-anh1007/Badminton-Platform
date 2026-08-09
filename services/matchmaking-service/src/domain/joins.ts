@@ -33,9 +33,10 @@ export async function listPendingJoins(matchId: string, organizerUserId: string)
   const organizerPassport = byUserId.get(match.organizerUserId);
   const rangeMin = match.skillMin ?? match.skillMax;
   const rangeMax = match.skillMax ?? match.skillMin;
-  const targetRating = rangeMin && rangeMax
-    ? (TIER_CENTERS[rangeMin] + TIER_CENTERS[rangeMax]) / 2
-    : (organizerPassport?.ratingMu ?? 1500);
+  const targetRating =
+    rangeMin && rangeMax
+      ? (TIER_CENTERS[rangeMin] + TIER_CENTERS[rangeMax]) / 2
+      : (organizerPassport?.ratingMu ?? 1500);
   const targetRd = organizerPassport?.ratingRd ?? INITIAL_RD;
   return joins.map((join) => {
     const passport = byUserId.get(join.participantUserId);
@@ -57,10 +58,10 @@ export async function listPendingJoins(matchId: string, organizerUserId: string)
       ...join,
       participantTier: passport
         ? describeRating({
-          rating: passport.ratingMu,
-          rd: passport.ratingRd,
-          sigma: passport.ratingSigma,
-        }).tier
+            rating: passport.ratingMu,
+            rd: passport.ratingRd,
+            sigma: passport.ratingSigma,
+          }).tier
         : null,
       compatibilityScore: compatibility.score,
       compatibilityExplanation: compatibility.explanation,
@@ -83,12 +84,7 @@ export async function rejectJoin(matchId: string, joinId: string, organizerUserI
   });
 }
 
-export async function approveJoin(
-  matchId: string,
-  joinId: string,
-  organizerUserId: string,
-  now = new Date(),
-) {
+export async function approveJoin(matchId: string, joinId: string, organizerUserId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
     const match = await tx.match.findUnique({ where: { id: matchId } });
@@ -96,13 +92,18 @@ export async function approveJoin(
     if (match.organizerUserId !== organizerUserId) {
       throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chỉ organizer của kèo được duyệt người chơi.');
     }
-    if (match.status !== 'open') throw new AppError(409, 'MATCH_NOT_OPEN', 'Kèo không còn mở.');
     const join = await tx.join.findUnique({ where: { id: joinId } });
     if (!join || join.matchId !== matchId) throw new AppError(404, 'JOIN_NOT_FOUND', 'Không tìm thấy yêu cầu.');
     if (join.status !== 'pending') throw new AppError(409, 'JOIN_NOT_PENDING', 'Yêu cầu không còn chờ duyệt.');
     const reservedCount = await tx.join.count({
       where: { matchId, status: { in: ['approved', 'confirmed'] } },
     });
+    if (match.status !== 'open') {
+      if (match.status === 'filled') {
+        throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
+      }
+      throw new AppError(409, 'MATCH_NOT_OPEN', 'Kèo không còn mở.');
+    }
     if (reservedCount + 1 >= match.capacity) {
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
@@ -152,7 +153,9 @@ export function startJoinExpiryScheduler(
     inFlight = sweep()
       .then(() => undefined)
       .catch((error) => console.error('[matchmaking-service join expiry]', error))
-      .finally(() => { inFlight = undefined; });
+      .finally(() => {
+        inFlight = undefined;
+      });
   }, intervalMs);
   timer.unref();
   return async () => {

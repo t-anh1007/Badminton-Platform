@@ -65,7 +65,11 @@ export class HttpVenueBookingClient implements VenueBookingClient {
   }, bookingId: string): Promise<MatchBookingResolutionPayload> {
     const response = await fetch(
       `${this.baseUrl}/internal/bookings/${encodeURIComponent(bookingId)}/match-resolution`,
-      { method: 'POST', headers: internalServiceHeaders(), body: JSON.stringify(input) },
+      {
+        method: 'POST',
+        headers: { ...internalServiceHeaders(), 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      },
     );
     if (!response.ok) throw new Error(`venue-booking match resolution failed with ${response.status}`);
     return z.object({

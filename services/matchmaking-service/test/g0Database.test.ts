@@ -9,6 +9,7 @@ databaseGate('P2-G0 matchmaking database guards', () => {
   beforeEach(async () => {
     await prisma.evaluation.deleteMany();
     await prisma.join.deleteMany();
+    await prisma.matchResolution.deleteMany();
     await prisma.match.deleteMany();
     await prisma.outbox.deleteMany();
   });
