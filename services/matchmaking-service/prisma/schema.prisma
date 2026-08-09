@@ -45,6 +45,12 @@ enum MatchResolutionDecision {
   cancelled
 }
 
+enum EvaluationReviewStatus {
+  pending
+  approved
+  rejected
+}
+
 enum SkillTier {
   newcomer
   beginner
@@ -68,6 +74,7 @@ model Match {
   fundingRequestedAt          DateTime? @db.Timestamptz(3)
   settlementAttemptId         String?   @unique
   settlementVenueRevision     Int       @default(0)
+  completedAt                 DateTime? @db.Timestamptz(3)
   createdAt       DateTime    @default(now()) @db.Timestamptz(3)
   joins           Join[]
   evaluations     Evaluation[]
@@ -132,11 +139,15 @@ model Evaluation {
   flagged       Boolean    @default(false)
   flagReason    String?
   countedAt     DateTime?  @db.Timestamptz(3)
+  reviewStatus  EvaluationReviewStatus?
+  reviewedAt    DateTime?  @db.Timestamptz(3)
+  reviewedByUserId String?
   createdAt     DateTime   @default(now()) @db.Timestamptz(3)
   match         Match      @relation(fields: [matchId], references: [id])
 
   @@unique([matchId, raterUserId, rateeUserId])
   @@index([matchId, flagged])
+  @@index([raterUserId, rateeUserId, perceivedTier, createdAt])
   @@map("evaluations")
 }
 

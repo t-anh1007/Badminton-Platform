@@ -35,3 +35,11 @@ export function requirePlayer(req: AuthenticatedRequest, res: Response, next: Ne
   }
   next();
 }
+
+export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (!req.user?.roles.includes('admin')) {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chỉ Admin được duyệt đánh giá.' } });
+    return;
+  }
+  next();
+}

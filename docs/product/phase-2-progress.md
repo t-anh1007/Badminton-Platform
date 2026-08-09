@@ -14,10 +14,10 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | Milestone | Result | Evidence |
 |---|---|---|
 | P2-G0 | pass | `scripts/p2-g0-isolation.ps1` (clean DB migrations, denied cross-schema reads, zero cross-schema FK, DB guards 4/4); unit tests 4/4; workspace typecheck/build; Codex standards/spec re-review: no findings |
-| P2-Gd | pass | `docs/DESIGN.md` covers Kèo/Passport/Community/AI shells, responsive and required states; workspace typecheck/build; Codex standards/spec review findings resolved |
 | P2-M1 | pass | `matchmaking-service`: default 15/15, RabbitMQ E2E 1/1, isolated DB guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 | P2-M2 | pass | `matchmaking-service`: 36 pass + real HTTP chain/race 1/1; `account-service`: 38 pass; `venue-booking-service`: isolated DB migration + 107 pass; schema isolation guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 | P2-M3 | pass | Fresh isolated migrations for finance/venue/matchmaking; focused AC suites: venue 4/4, matchmaking 33/33, finance 6/6; real HTTP/RabbitMQ/outbox `matchFee.e2e.test.ts` 11/11 including D38 receipt recovery, D39 retry/fencing, D40 authentication and D33 cancellation ordering; workspace typecheck/build; Harness status/doctor; incremental Codex review: no P0-P3 findings |
+| P2-M4 | pass | Fresh isolated matchmaking migrations; HTTP AC/regression `evaluations.test.ts` 10/10 covers D41 window, D42 median/30-day pair detection and out-of-order BookingCompleted recovery; workspace typecheck/build; one Codex spec+correctness review found and resolved three real defects, with no remaining P0-P3 findings |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -49,10 +49,10 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-MMP-08-3 | P2-M3 | `matchPayments.test.ts` + `matchFee.test.ts` + `matchFee.e2e.test.ts` â€” G1 policy snapshot cancellation and D37 rounding reach real finance ledger | pass |
 | AC-MMP-09-1 | P2-M1 | `test/passport.test.ts` — cold-start TB returns rating 1500, RD 350 and high uncertainty over HTTP | pass |
 | AC-MMP-09-2 | P2-M1 | `test/passport.test.ts` — bounded re-declaration preserves learned RD/σ; 30-day boundary and concurrent requests serialized | pass |
-| AC-MMP-10-1 | P2-M4 |  |  |
-| AC-MMP-10-2 | P2-M4 |  |  |
-| AC-MMP-10-3 | P2-M4 |  |  |
-| AC-MMP-10-4 | P2-M4 |  |  |
+| AC-MMP-10-1 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — confirmed same-match player submits within D41 72h; out-of-order `BookingCompleted` is durably reconciled | pass |
+| AC-MMP-10-2 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — outside player receives 403 | pass |
+| AC-MMP-10-3 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — submission at 72h + 1ms receives `EVALUATION_WINDOW_CLOSED` | pass |
+| AC-MMP-10-4 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — self evaluation is rejected | pass |
 | AC-MMP-11-1 | P2-M1 | `test/passport.test.ts` — own HTTP view returns rating/RD, 5-match history and exact filtered evaluation mean | pass |
 | AC-MMP-11-2 | P2-M1 | `test/passport.test.ts` — public HTTP view is exactly userId + tier + matchesPlayed | pass |
 | AC-F01-1 | P2-M1 | `test/rating.test.ts` — approved TB cold-start center and high-RD state | pass |
@@ -69,10 +69,10 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-F04-1 | P2-M6 |  |  |
 | AC-F04-2 | P2-M6 |  |  |
 | AC-F04-3 | P2-M6 |  |  |
-| AC-F07-1 | P2-M4 |  |  |
-| AC-F07-2 | P2-M4 |  |  |
-| AC-F07-3 | P2-M4 |  |  |
-| AC-F07-4 | P2-M4 |  |  |
+| AC-F07-1 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — median deviation of two tiers after three peer ratings is flagged with explanation and excluded | pass |
+| AC-F07-2 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — canonical pair lock flags reciprocal top-tier evidence across three completed matches within 30 days | pass |
+| AC-F07-3 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — Admin approves into Passport aggregate or permanently rejects | pass |
+| AC-F07-4 | P2-M4 | isolated HTTP `test/evaluations.test.ts` — flag only explains/excludes; it does not alter Glicko rating or punish | pass |
 | AC-COM-01-1 | P2-M8 |  |  |
 | AC-COM-01-2 | P2-M8 |  |  |
 | AC-COM-01-3 | P2-M8 |  |  |

@@ -51,12 +51,14 @@ Out of scope:
 ## Progress
 
 - [x] P2-G0 — schema, skeleton, Outbox/ProcessedEvent and isolation proof.
-- [x] P2-Gd — four Phase 2 page shells added to the existing design baseline.
+- [-] P2-Gd — historical actl.me baseline superseded by the mandatory Playo P2-FE0 → P2-FE2 track; it is not accepted frontend work.
 - [x] P2-M1 — Glicko-2 rating, standardized declarations and private/public Passport views.
 - [x] P2-M2 — non-financial match lifecycle, D31 identity privacy and same-hold/capacity race guards.
 - [x] P2-M3 — FIN-05 integrated match-fee lifecycle, D38 receipt recovery, D39 fenced booking resolution and D40 service authentication.
-- [ ] P2-M4 through P2-M9 — remaining dependency gates.
-- [ ] P2-Mfe and P2-final — real-API UI, E2E, 100 percent AC audit.
+- [x] P2-M4 — post-match evaluations, D41 72-hour window and D42 fairness flagging with Admin review.
+- [ ] P2-M5 through P2-M9 — remaining backend dependency gates.
+- [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
+- [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
 ## Decisions
 
@@ -74,6 +76,9 @@ Out of scope:
 - 2026-08-09: PO required a received but no-longer-payable match-fee SePay receipt to credit the payer's personal wallet exactly once, never match funding; organizer intents open only after the match is funding-eligible (D38).
 - 2026-08-09: PO made venue-booking-service the atomic authority for pending settlement versus withdrawal/cancellation. A held-booking revoke wins with refund/open (or release for full cancellation); a confirmed booking wins with D36 no individual refund. Stale settlement must be suppressed or ledger-reversed by attempt ID (D39).
 - 2026-08-09: PO required the D39 mutating Venue command to use a shared service secret; Finance/Matchmaking send `x-internal-service-token` and Venue fails closed when it is missing or invalid (D40).
+- 2026-08-09: PO set the MMP-10 evaluation window to 72 hours after `BookingCompleted` (D41).
+- 2026-08-09: PO set F-07 to flag median deviations of at least two tiers with at least three same-match ratings, and reciprocal top-tier pairs across three completed matches in 30 days (D42); it only flags/explains for Admin review.
+- 2026-08-09: PO clarified that subjective MMP-10 perceived tiers contribute only to Passport aggregation, never an inferred Glicko score; `RatingPeriodReady` requires a verified score source (D43).
 
 ## Validation
 
@@ -88,9 +93,9 @@ cross-schema access, zero cross-schema FK, atomic Outbox leases, DB capacity/sel
 workspace typecheck/build, and two-axis Codex review with no remaining findings. Phase result remains
 open until P2-final.
 
-P2-Gd completed 2026-08-08: `docs/DESIGN.md` now defines Kèo, Player Passport, Cộng đồng & hỗ trợ
-cá nhân, and Trợ lý AI shells on the existing ACTL-like/no-3D baseline; workspace typecheck/build
-passed and Codex review findings were resolved.
+P2-Gd historical note: the earlier actl.me visual baseline was superseded by PO on 2026-08-09. It
+is not carried into this goal; frontend acceptance starts only at Playo P2-FE0 after all backend
+milestones pass.
 
 P2-M1 completed 2026-08-08: D26 rating/declaration parameters and D27 runtime policy are recorded;
 Glicko-2 matches the canonical worked example, Passport APIs enforce private/public views, and
@@ -109,3 +114,10 @@ authority for settlement versus withdrawal/cancellation; D40 protects that mutat
 fail-closed service secret. Fresh isolated migrations, focused venue 4/4, matchmaking 33/33 and
 finance 6/6 suites, plus real HTTP/RabbitMQ/outbox E2E 11/11 passed; workspace typecheck/build,
 Harness status/doctor and the final incremental Codex review all passed without remaining findings.
+
+P2-M4 completed 2026-08-09: D41 records BookingCompleted time durably and permits confirmed players
+to evaluate only same-match peers within 72 hours. D42 flags median outliers and serialized
+reciprocal top-tier patterns for Admin review; it never infers a Glicko score or auto-punishes (D43).
+Fresh isolated migrations and HTTP AC/regression tests passed 10/10, as did workspace typecheck and
+build. The single Codex review found and the implementation resolved event-order, rolling-window,
+and cross-match concurrency defects; no finding remains.

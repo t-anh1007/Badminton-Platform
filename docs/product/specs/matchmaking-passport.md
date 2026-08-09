@@ -88,7 +88,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | BR-MMP-10 | Suất của người tổ chức KHÔNG tự trả phí cho chính mình (không P2P). Người tổ chức chịu phần sân của mình bằng cách: tổng phí người khác gom + phần tổ chức tự thanh toán (nếu thiếu) = giá booking. Xem BR-MMP-11. |
 | BR-MMP-11 | **Bảo toàn giá trị FIN-05 — D29**: không cho đặt phí tùy ý. `feePerSlot = floor(giá booking / capacity)`; (tổng phí participant đã trả) + (phần organizer tự thanh toán, gồm số lẻ phép chia) = giá `bookingId`. Không tạo tiền, không mất tiền, không gom dư, không P2P. |
 | BR-MMP-12 | Rating/Passport chỉ cập nhật từ kèo `completed` có đánh giá hợp lệ (đã qua F-07). Kèo `cancelled` không ảnh hưởng rating. |
-| BR-MMP-13 | Đánh giá sau trận chỉ mở cho JOIN `confirmed` của kèo `completed`, trong cửa sổ 【PO-REVIEW: 72 giờ】 sau `BookingCompleted`; chỉ đánh giá người CÙNG kèo; không tự đánh giá mình. |
+| BR-MMP-13 | **D41:** Đánh giá sau trận chỉ mở cho JOIN `confirmed` của kèo `completed`, trong 72 giờ sau `BookingCompleted`; chỉ đánh giá người CÙNG kèo; không tự đánh giá mình. |
 | BR-MMP-14 | Quyền: người tổ chức chỉ thao tác kèo của mình; người tham gia chỉ thấy/thao tác JOIN của mình. Kiểm ở tầng API. |
 
 ## 5. Sự kiện phát/tiêu thụ (khớp system-architecture §6.3)
@@ -247,8 +247,9 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - **Mô hình**: Glicko-2 (rating μ, độ lệch RD, volatility σ). Cold-start từ MMP-09 (bậc khai báo →
   μ khởi tạo, RD cao). Sau mỗi kèo `completed` có đánh giá hợp lệ, cập nhật μ/RD/σ. Ánh xạ μ → 5
   bậc hiển thị (Mới chơi/Y/TB/TB+/BC) theo ngưỡng cố định; RD cao → hiển thị "đang xác định trình độ".
-  **D27:** M4 phát `RatingPeriodReady` nội bộ khi evaluation hợp lệ; M1 consume idempotent theo
-  message ID và cập nhật Passport đúng một lần từ Glicko results đã xác thực trong event.
+  **D27/D43:** `RatingPeriodReady` chỉ phát khi có nguồn kết quả trận mang `score` đã xác thực;
+  M4 không suy diễn score Glicko từ `perceivedTier` chủ quan. Nhận xét hợp lệ chỉ nuôi điểm tổng
+  hợp Passport.
 - **Vì sao Glicko-2**: xử lý độ bất định + số trận ít (đúng bối cảnh đồ án cold-start), chuẩn học
   thuật, giải thích được. **D26:** tâm cold-start = `1100/1300/1500/1700/1900`, ngưỡng bậc
   `<1200 / <1400 / <1600 / <1800 / ≥1800`, `RD=350`, `σ=0.06`, `τ=0.5`; `RD≥200` hiển thị
@@ -300,12 +301,12 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
   của ratee/rater); (b) dấu hiệu thông đồng/tự nâng (vote qua lại bất thường giữa cùng nhóm, tần
   suất cao bất thường). Đánh dấu cờ `flagged` để **Admin xem xét**; đánh giá bị flag KHÔNG nuôi
   F-01 cho tới khi được duyệt. AI/trợ lý chỉ **đánh dấu + giải thích**, không tự phạt (bất biến #8).
-- 【PO-REVIEW: ngưỡng outlier cụ thể (vd. |z| > 2.5); định nghĩa "thông đồng"】.
+- **D42:** outlier lệch ít nhất 2 bậc so với median của tối thiểu 3 đánh giá cùng kèo cho cùng ratee. Thông đồng là cùng cặp hai chiều cho bậc cao nhất ở ít nhất 3 kèo `completed` trong rolling 30 ngày. Cờ chỉ chặn record mới khỏi F-01 và đưa Admin xét, không tự phạt/đổi rating.
 
 **AC**
 - `AC-F07-1` — Given một player nhận một đánh giá lệch xa các đánh giá khác cùng kèo, When soi, Then đánh giá đó bị `flagged` + không tính vào rating ngay.
 - `AC-F07-2` — Given hai player liên tục cho nhau điểm tối đa qua nhiều kèo bất thường, When soi, Then bị `flagged` nghi thông đồng cho Admin.
-- `AC-F07-3` — Given đánh giá `flagged`, When Admin duyệt hợp lệ, Then đánh giá được tính lại vào F-01; nếu bác thì loại vĩnh viễn.
+- `AC-F07-3` — Given đánh giá `flagged`, When Admin duyệt hợp lệ, Then đánh giá được tính lại vào điểm tổng hợp Passport; nếu bác thì loại vĩnh viễn (D43 không suy diễn Glicko từ nhận xét).
 - `AC-F07-4` — Given trợ lý đánh dấu bất thường, When kiểm tra, Then hệ thống KHÔNG tự thay đổi rating/phạt (chỉ cờ + giải thích, bất biến #8).
 
 ---
@@ -324,5 +325,5 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 4. ~~MMP-08-3: hủy kèo đã confirmed áp luồng hủy booking GĐ1.~~ ✅ D33, PO chốt hoàn theo tỷ lệ trên phần góp ngày 2026-08-08.
 5. ~~MMP-09 khai lại bậc: tần suất + mức ảnh hưởng lên rating đã học.~~ ✅ D26, PO chốt 2026-08-08.
 6. ~~F-01: ngưỡng ánh xạ μ→5 bậc, hằng số τ Glicko-2.~~ ✅ D26, PO chốt 2026-08-08.
-7. MMP-13 cửa sổ đánh giá (đề xuất 72h).
-8. F-07: ngưỡng outlier (đề xuất |z|>2.5) + định nghĩa thông đồng.
+7. ~~MMP-13 cửa sổ đánh giá (đề xuất 72h).~~ ✅ D41, PO chốt 72 giờ ngày 2026-08-09.
+8. ~~F-07: ngưỡng outlier (đề xuất |z|>2.5) + định nghĩa thông đồng.~~ ✅ D42, PO chốt median ±2 bậc và reciprocal top-tier 3/30 ngày ngày 2026-08-09.

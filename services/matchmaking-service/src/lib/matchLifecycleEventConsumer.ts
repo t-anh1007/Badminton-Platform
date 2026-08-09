@@ -189,7 +189,10 @@ export async function handleBookingConfirmedForMatch(
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
     const match = await tx.match.findUnique({ where: { bookingId: payload.bookingId } });
     if (match && match.status === 'filled' && (match.fundingRequestedAt || match.feePerSlot === 0n)) {
-      await tx.match.update({ where: { id: match.id }, data: { status: 'confirmed' } });
+      await tx.match.update({
+        where: { id: match.id },
+        data: { status: match.completedAt ? 'completed' : 'confirmed' },
+      });
     }
     await tx.processedEvent.create({ data: { eventId, processedAt: now } });
   });
@@ -278,8 +281,14 @@ export async function handleBookingCompletedForMatch(eventId: string, raw: Booki
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.bookingId}, 0))`;
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
     const match = await tx.match.findUnique({ where: { bookingId: payload.bookingId } });
-    if (match?.status === 'confirmed') {
-      await tx.match.update({ where: { id: match.id }, data: { status: 'completed' } });
+    if (match && match.status !== 'cancelled') {
+      await tx.match.update({
+        where: { id: match.id },
+        data: {
+          status: match.status === 'confirmed' ? 'completed' : match.status,
+          completedAt: new Date(payload.completedAt),
+        },
+      });
     }
     await tx.processedEvent.create({ data: { eventId } });
   });

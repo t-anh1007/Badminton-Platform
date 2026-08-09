@@ -30,6 +30,7 @@ chốt trong schema của service sở hữu.
 | fundingRequestedAt | timestamptz? | mốc yêu cầu settlement; không thay thế quyết định của Venue |
 | settlementAttemptId | uuid? UNIQUE | fencing token của một lần settlement D39; tham chiếu opaque sang Venue/Finance, không FK |
 | settlementVenueRevision | int | revision Venue đã quan sát cho attempt hiện tại; tối thiểu 0 |
+| completedAt | timestamptz? | thời điểm `BookingCompleted` bền vững cho D41; có thể đến trước `BookingConfirmed` |
 | createdAt | timestamptz | |
 
 ### JOIN (lượt tham gia)
@@ -66,7 +67,9 @@ chốt trong schema của service sở hữu.
 | labels | jsonb? | nhãn tinh thần thi đấu |
 | flagged | boolean | F-07 đánh dấu bất thường |
 | flagReason | text? | |
-| countedAt | timestamptz? | mốc được tính vào rating (null nếu đang chờ duyệt) |
+| countedAt | timestamptz? | mốc được tính vào tổng hợp Passport (null nếu bị flag/chờ duyệt; D43 không suy diễn Glicko) |
+| reviewStatus | enum? | `pending` / `approved` / `rejected` khi F-07 cần Admin xử lý |
+| reviewedAt, reviewedByUserId | timestamptz?, uuid? | audit quyết định Admin; `userId` là opaque, không FK chéo schema |
 | createdAt | timestamptz | |
 | — | | UNIQUE (matchId, raterUserId, rateeUserId) — một lượt đánh giá/cặp/kèo |
 

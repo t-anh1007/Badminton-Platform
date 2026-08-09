@@ -4,9 +4,10 @@ import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import { createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } from '../domain/matches.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
-import { optionalAuth, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
+import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
+import { reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -33,6 +34,14 @@ const createSchema = z.object({
   || skillTier.options.indexOf(input.skillMin) <= skillTier.options.indexOf(input.skillMax), {
   message: 'skillMin must not exceed skillMax',
 });
+
+const evaluationSchema = z.object({
+  rateeUserId: z.string().uuid(),
+  perceivedTier: skillTier,
+  labels: z.array(z.string().trim().min(1).max(50)).max(10).optional(),
+}).strict();
+
+const evaluationReviewSchema = z.object({ decision: z.enum(['approve', 'reject']) }).strict();
 
 export function createMatchRouter(venueBookingClient: VenueBookingClient, accountClient: AccountClient) {
   const router = Router();
@@ -78,6 +87,19 @@ export function createMatchRouter(venueBookingClient: VenueBookingClient, accoun
     const joinId = z.string().uuid().parse(req.params.joinId);
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(200).json(await withdrawJoin(venueBookingClient, matchId, joinId, userId));
+  }));
+  router.post('/:matchId/evaluations', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const input = evaluationSchema.parse(req.body);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(201).json(await submitEvaluation({ matchId, raterUserId: userId, ...input }));
+  }));
+  router.patch('/:matchId/evaluations/:evaluationId/review', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const evaluationId = z.string().uuid().parse(req.params.evaluationId);
+    const input = evaluationReviewSchema.parse(req.body);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(await reviewEvaluation(matchId, evaluationId, userId, input.decision));
   }));
   router.post('/:matchId/cancel', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);
