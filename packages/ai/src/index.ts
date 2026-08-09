@@ -3,6 +3,17 @@
 
 export const AI_PACKAGE_READY = true as const;
 
+export {
+  GeminiMatchmakerClient,
+  enrichMatchmakerSuggestions,
+  type EnrichedMatchmakerSuggestion,
+  type GeminiMatchmakerClientOptions,
+  type GeminiTextModel,
+  type MatchmakerCandidate,
+  type MatchmakerExplanation,
+  type MatchmakerExplanationClient,
+} from './geminiMatchmaker.js';
+
 export interface CompatibilityInput {
   player: { rating: number; rd: number };
   match: {

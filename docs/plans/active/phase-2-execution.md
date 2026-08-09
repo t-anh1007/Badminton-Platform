@@ -58,7 +58,8 @@ Out of scope:
 - [x] P2-M4 — post-match evaluations, D41 72-hour window and D42 fairness flagging with Admin review.
 - [x] P2-M5 — direct Socket.IO Quick Match, D44 organizer-only approval holds and final-slot serialization.
 - [x] P2-M6 — deterministic, explained compatibility and proposal-only balanced grouping in shared `packages/ai`.
-- [ ] P2-M7 through P2-M9 — remaining backend dependency gates.
+- [x] P2-M7 — LangChain Gemini matchmaker with verified F-02 evidence selection and fail-closed configuration/fallback.
+- [ ] P2-M8 through P2-M9 — remaining backend dependency gates.
 - [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 

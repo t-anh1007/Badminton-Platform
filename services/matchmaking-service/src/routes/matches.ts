@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
+import type { MatchmakerExplanationClient } from '@khoaluantn/ai';
 import { createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } from '../domain/matches.js';
+import { suggestAiMatches } from '../domain/aiMatchmaker.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
@@ -43,7 +45,11 @@ const evaluationSchema = z.object({
 
 const evaluationReviewSchema = z.object({ decision: z.enum(['approve', 'reject']) }).strict();
 
-export function createMatchRouter(venueBookingClient: VenueBookingClient, accountClient: AccountClient) {
+export function createMatchRouter(
+  venueBookingClient: VenueBookingClient,
+  accountClient: AccountClient,
+  matchmakerClient?: MatchmakerExplanationClient,
+) {
   const router = Router();
   router.post('/', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = createSchema.parse(req.body);
@@ -59,6 +65,12 @@ export function createMatchRouter(venueBookingClient: VenueBookingClient, accoun
   router.get('/', withErrorHandling(async (req, res) => {
     const filters = searchSchema.parse(req.query);
     res.status(200).json({ matches: await findPublicMatches(venueBookingClient, filters) });
+  }));
+  router.get('/suggestions/ai', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const { skill: _ignoredSkill, ...filters } = searchSchema.parse(req.query);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const suggestions = await suggestAiMatches(venueBookingClient, userId, filters, matchmakerClient);
+    res.status(200).json({ suggestions });
   }));
   router.post('/:matchId/joins', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);

@@ -20,6 +20,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M4 | pass | Fresh isolated matchmaking migrations; HTTP AC/regression `evaluations.test.ts` 10/10 covers D41 window, D42 median/30-day pair detection and out-of-order BookingCompleted recovery; workspace typecheck/build; one Codex spec+correctness review found and resolved three real defects, with no remaining P0-P3 findings |
 | P2-M5 | pass | Fresh isolated matchmaking migrations; real HTTP + Socket.IO `quickMatch.e2e.test.ts` 4/4 covers proposal, ordinary pending JOIN/10-minute JoinApproved hold, final-slot race and disconnect recovery; workspace typecheck/build; Harness status/doctor; one Codex two-axis review resolved the hold-evidence gap with no remaining actionable finding |
 | P2-M6 | pass | `packages/ai` deterministic AC unit suite 6/6 plus isolated real HTTP `compatibility.e2e.test.ts` 2/2; F-02 grounds rating in match skill range and declares unavailable time/location inputs; shared-library-only F-04 creates neither match nor payment; workspace typecheck/build; one Codex two-axis review resolved grounded-input defects |
+| P2-M7 | pass | Shared LangChain Gemini adapter `test/geminiMatchmaker.test.ts` 3/3 plus isolated real HTTP `test/aiMatchmaker.e2e.test.ts` 2/2; deterministic F-02 ranking, private/public prompt boundary, no-auto-JOIN and failure/timeout fallback; workspace typecheck/build; one Codex two-axis review resolved grounded-output and timeout defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -98,11 +99,11 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-COM-08-2 | P2-M8 |  |  |
 | AC-COM-08-3 | P2-M8 |  |  |
 | AC-COM-08-4 | P2-M8 |  |  |
-| AC-AI-01-1 | P2-M7 |  |  |
-| AC-AI-01-2 | P2-M7 |  |  |
-| AC-AI-01-3 | P2-M7 |  |  |
-| AC-AI-01-4 | P2-M7 |  |  |
-| AC-AI-01-5 | P2-M7 |  |  |
+| AC-AI-01-1 | P2-M7 | isolated HTTP `test/aiMatchmaker.e2e.test.ts` — three public open matches rank by deterministic F-02 score and each carries an explanation | pass |
+| AC-AI-01-2 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` — Gemini may select only verified F-02 reason indexes; local renderer always returns concrete text | pass |
+| AC-AI-01-3 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` + isolated HTTP `test/aiMatchmaker.e2e.test.ts` — provider error or 4-second timeout returns short deterministic fallback without failing the request | pass |
+| AC-AI-01-4 | P2-M7 | isolated HTTP `test/aiMatchmaker.e2e.test.ts` — suggestions leave zero JOIN rows; only the subsequent explicit MMP-04 POST creates one | pass |
+| AC-AI-01-5 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` + isolated HTTP `test/aiMatchmaker.e2e.test.ts` — prompt receives public match snapshot/own deterministic score only and excludes organizer identifier | pass |
 | AC-AI-02-1 | P2-M9 |  |  |
 | AC-AI-02-2 | P2-M9 |  |  |
 | AC-AI-02-3 | P2-M9 |  |  |
