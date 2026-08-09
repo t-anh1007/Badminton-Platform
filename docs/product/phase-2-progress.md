@@ -18,6 +18,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M2 | pass | `matchmaking-service`: 36 pass + real HTTP chain/race 1/1; `account-service`: 38 pass; `venue-booking-service`: isolated DB migration + 107 pass; schema isolation guards 4/4; workspace typecheck/build; Harness status/doctor; Codex standards/spec re-review: no findings |
 | P2-M3 | pass | Fresh isolated migrations for finance/venue/matchmaking; focused AC suites: venue 4/4, matchmaking 33/33, finance 6/6; real HTTP/RabbitMQ/outbox `matchFee.e2e.test.ts` 11/11 including D38 receipt recovery, D39 retry/fencing, D40 authentication and D33 cancellation ordering; workspace typecheck/build; Harness status/doctor; incremental Codex review: no P0-P3 findings |
 | P2-M4 | pass | Fresh isolated matchmaking migrations; HTTP AC/regression `evaluations.test.ts` 10/10 covers D41 window, D42 median/30-day pair detection and out-of-order BookingCompleted recovery; workspace typecheck/build; one Codex spec+correctness review found and resolved three real defects, with no remaining P0-P3 findings |
+| P2-M5 | pass | Fresh isolated matchmaking migrations; real HTTP + Socket.IO `quickMatch.e2e.test.ts` 4/4 covers proposal, ordinary pending JOIN/10-minute JoinApproved hold, final-slot race and disconnect recovery; workspace typecheck/build; Harness status/doctor; one Codex two-axis review resolved the hold-evidence gap with no remaining actionable finding |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -62,10 +63,10 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-F02-1 | P2-M6 |  |  |
 | AC-F02-2 | P2-M6 |  |  |
 | AC-F02-3 | P2-M6 |  |  |
-| AC-F03-1 | P2-M5 |  |  |
-| AC-F03-2 | P2-M5 |  |  |
-| AC-F03-3 | P2-M5 |  |  |
-| AC-F03-4 | P2-M5 |  |  |
+| AC-F03-1 | P2-M5 | isolated real Socket.IO `test/quickMatch.e2e.test.ts` — authenticated player receives the one-slot open-match proposal over direct matchmaking WS | pass |
+| AC-F03-2 | P2-M5 | isolated real HTTP + Socket.IO `test/quickMatch.e2e.test.ts` — WS accept creates ordinary `pending` JOIN; organizer approval emits exact `JoinApproved.expiresAt = approvedAt + 10m` | pass |
+| AC-F03-3 | P2-M5 | isolated real HTTP + Socket.IO `test/quickMatch.e2e.test.ts` — concurrent WS candidates remain pending; concurrent organizer approvals serialize to one `approved` hold and one `MATCH_FULL` 409 | pass |
+| AC-F03-4 | P2-M5 | isolated real Socket.IO `test/quickMatch.e2e.test.ts` — disconnect before accept writes no JOIN/hold; next player joins and is the only pending request | pass |
 | AC-F04-1 | P2-M6 |  |  |
 | AC-F04-2 | P2-M6 |  |  |
 | AC-F04-3 | P2-M6 |  |  |

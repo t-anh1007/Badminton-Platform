@@ -56,7 +56,8 @@ Out of scope:
 - [x] P2-M2 — non-financial match lifecycle, D31 identity privacy and same-hold/capacity race guards.
 - [x] P2-M3 — FIN-05 integrated match-fee lifecycle, D38 receipt recovery, D39 fenced booking resolution and D40 service authentication.
 - [x] P2-M4 — post-match evaluations, D41 72-hour window and D42 fairness flagging with Admin review.
-- [ ] P2-M5 through P2-M9 — remaining backend dependency gates.
+- [x] P2-M5 — direct Socket.IO Quick Match, D44 organizer-only approval holds and final-slot serialization.
+- [ ] P2-M6 through P2-M9 — remaining backend dependency gates.
 - [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
@@ -79,6 +80,7 @@ Out of scope:
 - 2026-08-09: PO set the MMP-10 evaluation window to 72 hours after `BookingCompleted` (D41).
 - 2026-08-09: PO set F-07 to flag median deviations of at least two tiers with at least three same-match ratings, and reciprocal top-tier pairs across three completed matches in 30 days (D42); it only flags/explains for Admin review.
 - 2026-08-09: PO clarified that subjective MMP-10 perceived tiers contribute only to Passport aggregation, never an inferred Glicko score; `RatingPeriodReady` requires a verified score source (D43).
+- 2026-08-09: PO required Quick Match acceptance to create only `pending`; organizer approval alone opens the 10-minute payment hold. `approved` and `confirmed` reserve capacity, while `pending` does not (D44).
 
 ## Validation
 
@@ -121,3 +123,10 @@ reciprocal top-tier patterns for Admin review; it never infers a Glicko score or
 Fresh isolated migrations and HTTP AC/regression tests passed 10/10, as did workspace typecheck and
 build. The single Codex review found and the implementation resolved event-order, rolling-window,
 and cross-match concurrency defects; no finding remains.
+
+P2-M5 completed 2026-08-09: direct authenticated Socket.IO receives proposals from matchmaking-service;
+explicit acceptance creates the ordinary pending JOIN, and organizer approval alone creates the exact
+10-minute payment hold. Approved and confirmed JOINs reserve capacity under a database transaction
+lock, so concurrent final-slot candidates produce one hold. The isolated real HTTP/Socket.IO suite
+passed 4/4, workspace typecheck/build and Harness passed, and the single two-axis Codex review left no
+actionable finding.

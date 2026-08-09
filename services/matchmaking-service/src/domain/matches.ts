@@ -141,7 +141,7 @@ export async function findPublicMatches(
       cutoffAt: { gt: now },
       ...(filters.feeMax === undefined ? {} : { feePerSlot: { lte: filters.feeMax } }),
     },
-    include: { joins: { where: { status: 'confirmed' }, select: { id: true } } },
+    include: { joins: { where: { status: { in: ['approved', 'confirmed'] } }, select: { id: true } } },
   });
 
   const hydrated = await Promise.all(candidates.map(async (match) => ({
@@ -184,7 +184,7 @@ export async function getPublicMatchDetail(
 ) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { joins: { where: { status: 'confirmed' }, select: { id: true } } },
+    include: { joins: { where: { status: { in: ['approved', 'confirmed'] } }, select: { id: true, status: true } } },
   });
   if (!match || match.status !== 'open' || match.cutoffAt <= now) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
@@ -223,7 +223,7 @@ export async function getPublicMatchDetail(
         }).tier
         : null,
     },
-    confirmedParticipants: match.joins.length,
+    confirmedParticipants: match.joins.filter((join) => join.status === 'confirmed').length,
     actions: {
       canJoin: Boolean(
         requester?.roles.includes('player')
@@ -245,8 +245,8 @@ export async function requestJoin(matchId: string, participantUserId: string, no
     if (match.organizerUserId === participantUserId) {
       throw new AppError(409, 'ORGANIZER_ALREADY_PARTICIPATES', 'Organizer đã chiếm một chỗ trong kèo.');
     }
-    const [confirmedCount, activeJoin] = await Promise.all([
-      tx.join.count({ where: { matchId, status: 'confirmed' } }),
+    const [reservedCount, activeJoin] = await Promise.all([
+      tx.join.count({ where: { matchId, status: { in: ['approved', 'confirmed'] } } }),
       tx.join.findFirst({
         where: {
           matchId,
@@ -256,7 +256,7 @@ export async function requestJoin(matchId: string, participantUserId: string, no
       }),
     ]);
     if (activeJoin) throw new AppError(409, 'JOIN_ALREADY_ACTIVE', 'Đã có yêu cầu tham gia đang hoạt động.');
-    if (confirmedCount + 1 >= match.capacity) {
+    if (reservedCount + 1 >= match.capacity) {
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
     return tx.join.create({ data: { matchId, participantUserId } });

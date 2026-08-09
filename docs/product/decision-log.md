@@ -55,6 +55,8 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D42 | 2026-08-09 | **F-07 phát hiện bất thường:** một EVALUATION là outlier khi lệch ít nhất 2 bậc so với median của tối thiểu 3 đánh giá cùng kèo cho cùng ratee; thông đồng là một cặp hai chiều cùng cho bậc cao nhất ở ít nhất 3 kèo completed trong rolling 30 ngày. Cờ chỉ chặn record mới khỏi rating và đưa Admin xét, không tự phạt hay tự đổi rating. **PO duyệt 2026-08-09.** | F-07, AC-F07-1..4 |
 | D43 | 2026-08-09 | **D27 làm rõ nguồn Glicko:** `perceivedTier` của MMP-10 chỉ nuôi điểm tổng hợp Passport sau khi hợp lệ, không được suy diễn thành thắng/thua hay tự thay đổi Glicko. `RatingPeriodReady` chỉ phát khi có nguồn kết quả trận với `score` đã xác thực; M4 không bịa score từ nhận xét chủ quan. **PO duyệt 2026-08-09.** | D27, MMP-10, F-01, F-07 |
 
+| D44 | 2026-08-09 | **Quick Match không tự duyệt:** chấp nhận đề xuất F-03 luôn tạo `JOIN pending`; chỉ organizer được duyệt mới chuyển sang `approved` và mở hold thanh toán 10 phút. Suất tạm giữ là mọi JOIN `approved` hoặc `confirmed`; `pending` không chiếm chỗ. Khóa transaction trên `matchId` bảo đảm chỉ một suất cuối được giữ. **PO duyệt 2026-08-09.** | F-03, BR-MMP-05/06 |
+
 ### Lý do đáng ghi nhớ
 
 **D3** — Phương án một ví buộc phải suy ra số tiền rút được từ `LEDGER_ENTRY` theo loại

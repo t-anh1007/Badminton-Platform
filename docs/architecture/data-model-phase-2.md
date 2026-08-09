@@ -44,7 +44,7 @@ chốt trong schema của service sở hữu.
 | approvedAt | timestamptz? | mở cửa sổ trả phí (holdMinutes) |
 | createdAt | timestamptz | |
 | — | | **UNIQUE (matchId, participantUserId)** WHERE status ∉ (rejected, withdrawn) — BR-MMP-04 |
-| — | | Ràng buộc chống chồng chỗ: tổng `confirmed` ≤ capacity (BR-MMP-06, khóa/kiểm tầng CSDL) |
+| — | | Ràng buộc chống chồng chỗ: tổng `approved` + `confirmed` ≤ `capacity − 1`; `approved` chiếm chỗ tạm trong 10 phút, `pending` không giữ chỗ (D44, khóa transaction trong DB) |
 
 ### PASSPORT (rating F-01)
 | Cột | Kiểu | Ghi chú |
