@@ -59,7 +59,7 @@ export async function postLedgerEntry(
   params: {
     walletId: string;
     amount: bigint;
-    type: 'topup' | 'payment' | 'refund' | 'payout' | 'commission' | 'release';
+    type: 'topup' | 'payment' | 'refund' | 'payout' | 'commission' | 'release' | 'reserve' | 'settlement';
     refType: string;
     refId: string;
     /** ADR 0003 + BR-FIN-16: doanh thu chủ sân (`release`) đọng ở `pending`

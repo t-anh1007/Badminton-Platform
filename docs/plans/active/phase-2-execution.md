@@ -54,7 +54,8 @@ Out of scope:
 - [x] P2-Gd — four Phase 2 page shells added to the existing design baseline.
 - [x] P2-M1 — Glicko-2 rating, standardized declarations and private/public Passport views.
 - [x] P2-M2 — non-financial match lifecycle, D31 identity privacy and same-hold/capacity race guards.
-- [ ] P2-M3 through P2-M9 — sequential dependency gates.
+- [x] P2-M3 — FIN-05 integrated match-fee lifecycle, D38 receipt recovery, D39 fenced booking resolution and D40 service authentication.
+- [ ] P2-M4 through P2-M9 — remaining dependency gates.
 - [ ] P2-Mfe and P2-final — real-API UI, E2E, 100 percent AC audit.
 
 ## Decisions
@@ -64,6 +65,15 @@ Out of scope:
 - 2026-08-08: PO required equal match-fee splitting with organizer absorbing the exact remainder (D29).
 - 2026-08-08: PO reassigned nine money-integrated MMP-06/07/08 ACs from M2 to M3 to remove the lifecycle/ledger dependency cycle without waiving any AC (D30).
 - 2026-08-08: PO required private organizer profiles to expose only the fixed label “Người tổ chức”; public profiles keep their display name (D31).
+- 2026-08-08: PO chose binary JOIN-fee refunds: 100 percent before cutoff and zero from cutoff onward (D32).
+- 2026-08-08: PO chose the GĐ1 booking cancellation ladder for confirmed-match cancellation, refunding each contributor by the same policy percentage on their own contribution (D33).
+- 2026-08-08: PO declined any additional no-show/late-withdrawal penalty; D32 non-refund is the sole monetary consequence (D34).
+- 2026-08-08: PO decided whole-match cancellation overrides a late-withdrawal non-refund and refunds every contribution when the held booking is released (D35).
+- 2026-08-08: PO limited individual pre-cutoff refunds to held bookings; after court confirmation, withdrawal alone does not refund and only whole-match cancellation can apply D33 (D36).
+- 2026-08-08: PO assigned confirmed-cancellation rounding dust to the organizer after flooring each participant refund, preserving the exact booking refund total (D37).
+- 2026-08-09: PO required a received but no-longer-payable match-fee SePay receipt to credit the payer's personal wallet exactly once, never match funding; organizer intents open only after the match is funding-eligible (D38).
+- 2026-08-09: PO made venue-booking-service the atomic authority for pending settlement versus withdrawal/cancellation. A held-booking revoke wins with refund/open (or release for full cancellation); a confirmed booking wins with D36 no individual refund. Stale settlement must be suppressed or ledger-reversed by attempt ID (D39).
+- 2026-08-09: PO required the D39 mutating Venue command to use a shared service secret; Finance/Matchmaking send `x-internal-service-token` and Venue fails closed when it is missing or invalid (D40).
 
 ## Validation
 
@@ -92,3 +102,10 @@ D31 private organizer identity protection, idempotent same-hold conversion, orga
 and locked free-slot capacity enforcement. Account 38, matchmaking 36, venue isolated 107 and real
 service-chain 1 tests pass; clean migrations/isolation, workspace typecheck/build, Harness and both
 Codex review axes pass with no remaining code findings.
+
+P2-M3 completed 2026-08-09: FIN-05 and its integrated match lifecycle ACs pass. D38 credits every
+received but no-longer-payable SePay receipt exactly once; D39 makes Venue the fenced atomic booking
+authority for settlement versus withdrawal/cancellation; D40 protects that mutating command with a
+fail-closed service secret. Fresh isolated migrations, focused venue 4/4, matchmaking 33/33 and
+finance 6/6 suites, plus real HTTP/RabbitMQ/outbox E2E 11/11 passed; workspace typecheck/build,
+Harness status/doctor and the final incremental Codex review all passed without remaining findings.

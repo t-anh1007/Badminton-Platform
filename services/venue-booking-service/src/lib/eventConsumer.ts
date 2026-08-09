@@ -4,6 +4,9 @@ import { connectRabbitMQ } from '@khoaluantn/eventbus';
 import { env } from './env.js';
 import { prisma } from './prisma.js';
 import { writeOutbox } from './outbox.js';
+import type { MatchCancelledPayload } from '@khoaluantn/shared';
+import { releaseHeldMatchBooking } from '../domain/booking.js';
+import type { MatchSettlementTooLatePayload } from '@khoaluantn/shared';
 
 interface AccountLockedPayload {
   userId: string;
@@ -14,6 +17,8 @@ interface AccountLockedPayload {
 
 interface PaymentCompletedPayload {
   bookingId: string;
+  refType?: 'matchFee' | 'matchSettlement';
+  matchId?: string;
 }
 
 const QUEUE_NAME = 'venue-booking.domain-events';
@@ -95,15 +100,18 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
       if (booking.status === 'held') {
         await tx.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
       }
+      const matchSettlement = payload.refType === 'matchSettlement' && payload.matchId;
       await writeOutbox(tx, {
         aggregateType: 'Booking',
         aggregateId: booking.id,
-        eventType: 'PaymentTooLate',
-        payload: {
-          bookingId: booking.id,
-          userId: booking.userId,
-          amount: booking.priceSnapshot.toString(),
-        },
+        eventType: matchSettlement ? 'MatchSettlementTooLate' : 'PaymentTooLate',
+        payload: matchSettlement
+          ? ({ matchId: payload.matchId!, bookingId: booking.id } satisfies MatchSettlementTooLatePayload)
+          : {
+            bookingId: booking.id,
+            userId: booking.userId,
+            amount: booking.priceSnapshot.toString(),
+          },
       });
     }
     await tx.processedEvent.create({ data: { eventId } });
@@ -138,7 +146,16 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
     if (envelope.type === 'AccountLocked') {
       await handleAccountLocked(eventId, envelope.payload as AccountLockedPayload);
     } else if (envelope.type === 'PaymentCompleted') {
-      await handlePaymentCompleted(eventId, envelope.payload as PaymentCompletedPayload);
+      const payload = envelope.payload as PaymentCompletedPayload;
+      // Participant/organizer match-fee receipts share the historical event
+      // name but must never confirm the court booking. Only the final combined
+      // settlement publishes booking-only PaymentCompleted.
+      // D39: match settlement is confirmed only by resolveMatchBooking's
+      // fenced, venue-owned command. A late/redelivered financial event must
+      // never run the generic held -> confirmed path after a revoke won.
+      if (!payload.refType) await handlePaymentCompleted(eventId, payload);
+    } else if (envelope.type === 'MatchCancelled') {
+      await releaseHeldMatchBooking(eventId, envelope.payload as MatchCancelledPayload);
     }
     channel.ack(msg);
   } catch (err) {
@@ -149,14 +166,27 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
 }
 
 /** Kết nối RabbitMQ, bind queue riêng vào các routing key liên quan, tiêu thụ liên tục. */
-export async function bootstrapEventConsumption(): Promise<() => Promise<void>> {
+export async function bootstrapEventConsumption(options?: {
+  queueName?: string;
+  deleteQueueOnStop?: boolean;
+}): Promise<() => Promise<void>> {
   const { connection, channel } = await connectRabbitMQ(env.rabbitmqUrl);
-  await channel.assertQueue(QUEUE_NAME, { durable: true });
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'AccountLocked');
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'PaymentCompleted');
-  await channel.consume(QUEUE_NAME, (msg) => void onMessage(channel, msg));
+  const queueName = options?.queueName ?? QUEUE_NAME;
+  await channel.assertQueue(queueName, { durable: !options?.deleteQueueOnStop, autoDelete: Boolean(options?.deleteQueueOnStop) });
+  await channel.bindQueue(queueName, 'domain-events', 'AccountLocked');
+  await channel.bindQueue(queueName, 'domain-events', 'PaymentCompleted');
+  await channel.bindQueue(queueName, 'domain-events', 'MatchCancelled');
+  const inFlight = new Set<Promise<void>>();
+  const { consumerTag } = await channel.consume(queueName, (msg) => {
+    const task = onMessage(channel, msg);
+    inFlight.add(task);
+    void task.finally(() => inFlight.delete(task));
+  });
 
   return async () => {
+    await channel.cancel(consumerTag);
+    await Promise.allSettled([...inFlight]);
+    if (options?.deleteQueueOnStop) await channel.deleteQueue(queueName);
     await channel.close();
     await connection.close();
   };

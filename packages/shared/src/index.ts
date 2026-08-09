@@ -52,6 +52,8 @@ export interface MatchCreatedPayload {
   bookingId: string;
   capacity: number;
   feePerSlot: string;
+  bookingPrice: string;
+  organizerContribution: string;
   cutoffAt: string;
 }
 
@@ -67,6 +69,10 @@ export interface JoinApprovedPayload {
 export interface MatchConfirmedPayload {
   matchId: string;
   bookingId: string;
+  /** D39 fencing identity, persisted by matchmaking before the event is emitted. */
+  attemptId: string;
+  /** Venue-owned revision observed when this attempt was created. */
+  venueRevision: number;
   participantCount: number;
   participantFees: string;
   organizerContribution: string;
@@ -78,4 +84,72 @@ export interface MatchCancelledPayload {
   bookingId: string;
   reason: 'organizer' | 'cutoff' | 'confirmed_booking_policy';
   paidJoinIds: string[];
+  refundPercent?: number;
+}
+
+export interface MatchFeePaymentCompletedPayload {
+  refType: 'matchFee';
+  matchId: string;
+  bookingId: string;
+  contributionId: string;
+  joinId: string | null;
+  userId: string;
+  role: 'participant' | 'organizer';
+  amount: string;
+  paidAt: string;
+}
+
+export interface MatchFeeRefundRequestedPayload {
+  matchId: string;
+  joinId: string;
+  participantUserId: string;
+  reason: 'withdraw_before_cutoff' | 'capacity_race' | 'payment_expired';
+}
+
+export interface BookingConfirmedPayload {
+  bookingId: string;
+  businessUserId: string;
+  gross: string;
+  venueId: string;
+  endAt: string;
+  source: 'marketplace' | 'internal';
+}
+
+export interface BookingCompletedPayload {
+  bookingId: string;
+  completedAt: string;
+}
+
+export interface MatchSettlementPaymentCompletedPayload {
+  refType: 'matchSettlement';
+  matchId: string;
+  bookingId: string;
+  attemptId: string;
+  venueRevision: number;
+}
+
+/** Finance-owned, durable command dispatch after it has accepted all reserves. */
+export interface MatchSettlementRequestedPayload {
+  matchId: string;
+  bookingId: string;
+  attemptId: string;
+  venueRevision: number;
+}
+
+export interface MatchSettlementTooLatePayload {
+  matchId: string;
+  bookingId: string;
+}
+
+/** D39: venue is the single atomic authority for match settlement races. */
+export interface MatchBookingResolutionPayload {
+  commandId: string;
+  matchId: string;
+  bookingId: string;
+  attemptId: string | null;
+  action: 'settle' | 'withdraw' | 'cancel';
+  decision: 'confirmed' | 'held_revoked' | 'cancelled';
+  /** The attempt that actually confirmed the booking, if any. */
+  winningAttemptId: string | null;
+  venueRevision: number;
 }

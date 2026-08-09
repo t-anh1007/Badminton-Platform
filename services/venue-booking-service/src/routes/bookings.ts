@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, getMyBookingDetail } from '../domain/booking.js';
-import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
@@ -54,6 +54,26 @@ bookingRouter.get(
   '/internal/bookings/:id/match-context',
   h(async (req, res) => {
     res.status(200).json(await getMatchContext(req.params.id!));
+  }),
+);
+
+// D39: internal, idempotent command seam for the match settlement race. The
+// venue database owns both the command receipt and the booking fence; callers
+// never write or query venue tables directly.
+const matchResolutionSchema = z.object({
+  commandId: z.string().uuid(),
+  matchId: z.string().uuid(),
+  attemptId: z.string().uuid().nullable(),
+  action: z.enum(['settle', 'withdraw', 'cancel']),
+  venueRevision: z.number().int().nonnegative(),
+}).strict();
+
+bookingRouter.post(
+  '/internal/bookings/:id/match-resolution',
+  requireInternalService,
+  h(async (req, res) => {
+    const input = matchResolutionSchema.parse(req.body);
+    res.status(200).json(await resolveMatchBooking({ ...input, bookingId: z.string().uuid().parse(req.params.id) }));
   }),
 );
 

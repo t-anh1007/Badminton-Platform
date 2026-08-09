@@ -1,7 +1,7 @@
 ---
 type: decision-log
 status: living
-updated: 2026-08-08
+updated: 2026-08-09
 purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 
@@ -42,6 +42,15 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D29 | 2026-08-08 | **Chia phí kèo:** không cho organizer đặt phí tùy ý. Kèo chia phí dùng `feePerSlot = floor(giá booking / capacity)`; participant trả đúng mức này, organizer thanh toán phần còn thiếu `giá booking − tổng participant đã trả` (bao gồm số lẻ phép chia). Vì vậy không có gom dư, ba vế bảo toàn và không P2P. **PO duyệt 2026-08-08.** | MMP-02, MMP-06, FIN-05 |
 | D30 | 2026-08-08 | **Phá vòng phụ thuộc P2-M2↔M3:** M2 nghiệm thu MMP-01..05, `AC-MMP-06-3` và contract event phía match. Chuyển `AC-MMP-06-1/2/4`, `AC-MMP-07-1/2/3`, `AC-MMP-08-1/2/3` sang M3; chỉ đánh `pass` sau E2E ledger/venue thật. Không miễn trừ AC, tổng vẫn 94; giữ commit M2 và M3 riêng. **PO duyệt 2026-08-08.** | P2-M2, P2-M3, MMP-06..08, FIN-05 |
 | D31 | 2026-08-08 | **Danh tính organizer trên kèo công khai:** nếu hồ sơ người chơi `visibility=public`, trả tên hiển thị thật; nếu `visibility=private`, trả nhãn cố định **“Người tổ chức”** và `identityVisibility=hidden`. Bậc trình độ và dữ liệu kèo vẫn hiển thị vì là thông tin cần cho MMP-03. **PO duyệt 2026-08-08.** | MMP-03, account-service, matchmaking-service |
+| D32 | 2026-08-08 | **Hoàn phí khi participant rút khỏi kèo:** chính sách nhị phân theo `cutoffAt`; trước cutoff hoàn 100% về ví cá nhân, từ cutoff trở đi không hoàn. Không áp bậc thang hủy booking cho phí JOIN. **PO duyệt 2026-08-08.** | BR-MMP-09, MMP-07, FIN-05 |
+| D33 | 2026-08-08 | **Organizer hủy kèo sau khi booking đã confirmed:** áp đúng `policySnapshot` bậc thang GĐ1 của booking (≥24h: 100%; 6–<24h: 50%; <6h: 0%). Mỗi participant và organizer nhận cùng tỷ lệ hoàn trên **đúng phần mình đã góp**; phần không hoàn đi theo luồng hủy booking GĐ1. Không P2P, tổng hoàn không vượt tổng góp và bảo toàn giá trị. **PO duyệt 2026-08-08.** | AC-MMP-08-3, BR-BOK-05/06, FIN-05 |
+| D34 | 2026-08-08 | **Không thu thêm phí phạt no-show/rút trễ ở GĐ2.** Chế tài tiền duy nhất là phí JOIN đã thu không được hoàn từ `cutoffAt` theo D32. Không mở loại ledger, nguồn thu hay AC phạt riêng. **PO duyệt 2026-08-08.** | FIN-05, MMP-07 |
+| D35 | 2026-08-08 | **Hủy toàn kèo ghi đè non-refund của lượt rút trễ:** D32 chỉ giữ phí rút từ cutoff nếu kèo vẫn diễn ra. Nếu kèo cuối cùng `cancelled` và booking/hold được nhả, mọi contribution đã thu — kể cả của người rút trễ — được hoàn về đúng ví góp. Platform không giữ tiền khi dịch vụ sân không được sử dụng. **PO duyệt 2026-08-08.** | AC-MMP-07-2, AC-MMP-08-2, AC-FIN-05-4/5 |
+| D36 | 2026-08-08 | **Rút trước cutoff sau khi booking sân đã confirmed:** chỉ hoàn 100% khi booking còn `held`. Nếu booking đã `confirmed`, participant được đánh dấu `withdrawn` nhưng không hoàn riêng; chỉ nhận phần hoàn nếu cả kèo bị hủy theo D33. Không bắt organizer bù và platform không tạm ứng. **PO duyệt 2026-08-08.** | AC-MMP-07-1/3, FIN-05 conservation |
+| D37 | 2026-08-08 | **Làm tròn hoàn tiền D33:** với tỷ lệ hoàn booking, mỗi participant nhận `floor(contribution × percent / 100)`; organizer nhận phần còn lại `refundGross − tổng hoàn participant`. Vì vậy tổng hoàn contributor bằng đúng hoàn booking, participant không nhận vượt phần góp và organizer hấp thụ phần lẻ như D29. **PO duyệt 2026-08-08.** | AC-MMP-08-3, AC-FIN-05-8 |
+| D38 | 2026-08-09 | **Receipt SePay phí kèo đến khi contribution không còn payable:** không bỏ qua hoặc treo vô hạn receipt đã nhận. Finance ghi nhận idempotent đúng một lần và ghi có toàn bộ vào ví cá nhân của payer; khoản đó không được reserve, không tính vào funding/settlement của kèo và không P2P. Tạo intent organizer chỉ được phép khi match đã đủ điều kiện funding; race còn lại dùng cùng đường credit này. **PO duyệt 2026-08-09.** | AC-FIN-05-1/3/8, FIN-05 conservation |
+| D39 | 2026-08-09 | **Race settlement–withdraw/cancel:** `venue-booking-service` là nguồn quyết định nguyên tử. Mỗi settlement mang `attemptId` và revision fencing của booking; khi booking còn `held`, venue atomically chấp nhận revoke attempt trước xác nhận thì withdrawal/cancel thắng, hoàn theo D36 và stale settlement bị triệt tiêu/đảo trong finance. Nếu venue đã atomically xác nhận booking trước, confirmation thắng và không hoàn riêng theo D36. Withdrawal một người giữ booking `held` và mở lại chỗ; hủy toàn kèo mới nhả hold. Không query/FK chéo schema. **PO duyệt 2026-08-09.** | AC-MMP-07-1/3, AC-MMP-08-1/2, AC-FIN-05-5/8 |
+| D40 | 2026-08-09 | **Xác thực lệnh ghi D39:** `POST /internal/bookings/:id/match-resolution` phải dùng shared service secret bắt buộc qua header `x-internal-service-token`. Finance và Matchmaking gửi secret; Venue fail-closed khi thiếu/sai hoặc chưa cấu hình. Không coi private network là quyền ghi đủ cho thao tác xác nhận/hủy sân. **PO duyệt 2026-08-09.** | D39, AC-MMP-07/08, AC-FIN-05-5/8 |
 
 ### Lý do đáng ghi nhớ
 

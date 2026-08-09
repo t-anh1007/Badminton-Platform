@@ -2,6 +2,8 @@ import { prisma } from '../lib/prisma.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { postLedgerEntry, getOrCreateWallet } from './wallet.js';
 import { fetchPaymentStatus } from '../lib/venueBookingClient.js';
+import { ensurePlatformWallet } from './wallet.js';
+import { reserveMatchContributionFromSepay } from './matchFee.js';
 
 export interface IncomingTransfer {
   externalRef: string;
@@ -17,9 +19,25 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
   const already = await prisma.sepayEvent.findUnique({ where: { externalRef: transfer.externalRef } });
   if (already) return;
 
-  const intent = await prisma.paymentIntent.findFirst({
-    where: { matchCode: transfer.rawRef, status: 'pending' },
+  const matchingIntent = await prisma.paymentIntent.findFirst({
+    where: { matchCode: transfer.rawRef },
   });
+
+  // A second real bank transfer can legitimately carry the same match code
+  // after the original match-fee intent has completed or failed. It is not a
+  // manual-reconciliation item: credit the payer without reopening funding.
+  if (matchingIntent?.refType === 'matchFee' && matchingIntent.status !== 'pending') {
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${transfer.externalRef}))) AS event_lock`;
+      if (await tx.sepayEvent.findUnique({ where: { externalRef: transfer.externalRef } })) return;
+      const contribution = await tx.matchContribution.findUnique({ where: { id: matchingIntent.refId } });
+      if (!contribution) throw new Error('PaymentIntent matchFee contribution no longer exists');
+      await creditAdditionalMatchFeeReceipt(tx, transfer, matchingIntent, contribution.id);
+    });
+    return;
+  }
+
+  const intent = matchingIntent?.status === 'pending' ? matchingIntent : null;
 
   if (!intent) {
     // AC-FIN-02-4: không khớp mã nào -> hàng chờ đối soát tay, không ví nào đổi.
@@ -53,6 +71,108 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
         },
       });
       await tx.sepayAllocation.create({ data: { sepayEventId: event.id, kind: 'topup', amount: transfer.amount, refId: topupEntry.id } });
+    });
+    return;
+  }
+
+  if (intent.refType === 'matchFee') {
+    const contribution = await prisma.matchContribution.findUnique({
+      where: { id: intent.refId },
+      include: { funding: true },
+    });
+    if (!contribution) throw new Error('PaymentIntent matchFee không khớp contribution');
+    const expired = contribution.status !== 'pending'
+      || contribution.funding.status !== 'collecting'
+      || contribution.funding.cutoffAt <= new Date()
+      || (contribution.expiresAt !== null && contribution.expiresAt <= new Date());
+    if (expired) {
+      await prisma.$transaction(async (tx) => {
+        const state = await lockMatchFeeIntent(tx, intent.id, transfer);
+        if (state === 'duplicate') return;
+        if (state === 'terminal') {
+          await creditAdditionalMatchFeeReceipt(tx, transfer, intent, contribution.id);
+          return;
+        }
+        const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
+        const entry = await postLedgerEntry(tx, {
+          walletId: wallet.id,
+          amount: transfer.amount,
+          type: 'topup',
+          refType: 'late_match_fee',
+          refId: contribution.id,
+        });
+        await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'failed' } });
+        await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
+      });
+      return;
+    }
+    if (transfer.amount >= intent.amount) {
+      await ensurePlatformWallet();
+      const excess = transfer.amount - intent.amount;
+      await prisma.$transaction(async (tx) => {
+        const state = await lockMatchFeeIntent(tx, intent.id, transfer);
+        if (state === 'duplicate') return;
+        if (state === 'terminal') {
+          await creditAdditionalMatchFeeReceipt(tx, transfer, intent, contribution.id);
+          return;
+        }
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${contribution.matchId}, 0))`;
+        const freshContribution = await tx.matchContribution.findUnique({
+          where: { id: contribution.id },
+          include: { funding: true },
+        });
+        if (!freshContribution) throw new Error('PaymentIntent matchFee contribution no longer exists');
+        if (await isMatchContributionNoLongerPayable(tx, freshContribution, new Date())) {
+          await creditLateMatchFee(tx, transfer, intent, freshContribution.id);
+          return;
+        }
+        await reserveMatchContributionFromSepay(tx, contribution.id, intent.id);
+        await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'completed' } });
+        let excessEntryId: string | null = null;
+        if (excess > 0n) {
+          const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
+          const entry = await postLedgerEntry(tx, {
+            walletId: wallet.id,
+            amount: excess,
+            type: 'topup',
+            refType: 'overpay_match_fee',
+            refId: contribution.id,
+          });
+          excessEntryId = entry.id;
+        }
+        await recordSepayEvent(tx, transfer, intent.id, [
+          { kind: 'matchFee', amount: intent.amount, refId: contribution.id },
+          ...(excessEntryId ? [{ kind: 'topup', amount: excess, refId: excessEntryId }] : []),
+        ]);
+      });
+      return;
+    }
+    await prisma.$transaction(async (tx) => {
+      const state = await lockMatchFeeIntent(tx, intent.id, transfer);
+      if (state === 'duplicate') return;
+      if (state === 'terminal') {
+        await creditAdditionalMatchFeeReceipt(tx, transfer, intent, contribution.id);
+        return;
+      }
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${contribution.matchId}, 0))`;
+      const freshContribution = await tx.matchContribution.findUnique({
+        where: { id: contribution.id },
+        include: { funding: true },
+      });
+      if (!freshContribution) throw new Error('PaymentIntent matchFee contribution no longer exists');
+      if (await isMatchContributionNoLongerPayable(tx, freshContribution, new Date())) {
+        await creditLateMatchFee(tx, transfer, intent, freshContribution.id);
+        return;
+      }
+      const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
+      const entry = await postLedgerEntry(tx, {
+        walletId: wallet.id,
+        amount: transfer.amount,
+        type: 'topup',
+        refType: 'partial_match_fee',
+        refId: contribution.id,
+      });
+      await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
     });
     return;
   }
@@ -112,6 +232,76 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
     const topupEntry = await postLedgerEntry(tx, { walletId: wallet.id, amount: transfer.amount, type: 'topup', refType: 'partial_payment', refId: intent.refId });
     await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: topupEntry.id }]);
   });
+}
+
+async function isMatchContributionNoLongerPayable(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  contribution: {
+    status: string;
+    role: string;
+    matchId: string;
+    expiresAt: Date | null;
+    funding: { status: string; cutoffAt: Date; capacity: number };
+  },
+  now: Date,
+) {
+  const noLongerPayable = contribution.status !== 'pending'
+    || contribution.funding.status !== 'collecting'
+    || contribution.funding.cutoffAt <= now
+    || (contribution.expiresAt !== null && contribution.expiresAt <= now);
+  if (noLongerPayable || contribution.role !== 'organizer') return noLongerPayable;
+  const paidParticipants = await tx.matchContribution.count({
+    where: { matchId: contribution.matchId, role: 'participant', status: 'paid' },
+  });
+  return paidParticipants !== contribution.funding.capacity - 1;
+}
+
+async function creditLateMatchFee(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  transfer: IncomingTransfer,
+  intent: { id: string; userId: string },
+  contributionId: string,
+): Promise<void> {
+  const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
+  const entry = await postLedgerEntry(tx, {
+    walletId: wallet.id,
+    amount: transfer.amount,
+    type: 'topup',
+    refType: 'late_match_fee',
+    refId: contributionId,
+  });
+  await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'failed' } });
+  await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
+}
+
+async function creditAdditionalMatchFeeReceipt(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  transfer: IncomingTransfer,
+  intent: { id: string; userId: string },
+  contributionId: string,
+): Promise<void> {
+  const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
+  const entry = await postLedgerEntry(tx, {
+    walletId: wallet.id,
+    amount: transfer.amount,
+    type: 'topup',
+    refType: 'late_match_fee',
+    refId: contributionId,
+  });
+  await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
+}
+
+async function lockMatchFeeIntent(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  intentId: string,
+  transfer: IncomingTransfer,
+): Promise<'pending' | 'terminal' | 'duplicate'> {
+  await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${transfer.externalRef}))) AS event_lock`;
+  if (await tx.sepayEvent.findUnique({ where: { externalRef: transfer.externalRef } })) return 'duplicate';
+  await tx.$queryRaw`SELECT id FROM payment_intents WHERE id = ${intentId} FOR UPDATE`;
+  const fresh = await tx.paymentIntent.findUnique({ where: { id: intentId } });
+  if (!fresh || fresh.refType !== 'matchFee') throw new Error('PaymentIntent matchFee no longer exists');
+  return fresh.status === 'pending' ? 'pending' : 'terminal';
 }
 
 async function lockPendingIntent(

@@ -18,6 +18,10 @@ class FakeVenueBookingClient implements VenueBookingClient {
   async createBookingFromHold(): Promise<string> {
     throw new Error('not configured for this test');
   }
+
+  async cancelConfirmedBooking(): Promise<{ refundPercent: number }> {
+    return { refundPercent: 50 };
+  }
 }
 
 class FakeAccountClient implements AccountClient {
@@ -60,6 +64,7 @@ function context(bookingId: string, startAt: Date): VenueMatchContext {
 }
 
 async function createMatch(input: {
+  capacity?: number;
   status?: 'open' | 'filled';
   cutoffAt?: Date;
   skillMin?: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
@@ -72,7 +77,7 @@ async function createMatch(input: {
     data: {
       organizerUserId: randomUUID(),
       bookingId,
-      capacity: 4,
+      capacity: input.capacity ?? 4,
       feePerSlot: 100000n,
       cutoffAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
       status: input.status ?? 'open',
@@ -414,7 +419,7 @@ describe('MMP-05 — organizer join review', () => {
 
 describe('MMP-06 — free match confirmation', () => {
   it('AC-MMP-06-3: organizer approval confirms a free join without payment', async () => {
-    const match = await createMatch({});
+    const match = await createMatch({ capacity: 2 });
     await prisma.match.update({ where: { id: match.id }, data: { feePerSlot: 0n } });
     const join = await prisma.join.create({
       data: { matchId: match.id, participantUserId: randomUUID() },
@@ -427,6 +432,7 @@ describe('MMP-06 — free match confirmation', () => {
     eventAggregateIds.push(join.id);
 
     expect(response.body).toMatchObject({ status: 'confirmed', feePaidAt: null });
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'filled' });
   });
 
   it('AC-MMP-06-3: concurrent free approvals cannot exceed capacity', async () => {

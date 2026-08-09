@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { verifyAccessToken } from '../lib/jwt.js';
 
 export interface AuthenticatedRequest extends Request {
@@ -28,4 +29,22 @@ export function requireRole(role: string) {
     }
     next();
   };
+}
+
+/** D40: a mutating `/internal` command is not a browser/user endpoint. It is
+ * fail-closed unless the caller presents the configured shared service secret.
+ * Read-only internal snapshots deliberately retain their existing boundary. */
+export function requireInternalService(req: Request, res: Response, next: NextFunction): void {
+  const expected = process.env.INTERNAL_SERVICE_TOKEN;
+  const actual = req.header('x-internal-service-token');
+  if (!expected) {
+    res.status(503).json({ error: { code: 'INTERNAL_SERVICE_AUTH_UNCONFIGURED', message: 'Chưa cấu hình xác thực service nội bộ.' } });
+    return;
+  }
+  if (!actual || actual.length !== expected.length
+    || !timingSafeEqual(Buffer.from(actual), Buffer.from(expected))) {
+    res.status(401).json({ error: { code: 'INTERNAL_SERVICE_UNAUTHORIZED', message: 'Không được phép gọi lệnh nội bộ.' } });
+    return;
+  }
+  next();
 }

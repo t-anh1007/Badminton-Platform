@@ -35,6 +35,13 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   if (booking.userId !== userId) {
     throw new AppError('FORBIDDEN', 'Không có quyền hủy booking này.', 403);
   }
+  // D39/D33 recovery: if the Venue cancellation committed but Matchmaking
+  // crashed before it consumed the result, the same authenticated owner gets
+  // the durable policy outcome rather than a misleading conflict.
+  if (booking.status === 'cancelled' && booking.cancellationReason === 'self'
+    && booking.cancellationRefundPercent !== null) {
+    return { status: 'cancelled' as const, refundPercent: booking.cancellationRefundPercent };
+  }
   assertCancellable(booking);
   const hoursUntilStart = (booking.startAt.getTime() - Date.now()) / 3_600_000;
   const refundPercent = getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart);
@@ -42,7 +49,7 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   return prisma.$transaction(async (tx) => {
     const updated = await tx.booking.updateMany({
       where: { id: booking.id, status: 'confirmed' },
-      data: { status: 'cancelled', cancellationReason: 'self' },
+      data: { status: 'cancelled', cancellationReason: 'self', cancellationRefundPercent: refundPercent },
     });
     if (updated.count !== 1) {
       throw new AppError('BOOKING_NOT_CONFIRMED', 'Booking đã được xử lý trước đó.', 409);
@@ -164,7 +171,7 @@ async function cancelBookingWithReason(
   return prisma.$transaction(async (tx) => {
     const updated = await tx.booking.updateMany({
       where: { id: booking.id, status: 'confirmed' },
-      data: { status: 'cancelled', cancellationReason: reason },
+      data: { status: 'cancelled', cancellationReason: reason, cancellationRefundPercent: 100 },
     });
     if (updated.count !== 1) throw new AppError('BOOKING_NOT_CONFIRMED', 'Booking đã được xử lý trước đó.', 409);
     await writeOutbox(tx, {

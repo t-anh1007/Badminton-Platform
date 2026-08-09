@@ -3,7 +3,7 @@ type: data-model-addendum
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-07
+updated: 2026-08-09
 extends: docs/architecture/data-model.md
 ---
 
@@ -27,6 +27,9 @@ chốt trong schema của service sở hữu.
 | skillMin, skillMax | int? | khoảng rating mong muốn (tùy chọn) |
 | status | enum | `open`/`filled`/`confirmed`/`completed`/`cancelled` |
 | cutoffAt | timestamptz | hạn chốt (BR-MMP-07) |
+| fundingRequestedAt | timestamptz? | mốc yêu cầu settlement; không thay thế quyết định của Venue |
+| settlementAttemptId | uuid? UNIQUE | fencing token của một lần settlement D39; tham chiếu opaque sang Venue/Finance, không FK |
+| settlementVenueRevision | int | revision Venue đã quan sát cho attempt hiện tại; tối thiểu 0 |
 | createdAt | timestamptz | |
 
 ### JOIN (lượt tham gia)
@@ -69,6 +72,38 @@ chốt trong schema của service sở hữu.
 
 ### Idempotency & outbox (như GĐ1)
 - `Outbox`, `ProcessedEvent` (cùng mẫu GĐ1) trong schema `matchmaking`.
+
+### MATCH_RESOLUTION (D39 command receipt)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| commandId | uuid PK | idempotency key của action rút/hủy |
+| matchId | uuid FK→MATCH | cùng schema |
+| joinId | uuid? FK→JOIN | có khi action `withdraw`; null khi `cancel` |
+| action | enum | `withdraw` / `cancel` |
+| attemptId | uuid? | fencing token opaque từ MATCH |
+| venueRevision | int | revision yêu cầu từ Venue |
+| decision | enum | `pending` / `confirmed` / `held_revoked` / `cancelled` |
+| createdAt, resolvedAt | timestamptz | persist action trước HTTP; recovery qua `MatchBookingResolved` |
+
+### D39 — phân quyền settlement sở hữu Venue, tiền sở hữu Finance
+
+`matchmaking` lưu action receipt và chỉ tham chiếu `bookingId`. `venue-booking` lưu trên `Booking`
+`matchSettlementRevision`, `matchSettlementAttemptId` và `MatchBookingCommand` (`commandId` PK,
+`bookingId` FK cùng schema, `matchId` opaque, `attemptId`, `action`, `expectedVenueRevision`,
+`decision`, `winningAttemptId`, `venueRevision`, timestamps). Trong một transaction khóa booking,
+Venue ghi receipt + `MatchBookingResolved` outbox và quyết định `confirmed`, `held_revoked` hoặc
+`cancelled`. Không có Matchmaking/Finance query hay FK vào các bảng Venue.
+
+Khi hủy booking đã `confirmed`, Venue còn lưu `Booking.cancellationRefundPercent` cùng reason.
+Chủ booking xác thực retry nhận lại đúng kết quả policy đã commit; nhờ đó saga D33 của Matchmaking
+không diễn giải một booking đã hủy thành hủy kèo `held` sau crash/timeout.
+
+`finance` lưu `MatchFunding` trong schema Finance: `status` = `collecting` / `settling` /
+`settled` / `cancelled`, `settlementAttemptId`, `settlementVenueRevision`, và các
+`MatchContribution`/ledger của nó. Finance chỉ chuyển `collecting` sang `settling` sau khi kiểm tra
+ba vế D29; chỉ hạch toán `settlement` sau `MatchBookingResolved(confirmed)` khớp attempt + revision.
+`held_revoked` trả funding về `collecting` không động ledger; `cancelled` hoàn theo policy. Toàn bộ
+ID liên service là giá trị opaque, không FK/query chéo schema.
 
 ## 2. Schema `community` (service `community-service`)
 

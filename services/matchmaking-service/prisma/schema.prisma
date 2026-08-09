@@ -31,6 +31,20 @@ enum JoinStatus {
   withdrawn
 }
 
+/// D39 logical actions are persisted before the caller invokes the venue
+/// command. This is a local saga receipt, not a foreign key to venue data.
+enum MatchResolutionAction {
+  withdraw
+  cancel
+}
+
+enum MatchResolutionDecision {
+  pending
+  confirmed
+  held_revoked
+  cancelled
+}
+
 enum SkillTier {
   newcomer
   beginner
@@ -49,12 +63,35 @@ model Match {
   skillMax        SkillTier?
   status          MatchStatus @default(open)
   cutoffAt        DateTime    @db.Timestamptz(3)
+  organizerContributionPaidAt DateTime? @db.Timestamptz(3)
+  organizerContributionId     String?   @unique
+  fundingRequestedAt          DateTime? @db.Timestamptz(3)
+  settlementAttemptId         String?   @unique
+  settlementVenueRevision     Int       @default(0)
   createdAt       DateTime    @default(now()) @db.Timestamptz(3)
   joins           Join[]
   evaluations     Evaluation[]
+  resolutions     MatchResolution[]
 
   @@index([status, cutoffAt])
   @@map("matches")
+}
+
+model MatchResolution {
+  commandId     String                  @id
+  matchId       String
+  joinId        String?
+  action        MatchResolutionAction
+  cancelReason  String?
+  attemptId     String?
+  venueRevision Int
+  decision      MatchResolutionDecision @default(pending)
+  createdAt     DateTime                @default(now()) @db.Timestamptz(3)
+  resolvedAt    DateTime?               @db.Timestamptz(3)
+  match         Match                   @relation(fields: [matchId], references: [id])
+
+  @@index([matchId, action, decision])
+  @@map("match_resolutions")
 }
 
 model Join {
@@ -64,6 +101,7 @@ model Join {
   status            JoinStatus @default(pending)
   feePaidAt         DateTime?  @db.Timestamptz(3)
   approvedAt        DateTime?  @db.Timestamptz(3)
+  paymentContributionId String? @unique
   createdAt         DateTime   @default(now()) @db.Timestamptz(3)
   match             Match      @relation(fields: [matchId], references: [id])
 

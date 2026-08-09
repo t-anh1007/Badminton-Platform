@@ -35,14 +35,24 @@ let stopVbConsume: () => Promise<void>;
 let stopVbPublish: () => void;
 let stopFinConsume: () => Promise<void>;
 let stopFinPublish: () => void;
+const integrationQueueSuffix = randomUUID();
 
 beforeAll(async () => {
   const vbApp = createVenueApp();
   vbServer = vbApp.listen(vbEnv.port);
   await new Promise<void>((resolve) => vbServer.once('listening', () => resolve()));
-  stopVbConsume = await vbConsume();
+  // Do not attach this test to long-lived production-shaped queues: those retain
+  // unrelated Phase 1/2 messages between runs and turn a focused saga proof into
+  // nondeterministic backlog processing. The relays still use real RabbitMQ.
+  stopVbConsume = await vbConsume({
+    queueName: `venue-booking.g4-saga-${integrationQueueSuffix}`,
+    deleteQueueOnStop: true,
+  });
   stopVbPublish = await vbPublish();
-  stopFinConsume = await finConsume();
+  stopFinConsume = await finConsume({
+    queueName: `finance.g4-saga-${integrationQueueSuffix}`,
+    deleteQueueOnStop: true,
+  });
   stopFinPublish = await finPublish();
 }, 30000);
 

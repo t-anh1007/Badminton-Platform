@@ -6,6 +6,7 @@ import { createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } fro
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
+import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -71,6 +72,23 @@ export function createMatchRouter(venueBookingClient: VenueBookingClient, accoun
     const joinId = z.string().uuid().parse(req.params.joinId);
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(200).json(await rejectJoin(matchId, joinId, userId));
+  }));
+  router.post('/:matchId/joins/:joinId/withdraw', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const joinId = z.string().uuid().parse(req.params.joinId);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(await withdrawJoin(venueBookingClient, matchId, joinId, userId));
+  }));
+  router.post('/:matchId/cancel', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const match = await cancelMatchByOrganizer(
+      venueBookingClient,
+      matchId,
+      userId,
+      req.headers.authorization!,
+    );
+    res.status(200).json({ ...match, feePerSlot: match.feePerSlot.toString() });
   }));
   router.get('/:matchId', optionalAuth, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);

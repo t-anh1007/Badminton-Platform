@@ -6,6 +6,26 @@ import { handleUserRegistered, handleProviderApproved } from '../domain/walletPr
 import { recordBookingRevenue } from '../domain/revenue.js';
 import { creditLatePayment } from '../domain/latePayment.js';
 import { refundCancelledBooking, type BookingCancelledPayload } from '../domain/refund.js';
+import type {
+  JoinApprovedPayload,
+  MatchCancelledPayload,
+  MatchConfirmedPayload,
+  MatchCreatedPayload,
+  MatchFeeRefundRequestedPayload,
+  MatchBookingResolutionPayload,
+  MatchSettlementRequestedPayload,
+} from '@khoaluantn/shared';
+import {
+  handleJoinApproved,
+  handleMatchCancelled,
+  handleMatchConfirmed,
+  handleMatchCreated,
+  handleMatchFeeRefundRequested,
+  handleMatchBookingResolved,
+  handleMatchSettlementRequested,
+  handleMatchSettlementTooLate,
+} from '../domain/matchFee.js';
+import type { MatchSettlementTooLatePayload } from '@khoaluantn/shared';
 
 const QUEUE_NAME = 'finance.domain-events';
 
@@ -25,7 +45,11 @@ function eventIdOf(msg: ConsumeMessage): string {
   return `${msg.fields.routingKey}:${hash}`;
 }
 
-async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<void> {
+type EventConsumerHooks = {
+  beforeMatchBookingResolved?: (payload: MatchBookingResolutionPayload) => Promise<void> | void;
+};
+
+async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: EventConsumerHooks): Promise<void> {
   if (!msg) return;
   try {
     const envelope = JSON.parse(msg.content.toString()) as { type: string; payload: unknown };
@@ -43,6 +67,23 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
       await creditLatePayment(eventId, envelope.payload as { bookingId: string; userId: string | null; amount: string });
     } else if (envelope.type === 'BookingCancelled') {
       await handleBookingCancelled(eventId, envelope.payload);
+    } else if (envelope.type === 'MatchCreated') {
+      await handleMatchCreated(eventId, envelope.payload as MatchCreatedPayload);
+    } else if (envelope.type === 'JoinApproved') {
+      await handleJoinApproved(eventId, envelope.payload as JoinApprovedPayload);
+    } else if (envelope.type === 'MatchConfirmed') {
+      await handleMatchConfirmed(eventId, envelope.payload as MatchConfirmedPayload);
+    } else if (envelope.type === 'MatchCancelled') {
+      await handleMatchCancelled(eventId, envelope.payload as MatchCancelledPayload);
+    } else if (envelope.type === 'MatchFeeRefundRequested') {
+      await handleMatchFeeRefundRequested(eventId, envelope.payload as MatchFeeRefundRequestedPayload);
+    } else if (envelope.type === 'MatchSettlementTooLate') {
+      await handleMatchSettlementTooLate(eventId, envelope.payload as MatchSettlementTooLatePayload);
+    } else if (envelope.type === 'MatchBookingResolved') {
+      await hooks?.beforeMatchBookingResolved?.(envelope.payload as MatchBookingResolutionPayload);
+      await handleMatchBookingResolved(eventId, envelope.payload as MatchBookingResolutionPayload);
+    } else if (envelope.type === 'MatchSettlementRequested') {
+      await handleMatchSettlementRequested(eventId, envelope.payload as MatchSettlementRequestedPayload);
     }
     channel.ack(msg);
   } catch (err) {
@@ -53,17 +94,23 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
 }
 
 /** Kết nối RabbitMQ, bind queue riêng vào UserRegistered + BookingConfirmed + PaymentTooLate. */
-export async function bootstrapEventConsumption(): Promise<() => Promise<void>> {
+export async function bootstrapEventConsumption(options?: {
+  queueName?: string;
+  deleteQueueOnStop?: boolean;
+  beforeMatchBookingResolved?: (payload: MatchBookingResolutionPayload) => Promise<void> | void;
+}): Promise<() => Promise<void>> {
   const { connection, channel } = await connectRabbitMQ(env.rabbitmqUrl);
-  await channel.assertQueue(QUEUE_NAME, { durable: true });
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'UserRegistered');
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'ProviderApproved');
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'BookingConfirmed');
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'PaymentTooLate');
-  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'BookingCancelled');
+  const queueName = options?.queueName ?? QUEUE_NAME;
+  await channel.assertQueue(queueName, { durable: !options?.deleteQueueOnStop, autoDelete: Boolean(options?.deleteQueueOnStop) });
+  for (const eventType of [
+    'UserRegistered', 'ProviderApproved', 'BookingConfirmed', 'PaymentTooLate',
+    'BookingCancelled', 'MatchCreated', 'JoinApproved', 'MatchConfirmed',
+    'MatchCancelled', 'MatchFeeRefundRequested', 'MatchSettlementTooLate', 'MatchBookingResolved',
+    'MatchSettlementRequested',
+  ]) await channel.bindQueue(queueName, 'domain-events', eventType);
   const inFlight = new Set<Promise<void>>();
-  const { consumerTag } = await channel.consume(QUEUE_NAME, (msg) => {
-    const task = onMessage(channel, msg);
+  const { consumerTag } = await channel.consume(queueName, (msg) => {
+    const task = onMessage(channel, msg, { beforeMatchBookingResolved: options?.beforeMatchBookingResolved });
     inFlight.add(task);
     void task.finally(() => inFlight.delete(task));
   });
@@ -74,6 +121,7 @@ export async function bootstrapEventConsumption(): Promise<() => Promise<void>> 
     // nack on an already closed channel.
     await channel.cancel(consumerTag);
     await Promise.allSettled([...inFlight]);
+    if (options?.deleteQueueOnStop) await channel.deleteQueue(queueName);
     await channel.close();
     await connection.close();
   };

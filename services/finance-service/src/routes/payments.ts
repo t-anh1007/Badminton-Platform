@@ -8,6 +8,12 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { env } from '../lib/env.js';
 import { AppError } from '../lib/errors.js';
 import { handleOutgoingTransfer } from '../domain/outgoingTransfer.js';
+import {
+  createMatchContributionSepayIntent,
+  getOrganizerContribution,
+  getParticipantContribution,
+  payMatchContributionWithBalance,
+} from '../domain/matchFee.js';
 
 export const paymentRouter = Router();
 
@@ -22,6 +28,48 @@ paymentRouter.post(
     const userId = (req as AuthenticatedRequest).user!.id;
     const intent = await createTopupIntent(userId, BigInt(amount));
     res.status(201).json(intent);
+  }),
+);
+
+paymentRouter.post(
+  '/matches/:matchId/joins/:joinId/pay/balance',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const contribution = await getParticipantContribution(req.params.matchId!, req.params.joinId!);
+    await payMatchContributionWithBalance(userId, contribution.id);
+    res.status(200).json({ message: 'Đã thanh toán phí tham gia bằng số dư.' });
+  }),
+);
+
+paymentRouter.post(
+  '/matches/:matchId/joins/:joinId/pay/sepay',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const contribution = await getParticipantContribution(req.params.matchId!, req.params.joinId!);
+    res.status(201).json(await createMatchContributionSepayIntent(userId, contribution.id));
+  }),
+);
+
+paymentRouter.post(
+  '/matches/:matchId/organizer-contribution/pay/balance',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const contribution = await getOrganizerContribution(req.params.matchId!);
+    await payMatchContributionWithBalance(userId, contribution.id);
+    res.status(200).json({ message: 'Đã thanh toán phần organizer.' });
+  }),
+);
+
+paymentRouter.post(
+  '/matches/:matchId/organizer-contribution/pay/sepay',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const contribution = await getOrganizerContribution(req.params.matchId!);
+    res.status(201).json(await createMatchContributionSepayIntent(userId, contribution.id));
   }),
 );
 

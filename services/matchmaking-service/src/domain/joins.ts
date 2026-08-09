@@ -71,12 +71,17 @@ export async function approveJoin(
     if (match.organizerUserId !== organizerUserId) {
       throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chỉ organizer của kèo được duyệt người chơi.');
     }
+    if (match.status === 'filled' && match.feePerSlot === 0n) {
+      throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
+    }
     if (match.status !== 'open') throw new AppError(409, 'MATCH_NOT_OPEN', 'Kèo không còn mở.');
     const join = await tx.join.findUnique({ where: { id: joinId } });
     if (!join || join.matchId !== matchId) throw new AppError(404, 'JOIN_NOT_FOUND', 'Không tìm thấy yêu cầu.');
     if (join.status !== 'pending') throw new AppError(409, 'JOIN_NOT_PENDING', 'Yêu cầu không còn chờ duyệt.');
+    const confirmedCount = match.feePerSlot === 0n
+      ? await tx.join.count({ where: { matchId, status: 'confirmed' } })
+      : 0;
     if (match.feePerSlot === 0n) {
-      const confirmedCount = await tx.join.count({ where: { matchId, status: 'confirmed' } });
       if (confirmedCount + 1 >= match.capacity) {
         throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
       }
@@ -89,6 +94,9 @@ export async function approveJoin(
         approvedAt: now,
       },
     });
+    if (match.feePerSlot === 0n && confirmedCount + 1 === match.capacity - 1) {
+      await tx.match.update({ where: { id: match.id }, data: { status: 'filled' } });
+    }
     await writeOutbox(tx, {
       aggregateType: 'Join',
       aggregateId: join.id,

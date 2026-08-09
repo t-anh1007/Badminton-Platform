@@ -59,6 +59,9 @@ export async function createMatch(
   }
   const price = BigInt(context.priceSnapshot);
   const feePerSlot = input.feeMode === 'free' ? 0n : price / BigInt(input.capacity);
+  const organizerContribution = input.feeMode === 'free'
+    ? price
+    : price - feePerSlot * BigInt(input.capacity - 1);
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
@@ -96,6 +99,8 @@ export async function createMatch(
         bookingId,
         capacity: match.capacity,
         feePerSlot: match.feePerSlot.toString(),
+        bookingPrice: price.toString(),
+        organizerContribution: organizerContribution.toString(),
         cutoffAt: match.cutoffAt.toISOString(),
       } satisfies MatchCreatedPayload,
     });

@@ -52,6 +52,21 @@ enum BookingStatus {
   cancelled
 }
 
+/// D39 command receipt: a venue booking serializes settlement and revocation
+/// commands under its own lock. These are venue-owned records, never a
+/// cross-schema reference to a match aggregate.
+enum MatchBookingCommandAction {
+  settle
+  withdraw
+  cancel
+}
+
+enum MatchBookingCommandDecision {
+  confirmed
+  held_revoked
+  cancelled
+}
+
 /// D10: phân biệt tự hủy (FIN-07, bậc thang) với lỗi phía sân/nền tảng (FIN-08, hoàn 100%).
 enum CancellationReason {
   self
@@ -213,6 +228,9 @@ model Booking {
   status       BookingStatus @default(held)
   /// D10: phân biệt luồng hoàn FIN-07 (self) vs FIN-08 (provider_fault | platform_admin).
   cancellationReason CancellationReason?
+  /// Persist the actual GĐ1 policy result so an authenticated cancellation
+  /// retry can resume the D33 match saga after a process crash.
+  cancellationRefundPercent Int?
   policySnapshot     Json?
   priceSnapshot      BigInt
   createdAt          DateTime @default(now()) @db.Timestamptz(3)
@@ -224,8 +242,33 @@ model Booking {
   /// BOK-10-6: dấu tối thiểu để chi tiết booking thông báo rằng phía sân đã
   /// chuyển booking sang sân con khác. PO duyệt bổ sung schema ngày 2026-08-06.
   courtChangedAt DateTime? @db.Timestamptz(3)
+  /// D39 fencing token owned by venue. Any revoke increments it and makes an
+  /// older settlement attempt permanently unable to confirm this booking.
+  matchSettlementRevision Int @default(0)
+  matchSettlementAttemptId String?
+  matchCommands MatchBookingCommand[]
 
   @@map("bookings")
+}
+
+/// Durable receipt for D39's internal match-resolution command. `commandId`
+/// is an idempotency key supplied by the caller; the result is replayed rather
+/// than executing booking state changes again on retries.
+model MatchBookingCommand {
+  commandId            String                      @id
+  bookingId            String
+  booking              Booking                     @relation(fields: [bookingId], references: [id])
+  matchId              String
+  attemptId            String?
+  action               MatchBookingCommandAction
+  expectedVenueRevision Int
+  decision             MatchBookingCommandDecision
+  winningAttemptId     String?
+  venueRevision        Int
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
+
+  @@index([bookingId, createdAt])
+  @@map("match_booking_commands")
 }
 
 /// G2: hạ tầng Outbox (data-model.md §7) — venue-booking-service publish sự

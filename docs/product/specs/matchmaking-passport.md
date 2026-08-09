@@ -84,7 +84,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | BR-MMP-06 | Chống chồng chỗ: tổng JOIN `confirmed` + suất tổ chức ≤ `capacity`, kiểm ở tầng CSDL (ràng buộc/khóa), không chỉ tầng ứng dụng — tương tự chống double-booking GĐ1 (bất biến #4). |
 | BR-MMP-07 | Kèo chỉ `confirmed` khi tổng phí gom đủ thanh toán `bookingId` và booking chuyển `confirmed`. **D28:** hạn chốt `cutoffAt = giờ bắt đầu ca − 60 phút`. Nếu tới hạn chốt mà chưa đủ người/tiền → kèo `cancelled`, hoàn toàn bộ phí đã trả về ví cá nhân, và **hold/booking sân được nhả** (slot bán lại được). |
 | BR-MMP-08 | `feePerSlot ≥ 0`. Nếu `= 0` (kèo giao lưu miễn phí) thì bỏ qua bước trả phí; xác nhận chỗ ngay khi duyệt; booking sân do người tổ chức tự thanh toán theo luồng GĐ1 (không gom phí). |
-| BR-MMP-09 | Rút khỏi kèo (MMP-07): trước `cutoffAt` được hoàn phí 100% về ví cá nhân; từ `cutoffAt` trở đi KHÔNG hoàn (phần này bù chi phí sân đã chốt — logic tương tự BR-BOK-05). 【PO-REVIEW: có áp bậc thang như hủy booking không, hay nhị phân trước/sau cutoff】 |
+| BR-MMP-09 | **D32/D35/D36/D39/D40:** trước `cutoffAt` hoàn 100% khi booking còn `held`; nếu booking đã `confirmed` thì không hoàn riêng. Khi settlement đang chờ, venue atomically quyết định `held→revoke` hay `held→confirmed`: revoke thắng thì hoàn và mở lại chỗ, confirm thắng thì áp D36. Hủy toàn kèo nhận `held_revoked` phải rebase revision và gửi lại lệnh đến kết quả terminal, không trả thành công khi sân vẫn held. Lệnh ghi Venue chỉ đi qua shared service secret D40. Từ cutoff không hoàn nếu kèo vẫn diễn ra. Nếu cả kèo cuối cùng bị hủy, D33/D35 phân bổ hoàn theo trạng thái booking. Không áp bậc thang booking cho lượt rút riêng. |
 | BR-MMP-10 | Suất của người tổ chức KHÔNG tự trả phí cho chính mình (không P2P). Người tổ chức chịu phần sân của mình bằng cách: tổng phí người khác gom + phần tổ chức tự thanh toán (nếu thiếu) = giá booking. Xem BR-MMP-11. |
 | BR-MMP-11 | **Bảo toàn giá trị FIN-05 — D29**: không cho đặt phí tùy ý. `feePerSlot = floor(giá booking / capacity)`; (tổng phí participant đã trả) + (phần organizer tự thanh toán, gồm số lẻ phép chia) = giá `bookingId`. Không tạo tiền, không mất tiền, không gom dư, không P2P. |
 | BR-MMP-12 | Rating/Passport chỉ cập nhật từ kèo `completed` có đánh giá hợp lệ (đã qua F-07). Kèo `cancelled` không ảnh hưởng rating. |
@@ -185,8 +185,10 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - **BR**: BR-MMP-09.
 
 **AC**
-- `AC-MMP-07-1` — Given JOIN `confirmed` đã trả phí, trước `cutoffAt`, When rút, Then `withdrawn` + hoàn phí về ví cá nhân + chỗ trống lại.
-- `AC-MMP-07-2` — Given JOIN `confirmed`, từ `cutoffAt` trở đi, When rút, Then `withdrawn` KHÔNG hoàn phí (BR-MMP-09).
+- `AC-MMP-07-1` — Given JOIN `confirmed` đã trả phí, trước `cutoffAt` và booking còn `held`, When
+  rút, Then `withdrawn` + hoàn phí về ví cá nhân + chỗ trống lại. Nếu booking đã confirmed thì D36 không hoàn riêng.
+- `AC-MMP-07-2` — Given JOIN `confirmed`, từ `cutoffAt` trở đi và kèo vẫn diễn ra, When rút,
+  Then `withdrawn` KHÔNG hoàn phí; nếu cả kèo về sau bị hủy thì D35 hoàn lại contribution đó.
 - `AC-MMP-07-3` — Given rút một chỗ khiến kèo `filled` tụt dưới ngưỡng trước khi booking confirmed, Then kèo về `open` (còn chỗ) — không phá bảo toàn tiền.
 
 ### MMP-08 — Hủy kèo (gồm không đủ người)
@@ -198,7 +200,10 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 **AC**
 - `AC-MMP-08-1` — Given kèo có 2 người đã trả phí, When tổ chức hủy, Then kèo `cancelled` + cả 2 được hoàn phí về ví cá nhân + booking sân nhả.
 - `AC-MMP-08-2` — Given tới `cutoffAt` chưa đủ người, When hệ thống chốt, Then kèo tự `cancelled` + hoàn phí + nhả sân.
-- `AC-MMP-08-3` — Given kèo đã `confirmed` (booking đã confirmed), When tổ chức muốn hủy, Then áp luồng hủy booking GĐ1 (BR-BOK-08/hoàn tiền theo chính sách), KHÔNG hủy tự do (tránh mất tiền sân đã chốt). 【PO-REVIEW】
+- `AC-MMP-08-3` — Given kèo đã `confirmed` (booking đã confirmed), When tổ chức muốn hủy, Then
+  áp `policySnapshot` bậc thang GĐ1 của booking; mỗi người nhận cùng tỷ lệ trên đúng phần đã góp
+  theo D33. D37 floor phần participant và giao phần dư làm tròn cho organizer để tổng hoàn khớp
+  booking. KHÔNG hủy tự do, không P2P và tổng hoàn không vượt tổng góp.
 
 ### MMP-09 — Khai báo trình độ chuẩn hóa
 - **Actor**: người chơi. **Workflow**: chọn 1 trong 5 bậc (Mới chơi/Y/TB/TB+/BC) → hệ thống khởi
@@ -314,9 +319,9 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 
 ## 9. Quyết định chờ PO chốt (tổng hợp `【PO-REVIEW】`)
 1. ~~`cutoffAt` = giờ bắt đầu − X phút (đề xuất X=60).~~ ✅ D28, PO chốt 60 phút ngày 2026-08-08.
-2. Rút sau cutoff: nhị phân không-hoàn (đề xuất) hay bậc thang như booking.
+2. ~~Rút sau cutoff: nhị phân không-hoàn hay bậc thang như booking.~~ ✅ D32, PO chốt nhị phân ngày 2026-08-08.
 3. ~~Xử lý phí gom dư.~~ ✅ D29, PO chốt chia đều bắt buộc, organizer bù phần thiếu/số lẻ ngày 2026-08-08.
-4. MMP-08-3: hủy kèo đã confirmed áp luồng hủy booking GĐ1 (đề xuất) — xác nhận.
+4. ~~MMP-08-3: hủy kèo đã confirmed áp luồng hủy booking GĐ1.~~ ✅ D33, PO chốt hoàn theo tỷ lệ trên phần góp ngày 2026-08-08.
 5. ~~MMP-09 khai lại bậc: tần suất + mức ảnh hưởng lên rating đã học.~~ ✅ D26, PO chốt 2026-08-08.
 6. ~~F-01: ngưỡng ánh xạ μ→5 bậc, hằng số τ Glicko-2.~~ ✅ D26, PO chốt 2026-08-08.
 7. MMP-13 cửa sổ đánh giá (đề xuất 72h).

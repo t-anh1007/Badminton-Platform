@@ -30,6 +30,29 @@ enum LedgerEntryType {
   payout
   commission
   release
+  reserve
+  settlement
+}
+
+enum MatchFundingStatus {
+  collecting
+  /// D39: all contributions remain reserved/paid while Venue decides the
+  /// fenced booking command. Ledger settlement happens only after its result.
+  settling
+  settled
+  cancelled
+}
+
+enum MatchContributionRole {
+  participant
+  organizer
+}
+
+enum MatchContributionStatus {
+  pending
+  paid
+  settled
+  refunded
 }
 
 enum PaymentMethod {
@@ -258,4 +281,47 @@ model Dispute {
   resolvedAt      DateTime?
 
   @@map("disputes")
+}
+
+/// FIN-05: aggregate tài chính riêng của một kèo; chỉ giữ ID/snapshot từ
+/// matchmaking/venue, không FK xuyên schema.
+model MatchFunding {
+  matchId               String             @id
+  bookingId             String             @unique
+  organizerUserId       String
+  capacity              Int
+  feePerSlot            BigInt
+  bookingPrice          BigInt
+  organizerContribution BigInt
+  cutoffAt              DateTime
+  status                MatchFundingStatus @default(collecting)
+  settlementAttemptId   String?
+  settlementVenueRevision Int @default(0)
+  settledAt             DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime           @default(now())
+  contributions         MatchContribution[]
+
+  @@map("match_fundings")
+}
+
+model MatchContribution {
+  id              String                  @id @default(uuid())
+  contributionKey String                  @unique
+  matchId         String
+  funding         MatchFunding            @relation(fields: [matchId], references: [matchId])
+  joinId          String?                 @unique
+  userId          String
+  role            MatchContributionRole
+  amount          BigInt
+  status          MatchContributionStatus @default(pending)
+  expiresAt       DateTime?
+  paymentMethod   PaymentMethod?
+  paymentIntentId String?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime                @default(now())
+
+  @@index([matchId, status])
+  @@map("match_contributions")
 }

@@ -42,6 +42,107 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
     await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${payload.bookingId}))) AS booking_lock`;
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
 
+    const matchFunding = await tx.matchFunding.findUnique({
+      where: { bookingId: payload.bookingId },
+      include: { contributions: true },
+    });
+    // D39 emits BookingConfirmed and MatchBookingResolved from the same Venue
+    // decision. A later D33 cancellation must wait for the resolution to turn
+    // this funding into `settled`; otherwise the generic booking path would
+    // refund the organizer rather than the actual contributors. Throwing keeps
+    // the Rabbit delivery unprocessed and therefore safely retryable.
+    if (matchFunding?.status === 'settling') {
+      throw new Error('Match BookingCancelled awaits D39 settlement resolution');
+    }
+    if (matchFunding?.status === 'settled') {
+      const [business, platform] = await Promise.all([
+        tx.wallet.findFirst({ where: { userId: payload.businessUserId, walletType: 'business' } }),
+        tx.wallet.findFirst({ where: { userId: null, walletType: 'platform' } }),
+      ]);
+      if (!business || !platform) throw new Error('Match BookingCancelled không khớp ví doanh thu');
+      const [releaseEntries, commissionEntries, settlement] = await Promise.all([
+        tx.ledgerEntry.findMany({
+          where: { walletId: business.id, refType: 'booking', refId: payload.bookingId, type: 'release' },
+        }),
+        tx.ledgerEntry.findMany({
+          where: { walletId: platform.id, refType: 'booking', refId: payload.bookingId, type: 'commission' },
+        }),
+        tx.ledgerEntry.findFirst({
+          where: { walletId: platform.id, refType: 'booking', refId: payload.bookingId, type: 'settlement', amount: -gross },
+        }),
+      ]);
+      const released = releaseEntries.reduce((sum, entry) => sum + entry.amount, 0n);
+      const commissioned = commissionEntries.reduce((sum, entry) => sum + entry.amount, 0n);
+      if (
+        matchFunding.bookingPrice !== gross
+        || releaseEntries.length !== 1
+        || commissionEntries.length !== 1
+        || released + commissioned !== gross
+        || !settlement
+      ) throw new Error('Match BookingCancelled không khớp settlement/doanh thu gốc');
+      if (business.pending < businessReversal || platform.available < commissionReversal) {
+        throw new Error('Match BookingCancelled sẽ làm số dư tài chính âm');
+      }
+
+      if (refundGross > 0n) {
+        const participants = matchFunding.contributions.filter((item) => item.role === 'participant' && item.status === 'settled');
+        const organizer = matchFunding.contributions.find((item) => item.role === 'organizer' && item.status === 'settled');
+        if (!organizer) throw new Error('MatchFunding thiếu organizer contribution');
+        const participantRefunds = participants.map((item) => ({
+          contribution: item,
+          amount: (item.amount * BigInt(effectivePercent)) / 100n,
+        }));
+        const participantTotal = participantRefunds.reduce((sum, item) => sum + item.amount, 0n);
+        const organizerRefund = refundGross - participantTotal;
+        if (organizerRefund < 0n) throw new Error('D37 refund allocation is negative');
+        for (const allocation of [
+          ...participantRefunds,
+          { contribution: organizer, amount: organizerRefund },
+        ]) {
+          if (allocation.amount > 0n) {
+            const personal = await getOrCreatePersonalWallet(tx, allocation.contribution.userId);
+            await postLedgerEntry(tx, {
+              walletId: personal.id,
+              amount: allocation.amount,
+              type: 'refund',
+              refType: 'matchFeeCancellation',
+              refId: allocation.contribution.id,
+            });
+          }
+          await tx.matchContribution.update({
+            where: { id: allocation.contribution.id },
+            data: { status: 'refunded', refundedAt: new Date() },
+          });
+        }
+        await postLedgerEntry(tx, {
+          walletId: business.id,
+          amount: -businessReversal,
+          type: 'refund',
+          refType: 'booking',
+          refId: payload.bookingId,
+          field: 'pending',
+        });
+        await postLedgerEntry(tx, {
+          walletId: platform.id,
+          amount: -commissionReversal,
+          type: 'refund',
+          refType: 'booking',
+          refId: payload.bookingId,
+        });
+        await tx.bookingRevenue.updateMany({
+          where: { bookingId: payload.bookingId },
+          data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal }, cancelledAt: new Date() },
+        });
+      } else {
+        await tx.bookingRevenue.updateMany({ where: { bookingId: payload.bookingId }, data: { cancelledAt: new Date() } });
+      }
+      await tx.matchFunding.update({
+        where: { matchId: matchFunding.matchId }, data: { status: 'cancelled', cancelledAt: new Date() },
+      });
+      await tx.processedEvent.create({ data: { eventId } });
+      return;
+    }
+
     if (refundGross > 0n) {
       const existingRefund = await tx.ledgerEntry.findFirst({
         where: { refType: 'booking', refId: payload.bookingId, type: 'refund' },
@@ -126,4 +227,12 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
     }
     await tx.processedEvent.create({ data: { eventId } });
   });
+}
+
+async function getOrCreatePersonalWallet(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  userId: string,
+) {
+  const existing = await tx.wallet.findFirst({ where: { userId, walletType: 'personal' } });
+  return existing ?? tx.wallet.create({ data: { userId, walletType: 'personal' } });
 }
