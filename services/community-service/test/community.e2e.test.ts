@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
+
+process.env.JWT_SECRET ??= 'community-test-jwt-secret';
 import { prisma } from '../src/lib/prisma.js';
 import { handleAccountLocked } from '../src/lib/accountLockedConsumer.js';
 

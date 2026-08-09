@@ -22,6 +22,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-M6 | pass | `packages/ai` deterministic AC unit suite 6/6 plus isolated real HTTP `compatibility.e2e.test.ts` 2/2; F-02 grounds rating in match skill range and declares unavailable time/location inputs; shared-library-only F-04 creates neither match nor payment; workspace typecheck/build; one Codex two-axis review resolved grounded-input defects |
 | P2-M7 | pass | Shared LangChain Gemini adapter `test/geminiMatchmaker.test.ts` 3/3 plus isolated real HTTP `test/aiMatchmaker.e2e.test.ts` 2/2; deterministic F-02 ranking, private/public prompt boundary, no-auto-JOIN and failure/timeout fallback; workspace typecheck/build; one Codex two-axis review resolved grounded-output and timeout defects |
 | P2-M8 | pass | Fresh isolated Community migrations; real HTTP AC `test/community.e2e.test.ts` 9/9 + AccountLocked consumer 1/1 and Account producer regression 5/5 (2 historical skips); public-only content, verified-player gate, audited moderation/restore, private async tickets and versioned idempotent lock projection; workspace typecheck/build; one Codex two-axis review resolved restore and event-order/retry/shutdown defects |
+| P2-M9 | pass | Shared LangChain grounded-answer selection + read-only policy corpus `packages/ai/test/supportAssistant.test.ts` 3/3; authenticated real HTTP `community-service/test/supportAssistant.e2e.test.ts` 6/6 + fail-closed auth 1/1; own-booking API only, cited retrieval, no-action cancellation guidance, privacy and Gemini/venue fallback; workspace typecheck/build; one Codex two-axis review resolved retrieval, intent, JWT and error-boundary defects |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|
@@ -105,12 +106,12 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | AC-AI-01-3 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` + isolated HTTP `test/aiMatchmaker.e2e.test.ts` — provider error or 4-second timeout returns short deterministic fallback without failing the request | pass |
 | AC-AI-01-4 | P2-M7 | isolated HTTP `test/aiMatchmaker.e2e.test.ts` — suggestions leave zero JOIN rows; only the subsequent explicit MMP-04 POST creates one | pass |
 | AC-AI-01-5 | P2-M7 | `packages/ai/test/geminiMatchmaker.test.ts` + isolated HTTP `test/aiMatchmaker.e2e.test.ts` — prompt receives public match snapshot/own deterministic score only and excludes organizer identifier | pass |
-| AC-AI-02-1 | P2-M9 |  |  |
-| AC-AI-02-2 | P2-M9 |  |  |
-| AC-AI-02-3 | P2-M9 |  |  |
-| AC-AI-02-4 | P2-M9 |  |  |
-| AC-AI-02-5 | P2-M9 |  |  |
-| AC-AI-02-6 | P2-M9 |  |  |
+| AC-AI-02-1 | P2-M9 | shared read-only BR-BOK-05 corpus retrieval + isolated authenticated HTTP response cite the retrieved policy chunk | pass |
+| AC-AI-02-2 | P2-M9 | isolated authenticated HTTP calls only `/players/me/bookings`, selects caller's nearest booking, and cites `own-booking` | pass |
+| AC-AI-02-3 | P2-M9 | isolated HTTP question about user B invokes neither booking retrieval nor Gemini and returns privacy guidance | pass |
+| AC-AI-02-4 | P2-M9 | isolated HTTP variants of cancellation request return standard `actionPath` without any mutation call | pass |
+| AC-AI-02-5 | P2-M9 | isolated HTTP injected Gemini failure returns short busy fallback; Venue retrieval outage is separately guided | pass |
+| AC-AI-02-6 | P2-M9 | shared adapter permits only local candidate indexes and isolated HTTP returns BR-BOK-05/own-booking citations | pass |
 | AC-FIN-05-1 | P2-M3 | `matchFee.test.ts` + `matchFee.e2e.test.ts` â€” personal debit/platform reserve append-only with real service path | pass |
 | AC-FIN-05-2 | P2-M3 | `matchFee.test.ts` + `matchFee.e2e.test.ts` â€” exact D29 organizer shortfall settles booking and releases reserved | pass |
 | AC-FIN-05-3 | P2-M3 | `matchFee.test.ts` + real HTTP/RabbitMQ `matchFee.e2e.test.ts` â€” redelivery is one reserve; every distinct D38 late/terminal/racing receipt is auto-matched and credited exactly once, never stranded or reserved twice | pass |

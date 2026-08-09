@@ -60,7 +60,7 @@ Out of scope:
 - [x] P2-M6 — deterministic, explained compatibility and proposal-only balanced grouping in shared `packages/ai`.
 - [x] P2-M7 — LangChain Gemini matchmaker with verified F-02 evidence selection and fail-closed configuration/fallback.
 - [x] P2-M8 — public-only Community Support, manual moderation and asynchronous support tickets.
-- [ ] P2-M9 — remaining backend dependency gate.
+- [x] P2-M9 — AI-02 grounded support assistant without an AI schema/service.
 - [ ] P2-FE0 through P2-FE2 — Playo frontend, only after every backend milestone passes.
 - [ ] P2-final — real-API UI, E2E, 100 percent AC and AC-UI audit.
 
@@ -143,3 +143,11 @@ not requeue forever. Fresh isolated migrations passed; Community HTTP/consumer t
 Account producer regression 5/5 (two historical skipped tests) passed, followed by workspace
 typecheck/build and Harness. The required one two-axis review found and the implementation resolved
 the temporary-hide restore and event ordering/retry/shutdown defects.
+
+P2-M9 completed 2026-08-09: AI-02 remains inside shared `packages/ai` LangChain adapter. A read-only
+BR-BOK-05 policy corpus retrieves and cites the relevant chunk without vector store or persistence;
+caller-owned booking data comes only from Venue's `/players/me/bookings` API. Gemini can select only
+locally grounded answers and never execute cancellation; cancellation requests go to the normal booking
+flow. Community JWT authentication now fails closed without `JWT_SECRET`. Focused shared, authenticated
+HTTP and auth tests passed 10/10; workspace typecheck/build and Harness passed. The single review
+resolved retrieval, cancellation-intent, JWT and error-boundary defects.

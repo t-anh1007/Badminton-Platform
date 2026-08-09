@@ -63,7 +63,7 @@ export class GeminiMatchmakerClient implements MatchmakerExplanationClient {
   }
 
   async explain(candidates: readonly MatchmakerCandidate[]): Promise<readonly MatchmakerExplanation[]> {
-    const response = await invokeWithDeadline(this.model, buildPrompt(candidates), this.timeoutMs);
+    const response = await invokeGeminiWithDeadline(this.model, buildPrompt(candidates), this.timeoutMs);
     return parseGeminiExplanations(response.content);
   }
 }
@@ -120,7 +120,7 @@ function buildPrompt(candidates: readonly MatchmakerCandidate[]): string {
   ].join('\n');
 }
 
-async function invokeWithDeadline(
+export async function invokeGeminiWithDeadline(
   model: GeminiTextModel,
   prompt: string,
   timeoutMs: number,
@@ -154,7 +154,7 @@ function selectGroundedReasons(
 }
 
 function parseGeminiExplanations(content: unknown): MatchmakerExplanation[] {
-  const text = extractText(content);
+  const text = extractGeminiText(content);
   const parsed = JSON.parse(text) as unknown;
   if (!Array.isArray(parsed)) throw new Error('Gemini explanation is not an array');
   return parsed.map((item) => {
@@ -167,7 +167,7 @@ function parseGeminiExplanations(content: unknown): MatchmakerExplanation[] {
   });
 }
 
-function extractText(content: unknown): string {
+export function extractGeminiText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content.map((part) => {

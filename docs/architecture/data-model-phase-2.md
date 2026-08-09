@@ -143,6 +143,10 @@ Dữ liệu của chính user cho AI-02 (booking/ví/kèo) **không nhân bản*
 vấn phần của chính user theo `userId` qua API/event contract phù hợp rồi chỉ gửi ngữ cảnh đã lọc
 vào thư viện. Không có truy vấn chéo schema và không đưa dữ liệu user khác vào prompt.
 
+P2-M9 dùng corpus chính sách **read-only, không persistence** trong `packages/ai`: retrieval xác định
+chunk BR-BOK-05 trước khi gọi adapter Gemini và renderer giữ citation của chunk. Đây không phải vector
+store hay schema `ai`; dữ liệu booking của chính user vẫn đi qua API Venue với access token của họ.
+
 RAG policy/AI audit chỉ được thêm persistence khi PO chốt vector store; vị trí lưu phải thuộc
 schema của service gọi AI hoặc một quyết định kiến trúc mới được PO phê duyệt, không tự tạo schema
 `ai` trái ADR 0002.
@@ -155,5 +159,5 @@ schema của service gọi AI hoặc một quyết định kiến trúc mới đ
 ## 5. Quyết định chờ PO chốt
 1. **Đã chốt 2026-08-08:** AI là `packages/ai` dùng chung theo ADR 0002; không tạo `ai-service`
    hoặc schema `ai`.
-2. Vector store cho RAG: cần PO chốt vị trí lưu tương thích với quyết định trên; không dùng
-   schema `ai`. Đề xuất sẽ được trình trước P2-M9.
+2. Vector store cho RAG: nếu cần sau P2-M9, phải có PO chốt vị trí lưu tương thích với quyết định trên;
+   không dùng schema `ai`.

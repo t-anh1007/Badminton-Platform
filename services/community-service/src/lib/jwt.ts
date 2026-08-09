@@ -7,7 +7,9 @@ interface AccessTokenPayload {
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-  const decoded = jwt.verify(token, process.env.JWT_SECRET ?? 'change-me-in-real-env') as AccessTokenPayload;
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) throw new Error('JWT_SECRET must be configured.');
+  const decoded = jwt.verify(token, secret) as AccessTokenPayload;
   if (decoded.type !== 'access' || !decoded.sub || !Array.isArray(decoded.roles)) {
     throw new Error('Not a valid access token.');
   }

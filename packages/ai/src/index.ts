@@ -14,6 +14,23 @@ export {
   type MatchmakerExplanationClient,
 } from './geminiMatchmaker.js';
 
+export {
+  GeminiSupportAssistant,
+  answerWithGroundedSources,
+  type GeminiSupportAssistantOptions,
+  type GroundedSupportAnswer,
+  type GroundedSupportCandidate,
+  type SupportAssistantClient,
+  type SupportAssistantInput,
+  type SupportSource,
+} from './supportAssistant.js';
+
+export {
+  platformPolicyRetriever,
+  type PolicyChunk,
+  type PolicyRetriever,
+} from './policyCorpus.js';
+
 export interface CompatibilityInput {
   player: { rating: number; rd: number };
   match: {
