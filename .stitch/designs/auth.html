@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Courtin Community - Đăng nhập / Đăng ký</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed-dim": "#d8c951",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#cee5ff",
+                      "outline": "#72777e",
+                      "on-secondary-fixed": "#201c00",
+                      "primary-fixed-dim": "#a5caf1",
+                      "on-background": "#191c1d",
+                      "surface-container": "#edeeef",
+                      "on-error-container": "#93000a",
+                      "surface-container-highest": "#e1e3e4",
+                      "on-tertiary": "#ffffff",
+                      "on-primary-container": "#8ab0d5",
+                      "on-secondary": "#ffffff",
+                      "surface-container-low": "#f3f4f5",
+                      "secondary": "#695f00",
+                      "on-primary-fixed": "#001d32",
+                      "on-error": "#ffffff",
+                      "tertiary": "#5c000a",
+                      "primary": "#002d49",
+                      "on-secondary-container": "#706500",
+                      "surface-variant": "#e1e3e4",
+                      "on-secondary-fixed-variant": "#4f4700",
+                      "tertiary-fixed": "#ffdad7",
+                      "surface-container-high": "#e7e8e9",
+                      "surface-bright": "#f8f9fa",
+                      "primary-container": "#1a4363",
+                      "on-surface": "#191c1d",
+                      "on-primary": "#ffffff",
+                      "inverse-primary": "#a5caf1",
+                      "secondary-container": "#f5e569",
+                      "on-surface-variant": "#42474d",
+                      "on-primary-fixed-variant": "#224a6a",
+                      "on-tertiary-fixed": "#410005",
+                      "inverse-on-surface": "#f0f1f2",
+                      "on-tertiary-fixed-variant": "#920517",
+                      "tertiary-fixed-dim": "#ffb3ae",
+                      "error": "#ba1a1a",
+                      "surface": "#f8f9fa",
+                      "background": "#f8f9fa",
+                      "tertiary-container": "#860013",
+                      "outline-variant": "#c2c7ce",
+                      "error-container": "#ffdad6",
+                      "secondary-fixed": "#f5e569",
+                      "on-tertiary-container": "#ff8a84",
+                      "surface-tint": "#3c6283",
+                      "surface-dim": "#d9dadb",
+                      "inverse-surface": "#2e3132"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-sm": "0.5rem",
+                      "stack-lg": "1.5rem",
+                      "stack-md": "1rem",
+                      "margin-mobile": "1rem",
+                      "margin-desktop": "2rem",
+                      "gutter": "1rem",
+                      "container-max": "1200px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Be Vietnam Pro"
+                      ],
+                      "headline-md": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "headline-lg": [
+                              "Be Vietnam Pro"
+                      ],
+                      "body-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-bold": [
+                              "Be Vietnam Pro"
+                      ],
+                      "headline-lg-mobile": [
+                              "Be Vietnam Pro"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "14px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-bold": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0;
+        }
+        .material-symbols-outlined.filled {
+          font-variation-settings: 'FILL' 1;
+        }
+      </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- Top Navigation Bar - Contextually suppressed as this is a transactional entry point -->
+<!-- However, the prompt specifically requested to use the header/footer defined in the components list.
+         To balance the rules, we include it but keep it clean. -->
+<header class="bg-primary dark:bg-primary docked full-width top-0 z-50 shadow-md">
+<div class="flex justify-between items-center w-full px-margin-desktop h-16 max-w-container-max mx-auto">
+<div class="font-headline-lg text-headline-lg font-black tracking-tight text-on-primary">COURTIN</div>
+<nav class="hidden md:flex gap-gutter items-center">
+<a class="text-on-primary opacity-80 hover:opacity-100 transition-opacity hover:text-secondary-fixed transition-colors duration-200 font-label-bold text-label-bold scale-95 active:scale-90 transition-transform" href="#">Đặt sân</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 transition-opacity hover:text-secondary-fixed transition-colors duration-200 font-label-bold text-label-bold scale-95 active:scale-90 transition-transform" href="#">Giải đấu</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 transition-opacity hover:text-secondary-fixed transition-colors duration-200 font-label-bold text-label-bold scale-95 active:scale-90 transition-transform" href="#">Cộng đồng</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 transition-opacity hover:text-secondary-fixed transition-colors duration-200 font-label-bold text-label-bold scale-95 active:scale-90 transition-transform" href="#">Tin tức</a>
+</nav>
+<div class="flex items-center gap-stack-sm">
+<button class="text-on-primary font-label-bold text-label-bold hover:text-secondary-fixed transition-colors duration-200 scale-95 active:scale-90 transition-transform">Hợp tác chủ sân</button>
+<div class="flex gap-stack-sm text-on-primary">
+<span class="material-symbols-outlined scale-95 active:scale-90 transition-transform cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined scale-95 active:scale-90 transition-transform cursor-pointer" data-icon="account_circle">account_circle</span>
+<span class="material-symbols-outlined scale-95 active:scale-90 transition-transform cursor-pointer md:hidden" data-icon="menu">menu</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center py-12 px-4 md:px-margin-desktop w-full max-w-container-max mx-auto">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] w-full max-w-5xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+<!-- Visual Side (Left) -->
+<div class="hidden md:flex w-1/2 relative bg-primary-container items-center justify-center overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="A dynamic, high-quality photograph of two professional badminton players engaged in an intense rally on an indoor court. The lighting is dramatic and cinematic, highlighting the players' athletic movements and the bright white lines of the green court against a dark background. The scene exudes energy, competition, and focus, perfectly matching the vibrant, community-driven aesthetic of a modern sports booking platform with deep navy and bright yellow accents." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuApS1b9gms0gWHM_QmDzA8J-0ixQNgUR9Fgz3wf71ilOoutbZhccVohul9vL9hg5IjxqwLVU-vOomwP-xn78hEe59gJ5-iZrAnOYUzN4nZsFOoO9nW8VgoQzTVYxGGZUOJmieGlrBx98DpHB3WaEGpVxY3oY_Td0KNe0FeQ4YdA9Xk9ka6SkMoIs5tar8vVNdetG2HrYB_fXxT9Eh3lwcCSvrTy2NlWiN5rFb3LZrFz7TWrFCCHhBlaDciBq0zAeLXHGmEUpzqHYOWh')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/90 to-transparent"></div>
+<div class="relative z-10 p-12 text-on-primary text-center">
+<h2 class="font-headline-lg text-headline-lg mb-4">Tham Gia Cộng Đồng Thể Thao</h2>
+<p class="font-body-md text-body-md opacity-90 max-w-sm mx-auto">Kết nối với những người đam mê, đặt sân dễ dàng và quản lý lịch trình của bạn chỉ trong vài thao tác.</p>
+</div>
+</div>
+<!-- Form Side (Right) -->
+<div class="w-full md:w-1/2 p-8 md:p-12 bg-surface-container-lowest flex flex-col relative">
+<!-- Toggle Form Buttons -->
+<div class="flex border-b border-outline-variant mb-8 w-full">
+<button class="flex-1 pb-4 font-headline-md text-headline-md text-primary border-b-2 border-primary transition-colors text-center" id="tab-login">Đăng nhập</button>
+<button class="flex-1 pb-4 font-headline-md text-headline-md text-on-surface-variant hover:text-primary transition-colors text-center border-b-2 border-transparent" id="tab-register">Đăng ký</button>
+</div>
+<!-- Login Form -->
+<div class="flex flex-col gap-stack-md flex-grow transition-opacity duration-300" id="form-login">
+<div class="flex flex-col gap-1">
+<label class="font-label-bold text-label-bold text-on-surface">Email / Số điện thoại</label>
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md" placeholder="Nhập email hoặc số điện thoại" type="text"/>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-bold text-label-bold text-on-surface">Mật khẩu</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md pr-10" placeholder="Nhập mật khẩu" type="password"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant cursor-pointer hover:text-on-surface-variant transition-colors" data-icon="visibility_off">visibility_off</span>
+</div>
+</div>
+<div class="flex justify-between items-center mt-2">
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative flex items-center justify-center w-5 h-5">
+<input class="peer appearance-none w-5 h-5 border border-outline-variant rounded-DEFAULT bg-surface-container-low checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary opacity-0 peer-checked:opacity-100 pointer-events-none text-[16px]" data-icon="check">check</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Ghi nhớ đăng nhập</span>
+</label>
+<a class="font-label-sm text-label-sm text-primary hover:underline transition-all" href="#">Quên mật khẩu?</a>
+</div>
+<button class="mt-6 w-full bg-secondary-fixed text-on-secondary-fixed font-headline-md text-headline-md py-3 rounded-lg hover:bg-secondary-fixed-dim transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.05)] active:scale-95 duration-150">Đăng nhập</button>
+<div class="mt-4 text-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Chưa có tài khoản? </span>
+<a class="font-label-bold text-label-bold text-primary hover:underline transition-all" href="#" onclick="document.getElementById('tab-register').click()">Đăng ký ngay</a>
+</div>
+</div>
+<!-- Registration Form (Hidden by default) -->
+<div class="flex flex-col gap-stack-md flex-grow hidden opacity-0 transition-opacity duration-300 absolute inset-0 p-8 md:p-12 pt-[104px] bg-surface-container-lowest z-10 overflow-y-auto" id="form-register">
+<!-- Role Selection -->
+<div class="flex gap-4 mb-4">
+<label class="flex-1 relative cursor-pointer group">
+<input checked="" class="peer sr-only" name="user_role" type="radio"/>
+<div class="p-4 border-2 border-outline-variant rounded-lg text-center peer-checked:border-primary peer-checked:bg-primary-fixed/20 transition-all group-hover:border-primary/50">
+<span class="material-symbols-outlined text-primary mb-2 text-[32px]" data-icon="sports_tennis">sports_tennis</span>
+<div class="font-headline-md text-headline-md text-on-surface">Tôi là Người chơi</div>
+</div>
+</label>
+<label class="flex-1 relative cursor-pointer group">
+<input class="peer sr-only" name="user_role" type="radio"/>
+<div class="p-4 border-2 border-outline-variant rounded-lg text-center peer-checked:border-primary peer-checked:bg-primary-fixed/20 transition-all group-hover:border-primary/50">
+<span class="material-symbols-outlined text-primary mb-2 text-[32px]" data-icon="stadium">stadium</span>
+<div class="font-headline-md text-headline-md text-on-surface">Tôi là Chủ sân</div>
+</div>
+</label>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-bold text-label-bold text-on-surface">Họ tên</label>
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md" placeholder="Nguyễn Văn A" type="text"/>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-bold text-label-bold text-on-surface">Số điện thoại / Email</label>
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md" placeholder="Nhập số điện thoại hoặc email" type="text"/>
+</div>
+<div class="flex gap-4">
+<div class="flex flex-col gap-1 flex-1">
+<label class="font-label-bold text-label-bold text-on-surface">Mật khẩu</label>
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md" placeholder="Tạo mật khẩu" type="password"/>
+</div>
+<div class="flex flex-col gap-1 flex-1">
+<label class="font-label-bold text-label-bold text-on-surface">Xác nhận</label>
+<input class="w-full bg-surface-container-low text-on-surface border border-outline-variant rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-body-md text-body-md" placeholder="Nhập lại mật khẩu" type="password"/>
+</div>
+</div>
+<label class="flex items-start gap-3 mt-2 cursor-pointer group">
+<div class="relative flex items-center justify-center w-5 h-5 mt-0.5 shrink-0">
+<input class="peer appearance-none w-5 h-5 border border-outline-variant rounded-DEFAULT bg-surface-container-low checked:bg-primary checked:border-primary transition-colors cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary opacity-0 peer-checked:opacity-100 pointer-events-none text-[16px]" data-icon="check">check</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors leading-tight">Tôi đồng ý với <a class="text-primary hover:underline font-label-bold text-label-bold" href="#">Điều khoản &amp; Chính sách</a> của Courtin.</span>
+</label>
+<!-- OTP Verification State (Initially hidden, shown via JS during flow) -->
+<div class="hidden flex-col items-center mt-4 p-4 border border-outline-variant rounded-lg bg-surface-bright" id="otp-state">
+<div class="font-headline-md text-headline-md text-on-surface mb-2">Nhập mã xác thực</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant text-center mb-4">Mã gồm 6 chữ số đã được gửi đến thiết bị của bạn.</div>
+<div class="flex gap-2 justify-center mb-4">
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+<input class="w-10 h-12 text-center font-headline-lg text-headline-lg border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary" maxlength="1" type="text"/>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:underline">Gửi lại mã</button>
+</div>
+<button class="mt-6 w-full bg-secondary-fixed text-on-secondary-fixed font-headline-md text-headline-md py-3 rounded-lg hover:bg-secondary-fixed-dim transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.05)] active:scale-95 duration-150" id="btn-register">Đăng ký tài khoản</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-low full-width border-t border-outline-variant flat no shadows">
+<div class="w-full py-stack-lg px-margin-desktop mt-stack-lg max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-stack-md">
+<div class="font-headline-md text-headline-md font-bold text-primary">COURTIN</div>
+<nav class="flex flex-wrap gap-stack-md justify-center">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold hover:underline transition-all" href="#">Về chúng tôi</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold hover:underline transition-all" href="#">Điều khoản sử dụng</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold hover:underline transition-all" href="#">Chính sách bảo mật</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold hover:underline transition-all" href="#">Liên hệ hợp tác</a>
+</nav>
+<div class="text-on-surface-variant font-body-sm text-body-sm opacity-80 hover:opacity-100 transition-opacity">
+                © 2024 Courtin Community. All rights reserved.
+            </div>
+</div>
+</footer>
+<!-- Interactive Script for Tab Switching and OTP demo -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            const btnRegister = document.getElementById('btn-register');
+            const otpState = document.getElementById('otp-state');
+
+            const switchTab = (isLogin) => {
+                if (isLogin) {
+                    tabLogin.classList.add('text-primary', 'border-primary');
+                    tabLogin.classList.remove('text-on-surface-variant', 'border-transparent');
+                    tabRegister.classList.add('text-on-surface-variant', 'border-transparent');
+                    tabRegister.classList.remove('text-primary', 'border-primary');
+
+                    formRegister.classList.add('hidden', 'opacity-0');
+                    formLogin.classList.remove('hidden');
+                    setTimeout(() => formLogin.classList.remove('opacity-0'), 50);
+                    
+                    // reset otp state
+                    otpState.classList.add('hidden');
+                    otpState.classList.remove('flex');
+                    btnRegister.textContent = 'Đăng ký tài khoản';
+                } else {
+                    tabRegister.classList.add('text-primary', 'border-primary');
+                    tabRegister.classList.remove('text-on-surface-variant', 'border-transparent');
+                    tabLogin.classList.add('text-on-surface-variant', 'border-transparent');
+                    tabLogin.classList.remove('text-primary', 'border-primary');
+
+                    formLogin.classList.add('hidden', 'opacity-0');
+                    formRegister.classList.remove('hidden');
+                    setTimeout(() => formRegister.classList.remove('opacity-0'), 50);
+                }
+            };
+
+            tabLogin.addEventListener('click', () => switchTab(true));
+            tabRegister.addEventListener('click', () => switchTab(false));
+
+            // Demo OTP state reveal
+            btnRegister.addEventListener('click', (e) => {
+                if(btnRegister.textContent === 'Đăng ký tài khoản') {
+                    e.preventDefault();
+                    otpState.classList.remove('hidden');
+                    otpState.classList.add('flex');
+                    btnRegister.textContent = 'Xác nhận mã';
+                    // Scroll to OTP
+                    otpState.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            });
+        });
+    </script>
+</body></html>

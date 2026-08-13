@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hồ sơ người chơi &amp; Lịch sử hoạt động - ShuttlePro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ff8a84",
+                        "on-background": "#191c1d",
+                        "surface-tint": "#3c6283",
+                        "background": "#f8f9fa",
+                        "secondary": "#695f00",
+                        "surface": "#f8f9fa",
+                        "primary-fixed": "#cee5ff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "primary-fixed-dim": "#a5caf1",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#001d32",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary-fixed-variant": "#4f4700",
+                        "surface-variant": "#e1e3e4",
+                        "on-primary-container": "#8ab0d5",
+                        "on-tertiary-fixed": "#410005",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#860013",
+                        "primary-container": "#1a4363",
+                        "on-primary-fixed-variant": "#224a6a",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-container": "#f5e569",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#d8c951",
+                        "inverse-on-surface": "#f0f1f2",
+                        "outline-variant": "#c2c7ce",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary-fixed": "#201c00",
+                        "secondary-fixed": "#f5e569",
+                        "on-surface": "#191c1d",
+                        "tertiary": "#5c000a",
+                        "on-tertiary-fixed-variant": "#920517",
+                        "outline": "#72777e",
+                        "on-surface-variant": "#42474d",
+                        "surface-container": "#edeeef",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface-dim": "#d9dadb",
+                        "on-secondary-container": "#706500",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#a5caf1",
+                        "on-error-container": "#93000a",
+                        "primary": "#002d49"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1rem",
+                        "container-max": "1200px",
+                        "stack-md": "1rem",
+                        "stack-lg": "1.5rem",
+                        "stack-sm": "0.5rem",
+                        "margin-mobile": "1rem",
+                        "margin-desktop": "2rem"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Be Vietnam Pro"],
+                        "body-md": ["Be Vietnam Pro"],
+                        "label-sm": ["Be Vietnam Pro"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "label-bold": ["Be Vietnam Pro"],
+                        "headline-lg-mobile": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "label-bold": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky bg-surface dark:bg-on-background shadow-sm z-50">
+<div class="flex justify-between items-center px-margin-desktop py-4 max-w-container-max mx-auto">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">ShuttlePro</span>
+</div>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed font-body-md text-body-md hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors cursor-pointer active:opacity-80 px-2 py-1 rounded" href="#">Dashboard</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed font-body-md text-body-md hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors cursor-pointer active:opacity-80 px-2 py-1 rounded" href="#">Matches</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed font-body-md text-body-md hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors cursor-pointer active:opacity-80 px-2 py-1 rounded" href="#">Clubs</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed font-body-md text-body-md hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors cursor-pointer active:opacity-80 px-2 py-1 rounded" href="#">Rankings</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="hidden md:block bg-secondary text-on-secondary px-4 py-2 rounded-lg font-label-bold text-label-bold hover:bg-secondary-fixed-dim transition-colors">Hợp tác chủ sân</button>
+<div class="flex gap-2 text-primary dark:text-primary-fixed">
+<button class="p-2 hover:bg-surface-container-low dark:hover:bg-surface-container-highest rounded-full transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="p-2 hover:bg-surface-container-low dark:hover:bg-surface-container-highest rounded-full transition-colors"><span class="material-symbols-outlined">account_balance_wallet</span></button>
+</div>
+<img alt="User profile avatar" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A highly detailed close up portrait of a young athletic Asian man with short dark hair, wearing a modern sporty navy blue t-shirt, smiling warmly in a bright indoor badminton court environment with soft high-key lighting and a professional athletic aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEA5eyM7-pvqlRRlTdMh1tlO-oXyT9zAGIKs4aKQETNrUfRDfVSmB2yAUC2fcUAgevmDp9HPNASqBlUv5rEaFXiIoxVT9tXEBlWbPd47xGHcEZwhlzvm_dR1wKP0qzy0pGwXfOKCd5kamc1lca2CTiVGFZvQuaTK2bNXmaPgCWhRXYBA31oSEW90aqftMFxMjGDLF6JwRhA9i8eW2-Lzm8kO3qAC5Qwu6Hcr6aDRWmDZqrCVSYGc7OVIqoasxJtHlPQOcvIkqoD9Jq"/>
+</div>
+</div>
+</header>
+<div class="flex flex-1 max-w-container-max mx-auto w-full">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 hidden lg:flex flex-col bg-surface-container-lowest dark:bg-surface-container-low border-r border-outline-variant dark:border-outline">
+<div class="p-gutter border-b border-outline-variant dark:border-outline flex flex-col items-center gap-2">
+<img alt="Player avatar" class="w-16 h-16 rounded-full object-cover mb-2" data-alt="A highly detailed close up portrait of a young athletic Asian man with short dark hair, wearing a modern sporty navy blue t-shirt, smiling warmly in a bright indoor badminton court environment with soft high-key lighting and a professional athletic aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzQSZ2NEKjH2jR9tsPozYkxj6N61a8c4WkzKzeH740JSilymVAwg6kDMVRg8v71dCwKPa-r57KqK9Q7sz1JGgUx3kj8eTCcmq_O_rhC2G47vBMlHL4Z5UQ7u8VbGPqYiL0w5ElpIDAO8RNRUpTSwYuq_7QAWfXyS2TbFQb-n7k7gp2bVRIyg7jm9tG-dEht8lRPvjWWhRyY3Zx-dQEUMmbrA-0uD6QjHoGvF5hEnNHC4SGceoe3ADHphEYHJVkPNE5BLpLxc-6taFU"/>
+<div class="font-headline-md text-headline-md text-primary dark:text-primary-fixed text-center">Minh Trần</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant text-center">Bán chuyên (Intermediate)</div>
+<button class="mt-2 w-full py-2 bg-secondary text-on-secondary rounded-lg font-label-bold text-label-bold hover:bg-secondary-fixed-dim transition-colors">Upgrade to Gold</button>
+</div>
+<nav class="flex flex-col p-gutter space-y-stack-sm flex-1">
+<a class="bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-lg flex items-center gap-3 p-3 font-label-bold text-label-bold active:scale-95 duration-150" href="#"><span class="material-symbols-outlined">person</span>Profile</a>
+<a class="text-on-surface-variant dark:text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest rounded-lg flex items-center gap-3 p-3 font-label-bold text-label-bold hover:bg-surface-variant transition-all active:scale-95 duration-150" href="#"><span class="material-symbols-outlined">history</span>Activity</a>
+<a class="text-on-surface-variant dark:text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest rounded-lg flex items-center gap-3 p-3 font-label-bold text-label-bold hover:bg-surface-variant transition-all active:scale-95 duration-150" href="#"><span class="material-symbols-outlined">payments</span>Wallet</a>
+<a class="text-on-surface-variant dark:text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest rounded-lg flex items-center gap-3 p-3 font-label-bold text-label-bold hover:bg-surface-variant transition-all active:scale-95 duration-150" href="#"><span class="material-symbols-outlined">star</span>Skill Ratings</a>
+<a class="text-on-surface-variant dark:text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest rounded-lg flex items-center gap-3 p-3 font-label-bold text-label-bold hover:bg-surface-variant transition-all active:scale-95 duration-150" href="#"><span class="material-symbols-outlined">settings</span>Settings</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-margin-mobile md:p-margin-desktop bg-surface overflow-y-auto">
+<!-- Profile Header -->
+<section class="bg-surface-container-lowest rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)] mb-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-outline-variant/30">
+<div class="flex items-center gap-6">
+<img alt="Minh Trần" class="w-24 h-24 rounded-full object-cover border-2 border-primary" data-alt="A highly detailed close up portrait of a young athletic Asian man with short dark hair, wearing a modern sporty navy blue t-shirt, smiling warmly in a bright indoor badminton court environment with soft high-key lighting and a professional athletic aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvLrgeWlQq71f561U4sz7Y8jreGBo6rr87UUTigAiPEs8_1n91CpHYXKYbRgOXZqGFZcvxOl7KZMCCaWXcrQwvBJIe1uVBjCeXD1RUgbLyZGRiHHvmzu_g60LYV0W5pnJbpWFa58yEqTov9EP5YMQjmAHPdp-ML9WSRt4caytEk4R9xM7gyVPcis_VVv3yT4UAPfEptio1stSKQxz4UVPsXfUmgLF_fLlrWX4lGv4mCpW_zIZ4IM_Ueb63C93rPEYUmueBlT8qh0-5"/>
+<div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-1">Minh Trần</h1>
+<span class="inline-block px-3 py-1 bg-surface-container-high rounded-full font-label-sm text-label-sm text-on-surface-variant mb-2">Bán chuyên (Intermediate)</span>
+</div>
+</div>
+<button class="px-6 py-2 border-2 border-primary text-primary rounded-lg font-label-bold text-label-bold hover:bg-primary hover:text-on-primary transition-colors">Chỉnh sửa hồ sơ</button>
+</section>
+<!-- Stat Cards Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<!-- Wallet Card -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex flex-col justify-between h-full">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<h2 class="font-headline-md text-headline-md">Ví của tôi</h2>
+</div>
+</div>
+<div class="mb-6">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Số dư khả dụng</p>
+<p class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">500.000đ</p>
+</div>
+<button class="w-full py-3 bg-secondary text-on-secondary rounded-lg font-label-bold text-label-bold hover:bg-secondary-fixed-dim transition-colors shadow-sm">Nạp tiền</button>
+</div>
+<!-- Skill Rating Card -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex flex-col justify-between h-full relative overflow-hidden">
+<div class="absolute -right-4 -top-4 text-surface-container-highest opacity-50 pointer-events-none">
+<span class="material-symbols-outlined" style="font-size: 120px;">emoji_events</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 text-primary mb-6">
+<span class="material-symbols-outlined">leaderboard</span>
+<h2 class="font-headline-md text-headline-md">Xếp hạng &amp; Điểm</h2>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Điểm đánh giá</p>
+<p class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">1,250</p>
+</div>
+<div class="text-right">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Hạng hiện tại</p>
+<p class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-secondary">#42</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Upcoming Activity -->
+<section class="mb-8">
+<h2 class="font-headline-md text-headline-md text-primary mb-4">Lịch đặt sân sắp tới</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border-l-4 border-l-secondary flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div class="flex gap-4 items-center">
+<div class="bg-secondary-container text-on-secondary-container p-3 rounded-lg flex flex-col items-center justify-center min-w-[70px]">
+<span class="font-label-bold text-label-bold uppercase">Hôm nay</span>
+<span class="font-headline-md text-headline-md">19:00</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Sân Cầu Lông Thống Nhất</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">location_on</span> Sân 1
+                            </p>
+</div>
+</div>
+<button class="w-full md:w-auto px-6 py-2 bg-primary text-on-primary rounded-lg font-label-bold text-label-bold hover:bg-primary-fixed-dim transition-colors">Quản lý</button>
+</div>
+</section>
+<!-- Activity History Tabs -->
+<section>
+<div class="flex justify-between items-end mb-4 border-b border-outline-variant pb-2">
+<h2 class="font-headline-md text-headline-md text-primary">Lịch sử hoạt động</h2>
+<div class="flex gap-4">
+<button class="font-label-bold text-label-bold text-primary border-b-2 border-secondary pb-1">Tất cả</button>
+<button class="font-label-bold text-label-bold text-on-surface-variant hover:text-primary transition-colors pb-1">Đã hoàn thành</button>
+<button class="font-label-bold text-label-bold text-on-surface-variant hover:text-primary transition-colors pb-1">Đã hủy</button>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Completed Item -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex justify-between items-center">
+<div class="flex gap-4 items-center">
+<div class="bg-surface-container p-3 rounded-lg flex flex-col items-center justify-center min-w-[70px]">
+<span class="font-label-bold text-label-bold uppercase text-on-surface-variant">Hôm qua</span>
+<span class="font-headline-md text-headline-md text-on-surface">10:00</span>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-bold text-on-surface">Sân Viettel</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sân 3</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-[#e6f4ea] text-[#137333] rounded-full font-label-sm text-label-sm border border-[#137333]/20">Hoàn thành</span>
+</div>
+<!-- Cancelled Item -->
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-outline-variant/30 flex justify-between items-center">
+<div class="flex gap-4 items-center">
+<div class="bg-error-container/30 p-3 rounded-lg flex flex-col items-center justify-center min-w-[70px]">
+<span class="font-label-bold text-label-bold uppercase text-error">20/03</span>
+<span class="font-headline-md text-headline-md text-on-surface">18:00</span>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-bold text-on-surface">Sân Kỳ Hòa</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sân 2 <span class="italic text-error ml-2">• Hoàn tiền vào ví</span></p>
+</div>
+</div>
+<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full font-label-sm text-label-sm border border-error/20">Đã hủy</span>
+</div>
+<!-- Empty State for Matches -->
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-outline-variant/30 border-dashed flex flex-col items-center justify-center text-center mt-6">
+<span class="material-symbols-outlined text-[48px] text-outline-variant mb-4" style="font-variation-settings: 'FILL' 1;">sports_tennis</span>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Trận đấu giao lưu</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 max-w-md">Chưa có trận đấu nào. Tìm trận ngay để nâng cao kỹ năng và giao lưu cùng cộng đồng!</p>
+<button class="px-6 py-2 bg-secondary text-on-secondary rounded-lg font-label-bold text-label-bold hover:bg-secondary-fixed-dim transition-colors shadow-sm">Tìm trận</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full mt-auto bg-surface-container-high dark:bg-surface-container-lowest border-t border-outline-variant dark:border-outline">
+<div class="flex flex-col md:flex-row justify-between items-center px-margin-desktop py-8 max-w-container-max mx-auto gap-4">
+<span class="font-body-sm text-body-sm text-on-surface-variant">© 2024 ShuttlePro Badminton. All rights reserved.</span>
+<div class="flex gap-4">
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-on-surface hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer" href="#">Privacy Policy</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-on-surface hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer" href="#">Terms of Service</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-on-surface hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer" href="#">Help Center</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-on-surface hover:text-primary dark:hover:text-primary-fixed transition-colors cursor-pointer" href="#">Contact Us</a>
+</div>
+</div>
+</footer>
+</body></html>
