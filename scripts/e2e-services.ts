@@ -9,12 +9,24 @@ import { bootstrapEventConsumption as financeConsume } from '../services/finance
 import { bootstrapEventPublishing as financePublish } from '../services/finance-service/src/lib/rabbitmq.js';
 
 async function start() {
-  await Promise.all([venueConsume(), venuePublish(), financeConsume(), financePublish()]);
-  createAccountApp().listen(Number(process.env.ACCOUNT_PORT ?? 3001));
-  createVenueApp().listen(Number(process.env.VENUE_BOOKING_PORT ?? 3002));
-  createFinanceApp().listen(Number(process.env.FINANCE_PORT ?? 3003));
-  createMatchmakingApp().listen(Number(process.env.MATCHMAKING_PORT ?? 3004));
-  createCommunityApp().listen(Number(process.env.COMMUNITY_PORT ?? 3005));
+  const [stopVenueConsume, stopVenuePublish, stopFinanceConsume, stopFinancePublish] = await Promise.all([
+    venueConsume({ queueName: 'e2e.venue-booking.domain-events', deleteQueueOnStop: true }),
+    venuePublish(),
+    financeConsume({ queueName: 'e2e.finance.domain-events', deleteQueueOnStop: true }),
+    financePublish(),
+  ]);
+  const servers = [
+    createAccountApp().listen(Number(process.env.ACCOUNT_PORT ?? 3001)),
+    createVenueApp().listen(Number(process.env.VENUE_BOOKING_PORT ?? 3002)),
+    createFinanceApp().listen(Number(process.env.FINANCE_PORT ?? 3003)),
+    createMatchmakingApp().listen(Number(process.env.MATCHMAKING_PORT ?? 3004)),
+    createCommunityApp().listen(Number(process.env.COMMUNITY_PORT ?? 3005)),
+  ];
+  const stop = async () => {
+    await Promise.all(servers.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+    await Promise.all([stopVenueConsume(), stopVenuePublish(), stopFinanceConsume(), stopFinancePublish()]);
+  };
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { void stop().finally(() => process.exit(0)); });
 }
 
 void start();
