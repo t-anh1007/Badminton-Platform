@@ -183,7 +183,7 @@ export function CommunityDetailPage() {
   if (loading)
     return (
       <div className="page-container py-8 sm:py-10">
-        <p className="text-caption uppercase tracking-[0.14em] text-green-700">Cộng đồng</p>
+        <p className="courtin-kicker">Cộng đồng</p>
         <h1 className="mt-1 text-h1">Chi tiết bài viết</h1>
         <Skeleton className="mt-5 h-64" />
         <section className="mt-5" aria-label="Bình luận">

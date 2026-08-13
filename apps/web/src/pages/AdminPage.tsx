@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { DisputeAdminPanel } from '../components/DisputeAdminPanel';
 import { FinanceAdminPanel } from '../components/FinanceAdminPanel';
 import { CommunityAdminPanel } from '../components/CommunityAdminPanel';
+import { PageHeader } from '../components/courtin/PageHeader';
+import { OperationsTable } from '../components/courtin/OperationsTable';
 import { Badge, Button, EmptyState, Modal, Tabs, TextArea } from '../components/ui';
 import { approveProvider, getAdminProviders, rejectProvider, type ProviderRow } from '../lib/venueBookingApi';
 
@@ -65,9 +67,7 @@ export function AdminPage() {
 
   return (
     <main className="page-container py-8 sm:py-12">
-      <p className="text-caption text-green-700">Khu vực vận hành</p>
-      <h1 className="mt-1 text-h1">Quản trị</h1>
-      <p className="mt-2 text-sm text-ink-500">Các hàng chờ tác nghiệp được lấy từ service nghiệp vụ hiện có.</p>
+      <PageHeader eyebrow="Khu vực vận hành" title="Quản trị" description="Các hàng chờ tác nghiệp được lấy từ service nghiệp vụ hiện có." />
       <div className="mt-6">
         <Tabs
           tabs={[
@@ -90,25 +90,15 @@ export function AdminPage() {
       {tab === 'providers' ? (
         <section className="mt-6">
           {providers.length ? (
-            <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="sticky top-0 bg-canvas text-caption">
-                  <tr>
-                    <th className="px-4 py-3">ID</th>
-                    <th className="px-4 py-3">Nhà cung cấp</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 text-right">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <OperationsTable caption="Hàng chờ phê duyệt nhà cung cấp" columns={['ID', 'Nhà cung cấp', 'Trạng thái', 'Hành động']}>
                   {providers.map((provider) => (
-                    <tr key={provider.id} className="border-t border-line hover:bg-green-50">
-                      <td className="px-4 py-3 text-figures text-xs">{provider.id}</td>
-                      <td className="px-4 py-3 font-medium">{provider.orgName}</td>
-                      <td className="px-4 py-3">
+                    <tr key={provider.id} className="hover:bg-green-50">
+                      <td className="px-5 py-3 text-figures text-xs">{provider.id}</td>
+                      <td className="px-5 py-3 font-medium">{provider.orgName}</td>
+                      <td className="px-5 py-3">
                         <Badge tone={providerBadgeTone(provider.status)}>{provider.status}</Badge>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3">
                         <div className="flex justify-end gap-2">
                           <Button size="sm" onClick={() => void approve(provider.id)}>
                             Duyệt
@@ -120,9 +110,7 @@ export function AdminPage() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+            </OperationsTable>
           ) : (
             <EmptyState title="Không có mục chờ xử lý" description="Nhà cung cấp gửi yêu cầu sẽ xuất hiện tại đây." />
           )}

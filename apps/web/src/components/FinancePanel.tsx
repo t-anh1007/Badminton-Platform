@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Card } from './Card';
+import { Button, TextInput } from './ui';
+import { MetricCard } from './courtin/MetricCard';
+import { OperationsTable } from './courtin/OperationsTable';
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWallets, getMyWithdrawals, type RevenueRow, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
 
 const money = (value: bigint | string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
@@ -37,28 +39,22 @@ export function FinancePanel() {
   return (
     <section className="mt-10" aria-labelledby="business-finance-title">
       <h2 id="business-finance-title" className="text-h2 mb-4 text-xl">Doanh thu và rút tiền</h2>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><p className="text-caption">Đang chờ 24 giờ</p><p className="text-figures text-xl">{money(businessWallet?.pending ?? '0')}</p></Card>
-        <Card><p className="text-caption">Có thể rút</p><p className="text-figures text-xl">{money(businessWallet?.available ?? '0')}</p></Card>
-        <Card><p className="text-caption">Đang giữ cho yêu cầu rút</p><p className="text-figures text-xl">{money(businessWallet?.reserved ?? '0')}</p></Card>
-      </div>
-      <div className="mt-4 overflow-x-auto rounded-2xl bg-surface p-4">
+      <div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Đang chờ 24 giờ" value={money(businessWallet?.pending ?? '0')} /><MetricCard label="Có thể rút" value={money(businessWallet?.available ?? '0')} tone="navy" /><MetricCard label="Đang giữ cho yêu cầu rút" value={money(businessWallet?.reserved ?? '0')} tone="yellow" /></div>
+      <div className="mt-4">
         <form className="mb-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); reload(); }}>
-          <input aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })} placeholder="Venue ID" />
-          <input aria-label="Từ ngày" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
-          <input aria-label="Đến ngày" type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
-          <button type="submit">Lọc doanh thu</button>
+          <TextInput aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })} placeholder="Venue ID" />
+          <TextInput aria-label="Từ ngày" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+          <TextInput aria-label="Đến ngày" type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+          <Button type="submit" size="sm">Lọc doanh thu</Button>
         </form>
-        <table className="w-full text-left text-sm"><thead><tr><th>Booking</th><th>Gộp</th><th>Đã hoàn</th><th>Hoa hồng còn lại</th><th>Ròng còn lại</th><th>Đáo hạn</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.bookingId}><td>{row.bookingId}</td><td>{money(row.gross)}</td><td>{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td>{money(row.commission)}</td><td>{money(row.net)}</td><td>{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : new Date(row.releaseAt).toLocaleString('vi-VN')}</td></tr>)}</tbody>
-        </table>
+        <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingId}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : new Date(row.releaseAt).toLocaleString('vi-VN')}</td></tr>)}</OperationsTable>
       </div>
-      <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl bg-surface p-4 sm:grid-cols-2">
-        <input aria-label="Số tiền rút" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Tối thiểu 100.000đ" />
-        <input aria-label="Ngân hàng" value={form.bankCode} onChange={(e) => setForm({ ...form, bankCode: e.target.value })} placeholder="Mã ngân hàng" />
-        <input aria-label="Số tài khoản" value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} placeholder="Số tài khoản" />
-        <input aria-label="Tên tài khoản" value={form.bankAccountName} onChange={(e) => setForm({ ...form, bankAccountName: e.target.value })} placeholder="Tên chủ tài khoản" />
-        <button className="rounded-full bg-green-600 px-4 py-2 text-surface" type="submit">Tạo yêu cầu rút</button>
+      <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2">
+        <TextInput aria-label="Số tiền rút" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Tối thiểu 100.000đ" />
+        <TextInput aria-label="Ngân hàng" value={form.bankCode} onChange={(e) => setForm({ ...form, bankCode: e.target.value })} placeholder="Mã ngân hàng" />
+        <TextInput aria-label="Số tài khoản" value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} placeholder="Số tài khoản" />
+        <TextInput aria-label="Tên tài khoản" value={form.bankAccountName} onChange={(e) => setForm({ ...form, bankAccountName: e.target.value })} placeholder="Tên chủ tài khoản" />
+        <Button type="submit">Tạo yêu cầu rút</Button>
       </form>
       <div className="mt-4 space-y-2">{withdrawals.map((row) => <div key={row.id} className="rounded-xl bg-surface p-3"><span>{row.transferCode} · {money(row.amount)} · {row.status}</span>{row.status === 'pending' && <button className="ml-3" onClick={() => cancelMyWithdrawal(row.id).then(reload).catch((error: Error) => setMessage(error.message))}>Hủy yêu cầu</button>}</div>)}</div>
       {message && <p className="mt-3 text-sm" role="status">{message}</p>}

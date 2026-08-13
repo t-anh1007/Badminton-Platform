@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { MatchListPage } from '../src/pages/MatchListPage';
 import { MatchDetailPage } from '../src/pages/MatchDetailPage';
 
-describe('P2-FE2 — Playo match journeys', () => {
+describe('P2-FE2 — COURTIN match journeys', () => {
   it('renders the real match discovery and Quick Match entry points', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter>

@@ -7,8 +7,8 @@ import { Navbar } from '../src/components/Navbar';
 import { Preloader } from '../src/components/Preloader';
 import { Button, Modal, SurfaceCard } from '../src/components/ui';
 
-describe('P2-FE0 — Playo foundation', () => {
-  it('renders the light global chrome and scope-only navigation', () => {
+describe('P2-FE0 — COURTIN foundation', () => {
+  it('renders the COURTIN global chrome and scope-only navigation', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
         <Navbar onOpenAuth={() => undefined} />
@@ -16,17 +16,17 @@ describe('P2-FE0 — Playo foundation', () => {
       </MemoryRouter>,
     );
     expect(html).toContain('Đặt sân');
-    expect(html).toContain('Kèo');
+    expect(html).toContain('Tìm kèo');
     expect(html).toContain('Cộng đồng');
     expect(html).toContain('Đăng nhập / Đăng ký');
     expect(html).not.toContain('Train');
-    expect(html).toContain('bg-surface');
-    expect(html).not.toContain('primary-navy');
+    expect(html).toContain('COURTIN');
+    expect(html).toContain('bg-brand-navy');
     expect(html).toContain('href="/matches"');
     expect(html).toContain('href="/community"');
   });
 
-  it('keeps reusable components accessible and Playo-shaped', () => {
+  it('keeps reusable components accessible and COURTIN-shaped', () => {
     const html = renderToStaticMarkup(
       <>
         <Button>Tiếp tục</Button>
@@ -41,13 +41,16 @@ describe('P2-FE0 — Playo foundation', () => {
     expect(html).toContain('rounded-2xl');
   });
 
-  it('removes legacy ACTL tokens from the global visual source', () => {
+  it('uses COURTIN fonts, tokens and reduced motion in the global visual source', () => {
     const stylePath = fileURLToPath(new URL('../src/index.css', import.meta.url));
     const css = readFileSync(stylePath, 'utf8');
     for (const legacyToken of ['primary-navy', 'court-green', 'accent-shuttle', 'Geist Sans'])
       expect(css).not.toContain(legacyToken);
+    expect(css).toContain('@fontsource/archivo/vietnamese-800.css');
     expect(css).toContain('@fontsource/inter/vietnamese-400.css');
-    expect(css).toContain('--color-green-600: #23a455');
+    expect(css).toContain('@fontsource/geist-mono/400.css');
+    expect(css).toContain('--color-brand-navy: #15446c');
+    expect(css).toContain('--color-brand-yellow: #f5e663');
     expect(css).toContain('prefers-reduced-motion');
     expect(css).not.toContain('focus-visible:outline-none');
   });

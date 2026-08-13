@@ -13,8 +13,9 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <Preloader />
+      <a href="#main-content" className="sr-only fixed left-4 top-4 z-[110] rounded-full bg-brand-yellow px-4 py-2 text-sm font-bold text-brand-navy focus:not-sr-only">Bỏ qua điều hướng</a>
       <Navbar onOpenAuth={() => setAuthOpen(true)} sessionVersion={sessionVersion} />
-      <main className="flex-1"><Outlet /></main>
+      <main id="main-content" className="flex-1"><Outlet /></main>
       <Footer />
       <Modal open={authOpen} title="Chào mừng bạn" onClose={() => setAuthOpen(false)}>
         <AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setSessionVersion((version) => version + 1); setAuthOpen(false); }} />

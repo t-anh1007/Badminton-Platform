@@ -166,7 +166,7 @@ export function MatchDetailPage() {
   return (
     <div className="page-container pb-28 pt-8 sm:pt-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
-      <button className="text-sm font-semibold text-green-700" onClick={() => navigate('/matches')}>
+      <button className="text-sm font-semibold text-brand-navy" onClick={() => navigate('/matches')}>
         ← Danh sách kèo
       </button>
       <div className="mt-4 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
@@ -174,7 +174,7 @@ export function MatchDetailPage() {
           <SurfaceCard>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-caption uppercase tracking-[0.12em] text-green-700">Chi tiết kèo</p>
+                <p className="courtin-kicker">Chi tiết kèo</p>
                 <h1 className="mt-1 text-h1">
                   {detail.venue.name} · {detail.court.name}
                 </h1>
@@ -188,7 +188,7 @@ export function MatchDetailPage() {
               </div>
               <div>
                 <p className="text-caption">Phí tham gia</p>
-                <p className="text-figures mt-1 font-semibold text-green-700">{money(detail.feePerSlot)}</p>
+                <p className="text-figures mt-1 font-semibold text-brand-navy">{money(detail.feePerSlot)}</p>
               </div>
               <div>
                 <p className="text-caption">Organizer</p>
@@ -207,7 +207,7 @@ export function MatchDetailPage() {
             </div>
             <p className="mt-5 text-sm text-ink-500">{detail.venue.address}</p>
             <a
-              className="mt-2 inline-block text-sm font-semibold text-green-700"
+              className="mt-2 inline-block text-sm font-semibold text-brand-navy"
               target="_blank"
               rel="noreferrer"
               href={`https://www.google.com/maps/search/?api=1&query=${detail.venue.lat},${detail.venue.lng}`}
@@ -269,20 +269,20 @@ export function MatchDetailPage() {
         <aside className="space-y-5">
           <SurfaceCard>
             <h2 className="text-h2">Người chơi</h2>
-            <p className="text-figures mt-4 text-3xl font-bold text-green-700">
+            <p className="text-figures mt-4 text-3xl font-bold text-brand-navy">
               {detail.confirmedParticipants + 1}/{detail.capacity}
             </p>
             <p className="mt-1 text-sm text-ink-500">
               Organizer và người chơi đã xác nhận. Danh tính người tham gia được giữ riêng tư.
             </p>
             <div className="mt-4 flex -space-x-2">
-              <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-green-600 font-bold text-white">
+              <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-brand-navy font-bold text-white">
                 {detail.organizer.displayName.slice(0, 1)}
               </span>
               {Array.from({ length: detail.confirmedParticipants }, (_, index) => (
                 <span
                   key={index}
-                  className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-green-100 text-xs font-bold text-green-700"
+                  className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-brand-yellow text-xs font-bold text-brand-navy"
                 >
                   ✓
                 </span>

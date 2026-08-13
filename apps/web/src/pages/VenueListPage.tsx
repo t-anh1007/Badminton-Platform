@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, EmptyState, SelectInput, Skeleton, SurfaceCard, TextInput } from '../components/ui';
+import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
 
 type LocationChoice = { id: string; label: string; lat: number; lng: number };
@@ -106,8 +107,9 @@ export function VenueListPage() {
   return (
     <main className="min-h-screen bg-canvas pb-12 pt-8 sm:pt-10">
       <div className="page-container">
+        <PageHeader eyebrow="Đặt sân cầu lông" title={`Sân cầu lông tại ${location.label}`} description="Tìm theo khu vực, bán kính và tên sân; dữ liệu khả dụng vẫn đến từ API hiện có." />
         <form
-          className="surface-card sticky top-[76px] z-10 mb-8 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1.05fr_1.6fr_.65fr_.65fr_auto]"
+          className="surface-card sticky top-[76px] z-10 my-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1.05fr_1.6fr_.65fr_.65fr_auto]"
           onSubmit={(event) => { event.preventDefault(); void runSearch(); }}
         >
           <div>
@@ -138,10 +140,7 @@ export function VenueListPage() {
         </form>
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-caption text-green-700">Đặt sân cầu lông</p>
-            <h1 className="mt-1 text-h1">Sân cầu lông tại {location.label}</h1>
-          </div>
+          <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
           {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
         </div>
 
@@ -180,12 +179,12 @@ export function VenueListPage() {
                 <Link key={venue.venueId} to={`/venues/${encodeURIComponent(venue.venueId)}`} className="block rounded-2xl focus-visible:outline-none">
                   <SurfaceCard hoverable className="h-full">
                     <div className="flex h-full flex-col">
-                      <div className="flex items-center justify-between gap-2"><p className="text-caption text-green-700">Sân cầu lông</p><Badge tone="success">Đặt được</Badge></div>
+                      <div className="flex items-center justify-between gap-2"><p className="text-caption text-brand-navy">Sân cầu lông</p><Badge tone="success">Đặt được</Badge></div>
                       <h2 className="mt-2 text-h3 text-ink-900">{venue.name}</h2>
                       <p className="mt-2 text-sm leading-6 text-ink-500">{venue.address}</p>
                       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-sm">
                         <span className="text-figures text-ink-700">~{venue.distanceKm.toFixed(1)} km</span>
-                        {lowestPrice && <span className="text-figures font-medium text-green-700">Từ {lowestPrice}</span>}
+                        {lowestPrice && <span className="text-figures font-medium text-brand-navy">Từ {lowestPrice}</span>}
                       </div>
                     </div>
                   </SurfaceCard>

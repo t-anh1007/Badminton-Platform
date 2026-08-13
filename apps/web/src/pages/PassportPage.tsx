@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, EmptyState, Modal, SelectInput, Skeleton, SurfaceCard, Toast } from '../components/ui';
+import { PageHeader } from '../components/courtin/PageHeader';
+import { MetricCard } from '../components/courtin/MetricCard';
 import type { SkillTier } from '../lib/matchApi';
 import {
   declarePassportTier,
@@ -80,14 +82,7 @@ export function PassportPage() {
   return (
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-caption uppercase tracking-[0.14em] text-green-700">Hồ sơ thi đấu</p>
-          <h1 className="mt-1 text-h1">Player Passport</h1>
-          <p className="mt-2 text-sm text-ink-500">Rating có độ bất định — không phải bảng xếp hạng.</p>
-        </div>
-        {isOwner && <Button onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button>}
-      </div>
+      <PageHeader eyebrow="Hồ sơ thi đấu" title="Player Passport" description="Rating có độ bất định — không phải bảng xếp hạng." actions={isOwner ? <Button onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined} />
       {loading ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
           <div>
@@ -127,7 +122,7 @@ export function PassportPage() {
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
               <SurfaceCard>
                 <p className="text-caption">RATING HIỆN TẠI</p>
-                <p className="text-figures mt-2 text-5xl font-bold tracking-tight text-green-700">
+                <p className="text-figures mt-2 text-5xl font-bold tracking-tight text-brand-navy">
                   {Math.round(own.rating)}
                 </p>
                 <div className="mt-4 flex items-center justify-between">
@@ -168,18 +163,7 @@ export function PassportPage() {
                     <Badge tone="warning">{own.flaggedEvaluationCount} chờ Admin</Badge>
                   )}
                 </div>
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-canvas p-4">
-                    <p className="text-caption">ĐÃ TÍNH</p>
-                    <p className="text-figures mt-1 text-2xl font-bold">{own.evaluationCount}</p>
-                  </div>
-                  <div className="rounded-xl bg-canvas p-4">
-                    <p className="text-caption">RATING CẢM NHẬN</p>
-                    <p className="text-figures mt-1 text-2xl font-bold">
-                      {own.evaluationScore === null ? '—' : Math.round(own.evaluationScore)}
-                    </p>
-                  </div>
-                </div>
+                <div className="mt-6 grid grid-cols-2 gap-4"><MetricCard label="Đã tính" value={own.evaluationCount} /><MetricCard label="Rating cảm nhận" value={own.evaluationScore === null ? '—' : Math.round(own.evaluationScore)} tone="yellow" /></div>
                 <p className="mt-4 text-sm text-ink-500">
                   Đánh giá bị gắn cờ được giữ ngoài rating cho đến khi Admin xử lý.
                 </p>

@@ -8,6 +8,7 @@ import {
   getReplacementCourts,
   type BookingSummary,
 } from '../lib/venueBookingApi';
+import { Button, SurfaceCard, TextInput } from './ui';
 
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
@@ -97,48 +98,40 @@ export function BookingCancellationPanel() {
 
   return (
     <section className="mt-14 grid gap-6 lg:grid-cols-2" aria-label="Quản lý booking G5">
-      <div className="rounded-2xl bg-surface p-6 shadow-sm">
+      <SurfaceCard className="p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-h2 !text-2xl">Booking của tôi</h2>
-          <button type="button" onClick={() => void loadBookings()} className="rounded-full bg-green-600 px-4 py-2 text-caption text-surface">
-            Tải lại
-          </button>
+          <Button type="button" onClick={() => void loadBookings()} size="sm">Tải lại</Button>
         </div>
         <div className="space-y-3">
           {bookings.map((booking) => (
             <article key={booking.id} className="rounded-xl border border-ink-700/15 p-4">
               <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? booking.courtId}</p>
               <p className="text-body text-ink-900/70">{new Date(booking.startAt).toLocaleString('vi-VN')} · {money.format(Number(booking.priceSnapshot))}</p>
-              <button type="button" onClick={() => void previewCancellation(booking)} className="mt-3 rounded-full bg-danger px-4 py-2 text-caption text-surface">
-                Xem mức hoàn
-              </button>
+              <Button tone="danger" size="sm" className="mt-3" onClick={() => void previewCancellation(booking)}>Xem mức hoàn</Button>
             </article>
           ))}
         </div>
         <p className="text-body mt-4 text-ink-900/60">Hệ thống luôn hiển thị số tiền hoàn trước bước Xác nhận hủy.</p>
         {pendingCancellation ? (
-          <div className="mt-4 rounded-xl bg-green-600/25 p-4">
+          <div className="mt-4 rounded-xl bg-brand-yellow p-4 text-brand-navy">
             <p className="font-semibold">Bạn sẽ được hoàn {pendingCancellation.refundPercent}% — {money.format(Number(pendingCancellation.booking.priceSnapshot) * pendingCancellation.refundPercent / 100)}.</p>
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => void confirmCancellation()} className="rounded-full bg-danger px-4 py-2 text-caption text-surface">Xác nhận hủy</button>
-              <button type="button" onClick={() => setPendingCancellation(null)} className="rounded-full border border-ink-700/20 px-4 py-2 text-caption !text-ink-900">Giữ booking</button>
+              <Button tone="danger" size="sm" onClick={() => void confirmCancellation()}>Xác nhận hủy</Button><Button tone="secondary" size="sm" onClick={() => setPendingCancellation(null)}>Giữ booking</Button>
             </div>
           </div>
         ) : null}
-      </div>
+      </SurfaceCard>
 
-      <div className={isProvider ? 'rounded-2xl bg-green-600 p-6 text-surface shadow-sm' : 'hidden'}>
+      <div className={isProvider ? 'rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-card)]' : 'hidden'}>
         <h2 className="text-h2 !text-2xl">Quản lý sự cố phía sân</h2>
         <p className="text-body mt-2 text-surface/70">Đổi sân con cùng cơ sở hoặc hủy kèm hoàn 100%.</p>
         <div className="mt-4 grid gap-3">
-          <input value={providerBookingId} onChange={(event) => setProviderBookingId(event.target.value)} placeholder="Mã booking" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
+          <TextInput value={providerBookingId} onChange={(event) => setProviderBookingId(event.target.value)} placeholder="Mã booking" />
           <div className="flex gap-2">
-            <button type="button" onClick={() => void findReplacement()} className="rounded-full bg-surface px-4 py-2 text-caption text-green-700">Tìm sân trống</button>
+            <Button type="button" onClick={() => void findReplacement()} size="sm">Tìm sân trống</Button>
           </div>
-          <input value={replacementCourtId} onChange={(event) => setReplacementCourtId(event.target.value)} placeholder="Mã sân con thay thế" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
-          <button type="button" onClick={() => void changeCourt()} className="rounded-full border border-surface/30 px-4 py-2 text-caption text-surface">Đổi sân con</button>
-          <input value={providerReason} onChange={(event) => setProviderReason(event.target.value)} placeholder="Lý do hủy bắt buộc" className="rounded-lg bg-surface px-3 py-2 text-ink-900" />
-          <button type="button" onClick={() => void cancelAsProvider()} className="rounded-full bg-danger px-4 py-2 text-caption text-surface">Hủy và hoàn 100%</button>
+          <TextInput value={replacementCourtId} onChange={(event) => setReplacementCourtId(event.target.value)} placeholder="Mã sân con thay thế" /><Button tone="secondary" type="button" onClick={() => void changeCourt()}>Đổi sân con</Button><TextInput value={providerReason} onChange={(event) => setProviderReason(event.target.value)} placeholder="Lý do hủy bắt buộc" /><Button tone="danger" type="button" onClick={() => void cancelAsProvider()}>Hủy và hoàn 100%</Button>
         </div>
       </div>
       <p role="status" className="text-body lg:col-span-2">{message}</p>

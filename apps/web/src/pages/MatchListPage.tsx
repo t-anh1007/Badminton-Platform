@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { QuickMatchPanel } from '../components/QuickMatchPanel';
+import { PageHeader } from '../components/courtin/PageHeader';
 import {
   Badge,
   Button,
@@ -106,14 +107,7 @@ export function MatchListPage() {
   return (
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.includes('thành công') ? 'success' : 'error'} />}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-caption uppercase tracking-[0.14em] text-green-700">Cùng ra sân</p>
-          <h1 className="mt-1 text-h1">Kèo cầu lông đang mở</h1>
-          <p className="mt-2 text-sm text-ink-500">Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp.</p>
-        </div>
-        <Button onClick={() => void openCreate()}>Tạo kèo từ slot đang giữ</Button>
-      </div>
+      <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={() => void openCreate()}>Tạo kèo từ slot đang giữ</Button>} />
       <div className="mt-6">
         <QuickMatchPanel />
       </div>
@@ -182,19 +176,19 @@ export function MatchListPage() {
             <Link
               key={match.id}
               to={`/matches/${match.id}`}
-              className="surface-card group block p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
+              className="surface-card group block p-5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-caption">
                     {match.capacity === 2 ? 'Kèo đơn' : 'Kèo đôi'} · {match.openSlots > 0 ? 'Mở' : 'Đầy'}
                   </p>
-                  <h2 className="mt-1 font-semibold text-ink-900 group-hover:text-green-700">{match.venue.name}</h2>
+                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2>
                 </div>
                 <Badge tone={match.openSlots <= 1 ? 'warning' : 'success'}>Còn {match.openSlots} chỗ</Badge>
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-green-100 font-bold text-green-700">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-yellow font-bold text-brand-navy">
                   {match.organizer?.displayName?.slice(0, 1) ?? 'T'}
                 </span>
                 <div>
@@ -215,7 +209,7 @@ export function MatchListPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-500">Phí</dt>
-                  <dd className="text-figures font-semibold text-green-700">{money(match.feePerSlot)}</dd>
+                  <dd className="text-figures font-semibold text-brand-navy">{money(match.feePerSlot)}</dd>
                 </div>
               </dl>
               <div className="mt-4">

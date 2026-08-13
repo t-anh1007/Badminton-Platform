@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge, Button, EmptyState, SegmentedControl, Skeleton, SurfaceCard, TextArea } from '../components/ui';
+import { PageHeader } from '../components/courtin/PageHeader';
 import {
   AssistantApiError,
   askSupportAssistant,
@@ -127,16 +128,7 @@ export function AssistantPage() {
 
   return (
     <div className="page-container py-8 sm:py-10">
-      <header className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-caption uppercase tracking-[0.14em] text-green-700">Hỗ trợ có căn cứ</p>
-          <h1 className="mt-1 text-h1">Trợ lý AI</h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink-500">
-            Tìm kèo phù hợp hoặc hỏi chính sách và dữ liệu của chính bạn.
-          </p>
-        </div>
-        <SegmentedControl options={tabs} value={tab} onChange={setTab} />
-      </header>
+      <PageHeader eyebrow="Hỗ trợ có căn cứ" title="Trợ lý AI" description="Tìm kèo phù hợp hoặc hỏi chính sách và dữ liệu của chính bạn." actions={<SegmentedControl options={tabs} value={tab} onChange={setTab} />} />
 
       <div className="mt-5 flex items-start gap-2 rounded-xl border border-info bg-info-bg p-3 text-sm text-ink-700">
         <span aria-hidden>ⓘ</span>
@@ -258,8 +250,8 @@ function SuggestionCard({ suggestion }: { suggestion: AiMatchSuggestion }) {
     <SurfaceCard hoverable className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-caption uppercase tracking-[0.12em] text-green-700">Điểm phù hợp F-02</p>
-          <p className="text-figures mt-1 text-3xl font-bold text-green-700">{Math.round(suggestion.score)}</p>
+          <p className="text-caption text-brand-navy">Điểm phù hợp F-02</p>
+          <p className="text-figures mt-1 text-3xl font-bold text-brand-navy">{Math.round(suggestion.score)}</p>
         </div>
         <Badge tone={suggestion.source === 'fallback' ? 'warning' : 'success'}>
           {suggestion.source === 'fallback' ? 'Giải thích rút gọn' : 'Gemini có căn cứ'}
@@ -271,14 +263,14 @@ function SuggestionCard({ suggestion }: { suggestion: AiMatchSuggestion }) {
       <p className="mt-2 text-sm text-ink-500">
         {formatDate(suggestion.match.startAt)} · còn {suggestion.match.openSlots} chỗ
       </p>
-      <p className="mt-4 flex-1 rounded-xl bg-green-50 p-3 text-sm leading-6 text-ink-700">{suggestion.explanation}</p>
+      <p className="mt-4 flex-1 rounded-xl bg-canvas p-3 text-sm leading-6 text-ink-700">{suggestion.explanation}</p>
       <div className="mt-5 flex items-center justify-between gap-3">
         <p className="text-figures text-sm font-semibold">
           {Number(suggestion.match.feePerSlot).toLocaleString('vi-VN')}₫ / chỗ
         </p>
         <Link
           to={`/matches/${suggestion.matchId}`}
-          className="inline-flex rounded-full bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-px hover:bg-green-700"
+          className="inline-flex rounded-full bg-brand-yellow px-4 py-2.5 text-sm font-bold text-brand-navy transition hover:-translate-y-px hover:bg-brand-yellow-hover"
         >
           Xem kèo
         </Link>
@@ -292,7 +284,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   return (
     <article className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm sm:max-w-[72%] ${message.role === 'user' ? 'rounded-br-md bg-green-600 text-white' : 'rounded-bl-md bg-surface text-ink-700'}`}
+        className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm sm:max-w-[72%] ${message.role === 'user' ? 'rounded-br-md bg-brand-navy text-white' : 'rounded-bl-md bg-surface text-ink-700'}`}
       >
         <p className="whitespace-pre-wrap">{message.body}</p>
         {message.role === 'assistant' && (
@@ -315,7 +307,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             {message.actionPath && actionLabel && (
               <Link
                 to={message.actionPath}
-                className="mt-3 inline-flex rounded-full border border-green-600 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50"
+                className="mt-3 inline-flex rounded-full border border-brand-navy px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-green-50"
               >
                 {actionLabel}
               </Link>

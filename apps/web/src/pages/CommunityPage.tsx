@@ -319,7 +319,7 @@ export function CommunityPage() {
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast key={notice.message} message={notice.message} tone={notice.tone} />}
       <header className="max-w-2xl">
-        <p className="text-caption uppercase tracking-[0.14em] text-green-700">Sân chơi chung</p>
+        <p className="courtin-kicker">Sân chơi chung</p>
         <h1 className="mt-1 text-h1">Cộng đồng cầu lông</h1>
         <p className="mt-2 text-sm text-ink-500">
           Chia sẻ công khai, trao đổi văn minh và cùng nhau ra sân. Bảng tin luôn xếp theo bài mới nhất.
@@ -505,7 +505,7 @@ export function CommunityPage() {
 
         <aside className="order-3 hidden lg:sticky lg:top-24 lg:block" aria-label="Hỗ trợ">
           <SurfaceCard className="overflow-hidden p-0 sm:p-0">
-            <div className="bg-green-700 p-5 text-surface">
+            <div className="bg-brand-navy p-5 text-surface">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green-100">Kênh riêng tư</p>
               <h2 className="mt-1 text-h3">Cần hỗ trợ?</h2>
               <p className="mt-2 text-sm text-green-50">

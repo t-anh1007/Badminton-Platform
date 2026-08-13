@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, EmptyState, Skeleton, SurfaceCard } from '../components/ui';
+import { PageHeader } from '../components/courtin/PageHeader';
 import { getVenueDetail, type VenueDetail } from '../lib/venueBookingApi';
 
 function errorMessage(error: unknown): string {
@@ -16,7 +17,7 @@ function textList(value: unknown): string[] {
 }
 
 function BookVenueButton({ venueId, className = '' }: { venueId: string; className?: string }) {
-  return <Link to={`/booking?venueId=${encodeURIComponent(venueId)}`} className={`inline-flex items-center justify-center rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-surface transition duration-150 hover:-translate-y-px hover:bg-green-700 ${className}`}>Đặt sân</Link>;
+  return <Link to={`/booking?venueId=${encodeURIComponent(venueId)}`} className={`inline-flex items-center justify-center rounded-full bg-brand-yellow px-6 py-3 text-sm font-bold uppercase tracking-[.04em] text-brand-navy transition duration-150 hover:-translate-y-px hover:bg-brand-yellow-hover ${className}`}>Đặt sân</Link>;
 }
 
 function VenueDetailSkeleton() {
@@ -104,13 +105,9 @@ export function VenueDetailPage() {
     <main className="min-h-screen bg-canvas pb-24 pt-8 sm:pb-12 sm:pt-10">
       <div className="page-container">
         <nav aria-label="Điều hướng" className="mb-6 text-sm text-ink-500"><Link to="/venues" className="hover:text-green-700">Sân</Link><span aria-hidden> › </span><span className="text-ink-700">{venue.name}</span></nav>
-        <div className="mb-8 border-b border-line pb-6">
-          <p className="text-caption text-green-700">Cơ sở cầu lông</p>
-          <h1 className="mt-2 text-h1">{venue.name}</h1>
-          {venue.address && <p className="mt-2 text-body text-ink-500">{venue.address}</p>}
-        </div>
+        <PageHeader eyebrow="Cơ sở cầu lông" title={venue.name} description={venue.address || undefined} />
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
           <div className="space-y-6">
             {images.length > 0 && <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2" aria-label="Ảnh cơ sở">{images.map((src, index) => <img key={src} src={src} alt={`${venue.name} ${index + 1}`} className="aspect-video w-[min(100%,36rem)] shrink-0 snap-start rounded-2xl object-cover" />)}</div>}
             <SurfaceCard>
@@ -121,7 +118,7 @@ export function VenueDetailPage() {
                 </ul>
               ) : <p className="mt-3 text-sm text-ink-500">Sân đang cập nhật lịch.</p>}
             </SurfaceCard>
-            {amenities.length > 0 && <SurfaceCard><h2 className="text-h2">Tiện ích</h2><ul className="mt-4 grid gap-2 sm:grid-cols-2">{amenities.map((amenity) => <li key={amenity} className="text-sm text-ink-700"><span aria-hidden className="mr-2 text-green-700">✓</span>{amenity}</li>)}</ul></SurfaceCard>}
+            {amenities.length > 0 && <SurfaceCard><h2 className="text-h2">Tiện ích</h2><ul className="mt-4 grid gap-2 sm:grid-cols-2">{amenities.map((amenity) => <li key={amenity} className="text-sm text-ink-700"><span aria-hidden className="mr-2 text-brand-navy">✓</span>{amenity}</li>)}</ul></SurfaceCard>}
           </div>
 
           <aside className="hidden lg:block lg:sticky lg:top-24">
@@ -130,7 +127,7 @@ export function VenueDetailPage() {
               <p className="mt-2 text-sm text-ink-500">Chọn sân con và khung giờ ở bước tiếp theo.</p>
               {hasCourts ? <BookVenueButton venueId={venue.id} className="mt-5 w-full" /> : <Button disabled className="mt-5 w-full">Sân đang cập nhật</Button>}
             </SurfaceCard>
-            {mapUrl && <SurfaceCard className="mt-4"><h2 className="text-h3">Vị trí</h2><p className="mt-2 text-sm text-ink-500">{venue.address}</p><a href={mapUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-semibold text-green-700 hover:underline">Mở chỉ đường</a></SurfaceCard>}
+            {mapUrl && <SurfaceCard className="mt-4"><h2 className="text-h3">Vị trí</h2><p className="mt-2 text-sm text-ink-500">{venue.address}</p><a href={mapUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-semibold text-brand-navy hover:underline">Mở chỉ đường</a></SurfaceCard>}
           </aside>
         </div>
       </div>

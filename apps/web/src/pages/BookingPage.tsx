@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthForm } from '../components/AuthForm';
 import { SlotGrid, type Slot, type SlotStatus } from '../components/SlotGrid';
 import { Button, EmptyState, Modal, SegmentedControl, Skeleton, SurfaceCard } from '../components/ui';
+import { PageHeader } from '../components/courtin/PageHeader';
 import { createBooking, createHold, getCourtAvailability, getVenueDetail, selectSlot, type BookingSummary, type HoldResult, type SlotSelection, type VenueDetail } from '../lib/venueBookingApi';
 import { createBookingSepayIntent, payBookingBalance } from '../lib/financeApi';
 
@@ -32,7 +33,7 @@ function HoldCountdown({ expiresAt, onExpired }: { expiresAt?: string; onExpired
     return () => { window.clearInterval(interval); window.clearTimeout(timeout); };
   }, [expiresAt]);
   if (!expiresAt) return null;
-  return <span className={`text-figures rounded-full px-3 py-2 text-sm ${remaining < 120_000 ? 'bg-danger-bg text-danger' : 'bg-green-50 text-green-700'}`}>Giữ chỗ {Math.floor(remaining / 60_000).toString().padStart(2, '0')}:{Math.floor((remaining % 60_000) / 1_000).toString().padStart(2, '0')}</span>;
+  return <span className={`text-figures rounded-full px-3 py-2 text-sm ${remaining < 120_000 ? 'bg-danger-bg text-danger' : 'bg-brand-yellow text-brand-navy'}`}>Giữ chỗ {Math.floor(remaining / 60_000).toString().padStart(2, '0')}:{Math.floor((remaining % 60_000) / 1_000).toString().padStart(2, '0')}</span>;
 }
 
 export function BookingPage() {
@@ -160,8 +161,8 @@ export function BookingPage() {
 
   return (
     <main className="page-container py-8 sm:py-12">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-caption text-green-700">Đặt sân</p><h1 className="mt-1 text-h1">{detail?.name ?? 'Đang tải cơ sở…'}</h1><p className="mt-1 text-sm text-ink-500">{detail?.address}</p></div><HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} /></div>
-      <div className="mb-6 flex flex-wrap gap-2">{['Chọn slot', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-sm font-semibold ${step === index + 1 ? 'bg-green-600 text-surface' : 'bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}</div>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><PageHeader eyebrow="Đặt sân" title={detail?.name ?? 'Đang tải cơ sở…'} description={detail?.address} /><HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} /></div>
+      <div className="mb-6 flex flex-wrap gap-2">{['Chọn slot', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}</div>
       {error && <SurfaceCard className="mb-5 border-danger bg-danger-bg"><p role="alert" className="text-danger">{error}</p><Link to="/venues" className="mt-2 inline-block text-sm font-semibold text-green-700 hover:underline">Quay lại danh sách sân</Link></SurfaceCard>}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section><SurfaceCard><div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-medium">Ngày<input type="date" value={date} onChange={(event) => { setDate(event.target.value); if (courtId) void loadAvailability(courtId, event.target.value); }} className="rounded-xl border border-line bg-surface px-3 py-2.5" /></label><label className="grid gap-1.5 text-sm font-medium">Sân con<select value={courtId} onChange={(event) => { setCourtId(event.target.value); void loadAvailability(event.target.value, date); }} className="rounded-xl border border-line bg-surface px-3 py-2.5">{detail?.courts.map((court) => <option key={court.id} value={court.id}>{court.name}</option>)}</select></label></div>{loading ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-20" />)}</div> : slots.length ? <div className="mt-5"><SlotGrid courtName={detail?.courts.find((court) => court.id === courtId)?.name ?? 'Sân'} slots={slots} onSelect={(slot) => void choose(slot)} /></div> : <div className="mt-5"><EmptyState title="Không còn slot trống" description="Hãy chọn ngày hoặc sân con khác." /></div>}</SurfaceCard></section>

@@ -74,7 +74,7 @@ export function QuickMatchPanel() {
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-green-100 bg-[linear-gradient(120deg,#eaf7ef_0%,#ffffff_70%)] p-5 shadow-sm"
+      className="overflow-hidden rounded-2xl border border-line bg-[linear-gradient(120deg,#edf4f7_0%,#ffffff_70%)] p-5 shadow-[var(--shadow-card)]"
       aria-live="polite"
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -105,7 +105,7 @@ export function QuickMatchPanel() {
         </div>
       </div>
       {proposal && (
-        <div className="mt-4 animate-[fade-in_200ms_ease-out] rounded-xl border border-line bg-surface p-4">
+        <div className="mt-4 animate-courtin-arrival rounded-xl border border-line bg-surface p-4">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <p className="font-semibold text-ink-900">
@@ -128,7 +128,7 @@ export function QuickMatchPanel() {
           </div>
         </div>
       )}
-      {message && <p className={`mt-3 text-sm ${state === 'error' ? 'text-danger' : 'text-green-700'}`}>{message}</p>}
+      {message && <p className={`mt-3 text-sm ${state === 'error' ? 'text-danger' : 'text-brand-navy'}`}>{message}</p>}
     </section>
   );
 }

@@ -196,7 +196,7 @@ export function SupportPage() {
           ← Về cộng đồng
         </Link>
         <header className="mt-5">
-          <p className="text-caption uppercase tracking-[0.14em] text-green-700">Kênh riêng tư</p>
+          <p className="courtin-kicker">Kênh riêng tư</p>
           <h1 className="mt-1 text-h1">Trung tâm hỗ trợ</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-500">
             Tạo ticket và theo dõi trao đổi riêng tư với đội ngũ vận hành.
@@ -224,7 +224,7 @@ export function SupportPage() {
           <Link to="/community" className="text-sm font-semibold text-green-700 hover:underline">
             ← Về cộng đồng
           </Link>
-          <p className="mt-5 text-caption uppercase tracking-[0.14em] text-green-700">Kênh riêng tư</p>
+          <p className="mt-5 courtin-kicker">Kênh riêng tư</p>
           <h1 className="mt-1 text-h1">Trung tâm hỗ trợ</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-500">
             Trao đổi bất đồng bộ với đội ngũ vận hành. Ticket và tin nhắn chỉ hiển thị cho bạn và Admin.
@@ -350,7 +350,7 @@ export function SupportPage() {
                     >
                       {!isMine && <Avatar label={message.senderRole === 'admin' ? 'A' : 'N'} className="shrink-0" />}
                       <div
-                        className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${isMine ? 'rounded-br-md bg-green-600 text-surface' : 'rounded-bl-md border border-line bg-surface text-ink-700'}`}
+                        className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${isMine ? 'rounded-br-md bg-brand-navy text-surface' : 'rounded-bl-md border border-line bg-surface text-ink-700'}`}
                       >
                         <p
                           className={`text-xs font-semibold ${isMine ? 'text-green-50' : message.senderRole === 'admin' ? 'text-green-700' : 'text-ink-500'}`}

@@ -6,7 +6,7 @@ import { BookingPage } from '../src/pages/BookingPage';
 import { ProfilePage } from '../src/pages/ProfilePage';
 import { AdminPage } from '../src/pages/AdminPage';
 
-describe('P2-FE1 â€” Phase 1 Playo routes', () => {
+describe('P2-FE1 — Phase 1 COURTIN routes', () => {
   it('keeps the email verification and recovery paths actionable', () => {
     const html = renderToStaticMarkup(<MemoryRouter><AuthForm initialMode="verify" /></MemoryRouter>);
     expect(html).toContain('Xác minh email');
