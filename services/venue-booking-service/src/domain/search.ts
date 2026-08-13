@@ -1,6 +1,4 @@
 import { prisma } from '../lib/prisma.js';
-import { isVenueSearchable } from './venue.js';
-import { getEffectivePricingWindows } from './pricing.js';
 import { isRangeFree } from './slotAvailability.js';
 
 const DEFAULT_RADIUS_KM = 10; // A-BOK-04
@@ -26,13 +24,13 @@ export interface VenueSearchResult {
   lowestPrice: bigint | null;
 }
 
-async function lowestPriceForVenue(venueId: string): Promise<bigint | null> {
-  const courts = await prisma.court.findMany({ where: { venueId, active: true } });
-  const now = new Date();
-  const weekday = now.getUTCDay();
+function lowestPriceForVenue(
+  courts: Array<{ pricingRules: Array<{ price: bigint; version: number }> }>,
+): bigint | null {
   let min: bigint | null = null;
   for (const court of courts) {
-    const windows = await getEffectivePricingWindows(court.id, weekday, now);
+    const latestVersion = court.pricingRules[0]?.version;
+    const windows = court.pricingRules.filter((rule) => rule.version === latestVersion);
     for (const w of windows) {
       if (min === null || w.price < min) min = w.price;
     }
@@ -48,14 +46,37 @@ export async function searchVenues(
   lng: number,
   radiusKm: number = DEFAULT_RADIUS_KM,
 ): Promise<VenueSearchResult[]> {
-  const venues = await prisma.venue.findMany();
+  const now = new Date();
+  const weekday = now.getUTCDay();
+  const venues = await prisma.venue.findMany({
+    where: {
+      provider: { status: 'approved' },
+      courts: {
+        some: {
+          active: true,
+          operatingHours: { some: {} },
+          pricingRules: { some: {} },
+        },
+      },
+    },
+    include: {
+      courts: {
+        where: { active: true },
+        include: {
+          pricingRules: {
+            where: { weekday, effectiveFrom: { lte: now } },
+            orderBy: [{ version: 'desc' }, { startMinute: 'asc' }],
+          },
+        },
+      },
+    },
+  });
   const results: VenueSearchResult[] = [];
 
   for (const venue of venues) {
     const distanceKm = haversineKm(lat, lng, venue.lat, venue.lng);
     if (distanceKm > radiusKm) continue;
     // BR-BOK-01: chỉ cơ sở thỏa BR-VEN-03 (approved + sân active + giờ + giá).
-    if (!(await isVenueSearchable(venue.id))) continue;
 
     results.push({
       venueId: venue.id,
@@ -65,7 +86,7 @@ export async function searchVenues(
       address: venue.address,
       amenities: venue.amenities,
       distanceKm,
-      lowestPrice: await lowestPriceForVenue(venue.id),
+      lowestPrice: lowestPriceForVenue(venue.courts),
     });
   }
 
