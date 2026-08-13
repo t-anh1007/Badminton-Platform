@@ -56,6 +56,7 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D43 | 2026-08-09 | **D27 làm rõ nguồn Glicko:** `perceivedTier` của MMP-10 chỉ nuôi điểm tổng hợp Passport sau khi hợp lệ, không được suy diễn thành thắng/thua hay tự thay đổi Glicko. `RatingPeriodReady` chỉ phát khi có nguồn kết quả trận với `score` đã xác thực; M4 không bịa score từ nhận xét chủ quan. **PO duyệt 2026-08-09.** | D27, MMP-10, F-01, F-07 |
 
 | D44 | 2026-08-09 | **Quick Match không tự duyệt; capacity áp dụng toàn bộ JOIN:** chấp nhận đề xuất F-03 luôn tạo `JOIN pending`; chỉ organizer được duyệt mới chuyển sang `approved` và mở hold thanh toán 10 phút. Suất tạm giữ là mọi JOIN `approved` hoặc `confirmed`; `pending` không chiếm chỗ. Khóa transaction trên `matchId` bảo đảm chỉ một suất cuối được giữ cho mọi luồng JOIN; candidate còn lại nhận `MATCH_FULL` trước contribution, debit, platform reserve hay ledger. Finance vẫn fail-safe/idempotent với payment receipt stale hoặc đến muộn. **PO duyệt và làm rõ tại P2-final 2026-08-09.** | F-03, BR-MMP-05/06, AC-FIN-05-7 |
+| D45 | 2026-08-13 | **Figma COURTIN là visual authority.** PO chọn file `FHuhhmlhPSl8gOUuUx7az2` làm nguồn quyết định duy nhất cho màu sắc, typography, radius, shadow, layout và component anatomy của `apps/web`. Quyết định này supersede visual identity Playo/ACTL lịch sử, nhưng không thay đổi phạm vi chức năng, HTTP/Socket.IO contract, auth, role, chính sách tài chính hoặc yêu cầu accessibility/performance hiện hành. | Toàn bộ `apps/web`, tài liệu thiết kế và Phase 2.5 |
 
 ### Lý do đáng ghi nhớ
 

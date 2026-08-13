@@ -2,7 +2,7 @@
 type: acceptance-test-ledger
 phase: 2
 status: awaiting-po-acceptance
-updated: 2026-08-10
+updated: 2026-08-13
 ---
 
 # Phase 2 Acceptance Test Ledger
@@ -27,6 +27,7 @@ Each AC must end as `pass` with executable evidence, or `waived` with an explici
 | P2-FE0 | pass | `apps/web/test/playoFoundation.test.tsx` 3/3; Playwright desktop/mobile chrome check with zero console errors; workspace typecheck/build; one Codex review resolved dead future-route links, auth-session refresh, avatar focus and toast timeout |
 | P2-FE1 | pass | `apps/web/test/playoFoundation.test.tsx`, `playoPhase1Pages.test.tsx`, `bookingCancellation.test.tsx` 7/7; workspace typecheck and web build; local Playwright desktop/mobile inspection of Home, Auth, Venue error-state and Booking error-state; one Codex diff review resolved auth continuation/reset, hold expiry, provider visibility, admin confirmation, profile-cancelled and real-field rendering defects |
 | P2-FE2 | pass | current UI AC suites 8/8 plus review-fix regressions 7/7; focused Match detail 5/5, Passport owner 1/1 and Community projection 3/3; workspace typecheck/build; Playwright desktop Match/Community and 390px Assistant inspection with no console error; one two-axis diff review resolved lifecycle/payment/evaluation/ticket/status defects |
+| COURTIN-FE | pass — awaiting PO acceptance | Figma COURTIN coverage F1–F5 completed before implementation; all web routes reskinned without altering API/auth/role/Socket.IO/business contracts. Final validation: web lint 0 errors (12 existing warnings), web 22/22; account 38 pass/2 skip; venue 110/110; finance 88 pass/11 skip; matchmaking 70 pass/5 skip; community isolated schema 22 pass/1 skip; workspace typecheck/build; real browser HT1–HT10 10/10; COURTIN visual desktop/mobile 16/16. |
 
 | AC | Milestone | Executable evidence | Result |
 |---|---|---|---|

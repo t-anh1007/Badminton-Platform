@@ -7,7 +7,11 @@ source: khảo sát playo.co 2026-08-09
 updated: 2026-08-09
 ---
 
-# Design System — Phase 2.5 (ngôn ngữ Playo)
+# Design System — Historical Playo baseline
+
+> Historical baseline only: tài liệu này không còn là nguồn quyết định màu, bố cục,
+> typography, radius hoặc shadow. Visual authority hiện hành là Figma COURTIN
+> `FHuhhmlhPSl8gOUuUx7az2` theo D45; xem [courtin-figma-authority.md](courtin-figma-authority.md).
 
 Nguồn thị giác **có thẩm quyền** cho `apps/web` từ Phase 2.5. Mọi page spec tham
 chiếu token và component ở đây; không tự đặt màu/spacing rời rạc trong trang.

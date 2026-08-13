@@ -27,6 +27,7 @@ lại từ `SCOPE_BASELINE.md`.
 | 2026-08-05 | `BOK-10` bổ sung **Admin** làm actor liên quan | D13 — hệ quả của D4, xem [decision-log](decision-log.md) |
 | 2026-08-05 | Thêm `FIN-14 Đối soát giao dịch chưa khớp` vào GĐ1. Tổng chức năng GĐ1 tăng từ 39 lên **40** | D15 — bịt lỗ hổng tiền nằm ngoài ledger |
 | 2026-08-09 | Chèn **Giai đoạn 2.5 — Tinh chỉnh UI/UX theo Playo.co** giữa GĐ2 và GĐ3 (mục 4B). **0 UC nền mới** — chỉ re-skin/re-layout `apps/web` theo playo.co. Phần "UI/UX Polish" của GĐ3 (P3-M4) thu hẹp tương ứng. | D-UI1 (PO, phiên này) — xem `PLAN_PHASE2.5.md`, `docs/design/` |
+| 2026-08-13 | Chuyển visual authority của Phase 2.5 sang file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2`; Playo/ACTL chỉ còn là lịch sử. Không đổi UC, vai trò, API, service hoặc scope chức năng. | D45 — PO |
 
 > D1 thay thế cách diễn đạt "lát cắt dọc mỏng" ở [ADR 0001](../decisions/0001-tech-stack.md)
 > và [ADR 0002](../decisions/0002-tech-stack-microservices.md). Hai ADR đó vẫn đúng về
@@ -188,27 +189,22 @@ mới phải được PO duyệt riêng và ghi vào bảng này.
 
 ---
 
-## 4B. Giai đoạn 2.5 — Tinh chỉnh UI/UX theo Playo.co
+## 4B. Giai đoạn 2.5 — Tinh chỉnh UI/UX theo COURTIN
 
-**0 UC nền mới.** Đây là giai đoạn **re-skin + re-layout** frontend `apps/web` để
-đạt độ tương đồng ~90–100% với [playo.co](https://playo.co) về bố cục trang, hệ
-thị giác, component và tương tác — **giữ nguyên phạm vi nghiệp vụ cầu lông** (không
-trainer, không đa môn, không karma).
+**0 UC nền mới.** Đây là giai đoạn **re-skin + re-layout** frontend `apps/web` theo
+file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2` — **giữ nguyên phạm vi nghiệp vụ cầu
+lông** (không trainer, không đa môn, không karma).
 
-- **Nguồn thẩm quyền:** [`PLAN_PHASE2.5.md`](../../PLAN_PHASE2.5.md) và thư mục
-  [`docs/design/`](../design/README.md) (design-system + 11 page spec).
+- **Nguồn thẩm quyền:** Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2` theo D45 và
+  [`docs/design/courtin-figma-authority.md`](../design/courtin-figma-authority.md).
 - **Ranh giới:** chỉ sửa `apps/web` + docs design; **không** đụng `services/*`,
   schema, API, event, logic nghiệp vụ.
-- **Cập nhật 2026-08-09 (D-UI5):** Phase 2.5 được **lồng THẲNG vào goal GĐ2**
-  (`phase-2-goal.md`, track frontend P2-FE0/FE1/FE2) — không còn chạy sau GĐ2. Do
-  GĐ2 đang ở P2-M4 và **frontend chưa bắt đầu**, frontend GĐ2 build luôn trên design
-  Playo, không phát sinh rework.
-- **Hệ thị giác:** chuyển từ ngôn ngữ actl.me (tối/navy/vàng) sang ngôn ngữ Playo
-  (sáng/trắng-xám/xanh lá). `docs/design/design-system.md` **thay thế** DESIGN.md
-  §1.1 và §2 về visual identity; giữ nguyên ràng buộc hiệu năng DESIGN.md §5.
-- **Đối chiếu scope:** bỏ những gì Playo có mà dự án không có (đa môn, trainer,
-  karma, gift card, app tải về); tự thiết kế những gì dự án có mà Playo không có
-  (Admin, Passport, AI, Cộng đồng, tranh chấp, ví kinh doanh) theo cùng design system.
+- **Cập nhật 2026-08-13 (D45):** mọi mockup và code mới lấy Figma COURTIN làm chuẩn;
+  tài liệu Playo/ACTL không còn có thẩm quyền quyết định hình thức. Giữ nguyên ràng
+  buộc hiệu năng DESIGN.md §5.
+- **Đối chiếu scope:** không bổ sung feature từ visual reference; Admin, Passport,
+  AI, Cộng đồng, tranh chấp và ví kinh doanh chỉ thể hiện dữ liệu/hành động đã được
+  specification hiện hành cho phép.
 - **Hệ quả GĐ3:** phần "UI/UX Polish" (P3-M4) thu hẹp — polish thị giác đã làm ở
   GĐ2.5; P3-M4 còn polish nội dung demo + a11y cuối.
 

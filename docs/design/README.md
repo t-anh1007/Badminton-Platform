@@ -5,11 +5,14 @@ status: draft-for-po-review
 updated: 2026-08-09
 ---
 
-# Design — Phase 2.5 (UI/UX theo Playo.co)
+# Design — Phase 2.5 (UI/UX theo COURTIN)
 
-Thư mục này chứa thiết kế trực quan cho `apps/web` ở **Phase 2.5** — đưa giao diện
-đạt ~90–100% độ tương đồng với [playo.co](https://playo.co) về bố cục, hệ thị giác,
-component và tương tác, **giữ nguyên phạm vi nghiệp vụ cầu lông của dự án**.
+> Historical baseline: nội dung Playo/ACTL còn lại trong thư mục này chỉ phục vụ lịch
+> sử. Visual authority hiện hành là Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2` theo D45;
+> xem [courtin-figma-authority.md](courtin-figma-authority.md).
+
+Thư mục này chứa thiết kế trực quan cho `apps/web` ở **Phase 2.5**, bám Figma
+COURTIN, **giữ nguyên phạm vi nghiệp vụ cầu lông của dự án**.
 
 Kế hoạch phase: [`../../PLAN_PHASE2.5.md`](../../PLAN_PHASE2.5.md).
 
