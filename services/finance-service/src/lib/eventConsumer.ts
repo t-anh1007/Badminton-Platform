@@ -1,7 +1,9 @@
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { createHash } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { connectRabbitMQ } from '@khoaluantn/eventbus';
 import { env } from './env.js';
+import { prisma } from './prisma.js';
 import { handleUserRegistered, handleProviderApproved } from '../domain/walletProvisioning.js';
 import { recordBookingRevenue } from '../domain/revenue.js';
 import { creditLatePayment } from '../domain/latePayment.js';
@@ -49,6 +51,24 @@ type EventConsumerHooks = {
   beforeMatchBookingResolved?: (payload: MatchBookingResolutionPayload) => Promise<void> | void;
 };
 
+function isLegacyMatchConfirmed(payload: unknown): payload is Record<string, unknown> {
+  return typeof payload === 'object' && payload !== null
+    && (!('attemptId' in payload) || !('venueRevision' in payload));
+}
+
+export async function quarantineLegacyMatchConfirmed(eventId: string, payload: Record<string, unknown>): Promise<void> {
+  await prisma.quarantinedEvent.upsert({
+    where: { eventId },
+    update: {},
+    create: {
+      eventId,
+      eventType: 'MatchConfirmed',
+      payload: payload as Prisma.InputJsonValue,
+      reason: 'Legacy MatchConfirmed is missing required attemptId or venueRevision fencing fields.',
+    },
+  });
+}
+
 async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: EventConsumerHooks): Promise<void> {
   if (!msg) return;
   try {
@@ -72,6 +92,11 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: E
     } else if (envelope.type === 'JoinApproved') {
       await handleJoinApproved(eventId, envelope.payload as JoinApprovedPayload);
     } else if (envelope.type === 'MatchConfirmed') {
+      if (isLegacyMatchConfirmed(envelope.payload)) {
+        await quarantineLegacyMatchConfirmed(eventId, envelope.payload);
+        channel.ack(msg);
+        return;
+      }
       await handleMatchConfirmed(eventId, envelope.payload as MatchConfirmedPayload);
     } else if (envelope.type === 'MatchCancelled') {
       await handleMatchCancelled(eventId, envelope.payload as MatchCancelledPayload);

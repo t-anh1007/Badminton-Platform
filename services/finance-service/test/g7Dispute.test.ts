@@ -29,7 +29,7 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
       bookingId: fixture.bookingId, reason: 'Sân không cung cấp đúng dịch vụ', evidence: ['https://example.test/evidence.jpg'],
     });
     expect(dispute).toMatchObject({ bookingId: fixture.bookingId, raiserUserId: fixture.playerId, status: 'open' });
-    await releaseMatureRevenue(new Date(fixture.endAt.getTime() + 25 * 3_600_000));
+    await releaseMatureRevenue(new Date(fixture.endAt.getTime() + 25 * 3_600_000), [fixture.bookingId]);
     const revenue = await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } });
     expect(revenue.releasedAt).toBeNull();
     expect((await prisma.wallet.findUniqueOrThrow({ where: { id: revenue.businessWalletId } })).pending).toBe(180000n);

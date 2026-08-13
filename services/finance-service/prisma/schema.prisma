@@ -190,6 +190,20 @@ model ProcessedEvent {
   @@map("processed_events")
 }
 
+/// Immutable recovery record for a legacy finance event that cannot safely be
+/// interpreted under the current schema. The broker message is acknowledged
+/// only after this row has been durably written, so it is never silently lost.
+model QuarantinedEvent {
+  eventId       String   @id
+  eventType     String
+  payload       Json
+  reason        String
+  quarantinedAt DateTime @default(now())
+
+  @@index([eventType, quarantinedAt])
+  @@map("quarantined_events")
+}
+
 model WithdrawalRequest {
   id            String            @id @default(uuid())
   sellerUserId  String

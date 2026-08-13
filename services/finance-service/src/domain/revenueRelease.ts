@@ -45,9 +45,15 @@ export async function releaseBookingRevenue(bookingId: string, now = new Date())
   });
 }
 
-export async function releaseMatureRevenue(now = new Date()): Promise<number> {
+export async function releaseMatureRevenue(now = new Date(), bookingIds?: readonly string[]): Promise<number> {
+  if (bookingIds?.length === 0) return 0;
   const candidates = await prisma.bookingRevenue.findMany({
-    where: { releasedAt: null, cancelledAt: null, releaseAt: { lte: now } },
+    where: {
+      releasedAt: null,
+      cancelledAt: null,
+      releaseAt: { lte: now },
+      ...(bookingIds ? { bookingId: { in: [...bookingIds] } } : {}),
+    },
     select: { bookingId: true },
   });
   let released = 0;

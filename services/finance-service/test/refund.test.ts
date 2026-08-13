@@ -18,6 +18,9 @@ type BookingCancelledPayload = {
 const handleBookingCancelled = (eventConsumer as unknown as {
   handleBookingCancelled(eventId: string, payload: BookingCancelledPayload): Promise<void>;
 }).handleBookingCancelled;
+const quarantineLegacyMatchConfirmed = (eventConsumer as unknown as {
+  quarantineLegacyMatchConfirmed(eventId: string, payload: Record<string, unknown>): Promise<void>;
+}).quarantineLegacyMatchConfirmed;
 
 async function setupConfirmedFinance(gross = 200000n) {
   const bookingId = randomUUID();
@@ -50,6 +53,17 @@ afterAll(async () => {
 });
 
 describe('FIN-07/08 — consumer BookingCancelled', () => {
+  it('quarantines an unfenced legacy MatchConfirmed once before broker acknowledgement', async () => {
+    const eventId = randomUUID();
+    const payload = { matchId: randomUUID(), bookingId: randomUUID(), participantCount: 2 };
+    await quarantineLegacyMatchConfirmed(eventId, payload);
+    await quarantineLegacyMatchConfirmed(eventId, payload);
+    const rows = await prisma.quarantinedEvent.findMany({ where: { eventId } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ eventId, eventType: 'MatchConfirmed', payload });
+    await prisma.quarantinedEvent.delete({ where: { eventId } });
+  });
+
   it('có entrypoint consumer công khai để queue và integration test dùng cùng implementation', () => {
     expect(typeof (eventConsumer as Record<string, unknown>).handleBookingCancelled).toBe('function');
   });

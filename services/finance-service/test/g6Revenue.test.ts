@@ -46,7 +46,7 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
     });
     const ledgerCount = await prisma.ledgerEntry.count({ where: { refId: fixture.bookingId } });
 
-    expect(await releaseMatureRevenue(new Date())).toBeGreaterThanOrEqual(1);
+    expect(await releaseMatureRevenue(new Date(), [fixture.bookingId])).toBe(1);
 
     const wallet = await prisma.wallet.findUniqueOrThrow({ where: { id: walletBefore.id } });
     expect([wallet.pending, wallet.available]).toEqual([0n, 180000n]);
@@ -70,7 +70,7 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
       },
     });
 
-    await releaseMatureRevenue(new Date());
+    await releaseMatureRevenue(new Date(), [blocked.bookingId, released.bookingId]);
 
     expect(
       (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: blocked.bookingId } })).releasedAt,
@@ -92,7 +92,7 @@ describe('FIN-09 — hiển thị và đáo hạn doanh thu', () => {
       data: { pending: 0n },
     });
 
-    await expect(releaseMatureRevenue(new Date())).resolves.toBeGreaterThanOrEqual(1);
+    await expect(releaseMatureRevenue(new Date(), [cancelled.bookingId, releasable.bookingId])).resolves.toBe(1);
     expect(
       (await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: cancelled.bookingId } })).releasedAt,
     ).toBeNull();
