@@ -165,3 +165,28 @@ export async function reviewEvaluation(
     });
   });
 }
+
+export async function listAdminEvaluations(
+  reviewStatus: 'pending' | 'approved' | 'rejected' = 'pending',
+) {
+  const evaluations = await prisma.evaluation.findMany({
+    where: { reviewStatus },
+    select: {
+      id: true,
+      matchId: true,
+      perceivedTier: true,
+      flagReason: true,
+      reviewStatus: true,
+      createdAt: true,
+      reviewedAt: true,
+      match: { select: { status: true, completedAt: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return evaluations.map((evaluation) => ({
+    ...evaluation,
+    rater: { label: 'Người đánh giá' },
+    ratee: { label: 'Người được đánh giá' },
+  }));
+}

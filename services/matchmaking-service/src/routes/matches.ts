@@ -9,7 +9,7 @@ import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
-import { reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
+import { listAdminEvaluations, reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -80,6 +80,12 @@ export function createMatchRouter(
   matchmakerClient?: MatchmakerExplanationClient,
 ) {
   const router = Router();
+  router.get('/admin/evaluations', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
+    const { reviewStatus } = z.object({
+      reviewStatus: z.enum(['pending', 'approved', 'rejected']).default('pending'),
+    }).parse(req.query);
+    res.status(200).json({ evaluations: await listAdminEvaluations(reviewStatus) });
+  }));
   router.post('/', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = createSchema.parse(req.body);
     const userId = (req as AuthenticatedRequest).user!.id;

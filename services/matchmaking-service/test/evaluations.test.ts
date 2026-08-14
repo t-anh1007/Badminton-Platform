@@ -157,6 +157,47 @@ describe('MMP-10 — post-match evaluations', () => {
 });
 
 describe('F-07 — fair evaluation assistant', () => {
+  it('lists pending flagged evaluations for Admin without exposing player IDs or changing Passport aggregates', async () => {
+    const ratee = player();
+    const raters = [player(), player(), player(), player()];
+    await prisma.passport.create({
+      data: { userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
+    });
+    const match = await completedMatch([...raters, ratee]);
+    for (const rater of raters.slice(0, 3)) {
+      await submit(match.id, rater, ratee.id, 'intermediate').expect(201);
+    }
+    const flagged = await submit(match.id, raters[3]!, ratee.id, 'advanced').expect(201);
+
+    await request(app)
+      .get('/matches/admin/evaluations?reviewStatus=pending')
+      .set('Authorization', `Bearer ${ratee.token}`)
+      .expect(403);
+    const response = await request(app)
+      .get('/matches/admin/evaluations?reviewStatus=pending')
+      .set('Authorization', `Bearer ${token(player().id, ['admin'])}`)
+      .expect(200);
+
+    expect(response.body.evaluations).toEqual(expect.arrayContaining([expect.objectContaining({
+      id: flagged.body.id,
+      matchId: match.id,
+      perceivedTier: 'advanced',
+      flagReason: 'outlier_median_2_tiers',
+      reviewStatus: 'pending',
+      rater: { label: 'Người đánh giá' },
+      ratee: { label: 'Người được đánh giá' },
+      match: { status: 'completed', completedAt: expect.any(String) },
+    })]));
+    expect(JSON.stringify(response.body)).not.toContain(ratee.id);
+    expect(JSON.stringify(response.body)).not.toContain(raters[3]!.id);
+
+    const passport = await request(app)
+      .get('/passports/me')
+      .set('Authorization', `Bearer ${ratee.token}`)
+      .expect(200);
+    expect(passport.body).toMatchObject({ evaluationCount: 3, evaluationScore: 1500 });
+  });
+
   it('AC-F07-1/4: an outlier is flagged with an explanation and cannot change the Passport automatically', async () => {
     const ratee = player();
     const raters = [player(), player(), player(), player()];
