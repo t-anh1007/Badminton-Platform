@@ -416,7 +416,7 @@ Expected: FAIL because the components do not exist.
 
 Keep backend authorization authoritative and show a Vietnamese forbidden state instead of silently redirecting to `/`.
 
-- [ ] **Step 4: Implement context-specific navigation and labels** *(navigation complete; the repository-wide “Hồ sơ trình độ” copy is completed with Task 12)*
+- [x] **Step 4: Implement context-specific navigation and labels**
 
 Player navigation remains Trang chủ/Đặt sân/Tìm kèo/Cộng đồng; provider navigation is Tổng quan/Sân/Lịch/Doanh thu; admin navigation is Tổng quan/Công việc. Rename `Player Passport` to `Hồ sơ trình độ` everywhere.
 
@@ -443,17 +443,17 @@ git commit -m "feat(web): add role-aware application shell"
 - Produces: `BookingRange { courtId; date; startAt; endAt; slotCount; durationMinutes; totalPrice }`.
 - Produces: `toggleSlot(range, slot, allSlots): BookingRange | null` that accepts only adjacent available slots on one court/day.
 
-- [ ] **Step 1: Write failing pure selection tests**
+- [x] **Step 1: Write failing pure selection tests**
 
 Cover first click, extending forward/backward, shrinking an endpoint, rejecting a gap/booked slot, clearing on court/date change, and summing different per-slot prices as `bigint` strings.
 
-- [ ] **Step 2: Verify pure tests fail**
+- [x] **Step 2: Verify pure tests fail**
 
 Run: `npm test -w @khoaluantn/web -- src/booking/selection.test.ts`
 
 Expected: FAIL because `toggleSlot` is absent.
 
-- [ ] **Step 3: Implement the pure range reducer**
+- [x] **Step 3: Implement the pure range reducer**
 
 ```ts
 export interface BookingRange {
@@ -469,11 +469,11 @@ export interface BookingRange {
 
 Never mutate API slot objects and calculate the end time from `endMinute` of the final slot.
 
-- [ ] **Step 4: Write and implement component behavior**
+- [x] **Step 4: Write and implement component behavior**
 
 Selected buttons use `aria-pressed`, navy/yellow selected styling and visible text `ĐÃ CHỌN`. `BookingSummary` renders venue, court, `dd/MM/yyyy`, start–end, slot count, duration and total; native `type=date` display is replaced by a controlled `dd/MM/yyyy` date field/calendar popover.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/web -- src/booking/selection.test.ts src/components/BookingSummary.test.tsx
@@ -818,19 +818,19 @@ git commit -m "feat(admin): complete operations work queues"
 - Own passport returns `nextDeclarationAt: string | null` and `canDeclareTier: boolean`.
 - Domain constant: `DECLARATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000`.
 
-- [ ] **Step 1: Write failing domain tests with an injected clock**
+- [x] **Step 1: Write failing domain tests with an injected clock**
 
 Cover first declaration, retry at 6 days 23:59:59 rejected with `LEVEL_DECLARATION_COOLDOWN`, retry exactly at 7 days accepted, and `nextDeclarationAt` serialization.
 
-- [ ] **Step 2: Implement backend enforcement**
+- [x] **Step 2: Implement backend enforcement**
 
 Use `declaredAt`, not `updatedAt`, and reject before update. Include recovery metadata `{ nextDeclarationAt }` in the error.
 
-- [ ] **Step 3: Write and implement page behavior**
+- [x] **Step 3: Write and implement page behavior**
 
 Rename all copy to `Hồ sơ trình độ`, disable CTA during cooldown and render the exact next Vietnamese date/time while preserving rating/RD/evaluation history.
 
-- [ ] **Step 4: Run focused proof and commit**
+- [x] **Step 4: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/matchmaking-service -- test/passport.test.ts
