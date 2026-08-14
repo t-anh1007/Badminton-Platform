@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Avatar,
@@ -9,7 +9,6 @@ import {
   Skeleton,
   SurfaceCard,
   TextArea,
-  TextInput,
   Toast,
 } from '../components/ui';
 import {
@@ -82,6 +81,7 @@ export function SupportPage() {
   const [replyBody, setReplyBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusAction, setStatusAction] = useState<'resolved' | 'closed' | null>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
 
   const loadTickets = async (preferredId?: string) => {
     if (!session) return;
@@ -230,7 +230,7 @@ export function SupportPage() {
             Trao đổi bất đồng bộ với đội ngũ vận hành. Ticket và tin nhắn chỉ hiển thị cho bạn và Admin.
           </p>
         </div>
-        {canCreate && <Button onClick={() => setCreateOpen(true)}>Tạo ticket mới</Button>}
+        {canCreate && <Button onClick={(event) => { event.currentTarget.focus(); setCreateOpen(true); }}>Tạo ticket mới</Button>}
       </header>
 
       {error && (
@@ -422,14 +422,14 @@ export function SupportPage() {
           </Button>
         </div>
       </Modal>
-      <Modal open={createOpen} title="Tạo ticket hỗ trợ" onClose={() => setCreateOpen(false)}>
+      <Modal open={createOpen} title="Tạo ticket hỗ trợ" onClose={() => setCreateOpen(false)} initialFocusRef={subjectRef}>
         <p className="text-sm text-ink-500">Mô tả một vấn đề mỗi ticket để đội ngũ hỗ trợ theo dõi rõ trạng thái.</p>
         <label className="mt-4 block text-sm font-medium">
           Chủ đề
-          <TextInput
-            autoFocus
+          <input
+            ref={subjectRef}
             maxLength={120}
-            className="mt-1"
+            className="mt-1 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-ink-900 placeholder:text-ink-300"
             placeholder="Ví dụ: Không thấy booking trong tài khoản"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}

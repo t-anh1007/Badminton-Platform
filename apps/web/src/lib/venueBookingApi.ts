@@ -99,6 +99,7 @@ export interface ProviderRow { id: string; orgName: string; status: string; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
+export interface VenueUploadAuthorization { objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string }
 export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string }; court: { name: string; venue: { name: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number; minPrice?: number; maxPrice?: number; sortBy?: 'distance' | 'price'; date?: string; startMinute?: number; endMinute?: number }) {
@@ -120,6 +121,8 @@ export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
 export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
 export const getMyManagedVenues = () => api<ManagedVenue[]>('/providers/me/venues');
 export const getMyManagedVenue = (id: string) => api<ManagedVenue>(`/providers/me/venues/${id}`);
+export const authorizeVenueImage = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') => api<VenueUploadAuthorization>('/providers/me/uploads', { method: 'POST', body: JSON.stringify({ mimeType }) });
+export async function uploadVenueImage(authorization: VenueUploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> { onProgress?.(0); const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file }); if (!response.ok) throw new Error('Không thể tải ảnh cơ sở lên.'); onProgress?.(100) }
 export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
 export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const addManagedCourt = (venueId: string, name: string) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name }) });

@@ -13,7 +13,6 @@ import {
   Toast,
 } from '../components/ui';
 import {
-  createCommunityPost,
   createCommunityReport,
   editCommunityPost,
   getCommunitySession,
@@ -29,6 +28,8 @@ import {
   type SupportTicket,
   type TicketStatus,
 } from '../lib/communityApi';
+import { CommunityComposer } from '../components/CommunityComposer';
+import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
 
 const PAGE_SIZE = 10;
 const postStatus: Record<ContentStatus, { label: string; tone: 'success' | 'warning' | 'danger' }> = {
@@ -99,6 +100,7 @@ function PostCard({
         >
           {post.body}
         </Link>
+        <div className="mt-4"><CommunityMediaGrid images={post.images} /></div>
       </div>
       <div className="flex flex-wrap items-center gap-x-1 border-t border-line px-3 py-2 text-sm">
         <Link
@@ -155,7 +157,6 @@ export function CommunityPage() {
     tone: 'success' | 'error';
   } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [postBody, setPostBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -215,32 +216,12 @@ export function CommunityPage() {
     action();
   };
 
-  const publish = async () => {
-    const body = postBody.trim();
-    if (!body) {
-      setNotice({
-        message: 'Hãy nhập nội dung trước khi đăng.',
-        tone: 'error',
-      });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await createCommunityPost(body);
-      setPostBody('');
-      setComposerOpen(false);
-      setNotice({ message: 'Đã đăng bài công khai.', tone: 'success' });
-      if (page !== 1) setPage(1);
-      else await loadFeed();
-      await loadOwnActivity();
-    } catch (cause) {
-      setNotice({
-        message: cause instanceof Error ? cause.message : 'Không thể đăng bài.',
-        tone: 'error',
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  const published = async () => {
+    setComposerOpen(false);
+    setNotice({ message: 'Đã đăng bài công khai.', tone: 'success' });
+    if (page !== 1) setPage(1);
+    else await loadFeed();
+    await loadOwnActivity();
   };
 
   const openReport = (type: ReportTarget, id: string) =>
@@ -426,32 +407,7 @@ export function CommunityPage() {
                     <p className="text-caption">Mọi người đều có thể xem bài này</p>
                   </div>
                 </div>
-                <TextArea
-                  autoFocus
-                  rows={5}
-                  maxLength={5000}
-                  className="mt-4 resize-y"
-                  placeholder="Bạn muốn chia sẻ điều gì về cầu lông?"
-                  value={postBody}
-                  onChange={(event) => setPostBody(event.target.value)}
-                />
-                <div className="mt-3 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-caption">{postBody.length.toLocaleString('vi-VN')} / 5.000 ký tự · chỉ văn bản</p>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      tone="ghost"
-                      onClick={() => {
-                        setComposerOpen(false);
-                        setPostBody('');
-                      }}
-                    >
-                      Hủy
-                    </Button>
-                    <Button disabled={submitting || !postBody.trim()} onClick={() => void publish()}>
-                      {submitting ? 'Đang đăng…' : 'Đăng bài'}
-                    </Button>
-                  </div>
-                </div>
+                <div className="mt-4"><CommunityComposer onPublished={published} /></div>
               </div>
             )}
           </SurfaceCard>

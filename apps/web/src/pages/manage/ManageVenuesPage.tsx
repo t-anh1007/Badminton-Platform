@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, EmptyState, SurfaceCard } from '../../components/ui'
-import { createManagedVenue, getMyManagedVenues, type ManagedVenue } from '../../lib/venueBookingApi'
+import { createManagedVenue, getMyManagedVenues, authorizeVenueImage, uploadVenueImage, type ManagedVenue } from '../../lib/venueBookingApi'
+import { ImageUploadPicker, type UploadImageState } from '../../components/CommunityComposer'
 
 interface VenueForm { name: string; address: string; lat: string; lng: string; amenities: string }
 const emptyForm: VenueForm = { name: '', address: '', lat: '', lng: '', amenities: '' }
@@ -13,6 +14,7 @@ export function ManageVenuesPage() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof VenueForm, string>>>({})
   const [form, setForm] = useState<VenueForm>(emptyForm)
+  const [images, setImages] = useState<UploadImageState[]>([])
   const load = useCallback(async () => { try { setVenues(await getMyManagedVenues()) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tải danh sách cơ sở.') } }, [])
   useEffect(() => { void load() }, [load])
 
@@ -28,8 +30,8 @@ export function ManageVenuesPage() {
     if (Object.keys(nextErrors).length) { setFieldErrors(nextErrors); return }
     setBusy(true); setError('')
     try {
-      await createManagedVenue({ name: form.name.trim(), address: form.address.trim(), lat, lng, amenities: form.amenities.split(',').map((item) => item.trim()).filter(Boolean), images: [] })
-      setOpen(false); setForm(emptyForm); await load()
+      await createManagedVenue({ name: form.name.trim(), address: form.address.trim(), lat, lng, amenities: form.amenities.split(',').map((item) => item.trim()).filter(Boolean), images: images.filter((image) => image.status === 'uploaded').map((image) => ({ objectKey: image.objectKey })) })
+      setOpen(false); setForm(emptyForm); setImages([]); await load()
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể lưu cơ sở.') }
     finally { setBusy(false) }
   }
@@ -37,6 +39,7 @@ export function ManageVenuesPage() {
   const formControl = open && <SurfaceCard className="mt-4 grid gap-3">
     <h3 className="text-h3">Thông tin cơ sở</h3>
     {(['name', 'address', 'lat', 'lng', 'amenities'] as const).map((key) => <label key={key} className="grid gap-1 text-sm font-medium">{{ name: 'Tên cơ sở', address: 'Địa chỉ', lat: 'Vĩ độ', lng: 'Kinh độ', amenities: 'Tiện ích (phân cách bằng dấu phẩy)' }[key]}<input aria-label={{ name: 'Tên cơ sở', address: 'Địa chỉ', lat: 'Vĩ độ', lng: 'Kinh độ', amenities: 'Tiện ích' }[key]} value={form[key]} onChange={(event) => change(key, event.target.value)} className="rounded-xl border border-line px-3 py-2" />{fieldErrors[key] && <span className="text-xs text-danger">{fieldErrors[key]}</span>}</label>)}
+    <ImageUploadPicker label="Ảnh cơ sở" authorize={authorizeVenueImage} upload={uploadVenueImage} onUploadedChange={setImages} />
     <div className="flex gap-2"><Button disabled={busy} onClick={() => void submit()}>{busy ? 'Đang lưu…' : 'Lưu cơ sở'}</Button><Button tone="secondary" disabled={busy} onClick={() => setOpen(false)}>Hủy</Button></div>
   </SurfaceCard>
 

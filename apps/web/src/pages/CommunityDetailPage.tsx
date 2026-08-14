@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, EmptyState, Modal, Skeleton, SurfaceCard, TextArea, Toast } from '../components/ui';
+import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
 import {
   createCommunityComment,
   createCommunityReport,
@@ -232,6 +233,7 @@ export function CommunityDetailPage() {
               {isOwner && <Badge tone="success">Bài của bạn</Badge>}
             </div>
             <p className="mt-6 whitespace-pre-wrap text-body text-ink-700">{post.body}</p>
+            <div className="mt-4"><CommunityMediaGrid images={post.images} /></div>
           </div>
           <div className="flex flex-wrap items-center border-t border-line px-3 py-2 text-sm">
             <span className="px-3 py-2 font-semibold text-ink-700">{post.comments.length} bình luận</span>

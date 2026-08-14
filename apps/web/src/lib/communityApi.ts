@@ -13,6 +13,23 @@ export interface CommunityPost {
   createdAt: string;
   editedAt: string | null;
   commentCount?: number;
+  images?: CommunityPostImage[];
+}
+
+export interface CommunityPostImage {
+  id?: string;
+  objectKey: string;
+  width: number;
+  height: number;
+  alt: string;
+  position: number;
+}
+
+export interface UploadAuthorization {
+  objectKey: string;
+  uploadUrl: string;
+  headers: Record<string, string>;
+  expiresAt: string;
 }
 
 export interface CommunityComment {
@@ -134,15 +151,25 @@ export function listCommunityPosts(page = 1, pageSize = 10) {
 
 export const listOwnPosts = () => api<{ posts: CommunityPost[] }>('/posts/mine');
 export const getCommunityPost = (postId: string) => api<CommunityPostDetail>(`/posts/${postId}`);
-export const createCommunityPost = (body: string) =>
+export const authorizeCommunityPostImage = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') =>
+  api<UploadAuthorization>('/uploads/posts', { method: 'POST', body: JSON.stringify({ mimeType }) });
+
+export async function uploadAuthorizedFile(authorization: UploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> {
+  onProgress?.(0);
+  const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file });
+  if (!response.ok) throw new Error('Không thể tải ảnh lên kho lưu trữ.');
+  onProgress?.(100);
+}
+
+export const createCommunityPost = (body: string, images: CommunityPostImage[] = []) =>
   api<CommunityPost>('/posts', {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, images }),
   });
-export const editCommunityPost = (postId: string, body: string) =>
+export const editCommunityPost = (postId: string, body: string, images?: CommunityPostImage[]) =>
   api<CommunityPost>(`/posts/${postId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, ...(images ? { images } : {}) }),
   });
 export const removeCommunityPost = (postId: string) => api<CommunityPost>(`/posts/${postId}`, { method: 'DELETE' });
 
