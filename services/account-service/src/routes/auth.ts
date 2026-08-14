@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { h } from './handler.js';
 import { registerUser } from '../domain/registration.js';
 import { verifyEmailCode, resendVerificationCode } from '../domain/verification.js';
-import { login, logout } from '../domain/session.js';
+import { login, logout, refreshSession } from '../domain/session.js';
 import { requestPasswordReset, resetPassword, changePassword } from '../domain/passwordReset.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -59,6 +59,11 @@ authRouter.post(
 );
 
 const logoutSchema = z.object({ refreshToken: z.string() });
+
+authRouter.post('/refresh', h(async (req, res) => {
+  const { refreshToken } = logoutSchema.parse(req.body);
+  res.status(200).json(await refreshSession(refreshToken));
+}));
 
 authRouter.post(
   '/logout',

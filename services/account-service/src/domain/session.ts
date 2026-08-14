@@ -4,6 +4,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jw
 import {
   clearLoginFailures,
   getLoginLockRemainingSec,
+  isRefreshTokenValid,
   recordLoginFailure,
   revokeRefreshToken,
   storeRefreshToken,
@@ -72,4 +73,14 @@ export async function logout(refreshToken: string): Promise<void> {
   } catch {
     // Token không hợp lệ/đã hết hạn — vẫn coi là đăng xuất thành công (AC-04-2).
   }
+}
+
+export async function refreshSession(refreshToken: string): Promise<LoginResult> {
+  let payload: { sub: string; jti: string }
+  try { payload = verifyRefreshToken(refreshToken) } catch { throw new AppError('INVALID_REFRESH_TOKEN', 'Phiên đăng nhập không còn hợp lệ.', 401) }
+  if (!(await isRefreshTokenValid(payload.jti))) throw new AppError('INVALID_REFRESH_TOKEN', 'Phiên đăng nhập không còn hợp lệ.', 401)
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: payload.sub } })
+  if (user.status === 'locked') throw new AppError('ACCOUNT_LOCKED', 'Tài khoản đã bị khóa.', 403)
+  const roles = user.roles as string[]
+  return { accessToken: signAccessToken(user.id, roles), refreshToken, roles }
 }
