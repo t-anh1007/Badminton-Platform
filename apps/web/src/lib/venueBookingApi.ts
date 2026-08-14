@@ -26,6 +26,8 @@ export interface BookingSummary {
   endAt: string;
   status: string;
   priceSnapshot: string;
+  holdExpiresAt?: string | null;
+  terminalStatus?: 'confirmed' | 'cancelled' | null;
   court?: { name: string; venue?: { name: string } };
 }
 
@@ -119,6 +121,22 @@ export async function getMyBookingHistory(): Promise<BookingSummary[]> {
 
 export function getBookingDetail(id: string) {
   return api<{ booking: BookingSummary; expectedRefundPercent: number; courtChangeNote: string | null }>(`/players/me/bookings/${id}`);
+}
+
+export async function waitForBookingTerminal(id: string, options: { signal?: AbortSignal; intervalMs?: number; timeoutMs?: number } = {}) {
+  const intervalMs = options.intervalMs ?? 750;
+  const timeoutMs = options.timeoutMs ?? 15_000;
+  const startedAt = Date.now();
+  while (true) {
+    if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const result = await getBookingDetail(id);
+    if (result.booking.terminalStatus) return result;
+    if (Date.now() - startedAt >= timeoutMs) return result;
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(resolve, intervalMs);
+      options.signal?.addEventListener('abort', () => { window.clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+    });
+  }
 }
 
 export function cancelMyBooking(id: string) {

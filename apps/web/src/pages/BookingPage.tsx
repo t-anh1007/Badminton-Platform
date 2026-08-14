@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { toggleSlot, type BookingRange } from '../booking/selection.js'
 import { AuthForm } from '../components/AuthForm'
 import { BookingSummary as BookingSelectionSummary } from '../components/BookingSummary.js'
 import { SlotGrid, type Slot, type SlotStatus } from '../components/SlotGrid'
 import { PageHeader } from '../components/courtin/PageHeader'
-import { Button, EmptyState, Modal, SegmentedControl, Skeleton, SurfaceCard } from '../components/ui'
-import { createBookingSepayIntent, payBookingBalance } from '../lib/financeApi'
+import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/ui'
+import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
 import {
   createBooking,
   createHold,
@@ -17,8 +17,6 @@ import {
   type HoldResult,
   type VenueDetail,
 } from '../lib/venueBookingApi'
-
-const money = (value?: string) => `${BigInt(value ?? '0').toLocaleString('vi-VN')}đ`
 
 function isAuthenticationFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
@@ -58,6 +56,7 @@ function HoldCountdown({ expiresAt, onExpired }: { expiresAt?: string; onExpired
 
 export function BookingPage() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const venueId = params.get('venueId')
   const [detail, setDetail] = useState<VenueDetail | null>(null)
   const [courtId, setCourtId] = useState('')
@@ -65,8 +64,6 @@ export function BookingPage() {
   const [selection, setSelection] = useState<BookingRange | null>(null)
   const [hold, setHold] = useState<HoldResult | null>(null)
   const [booking, setBooking] = useState<BookingSummary | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'balance' | 'sepay'>('balance')
-  const [sepayCode, setSepayCode] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
@@ -83,7 +80,6 @@ export function BookingPage() {
     setSelection(null)
     setHold(null)
     setBooking(null)
-    setSepayCode('')
   }
 
   const loadAvailability = async (nextCourtId: string, nextDate: string) => {
@@ -175,7 +171,6 @@ export function BookingPage() {
       setSelection({ ...proposed, startAt: validated.startAt, endAt: validated.endAt, durationMinutes: validated.durationMinutes, totalPrice: validated.totalPrice })
       setHold(null)
       setBooking(null)
-      setSepayCode('')
       setMessage(`Đã chọn ${proposed.slotCount} khung giờ liền nhau.`)
     })
   }
@@ -187,32 +182,14 @@ export function BookingPage() {
     if (courtId) void loadAvailability(courtId, nextDate)
   }
 
-  const reserve = () => run(async () => {
+  const confirm = () => run(async () => {
     if (!selection) return
-    const next = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
-    setHold(next)
+    const nextHold = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
+    setHold(nextHold)
     updateSelectedSlots('held')
-    setMessage('Đã giữ chỗ trong 10 phút.')
-  })
-
-  const create = () => run(async () => {
-    if (!hold) return
-    const next = await createBooking(hold.id)
+    const next = await createBooking(nextHold.id)
     setBooking(next)
-    setMessage('Booking đã tạo. Chọn phương thức thanh toán.')
-  })
-
-  const pay = () => run(async () => {
-    if (!booking) return
-    if (paymentMethod === 'balance') {
-      await payBookingBalance(booking.id)
-      updateSelectedSlots('booked')
-      setMessage('Đã thanh toán bằng số dư.')
-    } else {
-      const intent = await createBookingSepayIntent(booking.id)
-      setSepayCode(intent.matchCode)
-      setMessage(`Chuyển đúng ${money(intent.amount)} với mã ${intent.matchCode} để SePay xác nhận.`)
-    }
+    setMessage('Hoàn tất thanh toán trước khi lượt giữ chỗ hết hạn.')
   })
 
   const expireHold = () => {
@@ -251,12 +228,13 @@ export function BookingPage() {
                     if (nextDate && nextDate !== date) changeDate(nextDate)
                   }}
                   onBlur={() => { if (!parseDateField(dateField)) { setDateField(formatDateField(date)); setError('Ngày phải theo định dạng dd/mm/yyyy.') } }}
+                  disabled={Boolean(booking)}
                   className="rounded-xl border border-line bg-surface px-3 py-2.5"
                 />
               </label>
               <label className="grid gap-1.5 text-sm font-medium">
                 Sân con
-                <select value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
+                <select disabled={Boolean(booking)} value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
                   {detail?.courts.map((court) => <option key={court.id} value={court.id}>{court.name}</option>)}
                 </select>
               </label>
@@ -264,7 +242,7 @@ export function BookingPage() {
             {availabilityLoading ? (
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-20" />)}</div>
             ) : slots.length ? (
-              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={choose} /></div>
+              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking ? undefined : choose} /></div>
             ) : (
               <div className="mt-5"><EmptyState title="Không còn slot trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
             )}
@@ -274,9 +252,8 @@ export function BookingPage() {
           <SurfaceCard>
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
-            {selection && !hold && <Button className="mt-5 w-full" disabled={loading} onClick={() => void reserve()}>Giữ chỗ 10 phút</Button>}
-            {hold && !booking && <Button className="mt-5 w-full" disabled={loading} onClick={() => void create()}>Tạo booking</Button>}
-            {booking && <div className="mt-5 space-y-4"><SegmentedControl options={[{ value: 'balance', label: 'Số dư' }, { value: 'sepay', label: 'SePay' }]} value={paymentMethod} onChange={setPaymentMethod} /><Button className="w-full" disabled={loading} onClick={() => void pay()}>{paymentMethod === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>{sepayCode && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-700">Mã chuyển khoản: <strong className="text-figures">{sepayCode}</strong></p>}<p className="text-xs text-ink-500">Mã booking: <span className="text-figures">{booking.id}</span></p></div>}
+            {selection && !booking && <Button className="mt-5 w-full" disabled={loading} onClick={() => void confirm()}>XÁC NHẬN</Button>}
+            {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>

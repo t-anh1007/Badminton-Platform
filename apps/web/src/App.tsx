@@ -4,6 +4,7 @@ import { AppLayout } from './layout/AppLayout';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { BookingPage } from './pages/BookingPage';
+import { BookingConfirmationPage } from './pages/BookingConfirmationPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -31,6 +32,7 @@ function App() {
           <Route path="/venues" element={<VenueListPage />} />
           <Route path="/venues/:id" element={<VenueDetailPage />} />
           <Route path="/booking" element={<BookingPage />} />
+          <Route path="/booking/confirmation" element={<BookingConfirmationPage />} />
           <Route path="/matches" element={<MatchListPage />} />
           <Route path="/matches/:id" element={<MatchDetailPage />} />
           <Route path="/passport" element={<PassportPage />} />

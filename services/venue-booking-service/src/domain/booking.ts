@@ -358,7 +358,10 @@ export async function getMyBookingDetail(userId: string, bookingId: string) {
   const hoursUntilStart = (booking.startAt.getTime() - Date.now()) / 3_600_000;
   // BR-BOK-06: đọc từ policySnapshot của CHÍNH booking, không phải hằng hiện hành.
   return {
-    booking,
+    booking: {
+      ...booking,
+      terminalStatus: booking.status === 'confirmed' || booking.status === 'cancelled' ? booking.status : null,
+    },
     expectedRefundPercent: getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart),
     courtChangeNote: booking.courtChangedAt ? 'Booking đã được phía sân chuyển sang sân con khác.' : null,
   };

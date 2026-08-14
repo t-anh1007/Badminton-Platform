@@ -87,4 +87,37 @@ describe('BOK-07/08 qua HTTP — BigInt serialize (lỗi P1 Codex: res.json(bigi
     expect(res.body.expectedRefundPercent).toBe(100);
     expect(typeof res.body.booking.priceSnapshot).toBe('string');
   });
+
+  it('GET /players/me/bookings/:id trả payment summary theo owner và snapshot hiển thị an toàn', async () => {
+    const ownerId = fakeUserId();
+    const otherUserId = fakeUserId();
+    const provider = await createApprovedProvider();
+    const { court } = await makeCourtSearchable(provider.id, undefined, 150000);
+    const hold = await createHold(ownerId, { courtId: court.id, startAt: tomorrowAt(11), endAt: tomorrowAt(12) });
+    const booking = await prisma.booking.create({
+      data: {
+        holdId: hold.id, courtId: court.id, startAt: hold.startAt, endAt: hold.endAt, userId: ownerId,
+        source: 'marketplace', status: 'held', priceSnapshot: 150000n,
+        policySnapshot: { tiers: [{ minHoursBeforeStart: 0, refundPercent: 0 }] }, holdExpiresAt: hold.expiresAt,
+      },
+    });
+
+    const own = await request(app).get(`/players/me/bookings/${booking.id}`).set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`);
+    expect(own.status).toBe(200);
+    expect(own.body.booking.holdExpiresAt).toBe(hold.expiresAt.toISOString());
+    expect(own.body.booking.terminalStatus).toBeNull();
+    expect(own.body.booking.court).toMatchObject({ name: court.name, venue: { name: expect.any(String) } });
+    expect(own.body.booking).not.toHaveProperty('bookingCode');
+
+    const denied = await request(app).get(`/players/me/bookings/${booking.id}`).set('Authorization', `Bearer ${signTestAccessToken(otherUserId, ['player'])}`);
+    expect(denied.status).toBe(403);
+
+    await prisma.booking.update({ where: { id: booking.id }, data: { status: 'confirmed' } });
+    const confirmed = await request(app).get(`/players/me/bookings/${booking.id}`).set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`);
+    expect(confirmed.body.booking.terminalStatus).toBe('confirmed');
+
+    await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
+    const cancelled = await request(app).get(`/players/me/bookings/${booking.id}`).set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`);
+    expect(cancelled.body.booking.terminalStatus).toBe('cancelled');
+  });
 });
