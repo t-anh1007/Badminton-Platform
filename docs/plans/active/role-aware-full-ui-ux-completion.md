@@ -331,17 +331,17 @@ git commit -m "chore(ui): establish backend capability coverage gate"
 - Web produces: `SessionState { userId: string; roles: UserRole[]; activeRole: UserRole; accessToken: string; refreshToken: string }`.
 - Web produces: `useSession(): { session; setActiveRole(role); refresh(); logout() }`.
 
-- [ ] **Step 1: Write failing refresh-session integration cases**
+- [x] **Step 1: Write failing refresh-session integration cases**
 
 Cover valid refresh returning current database roles, revoked token returning `401 INVALID_REFRESH_TOKEN`, locked user returning `403 ACCOUNT_LOCKED`, and replacement access token containing newly granted `provider`.
 
-- [ ] **Step 2: Verify backend tests fail**
+- [x] **Step 2: Verify backend tests fail**
 
 Run: `npm test -w @khoaluantn/account-service -- test/session.test.ts`
 
 Expected: FAIL because `/auth/refresh` is absent.
 
-- [ ] **Step 3: Implement refresh without minting a new refresh token**
+- [x] **Step 3: Implement refresh without minting a new refresh token**
 
 ```ts
 export async function refreshSession(refreshToken: string): Promise<LoginResult> {
@@ -358,15 +358,15 @@ export async function refreshSession(refreshToken: string): Promise<LoginResult>
 
 Reuse the existing Redis token-store verification primitive; do not bypass revocation.
 
-- [ ] **Step 4: Write failing session parser/context tests**
+- [x] **Step 4: Write failing session parser/context tests**
 
 Assert invalid local storage clears the session, active role must belong to `roles`, last role persists under `courtin.activeRole`, and refresh updates roles without a full login.
 
-- [ ] **Step 5: Implement `SessionProvider` and replace ad-hoc JWT decoding**
+- [x] **Step 5: Implement `SessionProvider` and replace ad-hoc JWT decoding**
 
 `AuthForm` calls `saveSession()`, `SessionProvider` owns storage/events, and consumers stop reading `localStorage` directly. `logout()` first calls `POST /auth/logout` with the refresh token, then clears local state even when the server reports that the token is already invalid.
 
-- [ ] **Step 6: Run focused proof and commit**
+- [x] **Step 6: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/account-service -- test/session.test.ts
@@ -393,17 +393,17 @@ git commit -m "feat(account): refresh multi-role sessions"
 - Consumes: `useSession()` from Task 2.
 - Produces: `<RoleGuard allow={['provider']}>`, `<RoleSwitcher />`, and context home redirect rules `player -> /`, `provider -> /manage`, `admin -> /admin`.
 
-- [ ] **Step 1: Write failing guard and role-switcher tests**
+- [x] **Step 1: Write failing guard and role-switcher tests**
 
 Assert role labels `Người chơi`, `Chủ sân`, `Quản trị viên`; forbidden provider route renders recovery CTA; switching role persists and navigates to context home; player shell shows `Hợp tác chủ sân` left of avatar.
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `npm test -w @khoaluantn/web -- src/routing/RoleGuard.test.tsx src/components/RoleSwitcher.test.tsx`
 
 Expected: FAIL because the components do not exist.
 
-- [ ] **Step 3: Implement guarded nested route groups**
+- [x] **Step 3: Implement guarded nested route groups**
 
 ```tsx
 <Route element={<RoleGuard allow={['provider']} />}>
@@ -416,11 +416,11 @@ Expected: FAIL because the components do not exist.
 
 Keep backend authorization authoritative and show a Vietnamese forbidden state instead of silently redirecting to `/`.
 
-- [ ] **Step 4: Implement context-specific navigation and labels**
+- [ ] **Step 4: Implement context-specific navigation and labels** *(navigation complete; the repository-wide “Hồ sơ trình độ” copy is completed with Task 12)*
 
 Player navigation remains Trang chủ/Đặt sân/Tìm kèo/Cộng đồng; provider navigation is Tổng quan/Sân/Lịch/Doanh thu; admin navigation is Tổng quan/Công việc. Rename `Player Passport` to `Hồ sơ trình độ` everywhere.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/web -- src/routing/RoleGuard.test.tsx src/components/RoleSwitcher.test.tsx
