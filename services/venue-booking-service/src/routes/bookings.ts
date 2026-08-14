@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
@@ -90,6 +90,11 @@ bookingRouter.get(
     });
   }),
 );
+
+bookingRouter.get('/players/me/match-sources', requireAuth, h(async (req, res) => {
+  const result = await listMyMatchSources((req as AuthenticatedRequest).user!.id);
+  res.status(200).json({ holds: result.holds.map((hold) => ({ id: hold.id, startAt: hold.startAt, endAt: hold.endAt, expiresAt: hold.expiresAt, court: { name: hold.court.name, venue: { name: hold.court.venue.name } } })), bookings: result.bookings.map(serializeBooking) });
+}));
 
 bookingRouter.get(
   '/players/me/bookings/:id',

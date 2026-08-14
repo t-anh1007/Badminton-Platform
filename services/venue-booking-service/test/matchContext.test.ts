@@ -4,6 +4,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import { releaseHeldMatchBooking, resolveMatchBooking } from '../src/domain/booking.js';
+import { signTestAccessToken } from './helpers.js';
 
 const app = createApp();
 const providerIds: string[] = [];
@@ -22,6 +23,12 @@ afterAll(async () => {
 });
 
 describe('matchmaking booking context contract', () => {
+  it('returns only the authenticated player\'s payable held match source', async () => {
+    const ownerId = randomUUID(); const otherId = randomUUID(); const providerId = randomUUID(); providerIds.push(providerId);
+    const booking = await prisma.booking.create({ data: { userId: ownerId, source: 'marketplace', status: 'held', priceSnapshot: 1n, startAt: new Date(Date.now() + 3600_000), endAt: new Date(Date.now() + 7200_000), holdExpiresAt: new Date(Date.now() + 600_000), court: { create: { name: 'Sân nguồn', venue: { create: { name: 'Venue nguồn', address: 'Q1', lat: 10, lng: 106, provider: { create: { id: providerId, userId: otherId, orgName: 'P' } } } } } } } }); bookingIds.push(booking.id);
+    const response = await request(app).get('/players/me/match-sources').set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`);
+    expect(response.status).toBe(200); expect(response.body.bookings).toHaveLength(1); expect(response.body.bookings[0].court.venue.name).toBe('Venue nguồn');
+  });
   it('D40: rejects an unauthenticated mutation of the venue-owned match-resolution command', async () => {
     const providerId = randomUUID();
     providerIds.push(providerId);

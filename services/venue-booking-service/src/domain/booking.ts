@@ -346,6 +346,15 @@ export async function listMyBookings(userId: string) {
   };
 }
 
+export async function listMyMatchSources(userId: string) {
+  const now = new Date();
+  const [holds, bookings] = await Promise.all([
+    prisma.hold.findMany({ where: { userId, expiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
+    prisma.booking.findMany({ where: { userId, source: 'marketplace', status: 'held', holdExpiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
+  ]);
+  return { holds, bookings };
+}
+
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */
 export async function getMyBookingDetail(userId: string, bookingId: string) {
   const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { court: { include: { venue: true } } } });
