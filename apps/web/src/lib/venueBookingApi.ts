@@ -101,7 +101,7 @@ export interface ManagedCourt { id: string; name: string; active: boolean; confi
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
 export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string }; court: { name: string; venue: { name: string } } }
 
-export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
+export function searchVenues(params: { lat: number; lng: number; radiusKm?: number; minPrice?: number; maxPrice?: number; sortBy?: 'distance' | 'price'; date?: string; startMinute?: number; endMinute?: number }) {
   const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
   return api<VenueSearchRow[]>(`/search?${query}`);
 }

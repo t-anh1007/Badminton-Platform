@@ -5,7 +5,7 @@ import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
 
 type LocationChoice = { id: string; label: string; lat: number; lng: number };
-type SortOrder = 'nearest' | 'name';
+type SortOrder = 'distance' | 'price' | 'name';
 
 const CITY_CHOICES: readonly LocationChoice[] = [
   { id: 'ho-chi-minh', label: 'Thành phố Hồ Chí Minh', lat: 10.8231, lng: 106.6297 },
@@ -42,6 +42,21 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Không thể tải danh sách sân. Hãy thử lại.';
 }
 
+function parseVietnameseDate(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
+  return date.getUTCFullYear() === Number(year) && date.getUTCMonth() + 1 === Number(month) && date.getUTCDate() === Number(day)
+    ? `${year}-${month}-${day}` : null;
+}
+
+function minuteOfDay(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
 export function VenueListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [location, setLocation] = useState<LocationChoice>(() => initialLocation(searchParams));
@@ -50,19 +65,42 @@ export function VenueListPage() {
     return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
   });
   const [nameFilter, setNameFilter] = useState('');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('nearest');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('distance');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [venues, setVenues] = useState<VenueSearchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const searchRequestId = useRef(0);
 
-  const runSearch = useCallback(async () => {
+  const runSearch = useCallback(async (validateAvailability = false) => {
     const requestId = searchRequestId.current + 1;
     searchRequestId.current = requestId;
     setLoading(true);
     setLoadError(null);
+    const availabilityUsed = Boolean(date || startTime || endTime);
+    const parsedDate = date ? parseVietnameseDate(date) : null;
+    const startMinute = startTime ? minuteOfDay(startTime) : null;
+    const endMinute = endTime ? minuteOfDay(endTime) : null;
+    if (validateAvailability && availabilityUsed && (!parsedDate || startMinute === null || endMinute === null || startMinute >= endMinute)) {
+      setVenues([]);
+      setLoadError('Nhập đủ ngày dd/MM/yyyy và khoảng giờ bắt đầu–kết thúc hợp lệ.');
+      setLoading(false);
+      return;
+    }
     try {
-      const result = await searchVenues({ lat: location.lat, lng: location.lng, radiusKm });
+      const result = await searchVenues({
+        lat: location.lat,
+        lng: location.lng,
+        radiusKm,
+        ...(minPrice ? { minPrice: Number(minPrice) } : {}),
+        ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
+        ...(sortOrder !== 'name' ? { sortBy: sortOrder } : {}),
+        ...(parsedDate && startMinute !== null && endMinute !== null ? { date: parsedDate, startMinute, endMinute } : {}),
+      });
       if (requestId === searchRequestId.current) setVenues(result);
     } catch (error) {
       if (requestId === searchRequestId.current) {
@@ -72,10 +110,10 @@ export function VenueListPage() {
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }, [location.lat, location.lng, radiusKm]);
+  }, [date, endTime, location.lat, location.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime]);
 
   useEffect(() => {
-    void runSearch();
+    void runSearch(false);
   }, [runSearch]);
 
   useEffect(() => {
@@ -93,9 +131,11 @@ export function VenueListPage() {
       ? venues
       : venues.filter((venue) => venue.name.toLocaleLowerCase('vi-VN').includes(normalizedFilter));
     return [...filtered].sort((left, right) => (
-      sortOrder === 'nearest'
+      sortOrder === 'distance'
         ? left.distanceKm - right.distanceKm
-        : left.name.localeCompare(right.name, 'vi')
+        : sortOrder === 'price'
+          ? Number(left.lowestPrice ?? Number.MAX_SAFE_INTEGER) - Number(right.lowestPrice ?? Number.MAX_SAFE_INTEGER)
+          : left.name.localeCompare(right.name, 'vi')
     ));
   }, [nameFilter, sortOrder, venues]);
 
@@ -109,8 +149,8 @@ export function VenueListPage() {
       <div className="page-container">
         <PageHeader eyebrow="Đặt sân cầu lông" title={`Sân cầu lông tại ${location.label}`} description="Tìm theo khu vực, bán kính và tên sân; dữ liệu khả dụng vẫn đến từ API hiện có." />
         <form
-          className="surface-card sticky top-[76px] z-10 my-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1.05fr_1.6fr_.65fr_.65fr_auto]"
-          onSubmit={(event) => { event.preventDefault(); void runSearch(); }}
+          className="surface-card sticky top-[76px] z-10 my-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4"
+          onSubmit={(event) => { event.preventDefault(); void runSearch(true); }}
         >
           <div>
             <label htmlFor="venue-city" className="mb-1.5 block text-caption">Khu vực</label>
@@ -132,11 +172,16 @@ export function VenueListPage() {
           <div>
             <label htmlFor="venue-sort" className="mb-1.5 block text-caption">Sắp xếp</label>
             <SelectInput id="venue-sort" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}>
-              <option value="nearest">Gần nhất</option>
+              <option value="distance">Gần nhất</option>
+              <option value="price">Giá thấp nhất</option>
               <option value="name">Tên sân</option>
             </SelectInput>
           </div>
-          <Button type="submit" className="self-end" disabled={loading}>Tìm sân</Button>
+          <div><label htmlFor="venue-min-price" className="mb-1.5 block text-caption">Giá từ</label><TextInput id="venue-min-price" inputMode="numeric" value={minPrice} onChange={(event) => setMinPrice(event.target.value.replace(/\D/g, ''))} placeholder="100.000" /></div>
+          <div><label htmlFor="venue-max-price" className="mb-1.5 block text-caption">Giá đến</label><TextInput id="venue-max-price" inputMode="numeric" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value.replace(/\D/g, ''))} placeholder="300.000" /></div>
+          <div><label htmlFor="venue-date" className="mb-1.5 block text-caption">Ngày chơi</label><TextInput id="venue-date" placeholder="dd/MM/yyyy" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-2"><label className="grid gap-1.5 text-caption">Từ giờ<TextInput aria-label="Giờ bắt đầu" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="grid gap-1.5 text-caption">Đến giờ<TextInput aria-label="Giờ kết thúc" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>
+          <Button type="submit" className="self-end lg:col-span-4 lg:justify-self-end" disabled={loading}>Tìm sân</Button>
         </form>
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -147,7 +192,7 @@ export function VenueListPage() {
         {loadError && (
           <SurfaceCard className="border-danger-bg" aria-live="polite">
             <p role="alert" className="text-sm text-danger">{loadError}</p>
-            <Button className="mt-4" tone="secondary" onClick={() => void runSearch()}>Thử lại</Button>
+            <Button className="mt-4" tone="secondary" onClick={() => void runSearch(true)}>Thử lại</Button>
           </SurfaceCard>
         )}
 

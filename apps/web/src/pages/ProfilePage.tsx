@@ -30,6 +30,8 @@ export function ProfilePage() {
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState('100000');
   const [topupIntent, setTopupIntent] = useState<{ matchCode: string; amount: string } | null>(null);
+  const [topupBaseline, setTopupBaseline] = useState('0');
+  const [topupState, setTopupState] = useState<'idle' | 'pending' | 'completed' | 'timeout'>('idle');
   const [form, setForm] = useState({ displayName: '', avatarUrl: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
 
@@ -81,11 +83,52 @@ export function ProfilePage() {
   };
 
   const createTopup = async () => {
+    if (!/^\d+$/.test(topupAmount) || BigInt(topupAmount) < 1_000n) {
+      setMessage('Số tiền nạp tối thiểu là 1.000đ.');
+      return;
+    }
     try {
+      setTopupBaseline(wallets.find((wallet) => wallet.walletType === 'personal')?.available ?? '0');
       const intent = await createTopupIntent(topupAmount);
       setTopupIntent(intent);
+      setTopupState('pending');
     } catch (caught) {
       setMessage((caught as Error).message);
+    }
+  };
+
+  useEffect(() => {
+    if (!topupIntent || topupState !== 'pending') return;
+    let active = true;
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const nextWallets = await getMyWallets();
+        if (!active) return;
+        const nextPersonal = nextWallets.find((wallet) => wallet.walletType === 'personal');
+        if (nextPersonal && BigInt(nextPersonal.available) > BigInt(topupBaseline)) {
+          setWallets(nextWallets);
+          setTopupState('completed');
+          setMessage('Đã ghi nhận tiền nạp vào ví.');
+          return;
+        }
+      } catch {
+        // Giữ trạng thái chờ; người dùng vẫn có thể đóng modal và kiểm tra ví sau.
+      }
+      if (attempts >= 20 && active) setTopupState('timeout');
+    };
+    const timer = window.setInterval(() => { void poll(); }, 1_500);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [topupBaseline, topupIntent, topupState]);
+
+  const copyTopupCode = async () => {
+    if (!topupIntent) return;
+    try {
+      await navigator.clipboard.writeText(topupIntent.matchCode);
+      setMessage('Đã sao chép nội dung chuyển khoản.');
+    } catch {
+      setMessage('Không thể sao chép tự động. Hãy chọn và sao chép mã hiển thị.');
     }
   };
 
@@ -139,7 +182,7 @@ export function ProfilePage() {
           {tab === 'wallet' && (
             <div className="mt-6">
               <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /></div>
-              <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
+              <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
               <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || new Date(entry.ts).toLocaleString('vi-VN')}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
             </div>
           )}
@@ -170,7 +213,7 @@ export function ProfilePage() {
         <div className="grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
           <Button onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button>
-          {topupIntent && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-700">Chuyển đúng <strong className="text-figures">{money(topupIntent.amount)}</strong> với mã: <strong className="text-figures">{topupIntent.matchCode}</strong></p>}
+          {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3 text-sm text-green-700"><p>Chuyển đúng <strong className="text-figures">{money(topupIntent.amount)}</strong> với nội dung:</p><p className="mt-2 flex flex-wrap items-center gap-2"><strong className="text-figures text-base">{topupIntent.matchCode}</strong><Button size="sm" tone="secondary" onClick={() => void copyTopupCode()}>Sao chép mã</Button></p><p className="mt-2">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'completed' ? 'Đã nạp tiền thành công.' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
         </div>
       </Modal>
     </main>
