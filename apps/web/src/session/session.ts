@@ -25,7 +25,9 @@ export function saveSession(result: SessionResult, preferredRole?: UserRole): Se
   const activeRole = storedRole && roles.includes(storedRole) ? storedRole : roles[0] ?? 'player'
   const session = { ...result, userId: userIdFromAccessToken(result.accessToken), roles, activeRole }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session)); localStorage.setItem(ACTIVE_ROLE_KEY, activeRole)
+  // Keep existing API clients operational until their token reads are migrated to this module.
+  localStorage.setItem('accessToken', session.accessToken); localStorage.setItem('refreshToken', session.refreshToken); localStorage.setItem('roles', JSON.stringify(session.roles))
   window.dispatchEvent(new Event('courtin:session-change'))
   return session
 }
-export function clearSession() { localStorage.removeItem(SESSION_KEY); localStorage.removeItem(ACTIVE_ROLE_KEY); window.dispatchEvent(new Event('courtin:session-change')) }
+export function clearSession() { localStorage.removeItem(SESSION_KEY); localStorage.removeItem(ACTIVE_ROLE_KEY); localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); localStorage.removeItem('roles'); window.dispatchEvent(new Event('courtin:session-change')) }

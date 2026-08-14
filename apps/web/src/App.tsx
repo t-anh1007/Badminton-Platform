@@ -38,8 +38,8 @@ function App() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<HomePage />} /></Route>
-          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminPage />} /></Route>
+          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage/*" element={<HomePage />} /></Route>
+          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin/*" element={<AdminPage />} /></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

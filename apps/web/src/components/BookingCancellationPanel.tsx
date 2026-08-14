@@ -8,22 +8,15 @@ import {
   getReplacementCourts,
   type BookingSummary,
 } from '../lib/venueBookingApi';
+import { useSession } from '../session/SessionProvider';
 import { Button, SurfaceCard, TextInput } from './ui';
 
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
-function hasProviderRole(): boolean {
-  try {
-    const token = window.localStorage.getItem('accessToken');
-    const roles = token ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).roles as string[] : [];
-    return roles.includes('provider');
-  } catch {
-    return false;
-  }
-}
-
 export function BookingCancellationPanel() {
-  const isProvider = hasProviderRole();
+  const { session } = useSession();
+  const isProvider = session?.roles.includes('provider') ?? false;
+  const userId = session?.userId;
   const [bookings, setBookings] = useState<BookingSummary[]>([]);
   const [message, setMessage] = useState('Đăng nhập để tải booking thật.');
   const [providerBookingId, setProviderBookingId] = useState('');
@@ -42,8 +35,8 @@ export function BookingCancellationPanel() {
   }
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.localStorage.getItem('accessToken')) void loadBookings();
-  }, []);
+    if (userId) void loadBookings();
+  }, [userId]);
 
   async function previewCancellation(booking: BookingSummary) {
     try {
