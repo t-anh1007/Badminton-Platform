@@ -1,6 +1,6 @@
 ---
 title: Role-aware full UI/UX completion
-status: approved-design-awaiting-user-review
+status: approved
 owner: Tuan Anh (PO)
 date: 2026-08-14
 visual_authority: Figma COURTIN FHuhhmlhPSl8gOUuUx7az2
@@ -23,6 +23,7 @@ Phạm vi được triển khai theo các lát cắt nghiệp vụ hoàn chỉnh
 - Ledger tiếp tục append-only và bảo toàn giá trị. UI không được làm tắt luồng thanh toán/refund/settlement.
 - AI chỉ gợi ý và giải thích; không tự JOIN, hủy booking, mở tranh chấp hoặc thực hiện hành động nhạy cảm.
 - `F-05` demand heatmap vẫn là Phase 3 có điều kiện và không thuộc phạm vi này nếu PO chưa kích hoạt.
+- Không bỏ sót năng lực backend đã build: mọi route nghiệp vụ public/authenticated phải có FE trực tiếp; route internal, webhook và event-driven outcome phải có trạng thái quan sát được trong FE của luồng sở hữu. Nếu command hiện có thiếu read model để FE chọn thực thể an toàn, được bổ sung query/DTO owner-scoped tối thiểu, không yêu cầu người dùng nhập UUID.
 
 ## 3. Quyết định PO mới từ vòng test UI/UX
 
@@ -199,6 +200,7 @@ Mọi thay đổi spec/decision ảnh hưởng policy, data hoặc role phải �
 - Cross-phase Playwright chạy một lần ở final gate; nếu aggregate timeout, chạy các configured specs tương đương riêng và báo coverage.
 - Không có lỗi console trong các journey chính.
 - Mọi note trong mục 3 có evidence hoặc PO waiver tường minh.
+- Capability manifest không còn route, Socket.IO event hoặc cross-service event chưa phân loại; mỗi capability có `surfaceId` và `evidenceId` trỏ tới giao diện và test thực tế.
 
 ## 13. Delivery slices
 
