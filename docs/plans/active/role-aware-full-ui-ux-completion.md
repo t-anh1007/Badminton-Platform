@@ -1211,16 +1211,16 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Task 7 — provider onboarding/read models.
 - [x] Task 8 — provider venue operations.
 - [x] Task 9 — provider calendar/incidents/finance (`ffe6bc7`–`f21141d`; focused web 4/4, review PASS).
-- [ ] Task 10 — admin core queues.
-- [ ] Task 11 — admin operations queues.
+- [x] Task 10 — admin core queues (`b88f67c`, `46f7a07`, privacy fix `4d3c631`; focused review PASS).
+- [x] Task 11 — admin operations queues (`9ac2740`, `0fa424a`; focused review PASS).
 - [x] Task 12 — weekly level declaration.
 - [x] Task 13 — Quick Match and match sources (`07ea445`, `866911e`; matchmaking 5/5, web 3/3, review PASS).
 - [x] Task 14 — grounded AI chat.
-- [ ] Task 15 — object storage and media backend.
-- [ ] Task 16 — Community media and ticket focus.
-- [ ] Task 17 — Account/Venue/Finance FE coverage.
-- [ ] Task 18 — Match/Community/Support FE coverage.
-- [ ] Task 19 — accessibility/responsive polish.
+- [x] Task 15 — object storage and media backend (`d27bc02`; focused media tests PASS).
+- [x] Task 16 — Community media and ticket focus (`1e96cec`; focused web 6/6, review PASS).
+- [x] Task 17 — Account/Venue/Finance FE coverage (`fcddb9f`, `2f2a0e4`; focused review PASS).
+- [x] Task 18 — Match/Community/Support FE coverage (`05234eb`; focused web 7/7, privacy review PASS).
+- [x] Task 19 — accessibility/responsive polish (`af87cb2`, `b6c3eca`; coverage, lint, typecheck and build PASS).
 - [ ] Task 20 — final browser acceptance.
 
 ## Validation
