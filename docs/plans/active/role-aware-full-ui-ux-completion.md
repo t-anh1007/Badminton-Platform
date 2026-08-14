@@ -557,23 +557,23 @@ git commit -m "feat(booking): confirm hold and payment in one flow"
 - Finance returns `referenceSummary?: { kind: 'booking' | 'topup' | 'withdrawal' | 'match'; title: string; subtitle?: string }`.
 - Web produces `presentLedgerEntry(entry): { title; subtitle; amountTone }` with safe fallback labels and no UUID.
 
-- [ ] **Step 1: Write failing cancellation-card tests**
+- [x] **Step 1: Write failing cancellation-card tests**
 
 Assert preview appears inside the selected card, confirming removes it from upcoming and moves it to cancelled, cancelled cards never show cancel/refund buttons, and selecting another card cannot reuse stale preview state.
 
-- [ ] **Step 2: Write failing ledger DTO/presenter tests**
+- [x] **Step 2: Write failing ledger DTO/presenter tests**
 
 Cover `payment · personal -> Thanh toán đặt sân`, refund, top-up, payout, commission and unknown legacy rows. Unknown rows show `Giao dịch ví`, never `refId`.
 
-- [ ] **Step 3: Add nullable ledger reference metadata**
+- [x] **Step 3: Add nullable ledger reference metadata**
 
 Migration adds `referenceSummary JSONB NULL` to `ledger_entries`; existing append-only rows are untouched. New booking/refund/topup/payout writers provide safe display metadata from event/command payload when available.
 
-- [ ] **Step 4: Implement booking card and reload after terminal mutation**
+- [x] **Step 4: Implement booking card and reload after terminal mutation**
 
 Key cancellation state by booking ID and always re-fetch `getMyUpcomingBookings()` plus history after success.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/finance-service -- test/wallet.test.ts
@@ -684,19 +684,19 @@ git commit -m "feat(provider): add venue operations workspace"
 - Consumes existing unified calendar/internal booking/replacement court/change court/provider cancel/revenue/withdrawal endpoints.
 - Produces routes `/manage/calendar`, `/manage/incidents`, `/manage/finance` and removes provider operations from player profile.
 
-- [ ] **Step 1: Write failing provider operations tests**
+- [x] **Step 1: Write failing provider operations tests**
 
 Cover venue/date calendar filters, walk-in booking create/cancel, replacement-court selection, provider-fault cancellation requiring reason, revenue date filters, withdrawal validation and cancellation.
 
-- [ ] **Step 2: Implement calendar and incident pages**
+- [x] **Step 2: Implement calendar and incident pages**
 
 Calendar uses one source of truth from `GET /venues/:venueId/calendar`; incident page selects a booking from provider-owned context rather than asking for raw booking UUID.
 
-- [ ] **Step 3: Implement finance page and profile cleanup**
+- [x] **Step 3: Implement finance page and profile cleanup**
 
 Show pending/available/reserved metric cards, business labels and bank fields; remove the dark provider panels from `/profile` while retaining personal wallet/disputes.
 
-- [ ] **Step 4: Run focused proof and commit**
+- [x] **Step 4: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/manage/manageOperations.test.tsx
@@ -859,23 +859,23 @@ git commit -m "feat(passport): enforce weekly level declaration"
 - Server events: `quick_match:progress { requestId; elapsedMs; scannedCount; candidateCount; phase }`, `proposal`, `stopped`, `joined`, `error`.
 - `GET /players/me/match-sources` returns owner-scoped active holds and payable held bookings.
 
-- [ ] **Step 1: Write failing Socket.IO tests**
+- [x] **Step 1: Write failing Socket.IO tests**
 
 Assert start/progress/proposal ordering, stop prevents later proposal/join, disconnect cleanup, accept creates exactly one pending JOIN, and server never auto-accepts.
 
-- [ ] **Step 2: Implement request-scoped progress and cancellation**
+- [x] **Step 2: Implement request-scoped progress and cancellation**
 
 Track active request IDs per socket; emit monotonic counters around the existing deterministic search; delete state on stop/disconnect.
 
-- [ ] **Step 3: Write failing match-source tests**
+- [x] **Step 3: Write failing match-source tests**
 
 Return only current user active hold or payable `held` booking; exclude confirmed/cancelled/expired/other-user sources. Preserve existing create schema that accepts exactly one of `bookingId` or `holdId`.
 
-- [ ] **Step 4: Implement modal and create-match source picker**
+- [x] **Step 4: Implement modal and create-match source picker**
 
 Animation uses transform/opacity and pauses with `prefers-reduced-motion`. Source picker shows venue/court/time/status, not raw IDs.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/matchmaking-service -- test/quickMatch.e2e.test.ts
@@ -1207,14 +1207,14 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Task 3 — role-aware shell.
 - [x] Task 4 — multi-slot booking selection.
 - [x] Task 5 — payment terminal UX.
-- [ ] Task 6 — cancellation and wallet labels.
+- [x] Task 6 — cancellation and wallet labels (`1a7bf53`, `04fb742`, `a665595`; review PASS, migration deployment deferred to environment setup).
 - [x] Task 7 — provider onboarding/read models.
 - [x] Task 8 — provider venue operations.
-- [ ] Task 9 — provider calendar/incidents/finance.
+- [x] Task 9 — provider calendar/incidents/finance (`ffe6bc7`–`f21141d`; focused web 4/4, review PASS).
 - [ ] Task 10 — admin core queues.
 - [ ] Task 11 — admin operations queues.
 - [x] Task 12 — weekly level declaration.
-- [ ] Task 13 — Quick Match and match sources.
+- [x] Task 13 — Quick Match and match sources (`07ea445`, `866911e`; matchmaking 5/5, web 3/3, review PASS).
 - [x] Task 14 — grounded AI chat.
 - [ ] Task 15 — object storage and media backend.
 - [ ] Task 16 — Community media and ticket focus.
