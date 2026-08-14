@@ -1,0 +1,2 @@
+import { fireEvent, render, screen } from '@testing-library/react'; import { expect, it, vi } from 'vitest'; import { QuickMatchSearchOverlay } from './QuickMatchSearchOverlay.js';
+it('shows searching and only accepts an explicit found proposal', () => { const accept=vi.fn(); render(<QuickMatchSearchOverlay found={{matchId:'m',title:'Sân A'}} onCancel={vi.fn()} onAccept={accept}/>); fireEvent.click(screen.getByText('Tham gia kèo')); expect(accept).toHaveBeenCalledWith('m') })
