@@ -99,7 +99,7 @@ export interface ProviderRow { id: string; orgName: string; status: string; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
-export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string; reference: string }; court: { name: string; venue: { name: string } } }
+export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string }; court: { name: string; venue: { name: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
   const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));

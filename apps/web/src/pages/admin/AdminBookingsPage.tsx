@@ -83,9 +83,7 @@ export function AdminBookingsPage() {
           >
             <div>
               <p className="font-bold">{row.court.venue.name} · {row.court.name}</p>
-              <p className="mt-1 text-sm text-ink-700">
-                {row.player.label} · Mã tham chiếu {row.player.reference}
-              </p>
+              <p className="mt-1 text-sm text-ink-700">{row.player.label}</p>
               <p className="text-sm text-ink-500">
                 {new Date(row.startAt).toLocaleString('vi-VN')} · {Number(row.priceSnapshot).toLocaleString('vi-VN')}đ
               </p>

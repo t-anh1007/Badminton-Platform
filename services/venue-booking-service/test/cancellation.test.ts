@@ -267,10 +267,11 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       id: booking.id,
       status: 'confirmed',
       priceSnapshot: '200000',
-      player: { label: 'Người chơi đặt sân', reference: playerId.slice(0, 8) },
+      player: { label: 'Người chơi đã đăng nhập' },
       court: { name: court.name, venue: expect.objectContaining({ name: expect.any(String) }) },
     })]));
     expect(response.body[0]).not.toHaveProperty('userId');
+    expect(response.body[0].player).not.toHaveProperty('reference');
   });
 
   it('race đổi sân và tạo HOLD trên sân đích: không bao giờ cả hai cùng thành công', async () => {

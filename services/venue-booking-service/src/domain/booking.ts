@@ -359,7 +359,7 @@ export async function listMyMatchSources(userId: string) {
 export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date }) {
   const query = input.query?.trim();
   const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
-  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, player: b.userId ? { label: 'Người chơi đặt sân', reference: b.userId.slice(0, 8) } : { label: b.guestName ?? 'Khách vãng lai', reference: 'nội bộ' }, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
+  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
 }
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */
