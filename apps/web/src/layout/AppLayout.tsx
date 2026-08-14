@@ -5,6 +5,7 @@ import { Footer } from '../components/Footer';
 import { Navbar } from '../components/Navbar';
 import { Preloader } from '../components/Preloader';
 import { Modal } from '../components/ui';
+import { AssistantBubble } from '../components/AssistantBubble';
 
 export function AppLayout() {
   const [authOpen, setAuthOpen] = useState(false);
@@ -16,6 +17,7 @@ export function AppLayout() {
       <Navbar onOpenAuth={() => setAuthOpen(true)} />
       <main id="main-content" className="flex-1"><Outlet /></main>
       <Footer />
+      <AssistantBubble />
       <Modal open={authOpen} title="Chào mừng bạn" onClose={() => setAuthOpen(false)}>
         <AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => setAuthOpen(false)} />
       </Modal>
