@@ -23,9 +23,17 @@ import {
 } from '../domain/community.js';
 import { requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const uuid = z.string().uuid();
-const postBody = z.object({ body: z.string().trim().min(1).max(5_000) }).strict();
+const postImage = z.object({
+  objectKey: z.string().min(1).max(500),
+  width: z.number().int().min(1).max(20_000),
+  height: z.number().int().min(1).max(20_000),
+  alt: z.string().trim().min(1).max(500),
+  position: z.number().int().min(0).max(3),
+}).strict();
+const postBody = z.object({ body: z.string().trim().min(1).max(5_000), images: z.array(postImage).max(4).optional() }).strict();
 const shortBody = z.object({ body: z.string().trim().min(1).max(1_000) }).strict();
 const reportBody = z
   .object({
@@ -53,7 +61,7 @@ const pagination = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-export function createCommunityRouter(accountEligibilityClient: AccountEligibilityClient) {
+export function createCommunityRouter(accountEligibilityClient: AccountEligibilityClient, resolveObjectStorage?: () => ObjectStorageClient) {
   const router = Router();
 
   router.get(
@@ -83,8 +91,8 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requireAuth,
     requirePlayer,
     withErrorHandling(async (req, res) => {
-      const { body } = postBody.parse(req.body);
-      res.status(201).json(await createPost(accountEligibilityClient, (req as AuthenticatedRequest).user!.id, body));
+      const { body, images = [] } = postBody.parse(req.body);
+      res.status(201).json(await createPost(accountEligibilityClient, (req as AuthenticatedRequest).user!.id, body, images, images.length ? resolveObjectStorage?.() : undefined));
     }),
   );
   router.patch(
@@ -92,7 +100,7 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requireAuth,
     requirePlayer,
     withErrorHandling(async (req, res) => {
-      const { body } = postBody.parse(req.body);
+      const { body, images } = postBody.parse(req.body);
       res
         .status(200)
         .json(
@@ -101,6 +109,8 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
             uuid.parse(req.params.postId),
             (req as AuthenticatedRequest).user!.id,
             body,
+            images,
+            images?.length ? resolveObjectStorage?.() : undefined,
           ),
         );
     }),

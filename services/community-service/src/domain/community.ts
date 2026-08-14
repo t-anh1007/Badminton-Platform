@@ -2,6 +2,7 @@ import type { AccountEligibilityClient } from '../clients/account.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
 export type ReportTarget = 'post' | 'comment';
 export type ModerationAction = 'hide' | 'remove' | 'dismiss';
@@ -12,7 +13,51 @@ const publicPostInclude = {
     where: { status: 'published' as const },
     orderBy: { createdAt: 'asc' as const },
   },
+  images: { orderBy: { position: 'asc' as const } },
 };
+
+export interface PostImageInput {
+  objectKey: string;
+  width: number;
+  height: number;
+  alt: string;
+  position: number;
+}
+
+function normalizePostImages(images: PostImageInput[]): PostImageInput[] {
+  if (images.length > 4) throw new AppError(400, 'POST_IMAGES_LIMIT', 'Mỗi bài viết chỉ có tối đa 4 ảnh.');
+  const positions = new Set<number>();
+  const objectKeys = new Set<string>();
+  for (const image of images) {
+    if (!Number.isInteger(image.position) || image.position < 0 || image.width < 1 || image.height < 1 || !image.alt.trim()) {
+      throw new AppError(400, 'POST_IMAGE_INVALID', 'Thông tin ảnh bài viết không hợp lệ.');
+    }
+    if (positions.has(image.position) || objectKeys.has(image.objectKey)) {
+      throw new AppError(400, 'POST_IMAGE_DUPLICATE', 'Vị trí và ảnh trong bài viết không được trùng.');
+    }
+    positions.add(image.position);
+    objectKeys.add(image.objectKey);
+  }
+  return [...images].sort((left, right) => left.position - right.position);
+}
+
+async function assertOwnedPostImages(storage: ObjectStorageClient | undefined, authorUserId: string, images: PostImageInput[]): Promise<PostImageInput[]> {
+  const normalized = normalizePostImages(images);
+  if (normalized.length > 0 && !storage) throw new AppError(503, 'OBJECT_STORAGE_UNAVAILABLE', 'Kho lưu trữ ảnh chưa sẵn sàng.');
+  try {
+    await Promise.all(normalized.map((image) => storage!.assertOwnedObject({
+      objectKey: image.objectKey,
+      namespace: 'community/posts',
+      ownerUserId: authorUserId,
+      mimeType: image.objectKey.endsWith('.png') ? 'image/png' : image.objectKey.endsWith('.webp') ? 'image/webp' : 'image/jpeg',
+      maxBytes: 8 * 1024 * 1024,
+    })));
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(400, 'POST_IMAGE_UNVERIFIED', 'Ảnh bài viết chưa được xác thực quyền sở hữu.');
+  }
+  return normalized;
+}
 
 function forbidden(message: string): never {
   throw new AppError(403, 'FORBIDDEN', message);
@@ -34,6 +79,7 @@ export async function listPublishedPosts(page: number, pageSize: number) {
     take: pageSize,
     include: {
       _count: { select: { comments: { where: { status: 'published' } } } },
+      images: { orderBy: { position: 'asc' } },
     },
   });
   return posts.map(({ _count, ...post }) => ({
@@ -46,6 +92,7 @@ export async function listOwnPosts(authorUserId: string) {
   return prisma.post.findMany({
     where: { authorUserId },
     orderBy: { createdAt: 'desc' },
+    include: { images: { orderBy: { position: 'asc' } } },
   });
 }
 
@@ -65,9 +112,13 @@ export async function getPublishedPost(postId: string) {
   return post;
 }
 
-export async function createPost(accountClient: AccountEligibilityClient, authorUserId: string, body: string) {
+export async function createPost(accountClient: AccountEligibilityClient, authorUserId: string, body: string, images: PostImageInput[] = [], storage?: ObjectStorageClient) {
   await requireEligiblePlayer(accountClient, authorUserId);
-  return prisma.post.create({ data: { authorUserId, body } });
+  const verifiedImages = await assertOwnedPostImages(storage, authorUserId, images);
+  return prisma.$transaction((tx) => tx.post.create({
+    data: { authorUserId, body, images: { create: verifiedImages } },
+    include: { images: { orderBy: { position: 'asc' } } },
+  }));
 }
 
 export async function editPost(
@@ -75,27 +126,56 @@ export async function editPost(
   postId: string,
   authorUserId: string,
   body: string,
+  images?: PostImageInput[],
+  storage?: ObjectStorageClient,
 ) {
   await requireEligiblePlayer(accountClient, authorUserId);
-  const post = await prisma.post.findUnique({ where: { id: postId } });
+  const post = await prisma.post.findUnique({ where: { id: postId }, include: { images: true } });
   if (!post) throw new AppError(404, 'POST_NOT_FOUND', 'Không tìm thấy bài viết.');
   if (post.authorUserId !== authorUserId) forbidden('Chỉ tác giả được sửa bài viết.');
   if (post.status !== 'published') throw new AppError(409, 'POST_NOT_EDITABLE', 'Bài viết không còn có thể chỉnh sửa.');
-  return prisma.post.update({
-    where: { id: postId },
-    data: { body, editedAt: new Date() },
+  if (!images) {
+    return prisma.post.update({
+      where: { id: postId },
+      data: { body, editedAt: new Date() },
+      include: { images: { orderBy: { position: 'asc' } } },
+    });
+  }
+  const verifiedImages = await assertOwnedPostImages(storage, authorUserId, images);
+  const retainedObjectKeys = new Set(verifiedImages.map((image) => image.objectKey));
+  const detached = post.images.filter((image) => !retainedObjectKeys.has(image.objectKey));
+  return prisma.$transaction(async (tx) => {
+    // Replace the ordered metadata as one set. This permits a user to swap two
+    // positions without transiently violating @@unique([postId, position]).
+    await tx.postImage.deleteMany({ where: { postId } });
+    const updated = await tx.post.update({
+      where: { id: postId },
+      data: {
+        body,
+        editedAt: new Date(),
+        images: { create: verifiedImages },
+      },
+      include: { images: { orderBy: { position: 'asc' } } },
+    });
+    await Promise.all(detached.map((image) => writeOutbox(tx, {
+      aggregateType: 'PostImage', aggregateId: image.id, eventType: 'ObjectCleanupScheduled', payload: { objectKey: image.objectKey },
+    })));
+    return updated;
   });
 }
 
 export async function removePost(accountClient: AccountEligibilityClient, postId: string, authorUserId: string) {
   await requireEligiblePlayer(accountClient, authorUserId);
-  const post = await prisma.post.findUnique({ where: { id: postId } });
+  const post = await prisma.post.findUnique({ where: { id: postId }, include: { images: true } });
   if (!post) throw new AppError(404, 'POST_NOT_FOUND', 'Không tìm thấy bài viết.');
   if (post.authorUserId !== authorUserId) forbidden('Chỉ tác giả được gỡ bài viết.');
   if (post.status === 'removed') return post;
-  return prisma.post.update({
-    where: { id: postId },
-    data: { status: 'removed' },
+  return prisma.$transaction(async (tx) => {
+    const removed = await tx.post.update({ where: { id: postId }, data: { status: 'removed' } });
+    await Promise.all(post.images.map((image) => writeOutbox(tx, {
+      aggregateType: 'PostImage', aggregateId: image.id, eventType: 'ObjectCleanupScheduled', payload: { objectKey: image.objectKey },
+    })));
+    return removed;
   });
 }
 

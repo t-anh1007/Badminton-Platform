@@ -1,9 +1,10 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import { prisma } from '../src/lib/prisma.js';
 import { createApp } from '../src/app.js';
 import { createVenue, updateVenue, isVenueSearchable } from '../src/domain/venue.js';
 import { createApprovedProvider, fakeUserId, signTestAccessToken } from './helpers.js';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -23,6 +24,30 @@ describe('Task 7 — owner-scoped management read models', () => {
     expect(list.body).toEqual([expect.objectContaining({ id: venue.id, courts: [expect.objectContaining({ id: court.id, configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true } })] })]);
     const otherToken = signTestAccessToken(other.userId, ['provider']);
     await request(createApp()).get(`/providers/me/venues/${venue.id}`).set('Authorization', `Bearer ${otherToken}`).expect(403);
+  });
+});
+
+describe('Task 15 — provider venue image upload authorization', () => {
+  it('only authorizes a provider-owned generated venue image key', async () => {
+    const provider = await createApprovedProvider();
+    const authorizeUpload = vi.fn< ObjectStorageClient['authorizeUpload'] >().mockResolvedValue({
+      objectKey: `venue/images/${provider.userId}/generated.webp`, uploadUrl: 'https://storage.test/upload', headers: { 'Content-Type': 'image/webp' }, expiresAt: '2026-08-14T00:10:00.000Z',
+    });
+    const app = createApp({ objectStorage: { authorizeUpload, assertOwnedObject: vi.fn(), getReadUrl: vi.fn(), deleteObject: vi.fn() } });
+    const token = signTestAccessToken(provider.userId, ['provider']);
+
+    await request(app)
+      .post('/providers/me/uploads')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ mimeType: 'image/webp' })
+      .expect(201)
+      .expect(({ body }) => expect(body.objectKey).toBe(`venue/images/${provider.userId}/generated.webp`));
+    expect(authorizeUpload).toHaveBeenCalledWith({ namespace: 'venue/images', ownerUserId: provider.userId, mimeType: 'image/webp' });
+    await request(app)
+      .post('/providers/me/uploads')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ mimeType: 'image/jpeg', objectKey: 'venue/images/attacker/key.jpg' })
+      .expect(400);
   });
 });
 

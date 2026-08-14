@@ -5,6 +5,8 @@ import { HttpAccountEligibilityClient, type AccountEligibilityClient } from './c
 import { HttpBookingClient, type BookingClient } from './clients/venueBooking.js';
 import { createAssistantRouter } from './routes/assistant.js';
 import { createCommunityRouter } from './routes/community.js';
+import { createCommunityUploadRouter } from './routes/uploads.js';
+import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'community-service';
 
@@ -13,13 +15,16 @@ export function createApp(dependencies?: {
   bookingClient?: BookingClient;
   supportAssistant?: SupportAssistantClient;
   policyRetriever?: PolicyRetriever;
+  objectStorage?: ObjectStorageClient;
 }) {
   const app = express();
   app.use(express.json());
   app.get('/health', (_req, res) => {
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });
   });
-  app.use(createCommunityRouter(dependencies?.accountEligibilityClient ?? new HttpAccountEligibilityClient()));
+  const resolveObjectStorage = () => dependencies?.objectStorage ?? createObjectStorageClientFromEnv();
+  app.use(createCommunityRouter(dependencies?.accountEligibilityClient ?? new HttpAccountEligibilityClient(), resolveObjectStorage));
+  app.use(createCommunityUploadRouter(resolveObjectStorage));
   app.use(createAssistantRouter(
     dependencies?.bookingClient ?? new HttpBookingClient(),
     dependencies?.supportAssistant ?? configuredSupportAssistant(),

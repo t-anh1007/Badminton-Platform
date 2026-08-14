@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
@@ -7,6 +7,7 @@ import { createApp } from '../src/app.js';
 process.env.JWT_SECRET ??= 'community-test-jwt-secret';
 import { prisma } from '../src/lib/prisma.js';
 import { handleAccountLocked } from '../src/lib/accountLockedConsumer.js';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const verifiedPlayers = new Set<string>();
 const app = createApp({
@@ -42,9 +43,76 @@ afterEach(async () => {
   await prisma.ticketMessage.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.comment.deleteMany();
+  await prisma.postImage.deleteMany();
   await prisma.post.deleteMany();
   await prisma.accountLock.deleteMany();
   verifiedPlayers.clear();
+});
+
+describe('Task 15 — ảnh bài viết có quyền sở hữu', () => {
+  it('verifies owned uploads before one transaction and keeps at most four ordered images', async () => {
+    const author = player();
+    const assertOwnedObject = vi.fn< ObjectStorageClient['assertOwnedObject'] >().mockResolvedValue(undefined);
+    const authorizeUpload = vi.fn< ObjectStorageClient['authorizeUpload'] >().mockResolvedValue({
+      objectKey: `community/posts/${author.userId}/authorized.jpg`, uploadUrl: 'https://storage.test/upload', headers: { 'Content-Type': 'image/jpeg' }, expiresAt: '2026-08-14T00:10:00.000Z',
+    });
+    const storage: ObjectStorageClient = {
+      authorizeUpload,
+      assertOwnedObject,
+      getReadUrl: vi.fn(),
+      deleteObject: vi.fn(),
+    };
+    const imageKeys = [0, 1, 2, 3].map((position) => `community/posts/${author.userId}/post-${position}.jpg`);
+    const appWithStorage = createApp({
+      accountEligibilityClient: { async isVerifiedPlayer(userId) { return userId === author.userId; } },
+      objectStorage: storage,
+    });
+
+    await request(appWithStorage)
+      .post('/uploads/posts')
+      .set('Authorization', author.authorization)
+      .send({ mimeType: 'image/jpeg', objectKey: `community/posts/${author.userId}/attacker.jpg` })
+      .expect(400);
+    await request(appWithStorage)
+      .post('/uploads/posts')
+      .set('Authorization', author.authorization)
+      .send({ mimeType: 'image/jpeg' })
+      .expect(201)
+      .expect(({ body }) => expect(body.objectKey).toBe(`community/posts/${author.userId}/authorized.jpg`));
+    expect(authorizeUpload).toHaveBeenCalledWith({ namespace: 'community/posts', ownerUserId: author.userId, mimeType: 'image/jpeg' });
+
+    const created = await request(appWithStorage)
+      .post('/posts')
+      .set('Authorization', author.authorization)
+      .send({
+        body: 'Bài có bốn ảnh',
+        images: imageKeys.map((objectKey, position) => ({ objectKey, width: 1200, height: 800, alt: `Ảnh ${position}`, position })),
+      })
+      .expect(201);
+
+    expect(assertOwnedObject).toHaveBeenCalledTimes(4);
+    expect(created.body.images.map((image: { objectKey: string }) => image.objectKey)).toEqual(imageKeys);
+    const edited = await request(appWithStorage)
+      .patch(`/posts/${created.body.id}`)
+      .set('Authorization', author.authorization)
+      .send({ body: 'Giữ lại một ảnh', images: [{ objectKey: imageKeys[0], width: 1200, height: 800, alt: 'Ảnh đầu', position: 0 }] })
+      .expect(200);
+    expect(edited.body.images.map((image: { objectKey: string }) => image.objectKey)).toEqual([imageKeys[0]]);
+    expect(await prisma.outbox.count({ where: { eventType: 'ObjectCleanupScheduled' } })).toBe(3);
+    await request(appWithStorage)
+      .delete(`/posts/${created.body.id}`)
+      .set('Authorization', author.authorization)
+      .expect(200);
+    expect(await prisma.outbox.count({ where: { eventType: 'ObjectCleanupScheduled' } })).toBe(4);
+    await request(appWithStorage)
+      .patch(`/posts/${created.body.id}`)
+      .set('Authorization', author.authorization)
+      .send({
+        body: 'Năm ảnh là không hợp lệ',
+        images: [...imageKeys, `community/posts/${author.userId}/post-4.jpg`].map((objectKey, position) => ({ objectKey, width: 1200, height: 800, alt: `Ảnh ${position}`, position })),
+      })
+      .expect(400);
+  });
 });
 
 afterAll(async () => {

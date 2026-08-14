@@ -52,9 +52,26 @@ model Post {
   createdAt    DateTime      @default(now()) @db.Timestamptz(3)
   editedAt     DateTime?     @db.Timestamptz(3)
   comments     Comment[]
+  images       PostImage[]
 
   @@index([status, createdAt])
   @@map("posts")
+}
+
+model PostImage {
+  id        String   @id @default(uuid())
+  postId    String
+  objectKey String
+  width     Int
+  height    Int
+  alt       String
+  position  Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, position])
+  @@unique([postId, objectKey])
+  @@index([postId, position])
+  @@map("post_images")
 }
 
 model Comment {

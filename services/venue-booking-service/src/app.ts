@@ -6,10 +6,12 @@ import { calendarRouter } from './routes/calendar.js';
 import { discoveryRouter } from './routes/discovery.js';
 import { bookingRouter } from './routes/bookings.js';
 import { env } from './lib/env.js';
+import { createVenueUploadRouter } from './routes/uploads.js';
+import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'venue-booking-service';
 
-export function createApp() {
+export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }) {
   const app = express();
   app.use((req, res, next) => {
     const origin = req.get('origin');
@@ -32,6 +34,7 @@ export function createApp() {
   });
 
   app.use('/providers', providerRouter);
+  app.use('/providers', createVenueUploadRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/venues', venueRouter);
   app.use('/', scheduleRouter);
   app.use('/', calendarRouter);
