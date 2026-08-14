@@ -5,7 +5,7 @@ import { ManageIncidentsPage } from './ManageIncidentsPage.js'
 import { ManageFinancePage } from './ManageFinancePage.js'
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue } from '../../lib/financeApi.js'
 vi.mock('../../lib/financeApi.js', () => ({ getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'b', venueId: 'v1', gross: '100', net: '90', commission: '10', releaseAt: '', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', amount: '50', status: 'pending' }]), createWithdrawal: vi.fn().mockResolvedValue({}), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
-import { cancelInternalBooking, createInternalBooking, getMyManagedVenues, getVenueCalendar } from '../../lib/venueBookingApi.js'
+import { cancelInternalBooking, createInternalBooking, getVenueCalendar } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([{ id: 'v1', name: 'Sân A', courts: [{ id: 'c1', name: 'Sân 1' }] }]),
@@ -24,7 +24,7 @@ it('loads a venue date, creates a walk-in once, and cancels an owner-context ent
 it('loads replacement choices and requires a provider-fault reason before cancellation', async () => {
   const api = await import('../../lib/venueBookingApi.js')
   render(<ManageIncidentsPage />)
-  const select = screen.getByLabelText('Booking đã chọn'); fireEvent.change(select, { target: { value: 'b1' } }); fireEvent.click(screen.getByRole('button', { name: 'Tải sân thay thế' }))
+  const select = await screen.findByLabelText('Booking đã chọn'); await screen.findByRole('option', { name: /–/ }); fireEvent.change(select, { target: { value: 'b1' } }); fireEvent.click(screen.getByRole('button', { name: 'Tải sân thay thế' }))
   await waitFor(() => expect(api.getReplacementCourts).toHaveBeenCalledWith('b1'))
   expect(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })).toBeDisabled()
   fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
