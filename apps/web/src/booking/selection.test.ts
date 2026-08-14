@@ -1,0 +1,4 @@
+import { describe, expect, it } from 'vitest'
+import { toggleSlot, type SelectableSlot } from './selection.js'
+const slots: SelectableSlot[] = [0, 1, 2].map((hour) => ({ courtId: 'c1', date: '2026-08-15', startAt: `2026-08-15T${String(hour + 8).padStart(2, '0')}:00:00.000Z`, endMinute: (hour + 9) * 60, available: true, price: String((hour + 1) * 10000) }))
+describe('contiguous booking selection', () => { it('extends adjacent slots and sums exact bigint prices', () => { const one = toggleSlot(null, slots[0], slots)!; const two = toggleSlot(one, slots[1], slots)!; expect(two).toMatchObject({ slotCount: 2, totalPrice: '30000', durationMinutes: 120 }) }); it('rejects a non-adjacent slot', () => { const one = toggleSlot(null, slots[0], slots)!; expect(toggleSlot(one, slots[2], slots)).toEqual(one) }) })
