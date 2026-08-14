@@ -127,6 +127,7 @@ model LedgerEntry {
   type     LedgerEntryType
   refType  String
   refId    String
+  referenceSummary Json?
   before   BigInt
   after    BigInt
   ts       DateTime        @default(now())

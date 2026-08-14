@@ -62,12 +62,19 @@ export async function postLedgerEntry(
     type: 'topup' | 'payment' | 'refund' | 'payout' | 'commission' | 'release' | 'reserve' | 'settlement';
     refType: string;
     refId: string;
+    referenceSummary?: { kind: 'booking' | 'topup' | 'withdrawal' | 'match'; title: string; subtitle?: string };
     /** ADR 0003 + BR-FIN-16: doanh thu chủ sân (`release`) đọng ở `pending`
      * của ví business chờ hết cửa sổ tranh chấp — mọi bút toán khác đi thẳng
      * `available`. `before`/`after` LUÔN phản ánh field bị đổi thật sự. */
     field?: 'available' | 'pending' | 'reserved';
   },
 ) {
+  const referenceSummary = params.referenceSummary ?? (() => {
+    if (params.refType === 'booking') return { kind: 'booking' as const, title: params.type === 'refund' ? 'Hoàn tiền đặt sân' : 'Thanh toán đặt sân' };
+    if (params.refType === 'topup') return { kind: 'topup' as const, title: 'Nạp tiền vào ví' };
+    if (params.refType === 'withdrawal') return { kind: 'withdrawal' as const, title: 'Chi trả rút tiền' };
+    return { kind: 'match' as const, title: params.type === 'commission' ? 'Phí nền tảng' : 'Giao dịch kèo' };
+  })();
   const field = params.field ?? 'available';
   // KHÓA hàng ví (SELECT ... FOR UPDATE) TRƯỚC khi đọc số dư — chống race
   // read-modify-write: hai transaction đồng thời trên cùng ví sẽ tuần tự hóa
@@ -86,6 +93,7 @@ export async function postLedgerEntry(
       type: params.type,
       refType: params.refType,
       refId: params.refId,
+      referenceSummary,
       before,
       after,
     },

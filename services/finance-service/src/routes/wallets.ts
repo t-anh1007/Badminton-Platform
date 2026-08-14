@@ -41,6 +41,7 @@ walletRouter.get(
         type: e.type,
         refType: e.refType,
         refId: e.refId,
+        referenceSummary: e.referenceSummary,
         before: e.before.toString(),
         after: e.after.toString(),
         ts: e.ts,
