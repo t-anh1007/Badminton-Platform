@@ -9,7 +9,7 @@ import { cancelInternalBooking, createInternalBooking, getVenueCalendar } from '
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([{ id: 'v1', name: 'Sân A', courts: [{ id: 'c1', name: 'Sân 1' }] }]),
-  getVenueCalendar: vi.fn().mockResolvedValue({ entries: [{ id: 'b1', courtId: 'c1', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z' }] }),
+  getVenueCalendar: vi.fn().mockResolvedValue({ courts: [{ id: 'c1', name: 'Sân 1' }], entries: [{ id: 'b1', courtId: 'c1', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z' }] }),
   createInternalBooking: vi.fn().mockResolvedValue({}), cancelInternalBooking: vi.fn().mockResolvedValue({}), getReplacementCourts: vi.fn().mockResolvedValue({ courts: [{ id: 'c2', name: 'Sân 2' }] }), changeBookingCourt: vi.fn().mockResolvedValue({}), cancelProviderBooking: vi.fn().mockResolvedValue({}),
 }))
 it('loads a venue date, creates a walk-in once, and cancels an owner-context entry', async () => {
@@ -31,7 +31,7 @@ it('loads replacement choices and requires a provider-fault reason before cancel
   fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
 })
 it('filters revenue and validates/cancels provider withdrawals', async () => {
-  render(<ManageFinancePage />); await screen.findByText(/Pending:/)
+  render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ:/)
   fireEvent.change(screen.getByLabelText('Lọc venue'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
   for (const [label, value] of [['amount','100'],['bankCode','VCB'],['bankAccountNumber','123'],['bankAccountName','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } }); const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1)); fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
