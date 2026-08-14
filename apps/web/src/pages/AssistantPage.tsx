@@ -163,8 +163,8 @@ export function AssistantPage() {
           ) : passportRequired ? (
             <EmptyState
               title="Khai báo trình độ để nhận gợi ý"
-              description="Điểm phù hợp F-02 cần trình độ trong Player Passport của bạn."
-              action={<Button onClick={() => navigate('/passport')}>Mở Player Passport</Button>}
+              description="Điểm phù hợp F-02 cần dữ liệu trong hồ sơ trình độ của bạn."
+              action={<Button onClick={() => navigate('/passport')}>Mở hồ sơ trình độ</Button>}
             />
           ) : suggestionsError ? (
             <EmptyState

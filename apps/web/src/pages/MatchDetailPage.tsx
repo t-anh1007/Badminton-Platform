@@ -231,7 +231,7 @@ export function MatchDetailPage() {
                         <div>
                           <p className="font-medium">Người chơi · {item.participantUserId.slice(0, 8)}</p>
                           <p className="text-caption">
-                            {item.participantTier ? tierLabels[item.participantTier] : 'Chưa có Passport'} · Hợp{' '}
+                            {item.participantTier ? tierLabels[item.participantTier] : 'Chưa có hồ sơ trình độ'} · Hợp{' '}
                             {Math.round(item.compatibilityScore)}%
                           </p>
                           <p className="mt-1 text-sm text-ink-500">{item.compatibilityExplanation}</p>

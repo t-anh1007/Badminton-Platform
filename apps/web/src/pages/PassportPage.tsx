@@ -49,7 +49,7 @@ export function PassportPage() {
     try {
       setPassport(isOwner ? await getOwnPassport() : await getPublicPassport(userId!));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không thể tải Player Passport.');
+      setError(cause instanceof Error ? cause.message : 'Không thể tải hồ sơ trình độ.');
     } finally {
       setLoading(false);
     }
@@ -95,8 +95,8 @@ export function PassportPage() {
       ) : error || !passport ? (
         <div className="mt-6">
           <EmptyState
-            title="Chưa thể mở Passport"
-            description={error || 'Player Passport chưa tồn tại.'}
+            title="Chưa thể mở hồ sơ trình độ"
+            description={error || 'Hồ sơ trình độ chưa tồn tại.'}
             action={isOwner ? <Button onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined}
           />
         </div>
@@ -108,7 +108,7 @@ export function PassportPage() {
                 <Avatar label={passport.userId.slice(0, 1)} className="h-16 w-16 text-xl" />
                 <div>
                   <h2 className="text-h2">
-                    {isOwner ? 'Passport của tôi' : `Người chơi ${passport.userId.slice(0, 8)}`}
+                    {isOwner ? 'Hồ sơ trình độ của tôi' : `Người chơi ${passport.userId.slice(0, 8)}`}
                   </h2>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge tone="success">{tierLabels[passport.tier]}</Badge>
@@ -145,7 +145,7 @@ export function PassportPage() {
                 </div>
                 {own.matchesPlayed === 0 && (
                   <div className="mt-5 rounded-xl bg-warning-bg p-4">
-                    <p className="font-semibold">Khởi tạo Passport</p>
+                    <p className="font-semibold">Khởi tạo hồ sơ trình độ</p>
                     <p className="mt-1 text-sm text-ink-500">
                       Khai báo bậc ban đầu và hoàn thành thêm trận để giảm RD.
                     </p>
@@ -188,7 +188,7 @@ export function PassportPage() {
                 <div className="mt-5">
                   <EmptyState
                     title="Chưa có trận hoàn thành"
-                    description="Tham gia một kèo và hoàn thành trận để bắt đầu lịch sử Passport."
+                    description="Tham gia một kèo và hoàn thành trận để bắt đầu lịch sử trình độ."
                     action={<Button onClick={() => navigate('/matches')}>Tìm kèo</Button>}
                   />
                 </div>

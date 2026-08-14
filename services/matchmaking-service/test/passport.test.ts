@@ -109,7 +109,28 @@ describe('MMP-09 — standardized tier declaration', () => {
       .expect(409);
 
     expect(response.body.error.code).toBe('LEVEL_DECLARATION_COOLDOWN');
-    expect(response.body.error.details.nextDeclarationAt).toBeTruthy();
+    expect(response.body.error.nextDeclarationAt).toBeTruthy();
+  });
+
+  it('rejects one millisecond before the seven-day boundary', async () => {
+    const user = newUser();
+    const declaredAt = new Date('2026-08-01T00:00:00.000Z');
+    await prisma.passport.create({
+      data: {
+        userId: user.userId,
+        declaredTier: 'intermediate',
+        ratingMu: 1500,
+        ratingRd: 100,
+        ratingSigma: 0.06,
+        matchesPlayed: 5,
+        declaredAt,
+      },
+    });
+
+    await expect(declareTier(user.userId, 'advanced', new Date(declaredAt.getTime() + 7 * 24 * 60 * 60 * 1000 - 1))).rejects.toMatchObject({
+      code: 'LEVEL_DECLARATION_COOLDOWN',
+      meta: { nextDeclarationAt: '2026-08-08T00:00:00.000Z' },
+    });
   });
 
   it('accepts exactly at T+7 days and serializes concurrent re-declarations', async () => {

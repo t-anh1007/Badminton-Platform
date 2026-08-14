@@ -17,7 +17,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T & {
     error?: { message?: string };
   };
-  if (!response.ok) throw new Error(body.error?.message ?? 'Không thể tải Player Passport.');
+  if (!response.ok) throw new Error(body.error?.message ?? 'Không thể tải hồ sơ trình độ.');
   return body;
 }
 
