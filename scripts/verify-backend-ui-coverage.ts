@@ -40,36 +40,6 @@ interface EventAllowlist {
   events: EventAllowlistEntry[]
 }
 
-const ROUTE_MOUNTS: Record<string, Record<string, string>> = {
-  'account-service': {
-    'admin.ts': '/admin',
-    'auth.ts': '/auth',
-    'internal.ts': '/internal',
-    'profile.ts': '/profile',
-  },
-  'venue-booking-service': {
-    'bookings.ts': '',
-    'calendar.ts': '',
-    'discovery.ts': '',
-    'providers.ts': '/providers',
-    'schedule.ts': '',
-    'venues.ts': '/venues',
-  },
-  'finance-service': {
-    'financeOperations.ts': '',
-    'payments.ts': '',
-    'wallets.ts': '',
-  },
-  'matchmaking-service': {
-    'matches.ts': '/matches',
-    'passports.ts': '/passports',
-  },
-  'community-service': {
-    'assistant.ts': '',
-    'community.ts': '',
-  },
-}
-
 const ACCESS_VALUES = new Set<CapabilityAccess>(['public', 'authenticated', 'internal', 'webhook', 'ops', 'socket', 'event'])
 const CLASSIFICATION_VALUES = new Set<CapabilityClassification>(['direct', 'indirect', 'ops', 'planned'])
 const KIND_VALUES = new Set<CapabilityKind>(['http', 'socket', 'event'])
@@ -99,7 +69,7 @@ export function extractRouterCalls(
   return [...source.matchAll(routePattern)].map((match) => {
     const method = match[1].toUpperCase()
     const path = normalizePath(mountPrefix, match[2])
-    const statement = source.slice(match.index ?? 0, (match.index ?? 0) + 500)
+    const statement = readBalancedCall(source, match.index ?? 0)
     const classification = classifyHttp(path, statement)
     return {
       id: `${service}:http:${method}:${path}`,
@@ -113,19 +83,81 @@ export function extractRouterCalls(
   })
 }
 
-function readServiceRoutes(root: string): DiscoveredCapability[] {
-  return Object.entries(ROUTE_MOUNTS).flatMap(([service, routeFiles]) => {
-    return Object.entries(routeFiles).flatMap(([fileName, mountPrefix]) => {
-      const file = join(root, 'services', service, 'src', 'routes', fileName)
-      if (!existsSync(file)) throw new Error(`Configured route source is missing: ${relative(root, file)}`)
-      return extractRouterCalls(
-        readFileSync(file, 'utf8'),
-        service,
-        relative(root, file).replaceAll('\\', '/'),
-        mountPrefix,
-      )
-    })
+function readBalancedCall(source: string, start: number): string {
+  const open = source.indexOf('(', start)
+  if (open === -1) return source.slice(start)
+  let depth = 0
+  let quote = ''
+  let escaped = false
+  for (let index = open; index < source.length; index += 1) {
+    const character = source[index]
+    if (quote) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === quote) quote = ''
+      continue
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      quote = character
+      continue
+    }
+    if (character === '(') depth += 1
+    else if (character === ')') {
+      depth -= 1
+      if (depth === 0) return source.slice(start, index + 1)
+    }
+  }
+  return source.slice(start)
+}
+
+function routeMounts(appSource: string): Map<string, string> {
+  const symbolToFile = new Map<string, string>()
+  for (const match of appSource.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]\.\/routes\/([^'"]+)\.js['"]/gs)) {
+    for (const imported of match[1].split(',')) {
+      const declaration = imported.trim().replace(/^type\s+/, '')
+      if (!declaration) continue
+      const [original, alias] = declaration.split(/\s+as\s+/)
+      symbolToFile.set((alias ?? original).trim(), `${match[2]}.ts`)
+    }
+  }
+
+  const mounts = new Map<string, string>()
+  for (const match of appSource.matchAll(/app\.use\(\s*(?:['"]([^'"]+)['"]\s*,\s*)?([A-Za-z_$][\w$]*)/g)) {
+    const file = symbolToFile.get(match[2])
+    if (file) mounts.set(file, match[1] ?? '')
+  }
+  return mounts
+}
+
+export function readMountedServiceRoutes(root: string, service: string): DiscoveredCapability[] {
+  const sourceRoot = join(root, 'services', service, 'src')
+  const routeDirectory = join(sourceRoot, 'routes')
+  const appFile = join(sourceRoot, 'app.ts')
+  if (!existsSync(routeDirectory) || !existsSync(appFile)) return []
+  const mounts = routeMounts(readFileSync(appFile, 'utf8'))
+
+  return readdirSync(routeDirectory, { withFileTypes: true }).flatMap((entry) => {
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) return []
+    const file = join(routeDirectory, entry.name)
+    const source = readFileSync(file, 'utf8')
+    if (extractRouterCalls(source, service, entry.name, '').length === 0) return []
+    const mountPrefix = mounts.get(entry.name)
+    if (mountPrefix === undefined) {
+      throw new Error(`Route source with HTTP declarations is not mounted in ${relative(root, appFile)}: ${relative(root, file)}`)
+    }
+    return extractRouterCalls(
+      source,
+      service,
+      relative(root, file).replaceAll('\\', '/'),
+      mountPrefix,
+    )
   })
+}
+
+function readServiceRoutes(root: string): DiscoveredCapability[] {
+  return readdirSync(join(root, 'services'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith('-service'))
+    .flatMap((entry) => readMountedServiceRoutes(root, entry.name))
 }
 
 function readHealthRoutes(root: string): DiscoveredCapability[] {
@@ -266,6 +298,8 @@ export function validateManifest(
       || source.kind !== row.kind
       || source.methodOrEvent !== row.methodOrEvent
       || source.pathOrName !== row.pathOrName
+      || source.access !== row.access
+      || source.classification !== row.classification
       || source.source !== row.source
     )) reasons.push('source identity drift')
     if (reasons.length > 0) invalid.push({ row, reasons })
