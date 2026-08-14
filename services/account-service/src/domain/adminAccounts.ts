@@ -3,6 +3,11 @@ import { AppError } from '../lib/errors.js';
 import { revokeAllRefreshTokens } from '../lib/redis.js';
 import { writeOutbox } from '../lib/outbox.js';
 
+export async function listAdminAccounts(input: { query?: string; status?: 'active' | 'locked' }) {
+  const query = input.query?.trim();
+  return prisma.user.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(query ? { OR: [{ email: { contains: query, mode: 'insensitive' } }, { playerProfile: { displayName: { contains: query, mode: 'insensitive' } } }] } : {}) }, include: { playerProfile: { select: { displayName: true } } }, orderBy: { createdAt: 'desc' }, take: 50 }).then(rows => rows.map(row => ({ id: row.id, email: row.email, displayName: row.playerProfile?.displayName ?? null, status: row.status, roles: row.roles })));
+}
+
 /** ACC-08 — Khóa tài khoản (AC-ACC-08-1..2). BR-ACC-11: lý do bắt buộc. */
 export async function lockAccount(adminUserId: string, targetUserId: string, reason: string): Promise<void> {
   if (!reason.trim()) {
