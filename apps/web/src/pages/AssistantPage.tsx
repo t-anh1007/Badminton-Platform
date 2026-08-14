@@ -89,7 +89,7 @@ export function AssistantPage() {
 
   return (
     <div className="page-container py-8 sm:py-10">
-      <PageHeader eyebrow="Hỗ trợ có căn cứ" title="Trợ lý AI" description="Tìm kèo phù hợp hoặc hỏi chính sách và dữ liệu của chính bạn." actions={<SegmentedControl options={tabs} value={tab} onChange={setTab} />} />
+      <PageHeader eyebrow="Hỗ trợ có căn cứ" title="Trợ lý AI" description="Tìm kèo phù hợp hoặc hỏi chính sách và dữ liệu của chính bạn." actions={<SegmentedControl options={tabs} value={tab} onChange={(next) => setTab(next as AssistantTab)} />} />
 
       <div className="mt-5 flex items-start gap-2 rounded-xl border border-info bg-info-bg p-3 text-sm text-ink-700">
         <span aria-hidden>ⓘ</span>

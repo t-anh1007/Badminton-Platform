@@ -186,7 +186,7 @@ export function ProfilePage() {
 
           {tab === 'bookings' && (
             <div className="mt-6">
-              <SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }]} value={period} onChange={setPeriod} />
+              <SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }]} value={period} onChange={(next) => setPeriod(next as 'upcoming' | 'past' | 'cancelled')} />
               <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : <EmptyState title="Chưa có booking" description="Khi bạn đặt sân, lịch sử sẽ hiển thị tại đây." />}</div>
             </div>
           )}

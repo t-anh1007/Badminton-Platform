@@ -44,7 +44,7 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
   const disabled = phase === 'paying' || phase === 'confirming' || phase === 'expired'
   return <div className="mt-5 space-y-4" aria-live="polite">
     <p className="text-sm text-ink-500">Giữ chỗ còn {Math.floor(remaining / 60000).toString().padStart(2, '0')}:{Math.floor(remaining % 60000 / 1000).toString().padStart(2, '0')}</p>
-    <SegmentedControl options={[{ value: 'balance', label: 'Số dư' }, { value: 'sepay', label: 'SePay' }]} value={method} onChange={setMethod} />
+    <SegmentedControl options={[{ value: 'balance', label: 'Số dư' }, { value: 'sepay', label: 'SePay' }]} value={method} onChange={(next) => setMethod(next as 'balance' | 'sepay')} />
     <Button className="w-full" disabled={disabled} onClick={() => void pay()}>{phase === 'confirming' ? 'Đang xác nhận…' : method === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>
     {message && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
     {phase === 'expired' && <Button tone="secondary" className="w-full" onClick={recover}>Chọn lại slot</Button>}
