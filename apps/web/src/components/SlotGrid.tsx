@@ -1,3 +1,5 @@
+import type { SelectableSlot } from '../booking/selection.js';
+
 export type SlotStatus = 'available' | 'held' | 'booked' | 'unavailable';
 
 export interface Slot {
@@ -5,6 +7,7 @@ export interface Slot {
   status: SlotStatus;
   price: number;
   selected?: boolean;
+  selection?: SelectableSlot;
 }
 
 const STATUS_STYLE: Record<SlotStatus, string> = {
