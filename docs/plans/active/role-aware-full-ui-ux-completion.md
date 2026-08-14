@@ -644,23 +644,23 @@ git commit -m "feat(provider): add onboarding status and manage read models"
 - Consumes existing create/update venue, add/deactivate court, operating-hour, closure, pricing and booking-rule routes plus Task 7 read models.
 - Produces provider routes `/manage`, `/manage/venues`, `/manage/venues/:venueId`, `/manage/venues/:venueId/schedule`, `/manage/venues/:venueId/pricing`.
 
-- [ ] **Step 1: Write failing route/page tests**
+- [x] **Step 1: Write failing route/page tests**
 
 Assert empty state exposes `Thêm sân kinh doanh`, create/edit forms map every existing backend field, court deactivation confirmation lists conflicts from backend errors, and all async buttons prevent double submit.
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `npm test -w @khoaluantn/web -- src/pages/manage/managePages.test.tsx`
 
-- [ ] **Step 3: Implement responsive manage layout and venue CRUD UI**
+- [x] **Step 3: Implement responsive manage layout and venue CRUD UI**
 
 Desktop uses sidebar and content header; mobile uses a horizontal module switcher. Keep forms in focused components and display field-level Zod/API errors next to the relevant input.
 
-- [ ] **Step 4: Implement schedule/pricing editors**
+- [x] **Step 4: Implement schedule/pricing editors**
 
 Operating hours use minute-backed controls, closures use `dd/MM/yyyy`, pricing windows show overlap errors, and booking rules show step/min/max relationships before submit.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/manage/managePages.test.tsx
@@ -1209,7 +1209,7 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Task 5 — payment terminal UX.
 - [ ] Task 6 — cancellation and wallet labels.
 - [x] Task 7 — provider onboarding/read models.
-- [ ] Task 8 — provider venue operations.
+- [x] Task 8 — provider venue operations.
 - [ ] Task 9 — provider calendar/incidents/finance.
 - [ ] Task 10 — admin core queues.
 - [ ] Task 11 — admin operations queues.
