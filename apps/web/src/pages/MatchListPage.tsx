@@ -14,7 +14,7 @@ import {
   Toast,
 } from '../components/ui';
 import { createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
-import { getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
+import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -27,6 +27,7 @@ const tierOptions = Object.entries(tierLabels) as Array<[SkillTier, string]>;
 type HydratedMatch = MatchRow & {
   organizer?: { displayName: string; tier: SkillTier | null };
 };
+type MatchSource = ({ kind: 'booking' } & MatchBookingSource) | ({ kind: 'hold' } & MatchHoldSource);
 const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : `${Number(value).toLocaleString('vi-VN')}₫`);
 const skillRange = (row: MatchRow) =>
   row.skillMin || row.skillMax
@@ -41,8 +42,8 @@ export function MatchListPage() {
   const [skill, setSkill] = useState<SkillTier | ''>('');
   const [date, setDate] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [heldBookings, setHeldBookings] = useState<BookingSummary[]>([]);
-  const [bookingId, setBookingId] = useState('');
+  const [matchSources, setMatchSources] = useState<MatchSource[]>([]);
+  const [sourceKey, setSourceKey] = useState('');
   const [capacity, setCapacity] = useState(4);
   const [feeMode, setFeeMode] = useState<'free' | 'split'>('split');
   const [notice, setNotice] = useState('');
@@ -86,17 +87,22 @@ export function MatchListPage() {
     setCreateOpen(true);
     setNotice('');
     try {
-      const bookings = (await getMyUpcomingBookings()).filter((booking) => booking.status === 'held');
-      setHeldBookings(bookings);
-      setBookingId(bookings[0]?.id ?? '');
+      const result = await getMyMatchSources();
+      const sources: MatchSource[] = [
+        ...result.holds.map((hold) => ({ ...hold, kind: 'hold' as const })),
+        ...result.bookings.map((booking) => ({ ...booking, kind: 'booking' as const })),
+      ];
+      setMatchSources(sources);
+      setSourceKey(sources[0] ? `${sources[0].kind}:${sources[0].id}` : '');
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Không thể tải slot đang giữ.');
     }
   };
   const submitCreate = async () => {
-    if (!bookingId) return;
+    if (!sourceKey) return;
     try {
-      const match = await createMatch({ bookingId, capacity, feeMode });
+      const [kind, id] = sourceKey.split(':') as ['booking' | 'hold', string];
+      const match = await createMatch({ ...(kind === 'booking' ? { bookingId: id } : { holdId: id }), capacity, feeMode });
       setCreateOpen(false);
       navigate(`/matches/${match.id}`);
     } catch (cause) {
@@ -220,20 +226,20 @@ export function MatchListPage() {
         </div>
       )}
       <Modal open={createOpen} title="Tạo kèo từ booking đang giữ" onClose={() => setCreateOpen(false)}>
-        {heldBookings.length === 0 ? (
+        {matchSources.length === 0 ? (
           <EmptyState
-            title="Chưa có slot đang giữ"
-            description="Hãy chọn sân và tạo booking held trước khi mở kèo."
+            title="Chưa có nguồn tạo kèo hợp lệ"
+            description="Hãy giữ một khung giờ hoặc tạo booking đang chờ thanh toán trước khi mở kèo."
             action={<Button onClick={() => navigate('/venues')}>Chọn sân</Button>}
           />
         ) : (
           <div className="space-y-4">
             <label className="block text-sm font-medium">
-              Booking held
-              <SelectInput className="mt-1" value={bookingId} onChange={(event) => setBookingId(event.target.value)}>
-                {heldBookings.map((booking) => (
-                  <option key={booking.id} value={booking.id}>
-                    {booking.court?.venue?.name ?? 'Sân'} · {new Date(booking.startAt).toLocaleString('vi-VN')}
+              Sân và thời gian đã giữ
+              <SelectInput aria-label="Nguồn tạo kèo" className="mt-1" value={sourceKey} onChange={(event) => setSourceKey(event.target.value)}>
+                {matchSources.map((source) => (
+                  <option key={`${source.kind}:${source.id}`} value={`${source.kind}:${source.id}`}>
+                    {source.court.venue.name} · {source.court.name} · {new Date(source.startAt).toLocaleString('vi-VN')} · {source.kind === 'hold' ? 'Đang giữ' : 'Chờ thanh toán'}
                   </option>
                 ))}
               </SelectInput>

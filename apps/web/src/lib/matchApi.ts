@@ -99,8 +99,7 @@ export const rejectMatchJoin = (matchId: string, joinId: string) =>
 export const withdrawMatchJoin = (matchId: string, joinId: string) =>
   api(`/matches/${matchId}/joins/${joinId}/withdraw`, { method: 'POST' });
 export const cancelMatch = (id: string) => api(`/matches/${id}/cancel`, { method: 'POST' });
-export const createMatch = (body: {
-  bookingId: string;
+export const createMatch = (body: ({ bookingId: string; holdId?: never } | { holdId: string; bookingId?: never }) & {
   capacity: number;
   feeMode: 'free' | 'split';
   skillMin?: SkillTier;

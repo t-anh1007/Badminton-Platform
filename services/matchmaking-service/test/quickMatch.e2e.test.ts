@@ -119,10 +119,13 @@ describe('F-03 — live quick match', () => {
     const url = await startGateway();
     const socket = await connect(url, playerToken(randomUUID()));
 
-    const proposal = once<{ matchId: string; openSlots: number }>(socket, 'quick_match:proposal');
-    socket.emit('quick_match:find');
+    const requestId = randomUUID();
+    const progress = once<{ requestId: string; phase: string; scannedCount: number }>(socket, 'quick_match:progress');
+    const proposal = once<{ requestId: string; matchId: string; openSlots: number }>(socket, 'quick_match:proposal');
+    socket.emit('quick_match:find', { requestId });
 
-    await expect(proposal).resolves.toMatchObject({ matchId: match.id, openSlots: 1 });
+    await expect(progress).resolves.toMatchObject({ requestId, phase: 'starting', scannedCount: 0 });
+    await expect(proposal).resolves.toMatchObject({ requestId, matchId: match.id, openSlots: 1 });
   });
 
   it('AC-F03-2: accepting a proposal creates the ordinary pending JOIN and payment-approval flow', async () => {
@@ -131,12 +134,17 @@ describe('F-03 — live quick match', () => {
     const url = await startGateway();
     const socket = await connect(url, playerToken(participantUserId));
 
-    const joined = once<{ id: string; matchId: string; participantUserId: string; status: string }>(socket, 'quick_match:joined');
-    socket.emit('quick_match:accept', { matchId: match.id });
+    const requestId = randomUUID();
+    const proposal = once<{ matchId: string }>(socket, 'quick_match:proposal');
+    socket.emit('quick_match:find', { requestId });
+    await proposal;
+    const joined = once<{ requestId: string; id: string; matchId: string; participantUserId: string; status: string }>(socket, 'quick_match:joined');
+    socket.emit('quick_match:accept', { requestId, matchId: match.id });
+    socket.emit('quick_match:accept', { requestId, matchId: match.id });
 
     const join = await joined;
     createdJoinIds.push(join.id);
-    expect(join).toMatchObject({ matchId: match.id, participantUserId, status: 'pending' });
+    expect(join).toMatchObject({ requestId, matchId: match.id, participantUserId, status: 'pending' });
 
     const pendingResponse = await fetch(`${url}/matches/${match.id}/joins/pending`, {
       headers: { authorization: `Bearer ${playerToken(match.organizerUserId)}` },
@@ -167,8 +175,12 @@ describe('F-03 — live quick match', () => {
     const sockets = await Promise.all(participants.map((userId) => connect(url, playerToken(userId))));
 
     const joins = await Promise.all(sockets.map(async (socket) => {
+      const requestId = randomUUID();
+      const proposal = once<{ matchId: string }>(socket, 'quick_match:proposal');
+      socket.emit('quick_match:find', { requestId });
+      await proposal;
       const joined = once<{ id: string; participantUserId: string; status: string }>(socket, 'quick_match:joined');
-      socket.emit('quick_match:accept', { matchId: match.id });
+      socket.emit('quick_match:accept', { requestId, matchId: match.id });
       return joined;
     }));
     createdJoinIds.push(...joins.map((join) => join.id));
@@ -187,13 +199,32 @@ describe('F-03 — live quick match', () => {
     expect(approvalResponses.find((response) => response.status === 409)!.body.error.code).toBe('MATCH_FULL');
   });
 
+  it('stops a request and never accepts its stale proposal', async () => {
+    const match = await createOneSlotMatch();
+    const participantUserId = randomUUID();
+    const url = await startGateway();
+    const socket = await connect(url, playerToken(participantUserId));
+    const requestId = randomUUID();
+    const proposal = once<{ matchId: string }>(socket, 'quick_match:proposal');
+    socket.emit('quick_match:find', { requestId });
+    await expect(proposal).resolves.toMatchObject({ matchId: match.id });
+    const stopped = once<{ requestId: string }>(socket, 'quick_match:stopped');
+    socket.emit('quick_match:stop', { requestId });
+    await expect(stopped).resolves.toEqual({ requestId });
+    const error = once<{ requestId: string; code: string }>(socket, 'quick_match:error');
+    socket.emit('quick_match:accept', { requestId, matchId: match.id });
+    await expect(error).resolves.toMatchObject({ requestId, code: 'QUICK_MATCH_PROPOSAL_EXPIRED' });
+    expect(await prisma.join.count({ where: { matchId: match.id, participantUserId } })).toBe(0);
+  });
+
   it('AC-F03-4: disconnecting after a proposal leaves no ghost place or unpaid hold', async () => {
     const match = await createOneSlotMatch();
     const url = await startGateway();
     const disconnectedPlayer = await connect(url, playerToken(randomUUID()));
 
+    const disconnectedRequestId = randomUUID();
     const proposal = once<{ matchId: string }>(disconnectedPlayer, 'quick_match:proposal');
-    disconnectedPlayer.emit('quick_match:find');
+    disconnectedPlayer.emit('quick_match:find', { requestId: disconnectedRequestId });
     await expect(proposal).resolves.toMatchObject({ matchId: match.id });
     const disconnected = once<void>(disconnectedPlayer, 'disconnect');
     disconnectedPlayer.disconnect();
@@ -201,8 +232,12 @@ describe('F-03 — live quick match', () => {
 
     const nextPlayerId = randomUUID();
     const nextPlayer = await connect(url, playerToken(nextPlayerId));
+    const nextRequestId = randomUUID();
+    const nextProposal = once<{ matchId: string }>(nextPlayer, 'quick_match:proposal');
+    nextPlayer.emit('quick_match:find', { requestId: nextRequestId });
+    await nextProposal;
     const joined = once<{ id: string; participantUserId: string; status: string }>(nextPlayer, 'quick_match:joined');
-    nextPlayer.emit('quick_match:accept', { matchId: match.id });
+    nextPlayer.emit('quick_match:accept', { requestId: nextRequestId, matchId: match.id });
 
     const join = await joined;
     createdJoinIds.push(join.id);

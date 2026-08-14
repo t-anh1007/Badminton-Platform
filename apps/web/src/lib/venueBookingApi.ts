@@ -75,6 +75,26 @@ export interface HoldResult {
   endAt: string;
   expiresAt: string;
 }
+export interface MatchSourceCourt {
+  id: string;
+  name: string;
+  venue: { id: string; name: string; address: string };
+}
+export interface MatchHoldSource {
+  id: string;
+  startAt: string;
+  endAt: string;
+  expiresAt: string;
+  court: MatchSourceCourt;
+}
+export interface MatchBookingSource {
+  id: string;
+  startAt: string;
+  endAt: string;
+  holdExpiresAt: string | null;
+  status: 'held';
+  court: MatchSourceCourt;
+}
 export interface ProviderRow { id: string; orgName: string; status: string; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
@@ -93,6 +113,7 @@ export const selectSlot = (courtId: string, body: { startAt: string; durationMin
 export const createHold = (body: { courtId: string; startAt: string; endAt: string }) =>
   api<HoldResult>('/holds', { method: 'POST', body: JSON.stringify(body) });
 export const createBooking = (holdId: string) => api<BookingSummary>('/bookings', { method: 'POST', body: JSON.stringify({ holdId }) });
+export const getMyMatchSources = () => api<{ holds: MatchHoldSource[]; bookings: MatchBookingSource[] }>('/players/me/match-sources');
 export const getAdminProviders = () => api<ProviderRow[]>('/providers?status=pending');
 export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
 export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
