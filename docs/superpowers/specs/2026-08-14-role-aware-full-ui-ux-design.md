@@ -12,7 +12,7 @@ visual_authority: Figma COURTIN FHuhhmlhPSl8gOUuUx7az2
 
 Hoàn thiện UI/UX cho toàn bộ backend đã triển khai, sửa toàn bộ vấn đề được PO ghi nhận trong vòng test thủ công, và bổ sung phần backend tối thiểu cần thiết để trải nghiệm mới hoạt động thật. Kết quả phải dùng dữ liệu/API thật, giữ nguyên các bất biến tiền, quyền, booking, matchmaking, AI và ranh giới service hiện hành.
 
-Phạm vi được triển khai theo các lát cắt nghiệp vụ hoàn chỉnh. Mỗi lát cắt gồm UI, API/domain tối thiểu, trạng thái lỗi, test tập trung và E2E liên quan.
+Phạm vi được triển khai theo các lát cắt nghiệp vụ hoàn chỉnh. Mỗi lát cắt gồm UI, API/domain tối thiểu, trạng thái lỗi và test tập trung nhỏ nhất; toàn bộ hành trình được nghiệm thu trực tiếp bằng browser khi hoàn tất plan.
 
 ## 2. Authority và ranh giới
 
@@ -184,23 +184,24 @@ Mọi thay đổi spec/decision ảnh hưởng policy, data hoặc role phải �
 - Component: multi-slot selection, summary, payment lock/countdown, inline cancellation, ticket focus, role switcher, presenter labels, media preview.
 - Socket.IO: quick-match progress/result/reconnect/cancel và cập nhật suggestions.
 
-### End-to-end
+### Browser acceptance cuối plan
 
-- Người chơi: đăng ký/đăng nhập → đặt nhiều slot → thanh toán → confirmation → hủy/refund.
-- Người chơi → Chủ sân: gửi hợp tác → Admin duyệt → refresh role → thêm venue/court/config → booking vận hành → doanh thu/rút.
-- Admin: account/provider/booking/withdrawal/reconciliation/dispute/moderation/ticket queues.
-- Match: booking held → tạo kèo → quick match/JOIN → duyệt → trả phí → hoàn tất → đánh giá.
-- Community: upload ảnh → CRUD bài → bình luận/report → Admin xử lý; ticket giữ focus và phân quyền.
-- Desktop/mobile visual regression theo COURTIN frame liên quan.
+- Không chạy Playwright/E2E hoặc test script tổng hợp ở lần kiểm chứng cuối.
+- Mở ứng dụng thật trong browser và đi xuyên luồng Người chơi: đăng ký/đăng nhập → đặt nhiều slot → thanh toán → confirmation → hủy/refund.
+- Trong cùng đợt browser, kiểm tra Người chơi → Chủ sân: gửi hợp tác → Admin duyệt → refresh role → thêm venue/court/config → booking vận hành → doanh thu/rút.
+- Kiểm tra Admin: account/provider/booking/withdrawal/reconciliation/dispute/moderation/evaluation/ticket queues.
+- Kiểm tra Match: booking held → tạo kèo → quick match/JOIN → duyệt → trả phí → hoàn tất → đánh giá; đồng thời kiểm tra AI chat và cooldown 7 ngày.
+- Kiểm tra Community: upload ảnh → CRUD bài → bình luận/report → Admin xử lý; ticket giữ focus và phân quyền.
+- Resize browser ở 375, 768 và 1280+ để review responsive trực tiếp theo COURTIN; chụp evidence từ browser khi cần.
 
 ### Completion gates
 
-- Focused tests xanh trước mỗi milestone review.
-- Web lint/typecheck/build và test workspace liên quan xanh.
-- Cross-phase Playwright chạy một lần ở final gate; nếu aggregate timeout, chạy các configured specs tương đương riêng và báo coverage.
+- Sau mỗi task chỉ chạy test tập trung nhỏ nhất liên quan để phản hồi nhanh; không chạy full suite, Playwright hoặc visual regression lặp lại.
+- Lint/typecheck/build và capability gate chạy một lần ở checkpoint kỹ thuật ngay trước đợt browser acceptance, không phải là bài test cuối.
+- Lần kiểm chứng cuối chỉ dùng browser thật và checklist hành trình ở trên; kết quả ghi bằng trạng thái quan sát, network/console và screenshot cần thiết.
 - Không có lỗi console trong các journey chính.
 - Mọi note trong mục 3 có evidence hoặc PO waiver tường minh.
-- Capability manifest không còn route, Socket.IO event hoặc cross-service event chưa phân loại; mỗi capability có `surfaceId` và `evidenceId` trỏ tới giao diện và test thực tế.
+- Capability manifest không còn route, Socket.IO event hoặc cross-service event chưa phân loại; mỗi capability có `surfaceId` và `evidenceId` trỏ tới giao diện cùng focused test hoặc browser acceptance step thực tế.
 
 ## 13. Delivery slices
 

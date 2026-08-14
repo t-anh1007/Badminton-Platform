@@ -6,7 +6,7 @@
 
 **Architecture:** Triển khai theo lát cắt nghiệp vụ dọc, mỗi lát cắt đi từ policy/spec đến domain/API, React UI và bằng chứng tự động. Giữ sáu service hiện có, giao tiếp qua API/event, dùng session context tập trung ở web và giữ COURTIN Figma làm visual authority.
 
-**Tech Stack:** React 19, React Router 7, TypeScript 6, Vite 8, Tailwind CSS 4, Express 4, Zod, Prisma 5/PostgreSQL, RabbitMQ/outbox, Socket.IO 4, Vitest, Testing Library, Playwright, S3-compatible object storage.
+**Tech Stack:** React 19, React Router 7, TypeScript 6, Vite 8, Tailwind CSS 4, Express 4, Zod, Prisma 5/PostgreSQL, RabbitMQ/outbox, Socket.IO 4, Vitest, Testing Library, S3-compatible object storage và browser acceptance thủ công.
 
 **Spec:** `docs/superpowers/specs/2026-08-14-role-aware-full-ui-ux-design.md`
 
@@ -20,8 +20,10 @@
 - Ngày hiển thị theo `dd/MM/yyyy`; timestamp truyền API bằng ISO 8601 và render theo formatter Việt Nam tập trung.
 - Không hiển thị UUID, enum kỹ thuật hoặc tên ledger thô cho end user.
 - Community lưu tối đa 4 ảnh cho mỗi bài; Community và Venue sở hữu namespace upload riêng trên object storage.
-- Mỗi milestone chạy focused tests trước, sau đó typecheck/build; final gate chạy E2E và visual regression.
-- Mọi route nghiệp vụ public/authenticated đã build phải có FE trực tiếp; route internal, webhook và event phải có trạng thái quan sát được trong FE của luồng sở hữu và bằng chứng E2E.
+- Sau mỗi task chỉ chạy test tập trung nhỏ nhất liên quan; không chạy full suite, Playwright hoặc visual regression lặp lại.
+- Lint/typecheck/build và `ui:coverage` chạy một lần ở checkpoint kỹ thuật trước browser acceptance, không lặp lại sau mỗi task.
+- Lần kiểm chứng cuối chỉ dùng browser thật; không chạy E2E Playwright hoặc test script tổng hợp.
+- Mọi route nghiệp vụ public/authenticated đã build phải có FE trực tiếp; route internal, webhook và event phải có trạng thái quan sát được trong FE của luồng sở hữu và bằng chứng focused-test hoặc browser.
 - Không được đánh dấu hoàn thành nếu capability manifest còn endpoint/event chưa phân loại hoặc chưa có `surfaceId` và `evidenceId` hợp lệ.
 - Không push, không merge `main`, không xóa dữ liệu và không stage file ngoài task nếu chưa có yêu cầu PO.
 
@@ -123,7 +125,7 @@ Out of scope:
 
 ## Backend-to-Frontend Coverage Gate
 
-Inventory ngày 2026-08-14 có 105 route declaration trong năm business service, cộng 5 service health và 1 gateway health = 111 HTTP capability trước các seam mới. Mỗi dòng dưới đây phải xuất hiện trong `scripts/backend-ui-capabilities.json` với `service`, `methodOrEvent`, `pathOrName`, `access`, `surfaceId`, `task`, `evidenceId`. Script `npm run ui:coverage` đọc các route source, Socket.IO contracts và event-name allowlist; lệnh thất bại khi phát hiện capability mới không có trong manifest hoặc một dòng không có surface/evidence.
+Inventory ngày 2026-08-14 có 105 route declaration trong năm business service, cộng 5 service health và 1 gateway health = 111 HTTP capability trước các seam mới. Mỗi dòng dưới đây phải xuất hiện trong `scripts/backend-ui-capabilities.json` với `service`, `methodOrEvent`, `pathOrName`, `access`, `surfaceId`, `task`, `evidenceId`. `evidenceId` trỏ tới focused test hoặc bước browser acceptance có tên. Script `npm run ui:coverage` đọc các route source, Socket.IO contracts và event-name allowlist; lệnh thất bại khi phát hiện capability mới không có trong manifest hoặc một dòng không có surface/evidence. Script này chạy ở Task 1 và checkpoint Task 19, không chạy lại trong lần test browser cuối.
 
 ### Account and gateway
 
@@ -306,7 +308,6 @@ Run:
 ```powershell
 npm test -w @khoaluantn/web -- src/lib/formatters.test.ts
 npm run ui:coverage -- --allow-planned
-npm run build -w @khoaluantn/web
 git add docs/product/decision-log.md docs/product/phasing.md docs/product/specs/account-access.md docs/product/specs/court-booking.md docs/product/specs/matchmaking-passport.md docs/product/specs/community-support.md docs/product/backend-ui-capability-matrix.md scripts/backend-ui-capabilities.json scripts/verify-backend-ui-coverage.ts package.json apps/web/package.json apps/web/vite.config.ts apps/web/src/test/setup.ts apps/web/src/lib/formatters.ts apps/web/src/lib/formatters.test.ts package-lock.json
 git commit -m "chore(ui): establish backend capability coverage gate"
 ```
@@ -370,8 +371,6 @@ Assert invalid local storage clears the session, active role must belong to `rol
 ```powershell
 npm test -w @khoaluantn/account-service -- test/session.test.ts
 npm test -w @khoaluantn/web -- src/session/session.test.ts src/session/SessionProvider.test.tsx
-npm run typecheck -w @khoaluantn/account-service
-npm run build -w @khoaluantn/web
 git add services/account-service/src/domain/session.ts services/account-service/src/routes/auth.ts services/account-service/test/session.test.ts apps/web/src/lib/accountApi.ts apps/web/src/session apps/web/src/components/AuthForm.tsx apps/web/src/main.tsx
 git commit -m "feat(account): refresh multi-role sessions"
 ```
@@ -425,7 +424,6 @@ Player navigation remains Trang chủ/Đặt sân/Tìm kèo/Cộng đồng; prov
 
 ```powershell
 npm test -w @khoaluantn/web -- src/routing/RoleGuard.test.tsx src/components/RoleSwitcher.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/routing apps/web/src/components/RoleBadge.tsx apps/web/src/components/RoleSwitcher.tsx apps/web/src/components/Navbar.tsx apps/web/src/layout/AppLayout.tsx apps/web/src/pages/HomePage.tsx apps/web/src/App.tsx apps/web/src/index.css
 git commit -m "feat(web): add role-aware application shell"
 ```
@@ -479,7 +477,6 @@ Selected buttons use `aria-pressed`, navy/yellow selected styling and visible te
 
 ```powershell
 npm test -w @khoaluantn/web -- src/booking/selection.test.ts src/components/BookingSummary.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/booking apps/web/src/components/SlotGrid.tsx apps/web/src/components/BookingSummary.tsx apps/web/src/components/BookingSummary.test.tsx apps/web/src/pages/BookingPage.tsx apps/web/src/lib/venueBookingApi.ts
 git commit -m "feat(booking): select contiguous court slots"
 ```
@@ -531,8 +528,6 @@ Do not render `booking.id`. Confirmation actions are `Xem đặt sân của tôi
 ```powershell
 npm test -w @khoaluantn/venue-booking-service -- test/bookingHttp.test.ts
 npm test -w @khoaluantn/web -- src/components/BookingPaymentPanel.test.tsx
-npm run typecheck -w @khoaluantn/venue-booking-service
-npm run build -w @khoaluantn/web
 git add services/venue-booking-service/src/domain/booking.ts services/venue-booking-service/src/routes/bookings.ts services/venue-booking-service/test/bookingHttp.test.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/lib/financeApi.ts apps/web/src/components/BookingPaymentPanel.tsx apps/web/src/components/BookingPaymentPanel.test.tsx apps/web/src/pages/BookingPage.tsx apps/web/src/pages/BookingConfirmationPage.tsx apps/web/src/App.tsx
 git commit -m "feat(booking): confirm hold and payment in one flow"
 ```
@@ -583,8 +578,6 @@ Key cancellation state by booking ID and always re-fetch `getMyUpcomingBookings(
 ```powershell
 npm test -w @khoaluantn/finance-service -- test/wallet.test.ts
 npm test -w @khoaluantn/web -- src/lib/presenters.test.ts src/components/BookingCard.test.tsx
-npm run typecheck -w @khoaluantn/finance-service
-npm run build -w @khoaluantn/web
 git add services/finance-service/prisma services/finance-service/src/domain/wallet.ts services/finance-service/src/domain/payment.ts services/finance-service/src/domain/refund.ts services/finance-service/src/domain/topup.ts services/finance-service/src/domain/withdrawal.ts services/finance-service/src/domain/matchFee.ts services/finance-service/src/routes/wallets.ts services/finance-service/test/wallet.test.ts apps/web/src/lib/financeApi.ts apps/web/src/lib/presenters.ts apps/web/src/lib/presenters.test.ts apps/web/src/components/BookingCard.tsx apps/web/src/components/BookingCard.test.tsx apps/web/src/components/BookingCancellationPanel.tsx apps/web/src/pages/ProfilePage.tsx
 git commit -m "fix(profile): keep cancellation and wallet context local"
 ```
@@ -630,8 +623,6 @@ Wizard sends `orgName` and structured contact, polls only while the status page 
 ```powershell
 npm test -w @khoaluantn/venue-booking-service -- test/provider.test.ts test/venue.test.ts
 npm test -w @khoaluantn/web -- src/pages/ProviderOnboardingPage.test.tsx
-npm run typecheck -w @khoaluantn/venue-booking-service
-npm run build -w @khoaluantn/web
 git add services/venue-booking-service/src/domain services/venue-booking-service/src/routes services/venue-booking-service/test/provider.test.ts services/venue-booking-service/test/venue.test.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/pages/ProviderOnboardingPage.tsx apps/web/src/pages/ProviderOnboardingPage.test.tsx apps/web/src/App.tsx
 git commit -m "feat(provider): add onboarding status and manage read models"
 ```
@@ -673,7 +664,6 @@ Operating hours use minute-backed controls, closures use `dd/MM/yyyy`, pricing w
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/manage/managePages.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/manage apps/web/src/pages/manage apps/web/src/lib/venueBookingApi.ts apps/web/src/App.tsx
 git commit -m "feat(provider): add venue operations workspace"
 ```
@@ -710,7 +700,6 @@ Show pending/available/reserved metric cards, business labels and bank fields; r
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/manage/manageOperations.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/pages/manage apps/web/src/lib/venueBookingApi.ts apps/web/src/lib/financeApi.ts apps/web/src/App.tsx apps/web/src/pages/ProfilePage.tsx
 git commit -m "feat(provider): add calendar incidents and finance ui"
 ```
@@ -763,9 +752,6 @@ Replace `apps/web/src/pages/AdminPage.tsx` with nested module routes; retain any
 npm test -w @khoaluantn/account-service -- test/adminAccounts.test.ts
 npm test -w @khoaluantn/venue-booking-service -- test/cancellation.test.ts
 npm test -w @khoaluantn/web -- src/pages/admin/adminCore.test.tsx
-npm run typecheck -w @khoaluantn/account-service
-npm run typecheck -w @khoaluantn/venue-booking-service
-npm run build -w @khoaluantn/web
 git add services/account-service services/venue-booking-service/src/domain/booking.ts services/venue-booking-service/src/routes/bookings.ts services/venue-booking-service/test/cancellation.test.ts apps/web/src/admin apps/web/src/pages/admin apps/web/src/pages/AdminPage.tsx apps/web/src/lib/accountApi.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/lib/systemHealthApi.ts apps/web/src/App.tsx
 git commit -m "feat(admin): expose account provider and booking queues"
 ```
@@ -813,8 +799,6 @@ Never display raw internal IDs as the primary label; use a shortened reference o
 ```powershell
 npm test -w @khoaluantn/matchmaking-service -- test/evaluations.test.ts
 npm test -w @khoaluantn/web -- src/pages/admin/adminOperations.test.tsx
-npm run typecheck -w @khoaluantn/matchmaking-service
-npm run build -w @khoaluantn/web
 git add services/matchmaking-service/src/domain/evaluations.ts services/matchmaking-service/src/routes/matches.ts services/matchmaking-service/test/evaluations.test.ts apps/web/src/lib/matchApi.ts apps/web/src/lib/communityAdminApi.ts apps/web/src/pages/admin apps/web/src/components/FinanceAdminPanel.tsx apps/web/src/components/DisputeAdminPanel.tsx apps/web/src/components/CommunityAdminPanel.tsx
 git commit -m "feat(admin): complete operations work queues"
 ```
@@ -851,8 +835,6 @@ Rename all copy to `Hồ sơ trình độ`, disable CTA during cooldown and rend
 ```powershell
 npm test -w @khoaluantn/matchmaking-service -- test/passport.test.ts
 npm test -w @khoaluantn/web -- src/pages/PassportPage.test.tsx
-npm run typecheck -w @khoaluantn/matchmaking-service
-npm run build -w @khoaluantn/web
 git add services/matchmaking-service/src/domain/passport.ts services/matchmaking-service/src/routes/passports.ts services/matchmaking-service/test/passport.test.ts apps/web/src/lib/passportApi.ts apps/web/src/pages/PassportPage.tsx apps/web/src/pages/PassportPage.test.tsx apps/web/src/components/Navbar.tsx
 git commit -m "feat(passport): enforce weekly level declaration"
 ```
@@ -899,9 +881,6 @@ Animation uses transform/opacity and pauses with `prefers-reduced-motion`. Sourc
 npm test -w @khoaluantn/matchmaking-service -- test/quickMatch.e2e.test.ts
 npm test -w @khoaluantn/venue-booking-service -- test/matchContext.test.ts
 npm test -w @khoaluantn/web -- src/components/QuickMatchModal.test.tsx
-npm run typecheck -w @khoaluantn/matchmaking-service
-npm run typecheck -w @khoaluantn/venue-booking-service
-npm run build -w @khoaluantn/web
 git add services/matchmaking-service/src/lib/quickMatchGateway.ts services/matchmaking-service/test/quickMatch.e2e.test.ts services/venue-booking-service/src/domain/booking.ts services/venue-booking-service/src/routes/bookings.ts services/venue-booking-service/test/matchContext.test.ts apps/web/src/lib/matchApi.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/components/QuickMatchModal.tsx apps/web/src/components/QuickMatchModal.test.tsx apps/web/src/components/QuickMatchPanel.tsx apps/web/src/pages/MatchListPage.tsx
 git commit -m "feat(matchmaking): show realtime search and valid sources"
 ```
@@ -948,8 +927,6 @@ Left column is a live suggestion region with `aria-live="polite"`; right is conv
 npm test -w @khoaluantn/ai -- test/geminiMatchmaker.test.ts
 npm test -w @khoaluantn/matchmaking-service -- test/aiMatchmaker.e2e.test.ts
 npm test -w @khoaluantn/web -- src/components/AssistantChat.test.tsx
-npm run typecheck -w @khoaluantn/matchmaking-service
-npm run build -w @khoaluantn/web
 git add packages/ai services/matchmaking-service/src/domain/aiMatchmaker.ts services/matchmaking-service/src/routes/matches.ts services/matchmaking-service/test/aiMatchmaker.e2e.test.ts apps/web/src/lib/assistantApi.ts apps/web/src/components/AssistantChat.tsx apps/web/src/components/AssistantBubble.tsx apps/web/src/components/AssistantChat.test.tsx apps/web/src/pages/AssistantPage.tsx apps/web/src/layout/AppLayout.tsx
 git commit -m "feat(ai): add grounded match assistant chat"
 ```
@@ -1004,8 +981,6 @@ Routes require auth/role, return presigned data, and never accept a client-chose
 npm test -w @khoaluantn/object-storage
 npm test -w @khoaluantn/community-service -- test/community.e2e.test.ts
 npm test -w @khoaluantn/venue-booking-service -- test/venue.test.ts
-npm run typecheck -w @khoaluantn/community-service
-npm run typecheck -w @khoaluantn/venue-booking-service
 git add packages/object-storage docker-compose.infrastructure.yml .env.example services/community-service services/venue-booking-service/src/routes/uploads.ts services/venue-booking-service/src/app.ts services/venue-booking-service/test/venue.test.ts services/venue-booking-service/package.json package-lock.json
 git commit -m "feat(media): add owned s3 image uploads"
 ```
@@ -1052,7 +1027,6 @@ Move modal child components out of render scope, do not key the modal by form va
 
 ```powershell
 npm test -w @khoaluantn/web -- src/components/CommunityComposer.test.tsx src/pages/manage/ManageVenueImages.test.tsx src/pages/SupportPage.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/lib/communityApi.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/components/CommunityComposer.tsx apps/web/src/components/CommunityComposer.test.tsx apps/web/src/components/CommunityMediaGrid.tsx apps/web/src/pages/CommunityPage.tsx apps/web/src/pages/CommunityDetailPage.tsx apps/web/src/pages/manage/ManageVenuesPage.tsx apps/web/src/pages/manage/ManageVenueDetailPage.tsx apps/web/src/pages/manage/ManageVenueImages.test.tsx apps/web/src/components/ui.tsx apps/web/src/pages/SupportPage.tsx apps/web/src/pages/SupportPage.test.tsx apps/web/src/index.css
 git commit -m "feat(community): add post images and stable ticket focus"
 ```
@@ -1096,7 +1070,6 @@ Map search controls to the full current `/search` contract. Top-up and booking p
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/accountVenueFinanceSurfaces.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/components/AuthForm.tsx apps/web/src/pages/AuthPage.tsx apps/web/src/pages/ResetPasswordPage.tsx apps/web/src/pages/ProfilePage.tsx apps/web/src/pages/VenueListPage.tsx apps/web/src/pages/VenueDetailPage.tsx apps/web/src/components/FinancePanel.tsx apps/web/src/lib/accountApi.ts apps/web/src/lib/financeApi.ts apps/web/src/lib/venueBookingApi.ts apps/web/src/pages/accountVenueFinanceSurfaces.test.tsx
 git commit -m "feat(web): expose account venue and finance capabilities"
 ```
@@ -1139,7 +1112,6 @@ Keep ownership actions inside the owned post/comment card, preserve content afte
 
 ```powershell
 npm test -w @khoaluantn/web -- src/pages/matchCommunitySupportSurfaces.test.tsx
-npm run build -w @khoaluantn/web
 git add apps/web/src/pages/MatchDetailPage.tsx apps/web/src/pages/MatchListPage.tsx apps/web/src/pages/PassportPage.tsx apps/web/src/pages/CommunityPage.tsx apps/web/src/pages/CommunityDetailPage.tsx apps/web/src/pages/SupportPage.tsx apps/web/src/lib/matchApi.ts apps/web/src/lib/communityApi.ts apps/web/src/lib/financeApi.ts apps/web/src/pages/matchCommunitySupportSurfaces.test.tsx
 git commit -m "feat(web): expose match community and support capabilities"
 ```
@@ -1152,7 +1124,6 @@ git commit -m "feat(web): expose match community and support capabilities"
 - Modify: `apps/web/src/components/ui.tsx`
 - Modify: `apps/web/src/index.css`
 - Modify: all pages changed in Tasks 3–18
-- Modify: `e2e/courtin-visual.spec.ts`
 
 **Interfaces:**
 - `RouteState` variants: `loading | empty | error | forbidden`, with optional retry/action.
@@ -1166,83 +1137,64 @@ Assert semantic roles, retry callback, focus-visible styles, 44×44 touch target
 
 Each route must have observable loading, empty, error, forbidden and retry behavior. Field/action errors remain local; global fatal errors use `RouteState`.
 
-- [ ] **Step 3: Verify responsive layouts through Playwright viewports**
+- [ ] **Step 3: Run the one technical checkpoint before browser acceptance**
 
-Add assertions for 375×812, 768×1024 and 1280×800 with `document.documentElement.scrollWidth === window.innerWidth` on shell, booking, provider, admin, AI and Community routes.
+Run lint, repository typecheck/build and capability coverage once. Fix compile/static errors here so the final browser session tests only observable product behavior.
 
-- [ ] **Step 4: Update COURTIN visual baselines only after PO visual review**
-
-Run `npx playwright test e2e/courtin-visual.spec.ts --update-snapshots`, inspect every changed PNG, and keep only approved changes.
-
-- [ ] **Step 5: Run focused proof and commit**
+- [ ] **Step 4: Run focused proof, technical checkpoint and commit**
 
 ```powershell
 npm test -w @khoaluantn/web -- src/components/RouteState.test.tsx
+npm run ui:coverage
 npm run lint -w @khoaluantn/web
-npm run build -w @khoaluantn/web
-npx playwright test e2e/courtin-visual.spec.ts
-git add apps/web/src/components apps/web/src/index.css apps/web/src/pages apps/web/src/manage apps/web/src/admin e2e/courtin-visual.spec.ts e2e/courtin-visual.spec.ts-snapshots
+npm run typecheck
+npm run build
+git add apps/web/src/components apps/web/src/index.css apps/web/src/pages apps/web/src/manage apps/web/src/admin
 git commit -m "feat(web): complete accessible responsive states"
 ```
 
-### Task 20: Run cross-service journeys and close the acceptance ledger
+### Task 20: Run final browser acceptance and close the acceptance ledger
 
 **Files:**
-- Modify: `e2e/phase-1.spec.ts`
-- Modify: `e2e/phase-2.spec.ts`
-- Create: `e2e/role-aware-ui-ux.spec.ts`
 - Modify: `docs/plans/active/role-aware-full-ui-ux-completion.md`
 - Modify: `docs/plans/active/figma-full-screen-coverage.md`
 - Move on completion: `docs/plans/active/role-aware-full-ui-ux-completion.md` -> `docs/plans/completed/role-aware-full-ui-ux-completion.md`
 
 **Interfaces:**
-- E2E uses real APIs, DB and Socket.IO through `scripts/e2e-services.ts`; no route interception for successful business journeys.
-- Acceptance ledger maps each of the 18 approved PO notes to automated evidence, screenshot or explicit PO waiver.
+- Acceptance uses the running application in the real browser with real API/DB/Socket.IO; không dùng Playwright, route interception hoặc test script.
+- Acceptance ledger maps all 18 approved PO notes and every capability manifest row to a named browser step, focused test from earlier tasks, screenshot or explicit PO waiver.
 
-- [ ] **Step 1: Add failing player booking/payment/cancellation journey**
+- [ ] **Step 1: Prepare browser sessions and observable diagnostics**
 
-Register/login -> select two slots -> confirm -> pay balance -> confirmation route -> profile card -> preview refund inline -> cancel -> verify cancelled tab/no cancel button/no UUID.
+Open the running app in browser, keep DevTools Console and Network visible, and prepare three authenticated contexts: player, approved provider and admin. Do not inject tokens or bypass UI login.
 
-- [ ] **Step 2: Add failing provider/admin role journey**
+- [ ] **Step 2: Verify the complete player journey in browser**
 
-Player submits partnership -> admin approves -> session refresh gains provider -> provider switches context -> creates venue/court/schedule/pricing -> admin and provider homepages differ -> provider calendar/revenue routes load.
+Register/verify/login -> update profile/password -> filter/view venue -> select two contiguous slots -> confirm -> pay -> confirmation -> wallet label -> refund preview inline -> cancel -> cancelled tab. Confirm correct `dd/MM/yyyy`, countdown stops, controls lock during payment and no technical UUID appears.
 
-- [ ] **Step 3: Add failing match/AI/community/support journey**
+- [ ] **Step 3: Verify provider onboarding and workspace in browser**
 
-Create held booking source -> create match -> Quick Match progress/accept -> AI suggestion/chat -> 7-day declaration rejection -> image post -> admin moderation -> ticket typing focus and admin reply.
+From a player account submit `Hợp tác chủ sân`; approve it in admin context; return to the original browser and verify role refresh/switcher. In provider context create/edit venue with images, add/deactivate court, configure hours/closure/pricing/rule, create/cancel walk-in booking, handle replacement/cancellation incident, review revenue and submit/cancel withdrawal.
 
-- [ ] **Step 4: Run service and repository gates**
+- [ ] **Step 4: Verify the complete admin workspace in browser**
 
-```powershell
-npm test -w @khoaluantn/account-service
-npm test -w @khoaluantn/venue-booking-service
-npm test -w @khoaluantn/finance-service
-npm test -w @khoaluantn/matchmaking-service
-npm test -w @khoaluantn/community-service
-npm test -w @khoaluantn/ai
-npm test -w @khoaluantn/web
-npm run ui:coverage
-npm run typecheck
-npm run build
-npx playwright test e2e/role-aware-ui-ux.spec.ts
-npx playwright test e2e/phase-1.spec.ts
-npx playwright test e2e/phase-2.spec.ts
-npx playwright test e2e/courtin-visual.spec.ts
-```
+Open Account, Provider, Booking, Withdrawal, Reconciliation, Dispute, Moderation, Evaluation and Ticket queues. Perform one valid action in each queue and verify status, business label, confirmation reason and affected list refresh.
 
-If the aggregate Playwright command hits only the host timeout, run these four configured specs separately and record that the combined coverage is equivalent.
+- [ ] **Step 5: Verify matchmaking, AI, Community and Support in browser**
 
-- [ ] **Step 5: Inspect runtime evidence**
+Create a match from a valid hold/held booking; use a second player context to observe Quick Match progress, accept, organizer approve, participant/organizer payment and withdrawal/cancel states. Verify own/public Hồ sơ trình độ, 7-day cooldown, grounded AI match chat, policy-support mode, image post CRUD, comment/report/moderation and ticket typing/reply/status without focus jumping.
 
-Verify no console error, no failed network request in successful paths, no technical IDs in player/provider UI, responsive screenshots at all three viewports, correct role navigation after reload, and `npm run ui:coverage` reports zero unclassified or evidence-free capabilities.
+- [ ] **Step 6: Review responsive and runtime quality directly in browser**
 
-- [ ] **Step 6: Update the durable plan and commit final evidence**
+Resize to 375×812, 768×1024 and 1280×800 on shell, booking, provider, admin, AI and Community pages. Verify no horizontal overflow, keyboard/focus behavior, reduced-motion behavior, no console error and no failed request on successful paths. Capture browser screenshots for every major context and any recovered error state.
 
-Record pass counts, command timestamps, known limitations and every PO note evidence. Move this plan to completed only when all gates pass or PO explicitly waives a named gap.
+- [ ] **Step 7: Update the durable plan and commit browser evidence**
+
+Record pass/fail của từng browser step, thời điểm kiểm tra, screenshot, lỗi console/network, known limitations và evidence của từng PO note. Move this plan to completed only when all gates pass or PO explicitly waives a named gap.
 
 ```powershell
-git add e2e/phase-1.spec.ts e2e/phase-2.spec.ts e2e/role-aware-ui-ux.spec.ts docs/plans/active/figma-full-screen-coverage.md docs/plans/completed/role-aware-full-ui-ux-completion.md
-git commit -m "test(e2e): verify role-aware ui ux journeys"
+git add docs/plans/active/figma-full-screen-coverage.md docs/plans/completed/role-aware-full-ui-ux-completion.md
+git commit -m "docs(acceptance): record final browser verification"
 ```
 
 ## Progress
@@ -1269,15 +1221,15 @@ git commit -m "test(e2e): verify role-aware ui ux journeys"
 - [ ] Task 17 — Account/Venue/Finance FE coverage.
 - [ ] Task 18 — Match/Community/Support FE coverage.
 - [ ] Task 19 — accessibility/responsive polish.
-- [ ] Task 20 — cross-service acceptance.
+- [ ] Task 20 — final browser acceptance.
 
 ## Validation
 
 - Focused proof: task-specific Vitest/Supertest suites listed above.
-- Integration proof: migrations on isolated service schemas; RabbitMQ role/payment flows; MinIO presign/ownership; Socket.IO request lifecycle.
-- End-to-end proof: `e2e/role-aware-ui-ux.spec.ts`, phase 1, phase 2 and COURTIN visual suite.
-- Repository-required checks: `npm run typecheck`, `npm run build`, web lint, no diff-check errors.
-- Capability completeness: `npm run ui:coverage` plus `backendSurfaceRegression.test.tsx` and E2E evidence IDs for every manifest row.
+- Integration proof: focused migration/domain files only when the task changes persistence, RabbitMQ or Socket.IO behavior.
+- Technical checkpoint before final browser: `npm run ui:coverage`, web lint, repository typecheck/build and diff check exactly once.
+- Final proof: browser acceptance Steps 1–7 above; no Playwright/E2E or aggregate test script.
+- Capability completeness: manifest row has a focused-test evidence ID or named browser step, and Task 19 reports zero unclassified capability before browser acceptance begins.
 
 ## Result
 
