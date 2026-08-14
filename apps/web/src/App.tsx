@@ -17,6 +17,7 @@ import { CommunityDetailPage } from './pages/CommunityDetailPage';
 import { SupportPage } from './pages/SupportPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { ProviderOnboardingPage } from './pages/ProviderOnboardingPage';
+import { ManageLayout } from './manage/ManageLayout'; import { ManageOverviewPage } from './pages/manage/ManageOverviewPage'; import { ManageVenuesPage } from './pages/manage/ManageVenuesPage'; import { ManageVenueDetailPage } from './pages/manage/ManageVenueDetailPage'; import { ManageSchedulePage } from './pages/manage/ManageSchedulePage'; import { ManagePricingPage } from './pages/manage/ManagePricingPage';
 
 function App() {
   return (
@@ -40,7 +41,7 @@ function App() {
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
-          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage/*" element={<HomePage />} /></Route>
+          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
           <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin/*" element={<AdminPage />} /></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

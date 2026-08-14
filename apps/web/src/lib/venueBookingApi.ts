@@ -96,6 +96,14 @@ export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
 export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
 export const getMyManagedVenues = () => api<ManagedVenue[]>('/providers/me/venues');
 export const getMyManagedVenue = (id: string) => api<ManagedVenue>(`/providers/me/venues/${id}`);
+export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
+export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+export const addManagedCourt = (venueId: string, name: string) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name }) });
+export const deactivateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/deactivate`, { method: 'POST' });
+export const saveOperatingHours = (id: string, body: { weekday: number; openMinute: number; closeMinute: number }) => api(`/courts/${id}/operating-hours`, { method: 'POST', body: JSON.stringify(body) });
+export const addClosure = (id: string, body: { date: string; reason?: string }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });
+export const savePricing = (id: string, body: { rules: Array<{ weekday: number; startMinute: number; endMinute: number; price: number }>; effectiveFrom: string }) => api(`/courts/${id}/pricing`, { method: 'POST', body: JSON.stringify(body) });
+export const saveBookingRule = (id: string, body: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number }) => api(`/courts/${id}/booking-rule`, { method: 'POST', body: JSON.stringify(body) });
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
 export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 

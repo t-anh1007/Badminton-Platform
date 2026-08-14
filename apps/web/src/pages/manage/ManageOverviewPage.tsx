@@ -1,0 +1,1 @@
+import { Link } from 'react-router-dom'; export function ManageOverviewPage(){return <section><h2 className="text-h2">Tổng quan kinh doanh</h2><Link className="mt-4 inline-block font-bold text-brand-navy" to="/manage/venues">Quản lý cơ sở</Link></section>}
