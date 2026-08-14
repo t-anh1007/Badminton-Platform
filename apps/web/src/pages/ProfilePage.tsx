@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
 import { presentLedgerEntry } from '../lib/presenters';
 import { DisputePanel } from '../components/DisputePanel';
-import { FinancePanel } from '../components/FinancePanel';
-import { Avatar, Badge, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
+import { Avatar, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
 import { MetricCard } from '../components/courtin/MetricCard';
 import { changePassword, getMyProfile, updateMyProfile, type ProfileResult } from '../lib/accountApi';
 import { createTopupIntent, getMyWallets, getWalletLedger, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
@@ -87,13 +86,18 @@ export function ProfilePage() {
     }
   };
 
+  const reloadBookings = async () => {
+    const [nextUpcoming, nextPast] = await Promise.all([getMyUpcomingBookings(), getMyBookingHistory()]);
+    setUpcoming(nextUpcoming);
+    setPast(nextPast);
+  };
+
   const allBookings = [...upcoming, ...past];
   const cancelledBookings = allBookings.filter((booking) => booking.status === 'cancelled');
   const bookings = period === 'cancelled'
     ? cancelledBookings
     : (period === 'upcoming' ? upcoming : past).filter((booking) => booking.status !== 'cancelled');
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
-  const business = wallets.find((wallet) => wallet.walletType === 'business');
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
 
   return (
@@ -124,26 +128,15 @@ export function ProfilePage() {
           {tab === 'bookings' && (
             <div className="mt-6">
               <SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }]} value={period} onChange={setPeriod} />
-              <div className="mt-4 space-y-3">
-                {bookings.length ? bookings.map((booking) => (
-                  <SurfaceCard key={booking.id}>
-                    <div className="flex justify-between gap-4">
-                      <div><h2 className="text-h3">{booking.court?.venue?.name ?? 'Cơ sở sân'} · {booking.court?.name ?? booking.courtId}</h2><p className="mt-1 text-sm text-ink-500">{new Date(booking.startAt).toLocaleString('vi-VN')}</p></div>
-                      <div className="text-right"><p className="text-figures font-semibold">{money(booking.priceSnapshot)}</p><Badge tone={booking.status === 'confirmed' ? 'success' : 'neutral'}>{booking.status}</Badge></div>
-                    </div>
-                  </SurfaceCard>
-                )) : <EmptyState title="Chưa có booking" description="Khi bạn đặt sân, lịch sử sẽ hiển thị tại đây." />}
-              </div>
-              <BookingCancellationPanel />
+              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : <EmptyState title="Chưa có booking" description="Khi bạn đặt sân, lịch sử sẽ hiển thị tại đây." />}</div>
             </div>
           )}
 
           {tab === 'wallet' && (
             <div className="mt-6">
-              <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /><>{business && <MetricCard label="Ví kinh doanh" value={money(business.available)} tone="navy" />}</></div>
+              <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /></div>
               <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
               <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || new Date(entry.ts).toLocaleString('vi-VN')}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
-              <FinancePanel />
             </div>
           )}
 

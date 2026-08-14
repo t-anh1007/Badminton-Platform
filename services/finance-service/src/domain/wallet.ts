@@ -70,10 +70,11 @@ export async function postLedgerEntry(
   },
 ) {
   const referenceSummary = params.referenceSummary ?? (() => {
-    if (params.refType === 'booking') return { kind: 'booking' as const, title: params.type === 'refund' ? 'Hoàn tiền đặt sân' : 'Thanh toán đặt sân' };
-    if (params.refType === 'topup') return { kind: 'topup' as const, title: 'Nạp tiền vào ví' };
+    if (params.refType === 'booking') return { kind: 'booking' as const, title: params.type === 'refund' ? 'Hoàn tiền đặt sân' : params.type === 'commission' ? 'Phí nền tảng đặt sân' : params.type === 'release' ? 'Doanh thu đặt sân' : 'Thanh toán đặt sân' };
+    if (params.type === 'topup') return { kind: 'topup' as const, title: 'Nạp tiền vào ví' };
     if (params.refType === 'withdrawal') return { kind: 'withdrawal' as const, title: 'Chi trả rút tiền' };
-    return { kind: 'match' as const, title: params.type === 'commission' ? 'Phí nền tảng' : 'Giao dịch kèo' };
+    if (params.refType.toLowerCase().includes('match')) return { kind: 'match' as const, title: params.type === 'refund' ? 'Hoàn tiền kèo' : params.type === 'commission' ? 'Phí nền tảng kèo' : 'Giao dịch kèo' };
+    return undefined;
   })();
   const field = params.field ?? 'available';
   // KHÓA hàng ví (SELECT ... FOR UPDATE) TRƯỚC khi đọc số dư — chống race
