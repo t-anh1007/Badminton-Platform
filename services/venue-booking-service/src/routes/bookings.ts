@@ -7,7 +7,9 @@ import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
 export const bookingRouter = Router();
-bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => res.json((await listAdminBookings(z.object({ query: z.string().optional(), status: z.string().optional(), from: z.string().optional(), to: z.string().optional() }).parse(req.query))).map(serializeBooking))));
+bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
+  res.json((await listAdminBookings(z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() }).parse(req.query))).map(serializeBooking));
+}));
 
 /** `res.json()` KHÔNG serialize được `bigint` native (ném TypeError 500 —
  * lỗi P1 Codex bắt: test domain không chạm HTTP nên không lộ). `priceSnapshot`

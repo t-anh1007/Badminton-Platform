@@ -5,6 +5,7 @@ import { CANCELLATION_POLICY, getRefundPercentageFromSnapshot } from './cancella
 import { venueMatchContextSchema } from '@khoaluantn/shared';
 import type { MatchBookingResolutionPayload, MatchCancelledPayload } from '@khoaluantn/shared';
 import { writeOutbox } from '../lib/outbox.js';
+import type { BookingStatus } from '@prisma/client';
 
 /** BOK-07 bước 1 — Tạo `BOOKING(status=held)` gắn với một hold hợp lệ, chốt
  * `priceSnapshot` + `policySnapshot` (BR-BOK-06), rồi xóa hold. Phương thức
@@ -355,10 +356,10 @@ export async function listMyMatchSources(userId: string) {
   return { holds, bookings };
 }
 
-export async function listAdminBookings(input: { query?: string; status?: string; from?: string; to?: string }) {
+export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date }) {
   const query = input.query?.trim();
-  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status as never } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: new Date(input.from) } : {}), ...(input.to ? { lte: new Date(input.to) } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
-  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, playerId: b.userId, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
+  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
+  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, player: b.userId ? { label: 'Người chơi đặt sân', reference: b.userId.slice(0, 8) } : { label: b.guestName ?? 'Khách vãng lai', reference: 'nội bộ' }, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
 }
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */

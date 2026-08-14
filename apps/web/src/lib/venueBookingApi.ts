@@ -99,6 +99,7 @@ export interface ProviderRow { id: string; orgName: string; status: string; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
+export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string; reference: string }; court: { name: string; venue: { name: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
   const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
@@ -132,6 +133,11 @@ export const createInternalBooking = (body: { courtId: string; startAt: string; 
 export const cancelInternalBooking = (id: string) => api(`/internal-bookings/${id}/cancel`, { method: 'POST' });
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
 export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const getAdminBookings = (filters: { query?: string; status?: string; from?: string; to?: string } = {}) => {
+  const query = new URLSearchParams(Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])));
+  return api<AdminBookingRow[]>(`/admin/bookings${query.size ? `?${query}` : ''}`);
+};
+export const cancelAdminBooking = (id: string, reason: string) => api(`/admin/bookings/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
 
 export async function getMyUpcomingBookings(): Promise<BookingSummary[]> {
   const result = await api<{ upcoming: BookingSummary[] }>('/players/me/bookings');

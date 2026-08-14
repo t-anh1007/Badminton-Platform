@@ -6,7 +6,11 @@ import { AuthPage } from './pages/AuthPage';
 import { BookingPage } from './pages/BookingPage';
 import { BookingConfirmationPage } from './pages/BookingConfirmationPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { AdminPage } from './pages/AdminPage';
+import { AdminLayout } from './admin/AdminLayout';
+import { AdminOverviewPage } from './pages/admin/AdminOverviewPage';
+import { AdminAccountsPage } from './pages/admin/AdminAccountsPage';
+import { AdminProvidersPage } from './pages/admin/AdminProvidersPage';
+import { AdminBookingsPage } from './pages/admin/AdminBookingsPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { VenueDetailPage } from './pages/VenueDetailPage';
 import { VenueListPage } from './pages/VenueListPage';
@@ -46,7 +50,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
           <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="finance" element={<ManageFinancePage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
-          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin/*" element={<AdminPage />} /></Route>
+          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminLayout />}><Route index element={<AdminOverviewPage />} /><Route path="accounts" element={<AdminAccountsPage />} /><Route path="providers" element={<AdminProvidersPage />} /><Route path="bookings" element={<AdminBookingsPage />} /></Route></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

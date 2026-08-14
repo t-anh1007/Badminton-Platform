@@ -256,6 +256,23 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
     expect(event.payload).toMatchObject({ reason: 'platform_admin', refundPercent: 100 });
   });
 
+  it('admin booking queue is role-protected, searchable and safely serialized', async () => {
+    const { playerId, court, booking } = await setupConfirmedBooking(32);
+    await request(app).get('/admin/bookings').set('Authorization', `Bearer ${signTestAccessToken(playerId, ['player'])}`).expect(403);
+    const response = await request(app)
+      .get(`/admin/bookings?query=${encodeURIComponent(court.name)}&status=confirmed`)
+      .set('Authorization', `Bearer ${signTestAccessToken(fakeUserId(), ['admin'])}`)
+      .expect(200);
+    expect(response.body).toEqual(expect.arrayContaining([expect.objectContaining({
+      id: booking.id,
+      status: 'confirmed',
+      priceSnapshot: '200000',
+      player: { label: 'Người chơi đặt sân', reference: playerId.slice(0, 8) },
+      court: { name: court.name, venue: expect.objectContaining({ name: expect.any(String) }) },
+    })]));
+    expect(response.body[0]).not.toHaveProperty('userId');
+  });
+
   it('race đổi sân và tạo HOLD trên sân đích: không bao giờ cả hai cùng thành công', async () => {
     for (let trial = 0; trial < 10; trial++) {
       const { providerUserId, booking, replacementCourt } = await setupConfirmedBooking(30 + trial);

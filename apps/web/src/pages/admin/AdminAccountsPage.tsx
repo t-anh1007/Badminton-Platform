@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react'
+import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
+import { getAdminAccounts, lockAdminAccount, unlockAdminAccount, type AdminAccountRow } from '../../lib/accountApi'
+
+export function AdminAccountsPage() {
+  const [rows, setRows] = useState<AdminAccountRow[]>([])
+  const [filters, setFilters] = useState({ query: '', status: '' })
+  const [target, setTarget] = useState<AdminAccountRow | null>(null)
+  const [reason, setReason] = useState('')
+  const [message, setMessage] = useState('')
+  const load = async () => { try { setRows(await getAdminAccounts(filters)); setMessage('') } catch (cause) { setMessage((cause as Error).message) } }
+  useEffect(() => { void load() }, [])
+  const submit = async () => { if (!target || !reason.trim()) return setMessage('Nhập lý do trước khi xác nhận.'); try { if (target.status === 'locked') await unlockAdminAccount(target.id, reason.trim()); else await lockAdminAccount(target.id, reason.trim()); setTarget(null); setReason(''); await load() } catch (cause) { setMessage((cause as Error).message) } }
+  return <><h2 className="text-h1">Tài khoản</h2><div className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px_auto]"><TextInput aria-label="Tìm tài khoản" placeholder="Email hoặc tên hiển thị" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} /><SelectInput aria-label="Trạng thái tài khoản" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả</option><option value="active">Hoạt động</option><option value="locked">Đã khóa</option></SelectInput><Button tone="secondary" onClick={() => void load()}>Lọc</Button></div>{message && <p role="status" className="mt-3 rounded-xl bg-info-bg p-3 text-sm">{message}</p>}<div className="mt-5 space-y-3">{rows.length ? rows.map((row) => <article key={row.id} className="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{row.displayName || row.email}</p><p className="text-sm text-ink-500">{row.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge tone={row.status === 'locked' ? 'danger' : 'success'}>{row.status === 'locked' ? 'Đã khóa' : 'Hoạt động'}</Badge>{row.roles.map((role) => <Badge key={role}>{role}</Badge>)}</div></div><Button tone={row.status === 'locked' ? 'secondary' : 'danger'} onClick={() => setTarget(row)}>{row.status === 'locked' ? 'Mở khóa' : 'Khóa tài khoản'}</Button></article>) : <EmptyState title="Không có tài khoản" description="Thử đổi bộ lọc tìm kiếm." />}</div><Modal open={Boolean(target)} title={target?.status === 'locked' ? 'Mở khóa tài khoản' : 'Khóa tài khoản'} onClose={() => setTarget(null)}><p className="text-sm text-ink-500">Quyết định sẽ được ghi vào lịch sử kiểm toán.</p><TextArea aria-label="Lý do thao tác tài khoản" className="mt-4" value={reason} onChange={(event) => setReason(event.target.value)} /><Button className="mt-4" tone={target?.status === 'locked' ? 'secondary' : 'danger'} onClick={() => void submit()}>Xác nhận</Button></Modal></>
+}

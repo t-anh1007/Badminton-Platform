@@ -1,3 +1,3 @@
 import { NavLink, Outlet } from 'react-router-dom'
-const links=[['/manage','Tổng quan'],['/manage/venues','Sân'],['/manage/calendar','Lịch'],['/manage/pricing','Giá']] as const
+const links=[['/manage','Tổng quan'],['/manage/venues','Sân'],['/manage/calendar','Lịch'],['/manage/incidents','Sự cố'],['/manage/finance','Tài chính']] as const
 export function ManageLayout(){return <main className="page-container py-8"><h1 className="text-h1">Quản lý sân</h1><nav className="mt-4 flex gap-2 overflow-x-auto lg:flex-col lg:fixed lg:left-6 lg:top-32">{links.map(([to,label])=><NavLink key={to} to={to} className="shrink-0 rounded-xl border px-3 py-2 text-sm">{label}</NavLink>)}</nav><div className="mt-6 lg:ml-52"><Outlet/></div></main>}

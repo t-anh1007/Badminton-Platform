@@ -1,0 +1,12 @@
+import { useEffect, useState } from 'react'
+import { Badge, Button, EmptyState, Modal, TextArea } from '../../components/ui'
+import { approveProvider, getAdminProviders, rejectProvider, type ProviderRow } from '../../lib/venueBookingApi'
+
+export function AdminProvidersPage() {
+  const [rows, setRows] = useState<ProviderRow[]>([]); const [target, setTarget] = useState<ProviderRow | null>(null); const [decision, setDecision] = useState<'approve' | 'reject'>('approve'); const [reason, setReason] = useState(''); const [message, setMessage] = useState('')
+  const load = async () => { try { setRows(await getAdminProviders()) } catch (cause) { setMessage((cause as Error).message) } }
+  useEffect(() => { void load() }, [])
+  const submit = async () => { if (!target || (decision === 'reject' && !reason.trim())) return setMessage('Nhập lý do từ chối.'); try { if (decision === 'approve') await approveProvider(target.id); else await rejectProvider(target.id, reason.trim()); setTarget(null); setReason(''); await load() } catch (cause) { setMessage((cause as Error).message) } }
+  const choose = (row: ProviderRow, nextDecision: 'approve' | 'reject') => { setTarget(row); setDecision(nextDecision); setReason('') }
+  return <><h2 className="text-h1">Hợp tác chủ sân</h2>{message && <p role="status" className="mt-3 rounded-xl bg-info-bg p-3">{message}</p>}<div className="mt-5 space-y-3">{rows.length ? rows.map((row) => <article key={row.id} className="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{row.orgName}</p><Badge tone="warning">Chờ duyệt</Badge></div><div className="flex gap-2"><Button onClick={() => choose(row, 'approve')}>Duyệt</Button><Button tone="danger" onClick={() => choose(row, 'reject')}>Từ chối</Button></div></article>) : <EmptyState title="Không có hồ sơ chờ duyệt" description="Hồ sơ hợp tác mới sẽ xuất hiện tại đây." />}</div><Modal open={Boolean(target)} title={decision === 'approve' ? 'Duyệt chủ sân' : 'Từ chối hồ sơ'} onClose={() => setTarget(null)}><p className="text-sm text-ink-500">Xác nhận quyết định cho {target?.orgName}.</p>{decision === 'reject' && <TextArea aria-label="Lý do từ chối chủ sân" className="mt-4" value={reason} onChange={(event) => setReason(event.target.value)} />}<Button className="mt-4" tone={decision === 'approve' ? 'primary' : 'danger'} onClick={() => void submit()}>Xác nhận quyết định</Button></Modal></>
+}

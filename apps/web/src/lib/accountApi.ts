@@ -20,6 +20,9 @@ export interface ProfileResult {
   id: string; email: string; phone: string | null; roles: string[];
   playerProfile: { displayName: string; avatarUrl: string | null; visibility: 'public' | 'private' } | null;
 }
+export interface AdminAccountRow {
+  id: string; email: string; displayName: string | null; status: 'active' | 'locked'; roles: string[];
+}
 
 export const register = (body: { email: string; password: string; displayName: string }) =>
   api<{ message: string }>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
@@ -42,3 +45,9 @@ export const changePassword = (body: { currentPassword: string; newPassword: str
 export const getMyProfile = () => api<ProfileResult>('/profile/me');
 export const updateMyProfile = (body: { displayName: string; phone: string; visibility: 'public' | 'private' }) =>
   api<ProfileResult['playerProfile']>('/profile/me', { method: 'PATCH', body: JSON.stringify(body) });
+export const getAdminAccounts = (filters: { query?: string; status?: string } = {}) => {
+  const query = new URLSearchParams(Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])));
+  return api<AdminAccountRow[]>(`/admin/users${query.size ? `?${query}` : ''}`);
+};
+export const lockAdminAccount = (id: string, reason: string) => api(`/admin/users/${id}/lock`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const unlockAdminAccount = (id: string, reason: string) => api(`/admin/users/${id}/unlock`, { method: 'POST', body: JSON.stringify({ reason }) });
