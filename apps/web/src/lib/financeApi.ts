@@ -63,6 +63,7 @@ export interface WalletLedgerEntry {
   type: string;
   refType: string;
   refId: string;
+  referenceSummary?: { kind: 'booking' | 'topup' | 'withdrawal' | 'match'; title: string; subtitle?: string } | null;
   before: string;
   after: string;
   ts: string;

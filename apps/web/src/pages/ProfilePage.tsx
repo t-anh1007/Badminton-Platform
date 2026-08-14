@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
+import { presentLedgerEntry } from '../lib/presenters';
 import { DisputePanel } from '../components/DisputePanel';
 import { FinancePanel } from '../components/FinancePanel';
 import { Avatar, Badge, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
@@ -141,7 +142,7 @@ export function ProfilePage() {
             <div className="mt-6">
               <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /><>{business && <MetricCard label="Ví kinh doanh" value={money(business.available)} tone="navy" />}</></div>
               <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
-              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{entry.type} · {entry.walletType}</p><p className="mt-1 text-ink-500">{new Date(entry.ts).toLocaleString('vi-VN')}</p></div><strong className={`text-figures ${BigInt(entry.amount) < 0n ? 'text-danger' : 'text-green-700'}`}>{BigInt(entry.amount) < 0n ? '' : '+'}{money(entry.amount)}</strong></li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
+              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || new Date(entry.ts).toLocaleString('vi-VN')}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
               <FinancePanel />
             </div>
           )}

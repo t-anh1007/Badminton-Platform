@@ -1,0 +1,3 @@
+import { fireEvent, render, screen } from '@testing-library/react'; import { expect, it, vi } from 'vitest'; import { BookingCard } from './BookingCard.js';
+const booking = { id:'i', courtId:'c', startAt:'', endAt:'', status:'confirmed', priceSnapshot:'1' };
+it('keeps cancellation preview on its card and hides CTA once cancelled', () => { const p=vi.fn(); const { rerender }=render(<BookingCard booking={booking} preview={null} onPreview={p} onConfirm={vi.fn()} onDismiss={vi.fn()}/>); fireEvent.click(screen.getByText('Xem mức hoàn')); expect(p).toHaveBeenCalled(); rerender(<BookingCard booking={{...booking,status:'cancelled'}} preview={20} onPreview={p} onConfirm={vi.fn()} onDismiss={vi.fn()}/>); expect(screen.queryByText('Xem mức hoàn')).toBeNull() })

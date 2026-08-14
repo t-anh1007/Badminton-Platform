@@ -10,6 +10,7 @@ import {
 } from '../lib/venueBookingApi';
 import { useSession } from '../session/SessionProvider';
 import { Button, SurfaceCard, TextInput } from './ui';
+import { BookingCard } from './BookingCard.js';
 
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
@@ -97,23 +98,9 @@ export function BookingCancellationPanel() {
           <Button type="button" onClick={() => void loadBookings()} size="sm">Tải lại</Button>
         </div>
         <div className="space-y-3">
-          {bookings.map((booking) => (
-            <article key={booking.id} className="rounded-xl border border-ink-700/15 p-4">
-              <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? booking.courtId}</p>
-              <p className="text-body text-ink-900/70">{new Date(booking.startAt).toLocaleString('vi-VN')} · {money.format(Number(booking.priceSnapshot))}</p>
-              <Button tone="danger" size="sm" className="mt-3" onClick={() => void previewCancellation(booking)}>Xem mức hoàn</Button>
-            </article>
-          ))}
+          {bookings.map((booking) => <BookingCard key={booking.id} booking={booking} preview={pendingCancellation?.booking.id === booking.id ? pendingCancellation.refundPercent : null} onPreview={() => void previewCancellation(booking)} onConfirm={() => void confirmCancellation()} onDismiss={() => setPendingCancellation(null)} />)}
         </div>
         <p className="text-body mt-4 text-ink-900/60">Hệ thống luôn hiển thị số tiền hoàn trước bước Xác nhận hủy.</p>
-        {pendingCancellation ? (
-          <div className="mt-4 rounded-xl bg-brand-yellow p-4 text-brand-navy">
-            <p className="font-semibold">Bạn sẽ được hoàn {pendingCancellation.refundPercent}% — {money.format(Number(pendingCancellation.booking.priceSnapshot) * pendingCancellation.refundPercent / 100)}.</p>
-            <div className="mt-3 flex gap-2">
-              <Button tone="danger" size="sm" onClick={() => void confirmCancellation()}>Xác nhận hủy</Button><Button tone="secondary" size="sm" onClick={() => setPendingCancellation(null)}>Giữ booking</Button>
-            </div>
-          </div>
-        ) : null}
       </SurfaceCard>
 
       <div className={isProvider ? 'rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-card)]' : 'hidden'}>
