@@ -602,23 +602,23 @@ git commit -m "fix(profile): keep cancellation and wallet context local"
 - `GET /providers/me/venues` returns owned venues with courts and configuration completion counts.
 - `GET /providers/me/venues/:id` returns owned venue/court schedule/pricing/booking-rule read model.
 
-- [ ] **Step 1: Write failing provider ownership/status tests**
+- [x] **Step 1: Write failing provider ownership/status tests**
 
 Cover no profile, pending, rejected with reason/resubmit, approved, provider attempting to read another owner, and admin list remaining unchanged.
 
-- [ ] **Step 2: Verify backend tests fail**
+- [x] **Step 2: Verify backend tests fail**
 
 Run: `npm test -w @khoaluantn/venue-booking-service -- test/provider.test.ts test/venue.test.ts`
 
-- [ ] **Step 3: Implement owner-scoped read models**
+- [x] **Step 3: Implement owner-scoped read models**
 
 All queries filter by `provider.userId = authenticated userId`; response serializers convert BigInt prices to strings.
 
-- [ ] **Step 4: Implement onboarding state UI and approved-role refresh**
+- [x] **Step 4: Implement onboarding state UI and approved-role refresh**
 
 Wizard sends `orgName` and structured contact, polls only while the status page is open, calls `useSession().refresh()` when status becomes approved, and offers re-login if refresh fails.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/venue-booking-service -- test/provider.test.ts test/venue.test.ts
@@ -905,23 +905,23 @@ git commit -m "feat(matchmaking): show realtime search and valid sources"
 - `NormalizedMatchCriteria { area?: string; startFrom?: string; endBefore?: string; feeMax?: string }` is Zod-validated before F-02 search.
 - Existing `POST /assistant/chat` remains the grounded policy-support mode; the page exposes `Tìm kèo` and `Hỏi chính sách` without conflating their contracts.
 
-- [ ] **Step 1: Write failing AI safety/criteria tests**
+- [x] **Step 1: Write failing AI safety/criteria tests**
 
 Assert model output cannot change F-02 scores, cannot invent a match, invalid criteria fall back safely, and action requests return a navigation CTA rather than executing JOIN/cancel/payment.
 
-- [ ] **Step 2: Implement grounded criteria adapter**
+- [x] **Step 2: Implement grounded criteria adapter**
 
 Gemini may normalize only user-supplied filter values and select verified reason indexes. Domain re-validates criteria and recomputes suggestions from F-02.
 
-- [ ] **Step 3: Write failing chat layout tests**
+- [x] **Step 3: Write failing chat layout tests**
 
 Assert messages append, loading/error retry is visible, suggestions update on each reply, clicking suggestion navigates to detail, global bubble appears only for authenticated player context and supports keyboard close/focus return.
 
-- [ ] **Step 4: Implement desktop two-column/mobile stacked layout**
+- [x] **Step 4: Implement desktop two-column/mobile stacked layout**
 
 Left column is a live suggestion region with `aria-live="polite"`; right is conversation and composer. The global bubble opens a compact drawer and links to `/assistant` for the full experience. In `Hỏi chính sách`, sources and safe `actionPath` from Community assistant are rendered; suggestions remain unchanged.
 
-- [ ] **Step 5: Run focused proof and commit**
+- [x] **Step 5: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/ai -- test/geminiMatchmaker.test.ts
@@ -1203,19 +1203,19 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Design spec committed as `753e666`.
 - [x] Implementation plan drafted and self-reviewed.
 - [x] Task 1 — authority and web test harness (`aaf0243`, fixes `486fd3a`, `96637c3`; review PASS).
-- [ ] Task 2 — session refresh and role context.
-- [ ] Task 3 — role-aware shell.
-- [ ] Task 4 — multi-slot booking selection.
+- [x] Task 2 — session refresh and role context.
+- [x] Task 3 — role-aware shell.
+- [x] Task 4 — multi-slot booking selection.
 - [ ] Task 5 — payment terminal UX.
 - [ ] Task 6 — cancellation and wallet labels.
-- [ ] Task 7 — provider onboarding/read models.
+- [x] Task 7 — provider onboarding/read models.
 - [ ] Task 8 — provider venue operations.
 - [ ] Task 9 — provider calendar/incidents/finance.
 - [ ] Task 10 — admin core queues.
 - [ ] Task 11 — admin operations queues.
-- [ ] Task 12 — weekly level declaration.
+- [x] Task 12 — weekly level declaration.
 - [ ] Task 13 — Quick Match and match sources.
-- [ ] Task 14 — grounded AI chat.
+- [x] Task 14 — grounded AI chat.
 - [ ] Task 15 — object storage and media backend.
 - [ ] Task 16 — Community media and ticket focus.
 - [ ] Task 17 — Account/Venue/Finance FE coverage.
