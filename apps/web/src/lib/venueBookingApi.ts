@@ -74,6 +74,9 @@ export interface HoldResult {
   expiresAt: string;
 }
 export interface ProviderRow { id: string; orgName: string; status: string; }
+export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
+export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
+export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number }) {
   const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
@@ -89,6 +92,10 @@ export const createHold = (body: { courtId: string; startAt: string; endAt: stri
   api<HoldResult>('/holds', { method: 'POST', body: JSON.stringify(body) });
 export const createBooking = (holdId: string) => api<BookingSummary>('/bookings', { method: 'POST', body: JSON.stringify({ holdId }) });
 export const getAdminProviders = () => api<ProviderRow[]>('/providers?status=pending');
+export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
+export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
+export const getMyManagedVenues = () => api<ManagedVenue[]>('/providers/me/venues');
+export const getMyManagedVenue = (id: string) => api<ManagedVenue>(`/providers/me/venues/${id}`);
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
 export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 

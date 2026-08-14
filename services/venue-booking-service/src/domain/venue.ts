@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import type { Prisma } from '@prisma/client';
 
 export interface CreateVenueInput {
   name: string;
@@ -89,4 +90,62 @@ export async function isVenueSearchable(venueId: string): Promise<boolean> {
     (c) => c.operatingHours.length > 0 && c.pricingRules.length > 0,
   );
   return hasUsableCourt;
+}
+
+const managedVenueInclude = {
+  courts: {
+    include: {
+      operatingHours: true,
+      closures: true,
+      pricingRules: true,
+      bookingRule: true,
+    },
+    orderBy: { name: 'asc' as const },
+  },
+} satisfies Prisma.VenueInclude;
+
+type ManagedVenueEntity = Prisma.VenueGetPayload<{ include: typeof managedVenueInclude }>;
+
+function managedVenueDto(venue: ManagedVenueEntity) {
+  return {
+    id: venue.id,
+    name: venue.name,
+    address: venue.address,
+    lat: venue.lat,
+    lng: venue.lng,
+    amenities: venue.amenities,
+    images: venue.images,
+    courts: venue.courts.map((court) => ({
+      id: court.id,
+      name: court.name,
+      active: court.active,
+      configuration: {
+        operatingHours: court.operatingHours.length,
+        pricingRules: court.pricingRules.length,
+        bookingRule: Boolean(court.bookingRule),
+      },
+      operatingHours: court.operatingHours.map(({ id, weekday, openMinute, closeMinute }) => ({ id, weekday, openMinute, closeMinute })),
+      closures: court.closures.map(({ id, date, reason }) => ({ id, date, reason })),
+      pricingRules: court.pricingRules.map(({ id, weekday, startMinute, endMinute, price, version, effectiveFrom }) => ({ id, weekday, startMinute, endMinute, price: price.toString(), version, effectiveFrom })),
+      bookingRule: court.bookingRule && { stepMinutes: court.bookingRule.stepMinutes, minDurationMinutes: court.bookingRule.minDurationMinutes, maxDurationMinutes: court.bookingRule.maxDurationMinutes },
+    })),
+  };
+}
+
+export async function listManagedVenues(userId: string) {
+  const venues = await prisma.venue.findMany({
+    where: { provider: { userId } },
+    include: managedVenueInclude,
+    orderBy: { name: 'asc' },
+  });
+  return venues.map(managedVenueDto);
+}
+
+export async function getManagedVenueDetail(userId: string, venueId: string) {
+  const venue = await prisma.venue.findFirst({
+    where: { id: venueId, provider: { userId } },
+    include: managedVenueInclude,
+  });
+  if (!venue) throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
+  return managedVenueDto(venue);
 }

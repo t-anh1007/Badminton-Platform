@@ -1,10 +1,29 @@
 import { describe, it, expect, afterAll } from 'vitest';
+import request from 'supertest';
 import { prisma } from '../src/lib/prisma.js';
+import { createApp } from '../src/app.js';
 import { createVenue, updateVenue, isVenueSearchable } from '../src/domain/venue.js';
-import { createApprovedProvider, fakeUserId } from './helpers.js';
+import { createApprovedProvider, fakeUserId, signTestAccessToken } from './helpers.js';
 
 afterAll(async () => {
   await prisma.$disconnect();
+});
+
+describe('Task 7 — owner-scoped management read models', () => {
+  it('lists owned venue completion and rejects another provider venue detail', async () => {
+    const owner = await createApprovedProvider();
+    const other = await createApprovedProvider();
+    const venue = await createVenue(owner.userId, { name: 'Sân quản lý', lat: 1, lng: 1, address: 'A' });
+    const court = await prisma.court.create({ data: { venueId: venue.id, name: 'Sân 1' } });
+    await prisma.operatingHour.create({ data: { courtId: court.id, weekday: 1, openMinute: 480, closeMinute: 1320 } });
+    await prisma.pricingRule.create({ data: { courtId: court.id, weekday: 1, startMinute: 480, endMinute: 1320, price: 120000n, effectiveFrom: new Date() } });
+    await prisma.bookingRule.create({ data: { courtId: court.id, stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } });
+    const ownerToken = signTestAccessToken(owner.userId, ['provider']);
+    const list = await request(createApp()).get('/providers/me/venues').set('Authorization', `Bearer ${ownerToken}`).expect(200);
+    expect(list.body).toEqual([expect.objectContaining({ id: venue.id, courts: [expect.objectContaining({ id: court.id, configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true } })] })]);
+    const otherToken = signTestAccessToken(other.userId, ['provider']);
+    await request(createApp()).get(`/providers/me/venues/${venue.id}`).set('Authorization', `Bearer ${otherToken}`).expect(403);
+  });
 });
 
 describe('VEN-03 — Quản lý hồ sơ cơ sở sân', () => {

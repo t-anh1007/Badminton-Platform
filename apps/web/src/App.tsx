@@ -16,6 +16,7 @@ import { CommunityPage } from './pages/CommunityPage';
 import { CommunityDetailPage } from './pages/CommunityDetailPage';
 import { SupportPage } from './pages/SupportPage';
 import { AssistantPage } from './pages/AssistantPage';
+import { ProviderOnboardingPage } from './pages/ProviderOnboardingPage';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
           <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage/*" element={<HomePage />} /></Route>
           <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin/*" element={<AdminPage />} /></Route>
           <Route path="*" element={<Navigate to="/" replace />} />

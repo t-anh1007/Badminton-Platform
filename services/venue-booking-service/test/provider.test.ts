@@ -143,3 +143,18 @@ describe('VEN-02 — Xét duyệt nhà cung cấp sân (phần venue-booking-ser
     await expect(approveProvider(provider.id)).rejects.toMatchObject({ code: 'NOT_PENDING' });
   });
 });
+
+describe('Task 7 — provider self-status', () => {
+  it('returns null without a profile, then exposes only the caller profile including a rejection reason', async () => {
+    const ownerId = fakeUserId();
+    const otherId = fakeUserId();
+    const token = signTestAccessToken(ownerId, ['player']);
+    await request(app).get('/providers/me').set('Authorization', `Bearer ${token}`).expect(200, null);
+    const provider = await registerProvider(ownerId, { orgName: 'Hợp tác sân', contact: { phone: '0901' } });
+    await rejectProvider(provider.id, 'Cần bổ sung giấy tờ');
+    await registerProvider(otherId, { orgName: 'Không được lộ', contact: { phone: '0902' } });
+    const response = await request(app).get('/providers/me').set('Authorization', `Bearer ${token}`).expect(200);
+    expect(response.body).toMatchObject({ id: provider.id, orgName: 'Hợp tác sân', contact: { phone: '0901' }, status: 'rejected', decisionReason: 'Cần bổ sung giấy tờ' });
+    expect(response.body.decidedAt).toBeTruthy();
+  });
+});
