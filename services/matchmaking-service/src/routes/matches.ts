@@ -22,7 +22,13 @@ const searchSchema = z.object({
 }).refine((input) => !input.startFrom || !input.endBefore || input.startFrom < input.endBefore, {
   message: 'startFrom must be before endBefore',
 });
-const assistantChatSchema = z.object({ message: z.string().trim().min(1).max(1000), criteria: searchSchema.partial().optional() }).strict();
+const normalizedCriteriaSchema = z.object({
+  area: z.string().trim().min(1).optional(),
+  startFrom: z.coerce.date().optional(),
+  endBefore: z.coerce.date().optional(),
+  feeMax: z.string().regex(/^\d+$/).transform(BigInt).optional(),
+}).refine((input) => !input.startFrom || !input.endBefore || input.startFrom < input.endBefore, { message: 'startFrom must be before endBefore' });
+const assistantChatSchema = z.object({ message: z.string().trim().min(1).max(1000), criteria: normalizedCriteriaSchema.optional() }).strict();
 
 const createSchema = z.object({
   bookingId: z.string().uuid().optional(),
@@ -75,8 +81,7 @@ export function createMatchRouter(
   }));
   router.post('/suggestions/ai/chat', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = assistantChatSchema.parse(req.body);
-    const filters = searchSchema.parse(input.criteria ?? {});
-    const { skill: _ignoredSkill, ...criteria } = filters;
+    const criteria = normalizedCriteriaSchema.parse(input.criteria ?? {});
     const userId = (req as AuthenticatedRequest).user!.id;
     const suggestions = await suggestAiMatches(venueBookingClient, userId, criteria, matchmakerClient);
     res.status(200).json({ answer: suggestions.length ? `Tìm thấy ${suggestions.length} kèo phù hợp theo F-02.` : 'Chưa có kèo phù hợp.', normalizedCriteria: criteria, suggestions });

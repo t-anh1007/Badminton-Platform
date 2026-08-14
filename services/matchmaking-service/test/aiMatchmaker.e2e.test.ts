@@ -101,6 +101,13 @@ afterAll(async () => {
 });
 
 describe('AI-01 matchmaker', () => {
+  it('revalidates chat criteria and returns deterministic F-02 suggestions without action execution', async () => {
+    const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
+    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await createOpenMatch('intermediate');
+    const response = await request(app).post('/matches/suggestions/ai/chat').set('Authorization', `Bearer ${playerToken(playerUserId)}`).send({ message: 'Tìm kèo tối nay', criteria: { area: 'Quận 1', feeMax: '120000' } }).expect(200);
+    expect(response.body.normalizedCriteria.area).toBe('Quận 1'); expect(response.body.suggestions[0]).toMatchObject({ score: expect.any(Number), matchId: expect.any(String) }); expect(await prisma.join.count({ where: { participantUserId: playerUserId } })).toBe(0);
+  });
   it('AC-AI-01-1/2/4/5: ranks three public matches and leaves joining to the standard MMP-04 route', async () => {
     const playerUserId = randomUUID();
     passportUserIds.push(playerUserId);
