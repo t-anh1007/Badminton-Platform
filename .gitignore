@@ -25,3 +25,6 @@ Thumbs.db
 # Harness core maintenance binary
 scripts/bin/harness
 scripts/bin/harness.exe
+
+# Agent worktrees
+.worktrees/
