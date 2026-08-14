@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge, Button, EmptyState, SegmentedControl, Skeleton, SurfaceCard, TextArea } from '../components/ui';
 import { PageHeader } from '../components/courtin/PageHeader';
+import { AssistantChat } from '../components/AssistantChat';
 import {
   AssistantApiError,
   askSupportAssistant,
@@ -137,6 +138,8 @@ export function AssistantPage() {
           xác nhận.
         </p>
       </div>
+
+      {session?.roles.includes('player') && tab === 'suggestions' && <div className="mt-6"><AssistantChat /></div>}
 
       {!session ? (
         <div className="mt-6">
