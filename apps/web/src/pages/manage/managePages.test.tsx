@@ -1,0 +1,7 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { expect, it, vi } from 'vitest'
+import { ManageVenuesPage } from './ManageVenuesPage.js'
+import { createManagedVenue, getMyManagedVenues } from '../../lib/venueBookingApi.js'
+vi.mock('../../lib/venueBookingApi.js', () => ({ getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn() }))
+it('exposes the empty create CTA, maps backend venue fields and disables duplicate submit', async () => { vi.mocked(getMyManagedVenues).mockResolvedValue([]); let resolve!: (v: never)=>void; vi.mocked(createManagedVenue).mockReturnValue(new Promise(r=>{resolve=r}) as never); render(<MemoryRouter><ManageVenuesPage/></MemoryRouter>); fireEvent.click(await screen.findByRole('button',{name:'Thêm sân kinh doanh'})); fireEvent.change(screen.getByLabelText('Tên cơ sở'),{target:{value:'Sân A'}});fireEvent.change(screen.getByLabelText('Địa chỉ'),{target:{value:'1 A'}});fireEvent.change(screen.getByLabelText('Vĩ độ'),{target:{value:'10.7'}});fireEvent.change(screen.getByLabelText('Kinh độ'),{target:{value:'106.6'}});const save=screen.getByRole('button',{name:'Lưu cơ sở'});fireEvent.click(save);expect(createManagedVenue).toHaveBeenCalledWith(expect.objectContaining({name:'Sân A',address:'1 A',lat:10.7,lng:106.6,amenities:[],images:[]}));expect(save).toBeDisabled();resolve(undefined as never);await waitFor(()=>expect(save).not.toBeDisabled()) })
