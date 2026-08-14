@@ -1,65 +1,317 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
-const root = process.cwd()
-const manifestPath = join(root, 'scripts/backend-ui-capabilities.json')
-const serviceRoots = readdirSync(join(root, 'services'), { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && entry.name.endsWith('-service'))
-  .map((entry) => entry.name)
+export type CapabilityKind = 'http' | 'socket' | 'event'
+export type CapabilityAccess = 'public' | 'authenticated' | 'internal' | 'webhook' | 'ops' | 'socket' | 'event'
+export type CapabilityClassification = 'direct' | 'indirect' | 'ops' | 'planned'
 
-function files(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name)
-    return entry.isDirectory() ? files(path) : entry.name.endsWith('.ts') ? [path] : []
+export interface DiscoveredCapability {
+  id: string
+  service: string
+  kind: CapabilityKind
+  methodOrEvent: string
+  pathOrName: string
+  access: CapabilityAccess
+  classification: CapabilityClassification
+  source: string
+}
+
+export interface CapabilityManifestRow extends DiscoveredCapability {
+  surfaceId: string
+  task: number
+  evidenceId: string
+}
+
+export interface CapabilityManifest {
+  version: number
+  capabilities: CapabilityManifestRow[]
+}
+
+interface EventAllowlistEntry {
+  name: string
+  surfaceId: string
+  task: number
+  evidenceId: string
+}
+
+interface EventAllowlist {
+  version: number
+  events: EventAllowlistEntry[]
+}
+
+const ROUTE_MOUNTS: Record<string, Record<string, string>> = {
+  'account-service': {
+    'admin.ts': '/admin',
+    'auth.ts': '/auth',
+    'internal.ts': '/internal',
+    'profile.ts': '/profile',
+  },
+  'venue-booking-service': {
+    'bookings.ts': '',
+    'calendar.ts': '',
+    'discovery.ts': '',
+    'providers.ts': '/providers',
+    'schedule.ts': '',
+    'venues.ts': '/venues',
+  },
+  'finance-service': {
+    'financeOperations.ts': '',
+    'payments.ts': '',
+    'wallets.ts': '',
+  },
+  'matchmaking-service': {
+    'matches.ts': '/matches',
+    'passports.ts': '/passports',
+  },
+  'community-service': {
+    'assistant.ts': '',
+    'community.ts': '',
+  },
+}
+
+const ACCESS_VALUES = new Set<CapabilityAccess>(['public', 'authenticated', 'internal', 'webhook', 'ops', 'socket', 'event'])
+const CLASSIFICATION_VALUES = new Set<CapabilityClassification>(['direct', 'indirect', 'ops', 'planned'])
+const KIND_VALUES = new Set<CapabilityKind>(['http', 'socket', 'event'])
+
+function normalizePath(prefix: string, routePath: string): string {
+  const path = `${prefix}/${routePath}`.replaceAll(/\/{2,}/g, '/')
+  return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+}
+
+function classifyHttp(path: string, statement: string): Pick<DiscoveredCapability, 'access' | 'classification'> {
+  if (path === '/health') return { access: 'ops', classification: 'ops' }
+  if (path.startsWith('/internal/')) return { access: 'internal', classification: 'indirect' }
+  if (path.includes('/webhook')) return { access: 'webhook', classification: 'indirect' }
+  if (/\brequire(?:Auth|Role|Admin|Player|Provider)\b/.test(statement)) {
+    return { access: 'authenticated', classification: 'planned' }
+  }
+  return { access: 'public', classification: 'planned' }
+}
+
+export function extractRouterCalls(
+  source: string,
+  service: string,
+  sourcePath: string,
+  mountPrefix: string,
+): DiscoveredCapability[] {
+  const routePattern = /\b[A-Za-z_$][\w$]*\.(get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]/g
+  return [...source.matchAll(routePattern)].map((match) => {
+    const method = match[1].toUpperCase()
+    const path = normalizePath(mountPrefix, match[2])
+    const statement = source.slice(match.index ?? 0, (match.index ?? 0) + 500)
+    const classification = classifyHttp(path, statement)
+    return {
+      id: `${service}:http:${method}:${path}`,
+      service,
+      kind: 'http',
+      methodOrEvent: method,
+      pathOrName: path,
+      ...classification,
+      source: sourcePath,
+    }
   })
 }
 
-function readRouteCapabilities() {
-  return serviceRoots.flatMap((service) => {
-    const routeDirectory = join(root, 'services', service, 'src', 'routes')
-    return files(routeDirectory).flatMap((file) => {
-      const source = readFileSync(file, 'utf8')
-      const matches = [...source.matchAll(/router\.(get|post|put|patch|delete)\s*\(\s*['\"]([^'\"]+)/g)]
-      return matches.map((match) => ({
-        id: `${service}:${match[1].toUpperCase()}:${match[2]}`,
+function readServiceRoutes(root: string): DiscoveredCapability[] {
+  return Object.entries(ROUTE_MOUNTS).flatMap(([service, routeFiles]) => {
+    return Object.entries(routeFiles).flatMap(([fileName, mountPrefix]) => {
+      const file = join(root, 'services', service, 'src', 'routes', fileName)
+      if (!existsSync(file)) throw new Error(`Configured route source is missing: ${relative(root, file)}`)
+      return extractRouterCalls(
+        readFileSync(file, 'utf8'),
         service,
-        kind: 'http',
-        method: match[1].toUpperCase(),
-        path: match[2],
-        source: relative(root, file).replaceAll('\\', '/'),
-      }))
+        relative(root, file).replaceAll('\\', '/'),
+        mountPrefix,
+      )
     })
-  }).sort((left, right) => left.id.localeCompare(right.id))
+  })
 }
 
-const discovered = readRouteCapabilities()
-if (process.argv.includes('--write')) {
-  const manifest = {
-    version: 1,
-    capabilities: discovered.map((capability) => ({
-      ...capability,
-      classification: 'planned',
-      surfaceId: `planned:${capability.service}`,
-      evidenceId: 'planned:role-aware-full-ui-ux-completion',
-    })),
+function readHealthRoutes(root: string): DiscoveredCapability[] {
+  const services = readdirSync(join(root, 'services'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && (entry.name.endsWith('-service') || entry.name === 'api-gateway'))
+    .map((entry) => entry.name)
+
+  return services.flatMap((service) => {
+    const sourceFile = service === 'api-gateway'
+      ? join(root, 'services', service, 'src', 'index.ts')
+      : join(root, 'services', service, 'src', 'app.ts')
+    if (!existsSync(sourceFile)) return []
+    const sourcePath = relative(root, sourceFile).replaceAll('\\', '/')
+    return extractRouterCalls(readFileSync(sourceFile, 'utf8'), service, sourcePath, '')
+      .filter((capability) => capability.pathOrName === '/health')
+  })
+}
+
+function readSocketCapabilities(root: string): DiscoveredCapability[] {
+  const file = join(root, 'services', 'matchmaking-service', 'src', 'lib', 'quickMatchGateway.ts')
+  const source = readFileSync(file, 'utf8')
+  const names = new Set<string>()
+  for (const match of source.matchAll(/['"](quick_match:[a-z_]+)['"]\s*:/g)) names.add(match[1])
+  for (const match of source.matchAll(/socket\.(?:on|emit)\(\s*['"](quick_match:[a-z_]+)['"]/g)) names.add(match[1])
+  const sourcePath = relative(root, file).replaceAll('\\', '/')
+  return [...names].sort().map((name) => ({
+    id: `matchmaking-service:socket:${name}`,
+    service: 'matchmaking-service',
+    kind: 'socket',
+    methodOrEvent: name,
+    pathOrName: name,
+    access: 'socket',
+    classification: 'planned',
+    source: sourcePath,
+  }))
+}
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) return entry.name === 'test' || entry.name === 'node_modules' ? [] : sourceFiles(path)
+    return entry.name.endsWith('.ts') ? [path] : []
+  })
+}
+
+function readEventCapabilities(root: string): DiscoveredCapability[] {
+  const allowlistPath = join(root, 'scripts', 'backend-ui-event-allowlist.json')
+  const allowlist = JSON.parse(readFileSync(allowlistPath, 'utf8')) as EventAllowlist
+  const serviceSource = readdirSync(join(root, 'services'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => sourceFiles(join(root, 'services', entry.name, 'src')))
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n')
+
+  const discoveredNames = new Set<string>()
+  for (const match of serviceSource.matchAll(/eventType\s*:\s*['"]([A-Z][A-Za-z0-9]+)['"]/g)) discoveredNames.add(match[1])
+  for (const match of serviceSource.matchAll(/bindQueue\([^\n]*['"]domain-events['"]\s*,\s*['"]([A-Z][A-Za-z0-9]+)['"]/g)) discoveredNames.add(match[1])
+  for (const match of serviceSource.matchAll(/const\s+EVENT_TYPE\s*=\s*['"]([A-Z][A-Za-z0-9]+)['"]/g)) discoveredNames.add(match[1])
+
+  const allowlistedNames = new Set(allowlist.events.map((event) => event.name))
+  const unknown = [...discoveredNames].filter((name) => !allowlistedNames.has(name))
+  if (unknown.length > 0) throw new Error(`Cross-service events missing from allowlist: ${unknown.sort().join(', ')}`)
+  const missingFromSource = allowlist.events.filter((event) => !serviceSource.includes(`'${event.name}'`) && !serviceSource.includes(`"${event.name}"`))
+  if (missingFromSource.length > 0) throw new Error(`Allowlisted events missing from source: ${missingFromSource.map((event) => event.name).join(', ')}`)
+
+  return allowlist.events.map((event) => ({
+    id: `cross-service:event:${event.name}`,
+    service: 'cross-service',
+    kind: 'event',
+    methodOrEvent: event.name,
+    pathOrName: event.name,
+    access: 'event',
+    classification: 'indirect',
+    source: 'scripts/backend-ui-event-allowlist.json',
+  }))
+}
+
+export function discoverCapabilities(root: string): DiscoveredCapability[] {
+  return [
+    ...readServiceRoutes(root),
+    ...readHealthRoutes(root),
+    ...readSocketCapabilities(root),
+    ...readEventCapabilities(root),
+  ].sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function defaultTask(capability: DiscoveredCapability): number {
+  if (capability.classification === 'ops') return 10
+  if (capability.kind === 'socket') return 13
+  if (capability.kind === 'event') return 18
+  if (capability.service === 'account-service') return 17
+  if (capability.service === 'venue-booking-service') return 17
+  if (capability.service === 'finance-service') return 17
+  if (capability.service === 'matchmaking-service') return 18
+  if (capability.service === 'community-service') return 18
+  return 10
+}
+
+function defaultRow(capability: DiscoveredCapability, eventAllowlist: EventAllowlist): CapabilityManifestRow {
+  if (capability.kind === 'event') {
+    const event = eventAllowlist.events.find((entry) => entry.name === capability.pathOrName)
+    if (!event) throw new Error(`Missing event metadata for ${capability.pathOrName}`)
+    return { ...capability, ...event, classification: 'indirect' }
   }
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  console.log(`Wrote ${discovered.length} capability rows.`)
-  process.exit(0)
+  const task = defaultTask(capability)
+  return {
+    ...capability,
+    surfaceId: capability.classification === 'ops' ? 'admin:system-health' : `planned:${capability.service}`,
+    task,
+    evidenceId: capability.classification === 'ops' ? 'browser:admin-system-health' : 'planned:role-aware-full-ui-ux-completion',
+  }
 }
 
-const allowPlanned = process.argv.includes('--allow-planned')
-const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-const declared = new Map(manifest.capabilities.map((capability: { id: string }) => [capability.id, capability]))
-const unclassified = discovered.filter((capability) => !declared.has(capability.id))
-const invalidRows = manifest.capabilities.filter((capability: { surfaceId?: string; evidenceId?: string; classification?: string }) =>
-  !capability.surfaceId || !capability.evidenceId || (capability.classification === 'planned' && !allowPlanned),
-)
+export function validateManifest(
+  discovered: DiscoveredCapability[],
+  manifest: CapabilityManifest,
+  options: { allowPlanned: boolean },
+) {
+  const discoveredById = new Map(discovered.map((capability) => [capability.id, capability]))
+  const declaredById = new Map<string, CapabilityManifestRow>()
+  const invalid: Array<{ row: CapabilityManifestRow; reasons: string[] }> = []
 
-for (const capability of discovered.filter((capability) => declared.has(capability.id))) {
-  const row = declared.get(capability.id) as { source?: string }
-  if (row.source !== capability.source) unclassified.push(capability)
+  for (const row of manifest.capabilities) {
+    const reasons: string[] = []
+    if (!row.id || !row.service || !row.methodOrEvent || !row.pathOrName || !row.source) reasons.push('missing identity field')
+    if (!KIND_VALUES.has(row.kind)) reasons.push('invalid kind')
+    if (!ACCESS_VALUES.has(row.access)) reasons.push('invalid access')
+    if (!CLASSIFICATION_VALUES.has(row.classification)) reasons.push('invalid classification')
+    if (!row.surfaceId || !row.evidenceId) reasons.push('missing surface/evidence')
+    if (!Number.isInteger(row.task) || row.task < 1 || row.task > 20) reasons.push('invalid task')
+    if (row.classification === 'planned' && !options.allowPlanned) reasons.push('planned capability remains')
+    if (declaredById.has(row.id)) reasons.push('duplicate id')
+    declaredById.set(row.id, row)
+
+    const source = discoveredById.get(row.id)
+    if (source && (
+      source.service !== row.service
+      || source.kind !== row.kind
+      || source.methodOrEvent !== row.methodOrEvent
+      || source.pathOrName !== row.pathOrName
+      || source.source !== row.source
+    )) reasons.push('source identity drift')
+    if (reasons.length > 0) invalid.push({ row, reasons })
+  }
+
+  return {
+    missing: discovered.filter((capability) => !declaredById.has(capability.id)),
+    stale: manifest.capabilities.filter((row) => !discoveredById.has(row.id)),
+    invalid,
+  }
 }
 
-console.log(`Discovered ${discovered.length} HTTP capabilities; ${unclassified.length} unclassified; ${invalidRows.length} invalid manifest rows.`)
-if (unclassified.length > 0 || invalidRows.length > 0) process.exitCode = 1
+function runCli() {
+  const root = process.cwd()
+  const manifestPath = join(root, 'scripts', 'backend-ui-capabilities.json')
+  const allowlist = JSON.parse(readFileSync(join(root, 'scripts', 'backend-ui-event-allowlist.json'), 'utf8')) as EventAllowlist
+  const discovered = discoverCapabilities(root)
+
+  if (process.argv.includes('--write')) {
+    const existing = existsSync(manifestPath)
+      ? JSON.parse(readFileSync(manifestPath, 'utf8')) as CapabilityManifest
+      : { version: 2, capabilities: [] }
+    const existingById = new Map(existing.capabilities.map((row) => [row.id, row]))
+    const capabilities = discovered.map((capability) => {
+      const old = existingById.get(capability.id)
+      return old && old.methodOrEvent && old.pathOrName && old.access && old.task
+        ? { ...old, ...capability }
+        : defaultRow(capability, allowlist)
+    })
+    writeFileSync(manifestPath, `${JSON.stringify({ version: 2, capabilities }, null, 2)}\n`)
+    console.log(`Wrote ${capabilities.length} capability rows.`)
+    return
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as CapabilityManifest
+  const result = validateManifest(discovered, manifest, { allowPlanned: process.argv.includes('--allow-planned') })
+  const counts = discovered.reduce<Record<string, number>>((acc, capability) => {
+    acc[capability.kind] = (acc[capability.kind] ?? 0) + 1
+    return acc
+  }, {})
+  console.log(`Discovered ${counts.http ?? 0} HTTP, ${counts.socket ?? 0} Socket.IO and ${counts.event ?? 0} cross-service event capabilities; ${result.missing.length} missing, ${result.stale.length} stale, ${result.invalid.length} invalid manifest rows.`)
+  if (result.missing.length > 0) console.error(`Missing: ${result.missing.map((row) => row.id).join(', ')}`)
+  if (result.stale.length > 0) console.error(`Stale: ${result.stale.map((row) => row.id).join(', ')}`)
+  if (result.invalid.length > 0) console.error(`Invalid: ${result.invalid.map(({ row, reasons }) => `${row.id} (${reasons.join('; ')})`).join(', ')}`)
+  if (result.missing.length > 0 || result.stale.length > 0 || result.invalid.length > 0) process.exitCode = 1
+}
+
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : ''
+if (import.meta.url === invokedPath) runCli()

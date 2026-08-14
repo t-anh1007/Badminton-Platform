@@ -1,7 +1,7 @@
 ---
 type: decision-log
 status: living
-updated: 2026-08-09
+updated: 2026-08-14
 purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 

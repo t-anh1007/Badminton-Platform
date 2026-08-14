@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "events": [
+    { "name": "AccountLocked", "surfaceId": "admin:accounts", "task": 10, "evidenceId": "browser:account-lock-observation" },
+    { "name": "BookingCancelled", "surfaceId": "player:booking-card", "task": 6, "evidenceId": "browser:booking-cancelled" },
+    { "name": "BookingCompleted", "surfaceId": "player:booking-history", "task": 18, "evidenceId": "browser:booking-completed" },
+    { "name": "BookingConfirmed", "surfaceId": "player:booking-confirmation", "task": 5, "evidenceId": "browser:booking-confirmed" },
+    { "name": "BookingCourtChanged", "surfaceId": "provider:incidents", "task": 9, "evidenceId": "browser:booking-court-changed" },
+    { "name": "ContentReported", "surfaceId": "admin:moderation", "task": 11, "evidenceId": "browser:content-reported" },
+    { "name": "DisputeResolved", "surfaceId": "player:disputes", "task": 11, "evidenceId": "browser:dispute-resolved" },
+    { "name": "JoinApproved", "surfaceId": "player:match-detail", "task": 13, "evidenceId": "browser:join-approved" },
+    { "name": "MatchBookingResolved", "surfaceId": "player:match-detail", "task": 18, "evidenceId": "browser:match-booking-resolved" },
+    { "name": "MatchCancelled", "surfaceId": "player:match-detail", "task": 18, "evidenceId": "browser:match-cancelled" },
+    { "name": "MatchConfirmed", "surfaceId": "player:match-detail", "task": 18, "evidenceId": "browser:match-confirmed" },
+    { "name": "MatchCreated", "surfaceId": "player:matches", "task": 13, "evidenceId": "browser:match-created" },
+    { "name": "MatchFeeRefundRequested", "surfaceId": "player:wallet", "task": 18, "evidenceId": "browser:match-refund" },
+    { "name": "MatchSettlementFailed", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-failed" },
+    { "name": "MatchSettlementRequested", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-requested" },
+    { "name": "MatchSettlementTooLate", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-too-late" },
+    { "name": "PaymentCompleted", "surfaceId": "player:payment-terminal", "task": 5, "evidenceId": "browser:payment-completed" },
+    { "name": "PaymentTooLate", "surfaceId": "player:payment-terminal", "task": 5, "evidenceId": "browser:payment-too-late" },
+    { "name": "PayoutCompleted", "surfaceId": "provider:finance", "task": 9, "evidenceId": "browser:payout-completed" },
+    { "name": "ProviderApproved", "surfaceId": "player:provider-onboarding", "task": 7, "evidenceId": "browser:provider-approved" },
+    { "name": "RatingPeriodReady", "surfaceId": "player:passport", "task": 12, "evidenceId": "browser:rating-period-ready" },
+    { "name": "UserRegistered", "surfaceId": "player:profile", "task": 17, "evidenceId": "browser:user-registered" }
+  ]
+}
