@@ -15,11 +15,20 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
   useEffect(() => {
     const check = async () => {
       if (Date.now() < new Date(holdExpiresAt).getTime()) return
+      setRemaining(0)
+      setPhase('expired')
+      setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại slot.')
       const result = await waitForBookingTerminal(bookingId, { timeoutMs: 0 })
-      if (result.booking.terminalStatus === 'cancelled') { setPhase('expired'); setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại slot.'); }
+      if (result.booking.terminalStatus === 'confirmed') { setPhase('confirmed'); onConfirmed(result) }
     }
-    void check(); const timer = window.setInterval(() => setRemaining(Math.max(0, new Date(holdExpiresAt).getTime() - Date.now())), 1000); return () => window.clearInterval(timer)
-  }, [bookingId, holdExpiresAt])
+    void check()
+    const timer = window.setInterval(() => {
+      const next = Math.max(0, new Date(holdExpiresAt).getTime() - Date.now())
+      setRemaining(next)
+      if (next === 0) { window.clearInterval(timer); void check() }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [bookingId, holdExpiresAt, onConfirmed])
   const pay = async () => {
     setPhase('paying'); setMessage('')
     try {
