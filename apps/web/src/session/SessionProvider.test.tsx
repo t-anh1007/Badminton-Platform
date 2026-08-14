@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { logout, refreshSession } from '../lib/accountApi.js'
 import { SessionProvider, useSession } from './SessionProvider.js'
@@ -34,6 +34,31 @@ describe('SessionProvider', () => {
     act(() => result.current.establish({ accessToken: token('p1'), refreshToken: 'r', roles: ['player'] }))
     await act(() => result.current.refresh())
     expect(result.current.session?.roles).toEqual(['player', 'provider'])
+  })
+
+  it('refreshes a persisted session when the application hydrates', async () => {
+    const refreshedAccessToken = `x.${btoa(JSON.stringify({ sub: 'p1', revision: 2 }))}.x`
+    localStorage.setItem('courtin.session', JSON.stringify({
+      accessToken: token('p1'),
+      refreshToken: 'stored-refresh-token',
+      roles: ['player', 'admin'],
+      userId: 'p1',
+      activeRole: 'admin',
+    }))
+    localStorage.setItem('courtin.activeRole', 'admin')
+    localStorage.setItem('accessToken', token('p1'))
+    localStorage.setItem('refreshToken', 'stored-refresh-token')
+    localStorage.setItem('roles', JSON.stringify(['player', 'admin']))
+    vi.mocked(refreshSession).mockResolvedValue({
+      accessToken: refreshedAccessToken,
+      refreshToken: 'rotated-refresh-token',
+      roles: ['player', 'admin'],
+    })
+
+    const { result } = renderHook(() => useSession(), { wrapper: SessionProvider })
+
+    await waitFor(() => expect(result.current.session?.accessToken).toBe(refreshedAccessToken))
+    expect(result.current.session).toMatchObject({ activeRole: 'admin', refreshToken: 'rotated-refresh-token' })
   })
 
   it('attempts server logout before clearing the local session', async () => {
