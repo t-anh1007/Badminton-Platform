@@ -4,6 +4,7 @@ export interface Slot {
   time: string;
   status: SlotStatus;
   price: number;
+  selected?: boolean;
 }
 
 const STATUS_STYLE: Record<SlotStatus, string> = {
@@ -31,12 +32,13 @@ export function SlotGrid({ courtName, slots, onSelect }: { courtName: string; sl
             type="button"
             key={slot.time}
             disabled={slot.status !== 'available'}
+            aria-pressed={slot.selected ?? false}
             aria-label={slot.status === 'available' ? `Chọn ${slot.time}` : `${STATUS_LABEL[slot.status]} ${slot.time}`}
             onClick={() => onSelect?.(slot)}
-            className={`rounded-xl px-3 py-3 text-center transition-all duration-150 ${STATUS_STYLE[slot.status]}`}
+            className={`rounded-xl px-3 py-3 text-center transition-all duration-150 ${slot.selected ? 'border-brand-navy bg-brand-yellow text-brand-navy ring-2 ring-brand-navy' : STATUS_STYLE[slot.status]}`}
           >
             <div className="text-figures text-sm font-medium">{slot.time}</div>
-            <div className="text-caption !text-inherit">{STATUS_LABEL[slot.status]}</div>
+            <div className="text-caption !text-inherit">{slot.selected ? 'ĐÃ CHỌN' : STATUS_LABEL[slot.status]}</div>
             <div className="text-figures text-xs">{slot.price.toLocaleString('vi-VN')}đ</div>
           </button>
         ))}
