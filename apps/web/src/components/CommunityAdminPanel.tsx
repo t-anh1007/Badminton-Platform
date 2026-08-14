@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getOpenCommunityReports, moderateCommunityReport, type CommunityReport } from '../lib/communityAdminApi';
+import { getOpenCommunityReports, moderateCommunityReport, restoreCommunityContent, type CommunityReport } from '../lib/communityAdminApi';
 import { Badge, Button, EmptyState, Modal, TextArea } from './ui';
 
 type Pending = {
@@ -11,6 +11,7 @@ export function CommunityAdminPanel() {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
+  const [lastModerated, setLastModerated] = useState<{ targetType: 'post' | 'comment'; targetId: string; reason: string } | null>(null);
   const load = () =>
     getOpenCommunityReports()
       .then((result) => setReports(result.reports))
@@ -29,12 +30,26 @@ export function CommunityAdminPanel() {
     if (!pending) return;
     try {
       await moderateCommunityReport(pending.report.id, pending.action, reason);
+      if (pending.action !== 'dismiss') {
+        setLastModerated({ targetType: pending.report.targetType, targetId: pending.report.targetId, reason });
+      }
       setPending(null);
       setReason('');
       setMessage('Đã xử lý báo cáo và ghi audit kiểm duyệt.');
       await load();
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Không thể xử lý báo cáo.');
+    }
+  };
+  const restoreLast = async () => {
+    if (!lastModerated) return;
+    try {
+      await restoreCommunityContent(lastModerated.targetType, lastModerated.targetId, lastModerated.reason);
+      setLastModerated(null);
+      setMessage('Đã khôi phục nội dung và ghi audit kiểm duyệt.');
+      await load();
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Không thể khôi phục nội dung.');
     }
   };
   return (
@@ -45,8 +60,13 @@ export function CommunityAdminPanel() {
       </div>
       <label className="grid max-w-2xl gap-1.5 text-sm font-medium">
         Lý do quyết định
-        <TextArea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Lý do bắt buộc" />
+        <TextArea aria-label="Lý do quyết định kiểm duyệt" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Lý do bắt buộc" />
       </label>
+      {lastModerated && (
+        <Button className="mt-3" tone="secondary" size="sm" onClick={() => void restoreLast()}>
+          Khôi phục nội dung vừa xử lý
+        </Button>
+      )}
       {reports.length === 0 ? (
         <div className="mt-5">
           <EmptyState title="Không có báo cáo đang mở" description="Báo cáo mới sẽ xuất hiện tại hàng chờ này." />
@@ -62,9 +82,7 @@ export function CommunityAdminPanel() {
                     <Badge>{report.targetType}</Badge>
                   </div>
                   <p className="mt-2 font-medium">{report.reason}</p>
-                  <p className="text-caption">
-                    Target {report.targetId} · {new Date(report.createdAt).toLocaleString('vi-VN')}
-                  </p>
+                  <p className="text-caption">{new Date(report.createdAt).toLocaleString('vi-VN')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" tone="secondary" onClick={() => requestAction(report, 'dismiss')}>
@@ -90,7 +108,7 @@ export function CommunityAdminPanel() {
       <Modal open={Boolean(pending)} title="Xác nhận quyết định kiểm duyệt" onClose={() => setPending(null)}>
         <p className="text-sm text-ink-500">
           Hành động <strong className="text-ink-900">{pending?.action}</strong> sẽ áp dụng cho{' '}
-          {pending?.report.targetType} {pending?.report.targetId}. Lý do:{' '}
+          {pending?.report.targetType === 'post' ? 'bài viết được báo cáo' : 'bình luận được báo cáo'}. Lý do:{' '}
           <strong className="text-ink-900">{reason}</strong>
         </p>
         <Button tone="danger" className="mt-5" onClick={() => void confirm()}>

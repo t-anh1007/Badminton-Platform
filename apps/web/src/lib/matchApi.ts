@@ -74,6 +74,18 @@ export interface PendingJoin extends OwnJoin {
   compatibilityScore: number;
   compatibilityExplanation: string;
 }
+export interface AdminEvaluationRow {
+  id: string;
+  matchId: string;
+  perceivedTier: SkillTier | null;
+  flagReason: string | null;
+  reviewStatus: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  reviewedAt: string | null;
+  rater: { label: string };
+  ratee: { label: string };
+  match: { status: string; completedAt: string | null };
+}
 
 export function listMatches(filters: { area?: string; skill?: SkillTier; startFrom?: string } = {}) {
   const query = new URLSearchParams();
@@ -105,3 +117,12 @@ export const createMatch = (body: ({ bookingId: string; holdId?: never } | { hol
   skillMin?: SkillTier;
   skillMax?: SkillTier;
 }) => api<MatchRow>('/matches', { method: 'POST', body: JSON.stringify(body) });
+export async function getAdminEvaluations(reviewStatus: AdminEvaluationRow['reviewStatus'] = 'pending') {
+  const result = await api<{ evaluations: AdminEvaluationRow[] }>(`/matches/admin/evaluations?reviewStatus=${reviewStatus}`);
+  return result.evaluations;
+}
+export const reviewAdminEvaluation = (matchId: string, evaluationId: string, decision: 'approve' | 'reject') =>
+  api(`/matches/${matchId}/evaluations/${evaluationId}/review`, {
+    method: 'PATCH',
+    body: JSON.stringify({ decision }),
+  });

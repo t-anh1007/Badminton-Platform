@@ -2,6 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 
 const modules = [
   ['/admin', 'Tổng quan'], ['/admin/accounts', 'Tài khoản'], ['/admin/providers', 'Chủ sân'], ['/admin/bookings', 'Đặt sân'],
+  ['/admin/finance', 'Tài chính'], ['/admin/disputes', 'Tranh chấp'], ['/admin/moderation', 'Kiểm duyệt'],
+  ['/admin/evaluations', 'Đánh giá'], ['/admin/tickets', 'Hỗ trợ'],
 ] as const
 
 export function AdminLayout() {

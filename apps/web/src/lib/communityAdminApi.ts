@@ -33,3 +33,8 @@ export const moderateCommunityReport = (id: string, action: 'hide' | 'remove' | 
     method: 'POST',
     body: JSON.stringify({ action, reason }),
   });
+export const restoreCommunityContent = (targetType: 'post' | 'comment', targetId: string, reason: string) =>
+  api(`/admin/content/${targetType}/${targetId}/restore`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });

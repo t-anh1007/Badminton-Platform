@@ -3,6 +3,7 @@ import { finalizePartialWithdrawal, getAdminWithdrawals, getReconciliationQueue,
 import { Button, Modal, TextInput } from './ui';
 
 type PendingAction = { label: string; task: () => Promise<unknown> };
+const shortReference = (value: string) => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
 
 export function FinanceAdminPanel({ mode }: { mode: 'withdrawals' | 'reconciliation' }) {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
@@ -45,7 +46,7 @@ export function FinanceAdminPanel({ mode }: { mode: 'withdrawals' | 'reconciliat
     <section>
       <p className="mb-3 text-sm text-ink-500">Hàng chờ đối soát — mọi đồng tiền phải có đối ứng.</p>
       <div className="grid gap-2 sm:grid-cols-2"><TextInput aria-label="Đối tượng gán" value={targetId} onChange={(event) => setTargetId(event.target.value)} placeholder="User ID hoặc Withdrawal ID" /><TextInput aria-label="Lý do đối soát" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Lý do bắt buộc" /></div>
-      <div className="mt-4 space-y-3">{events.map((event) => <article className="rounded-xl border border-line bg-surface p-4" key={event.id}><p className="font-medium">{event.direction === 'in' ? 'Tiền vào' : 'Tiền ra'} · {BigInt(event.amount).toLocaleString('vi-VN')}đ · {event.rawRef}</p><div className="mt-3 flex flex-wrap gap-3">{event.direction === 'in' ? <Button size="sm" onClick={() => requestConfirmation('Gán giao dịch vào ví cá nhân', () => reconcileIncoming(event.id, targetId, reason))}>Gán ví cá nhân</Button> : <Button size="sm" onClick={() => requestConfirmation('Gán giao dịch vào yêu cầu rút', () => reconcileOutgoing(event.id, targetId, reason))}>Gán yêu cầu rút</Button>}<Button tone="danger" size="sm" onClick={() => requestConfirmation('Đánh dấu giao dịch ngoài phạm vi', () => markOutOfScope(event.id, reason))}>Ngoài phạm vi</Button></div></article>)}</div>
+      <div className="mt-4 space-y-3">{events.map((event) => <article className="rounded-xl border border-line bg-surface p-4" key={event.id}><p className="font-medium">{event.direction === 'in' ? 'Tiền vào' : 'Tiền ra'} · {BigInt(event.amount).toLocaleString('vi-VN')}đ</p><p className="text-sm text-ink-500">Nhận lúc {new Date(event.receivedAt).toLocaleString('vi-VN')}</p><details className="mt-2 text-xs text-ink-500"><summary>Xem tham chiếu đối soát</summary><code>{shortReference(event.rawRef)}</code></details><div className="mt-3 flex flex-wrap gap-3">{event.direction === 'in' ? <Button size="sm" onClick={() => requestConfirmation('Gán giao dịch vào ví cá nhân', () => reconcileIncoming(event.id, targetId, reason))}>Gán ví cá nhân</Button> : <Button size="sm" onClick={() => requestConfirmation('Gán giao dịch vào yêu cầu rút', () => reconcileOutgoing(event.id, targetId, reason))}>Gán yêu cầu rút</Button>}<Button tone="danger" size="sm" onClick={() => requestConfirmation('Đánh dấu giao dịch ngoài phạm vi', () => markOutOfScope(event.id, reason))}>Ngoài phạm vi</Button></div></article>)}</div>
     </section>
   );
 
