@@ -106,6 +106,9 @@ export const saveOperatingHours = (id: string, body: { weekday: number; openMinu
 export const addClosure = (id: string, body: { date: string; reason?: string }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });
 export const savePricing = (id: string, body: { rules: Array<{ weekday: number; startMinute: number; endMinute: number; price: number }>; effectiveFrom: string }) => api(`/courts/${id}/pricing`, { method: 'POST', body: JSON.stringify(body) });
 export const saveBookingRule = (id: string, body: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number }) => api(`/courts/${id}/booking-rule`, { method: 'POST', body: JSON.stringify(body) });
+export const getVenueCalendar = (venueId: string, date: string) => api<{ courts: Array<{ id: string; name: string }>; entries: Array<{ id: string; courtId: string; kind: 'booking' | 'hold'; startAt: string; endAt: string }> }>(`/venues/${venueId}/calendar?date=${encodeURIComponent(date)}`);
+export const createInternalBooking = (body: { courtId: string; startAt: string; endAt: string; guestName: string; guestContact: string }) => api('/internal-bookings', { method: 'POST', body: JSON.stringify(body) });
+export const cancelInternalBooking = (id: string) => api(`/internal-bookings/${id}/cancel`, { method: 'POST' });
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
 export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 
