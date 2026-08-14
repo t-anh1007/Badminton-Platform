@@ -95,6 +95,7 @@ export function BookingPage() {
         start.setUTCMinutes(slot.startMinute)
         return {
           time: `${Math.floor(slot.startMinute / 60).toString().padStart(2, '0')}:${(slot.startMinute % 60).toString().padStart(2, '0')}`,
+          endTime: `${Math.floor(slot.endMinute / 60).toString().padStart(2, '0')}:${(slot.endMinute % 60).toString().padStart(2, '0')}`,
           status: slot.available ? 'available' : 'unavailable',
           price: Number(slot.price ?? 0),
           selection: {

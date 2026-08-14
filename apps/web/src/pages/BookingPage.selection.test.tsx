@@ -40,8 +40,8 @@ it('uses dd/MM/yyyy and wires contiguous selections into the visible summary', a
   expect(dateField).toHaveValue('15/08/2026')
   expect(dateField).toHaveAttribute('inputmode', 'numeric')
 
-  const first = await screen.findByRole('button', { name: 'Chọn 06:00' })
-  const second = await screen.findByRole('button', { name: 'Chọn 06:30' })
+  const first = await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' })
+  const second = await screen.findByRole('button', { name: 'Chọn 06:30 - 07:00' })
   fireEvent.click(first)
   await waitFor(() => expect(first).toHaveAttribute('aria-pressed', 'true'))
   // Một slot (30') dưới thời lượng tối thiểu 60' — chưa gọi select-slot, chỉ nhắc chọn thêm.
@@ -62,8 +62,8 @@ it('uses one confirmation action to create a hold and booking, then locks select
   vi.mocked(createHold).mockResolvedValue({ id: 'hold-internal', courtId: 'c1', startAt: '2026-08-15T06:00:00.000Z', endAt: '2026-08-15T06:30:00.000Z', expiresAt: '2026-08-15T02:10:00.000Z' })
   vi.mocked(createBooking).mockResolvedValue({ id: 'booking-internal', courtId: 'c1', startAt: '2026-08-15T06:00:00.000Z', endAt: '2026-08-15T06:30:00.000Z', status: 'held', priceSnapshot: '180000' })
   const view = render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
-  const first = await view.findByRole('button', { name: 'Chọn 06:00' })
-  const second = await view.findByRole('button', { name: 'Chọn 06:30' })
+  const first = await view.findByRole('button', { name: 'Chọn 06:00 - 06:30' })
+  const second = await view.findByRole('button', { name: 'Chọn 06:30 - 07:00' })
   fireEvent.click(first)
   // Cần đạt tối thiểu 60' trước khi có nút xác nhận.
   await waitFor(() => expect(view.getByText(/để xác nhận đặt sân/i)).toBeInTheDocument())
