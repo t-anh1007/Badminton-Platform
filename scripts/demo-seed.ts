@@ -53,12 +53,21 @@ async function main() {
   const venue = await venueDb.venue.create({ data: { providerId: provider.id, name: 'DEMO Nhà thi đấu Phú Nhuận', lat: 10.7991, lng: 106.6797, address: '123 Đường Demo, Phú Nhuận, TP.HCM' } });
   const court1 = await venueDb.court.create({ data: { venueId: venue.id, name: 'Sân 1' } });
   const court2 = await venueDb.court.create({ data: { venueId: venue.id, name: 'Sân 2' } });
+  await venueDb.venue.update({
+    where: { id: venue.id },
+    data: {
+      amenities: ['Bãi giữ xe', 'Phòng tắm', 'Nước uống', 'Máy lạnh'],
+      images: ['/demo/demo-phu-nhuan-courts.png', '/demo/demo-phu-nhuan-exterior.png'],
+    },
+  });
+  const pendingProviderUser = await makeUser('demo-provider-pending', 'Demo Chủ sân chờ duyệt', [UserRole.player, UserRole.provider]);
+  await venueDb.provider.create({ data: { userId: pendingProviderUser.id, orgName: 'DEMO Sân Tân Bình chờ duyệt', status: 'pending' } });
   for (const court of [court1, court2]) {
     for (let weekday = 0; weekday <= 6; weekday++) {
       await venueDb.operatingHour.create({ data: { courtId: court.id, weekday, openMinute: 360, closeMinute: 1320 } });
       await venueDb.pricingRule.create({ data: { courtId: court.id, weekday, startMinute: 360, endMinute: 1320, price: 180000n, effectiveFrom: new Date(Date.now() - 86_400_000) } });
     }
-    await venueDb.bookingRule.create({ data: { courtId: court.id, stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 120 } });
+    await venueDb.bookingRule.create({ data: { courtId: court.id, stepMinutes: 60, minDurationMinutes: 60, maxDurationMinutes: 120 } });
   }
 
   // Một booking confirmed sắp tới của player1 tại court1 (để test hủy/hoàn tiền, ví...)
@@ -110,6 +119,7 @@ async function main() {
     player2: player2.email,
     player3: player3.email,
     provider: providerUser.email,
+    providerPending: pendingProviderUser.email,
     venueId: venue.id,
     bookingId: booking.id,
     matchId: match.id,

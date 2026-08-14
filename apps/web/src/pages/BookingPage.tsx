@@ -233,22 +233,36 @@ export function BookingPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-medium">
                 Ngày
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  aria-label="Ngày đặt sân (dd/mm/yyyy)"
-                  placeholder="dd/mm/yyyy"
-                  value={dateField}
-                  onChange={(event) => {
-                    const nextField = event.target.value.replace(/[^\d/]/g, '').slice(0, 10)
-                    setDateField(nextField)
-                    const nextDate = parseDateField(nextField)
-                    if (nextDate && nextDate !== date) changeDate(nextDate)
-                  }}
-                  onBlur={() => { if (!parseDateField(dateField)) { setDateField(formatDateField(date)); setError('Ngày phải theo định dạng dd/mm/yyyy.') } }}
-                  disabled={Boolean(booking)}
-                  className="rounded-xl border border-line bg-surface px-3 py-2.5"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="Ngày đặt sân (dd/mm/yyyy)"
+                    placeholder="dd/mm/yyyy"
+                    value={dateField}
+                    onChange={(event) => {
+                      const nextField = event.target.value.replace(/[^\d/]/g, '').slice(0, 10)
+                      setDateField(nextField)
+                      const nextDate = parseDateField(nextField)
+                      if (nextDate && nextDate !== date) changeDate(nextDate)
+                    }}
+                    onBlur={() => { if (!parseDateField(dateField)) { setDateField(formatDateField(date)); setError('Ngày phải theo định dạng dd/mm/yyyy.') } }}
+                    disabled={Boolean(booking)}
+                    className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 pr-11"
+                  />
+                  <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-ink-500">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                  </span>
+                  <input
+                    type="date"
+                    aria-label="Chọn ngày từ lịch"
+                    value={date}
+                    min={new Date().toISOString().slice(0, 10)}
+                    disabled={Boolean(booking)}
+                    onChange={(event) => { if (event.target.value && event.target.value !== date) changeDate(event.target.value) }}
+                    className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                  />
+                </div>
               </label>
               <label className="grid gap-1.5 text-sm font-medium">
                 Sân con
