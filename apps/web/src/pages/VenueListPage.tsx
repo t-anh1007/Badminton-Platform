@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Badge, Button, EmptyState, SelectInput, Skeleton, SurfaceCard, TextInput } from '../components/ui';
+import { Badge, Button, EmptyState, SelectInput, SurfaceCard, TextInput } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
 
@@ -190,22 +191,11 @@ export function VenueListPage() {
         </div>
 
         {loadError && (
-          <SurfaceCard className="border-danger-bg" aria-live="polite">
-            <p role="alert" className="text-sm text-danger">{loadError}</p>
-            <Button className="mt-4" tone="secondary" onClick={() => void runSearch(true)}>Thử lại</Button>
-          </SurfaceCard>
+          <RouteState variant="error" title="Không thể tìm sân" description={loadError} onRetry={() => void runSearch(true)} />
         )}
 
         {loading && (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">
-            {Array.from({ length: 6 }, (_, index) => (
-              <SurfaceCard key={index} className="space-y-4" aria-label="Đang tải sân">
-                <Skeleton className="h-5 w-2/3" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-1/2" />
-              </SurfaceCard>
-            ))}
-          </div>
+          <RouteState variant="loading" title="Đang tìm sân phù hợp" />
         )}
 
         {!loading && !loadError && visibleVenues.length === 0 && (

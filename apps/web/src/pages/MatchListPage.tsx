@@ -8,11 +8,11 @@ import {
   EmptyState,
   Modal,
   SelectInput,
-  Skeleton,
   SurfaceCard,
   TextInput,
   Toast,
 } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import { createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
 
@@ -33,6 +33,14 @@ const skillRange = (row: MatchRow) =>
   row.skillMin || row.skillMax
     ? `${row.skillMin ? tierLabels[row.skillMin] : 'Mọi bậc'} – ${row.skillMax ? tierLabels[row.skillMax] : 'Mọi bậc'}`
     : 'Mọi bậc';
+function parseVietnameseDateTime(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year, hour, minute] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  if (date.getFullYear() !== Number(year) || date.getMonth() + 1 !== Number(month) || date.getDate() !== Number(day) || date.getHours() !== Number(hour) || date.getMinutes() !== Number(minute)) return null;
+  return date.toISOString();
+}
 
 export function MatchListPage() {
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
@@ -52,11 +60,21 @@ export function MatchListPage() {
   const load = async () => {
     setLoading(true);
     setError('');
+    let startFrom: string | undefined;
+    if (date) {
+      const parsed = parseVietnameseDateTime(date);
+      if (!parsed) {
+        setError('Ngày giờ phải theo định dạng dd/MM/yyyy HH:mm.');
+        setLoading(false);
+        return;
+      }
+      startFrom = parsed;
+    }
     try {
       const result = await listMatches({
         area: area.trim() || undefined,
         skill: skill || undefined,
-        startFrom: date ? new Date(date).toISOString() : undefined,
+        startFrom,
       });
       const hydrated = await Promise.all(
         result.matches.map(async (match) => {
@@ -145,7 +163,8 @@ export function MatchListPage() {
           </SelectInput>
           <TextInput
             aria-label="Từ ngày giờ"
-            type="datetime-local"
+            inputMode="numeric"
+            placeholder="dd/MM/yyyy HH:mm"
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
@@ -154,20 +173,9 @@ export function MatchListPage() {
           </Button>
         </form>
       </SurfaceCard>
-      {error && (
-        <div className="mt-6 rounded-xl border border-danger bg-danger-bg p-4 text-sm text-danger">
-          {error}{' '}
-          <button className="font-semibold underline" onClick={() => void load()}>
-            Thử lại
-          </button>
-        </div>
-      )}
+      {error && <div className="mt-6"><RouteState variant="error" title="Không thể tải danh sách kèo" description={error} onRetry={() => void load()} /></div>}
       {loading ? (
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((item) => (
-            <Skeleton key={item} className="h-64" />
-          ))}
-        </div>
+        <div className="mt-6"><RouteState variant="loading" title="Đang tải các kèo phù hợp" /></div>
       ) : matches.length === 0 ? (
         <div className="mt-6">
           <EmptyState

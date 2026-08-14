@@ -6,11 +6,11 @@ import {
   Button,
   EmptyState,
   Modal,
-  Skeleton,
   SurfaceCard,
   TextArea,
   Toast,
 } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import {
   addSupportTicketMessage,
   createSupportTicket,
@@ -209,14 +209,7 @@ export function SupportPage() {
         {canCreate && <Button onClick={(event) => { event.currentTarget.focus(); setCreateOpen(true); }}>Tạo ticket mới</Button>}
       </header>
 
-      {error && (
-        <div className="mt-6 rounded-xl border border-danger bg-danger-bg p-4 text-sm text-danger">
-          {error}{' '}
-          <button className="font-semibold underline" onClick={() => void loadTickets()}>
-            Thử lại
-          </button>
-        </div>
-      )}
+      {error && <div className="mt-6"><RouteState variant="error" title="Không thể tải ticket hỗ trợ" description={error} onRetry={() => void loadTickets()} /></div>}
 
       <div className="mt-6 grid min-h-[560px] items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         <SurfaceCard className="overflow-hidden p-0 sm:p-0">
@@ -225,11 +218,7 @@ export function SupportPage() {
             <Badge>{tickets.length}</Badge>
           </div>
           {loading ? (
-            <div className="space-y-3 p-4">
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-            </div>
+            <div className="p-4"><RouteState variant="loading" title="Đang tải ticket" className="min-h-64" /></div>
           ) : tickets.length === 0 ? (
             <div className="p-4">
               <EmptyState
@@ -273,16 +262,13 @@ export function SupportPage() {
 
         <section aria-label="Cuộc trao đổi hỗ trợ">
           {detailLoading ? (
-            <SurfaceCard>
-              <Skeleton className="h-16" />
-              <Skeleton className="mt-6 h-72" />
-              <Skeleton className="mt-5 h-24" />
-            </SurfaceCard>
+            <RouteState variant="loading" title="Đang tải cuộc trao đổi" className="min-h-[560px]" />
           ) : detailError ? (
-            <EmptyState
+            <RouteState
+              variant="error"
               title="Không thể mở ticket"
               description={detailError}
-              action={<Button onClick={() => selectedId && void loadDetail(selectedId)}>Thử lại</Button>}
+              onRetry={() => selectedId && void loadDetail(selectedId)}
             />
           ) : !detail ? (
             <EmptyState

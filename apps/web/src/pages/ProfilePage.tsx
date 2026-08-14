@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
 import { presentLedgerEntry } from '../lib/presenters';
@@ -10,6 +10,7 @@ import { createTopupIntent, getMyWallets, getWalletLedger, type WalletLedgerEntr
 import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
+import { RouteState } from '../components/RouteState.js';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
@@ -25,6 +26,8 @@ export function ProfilePage() {
   const [past, setPast] = useState<BookingSummary[]>([]);
   const [period, setPeriod] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [message, setMessage] = useState('');
+  const [pageLoading, setPageLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
@@ -35,9 +38,11 @@ export function ProfilePage() {
   const [form, setForm] = useState({ displayName: '', avatarUrl: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
 
-  useEffect(() => {
-    Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory()])
-      .then(async ([nextProfile, nextWallets, nextUpcoming, nextPast]) => {
+  const loadPage = useCallback(async () => {
+    setPageLoading(true);
+    setPageError('');
+    try {
+      const [nextProfile, nextWallets, nextUpcoming, nextPast] = await Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory()]);
         setProfile(nextProfile);
         setWallets(nextWallets);
         setUpcoming(nextUpcoming);
@@ -50,9 +55,13 @@ export function ProfilePage() {
         });
         const ledgers = await Promise.all(nextWallets.map(async (wallet) => [wallet.id, (await getWalletLedger(wallet.id)).entries] as const));
         setLedgerByWallet(Object.fromEntries(ledgers));
-      })
-      .catch((caught: Error) => setMessage(caught.message));
+    } catch (caught) {
+      setPageError(caught instanceof Error ? caught.message : 'Không thể tải hồ sơ.');
+    } finally {
+      setPageLoading(false);
+    }
   }, []);
+  useEffect(() => { void loadPage(); }, [loadPage]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -145,6 +154,9 @@ export function ProfilePage() {
     : (period === 'upcoming' ? upcoming : past).filter((booking) => booking.status !== 'cancelled');
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
+
+  if (pageLoading) return <main className="page-container py-8 sm:py-12"><RouteState variant="loading" title="Đang tải hồ sơ và giao dịch" /></main>;
+  if (pageError) return <main className="page-container py-8 sm:py-12"><RouteState variant="error" title="Không thể tải hồ sơ" description={pageError} onRetry={() => void loadPage()} /></main>;
 
   return (
     <main className="page-container py-8 sm:py-12">

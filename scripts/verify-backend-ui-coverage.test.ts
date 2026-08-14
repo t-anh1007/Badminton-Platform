@@ -67,12 +67,13 @@ describe('backend to UI capability coverage', () => {
     const capabilities = discoverCapabilities(process.cwd())
     const http = capabilities.filter((capability) => capability.kind === 'http')
 
-    expect(http).toHaveLength(112)
+    expect(http).toHaveLength(122)
     expect(capabilities).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'api-gateway:http:GET:/health' }),
       expect.objectContaining({ id: 'account-service:http:POST:/auth/login' }),
       expect.objectContaining({ id: 'matchmaking-service:socket:quick_match:find' }),
       expect.objectContaining({ id: 'cross-service:event:ProviderApproved' }),
+      expect.objectContaining({ id: 'cross-service:event:ObjectCleanupScheduled' }),
     ]))
   })
 
@@ -122,7 +123,7 @@ describe('backend to UI capability coverage', () => {
     expect(result.invalid.map((entry) => entry.row.id)).toContain('stale:http:GET:/removed')
   })
 
-  it('rejects access and classification drift from discovered source', () => {
+  it('rejects access drift from discovered source', () => {
     const discovered = extractRouterCalls(
       "venueRouter.get('/:id', publicHandler)",
       'venue-booking-service',
@@ -141,5 +142,23 @@ describe('backend to UI capability coverage', () => {
     const result = validateManifest(discovered, { version: 2, capabilities: [row] }, { allowPlanned: true })
 
     expect(result.invalid[0].reasons).toContain('source identity drift')
+  })
+
+  it('accepts promotion from unclassified discovery to a final direct surface', () => {
+    const discovered = extractRouterCalls(
+      "venueRouter.get('/:id', publicHandler)",
+      'venue-booking-service',
+      'venues.ts',
+      '/venues',
+    )
+    const row: CapabilityManifest['capabilities'][number] = {
+      ...discovered[0],
+      classification: 'direct',
+      surfaceId: 'player:venues',
+      task: 17,
+      evidenceId: 'test:web-account-venue-finance',
+    }
+
+    expect(validateManifest(discovered, { version: 2, capabilities: [row] }, { allowPlanned: false }).invalid).toEqual([])
   })
 })

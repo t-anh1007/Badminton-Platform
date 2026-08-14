@@ -17,6 +17,7 @@
     { "name": "MatchSettlementFailed", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-failed" },
     { "name": "MatchSettlementRequested", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-requested" },
     { "name": "MatchSettlementTooLate", "surfaceId": "admin:finance", "task": 11, "evidenceId": "browser:match-settlement-too-late" },
+    { "name": "ObjectCleanupScheduled", "surfaceId": "indirect:community-media", "task": 15, "evidenceId": "test:community-media-cleanup" },
     { "name": "PaymentCompleted", "surfaceId": "player:payment-terminal", "task": 5, "evidenceId": "browser:payment-completed" },
     { "name": "PaymentTooLate", "surfaceId": "player:payment-terminal", "task": 5, "evidenceId": "browser:payment-too-late" },
     { "name": "PayoutCompleted", "surfaceId": "provider:finance", "task": 9, "evidenceId": "browser:payout-completed" },

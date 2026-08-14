@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
 import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
+import { parseDateFieldVi } from '../../lib/formatters.js'
 
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
@@ -10,8 +11,11 @@ export function AdminBookingsPage() {
   const [message, setMessage] = useState('')
 
   const load = async () => {
+    const from = filters.from ? parseDateFieldVi(filters.from) : undefined
+    const to = filters.to ? parseDateFieldVi(filters.to) : undefined
+    if ((filters.from && !from) || (filters.to && !to)) { setMessage('Ngày phải theo định dạng dd/MM/yyyy.'); return }
     try {
-      setRows(await getAdminBookings(filters))
+      setRows(await getAdminBookings({ ...filters, from: from ?? '', to: to ?? '' }))
       setMessage('')
     } catch (cause) {
       setMessage((cause as Error).message)
@@ -60,13 +64,15 @@ export function AdminBookingsPage() {
         </SelectInput>
         <TextInput
           aria-label="Từ ngày booking"
-          type="date"
+          inputMode="numeric"
+          placeholder="dd/MM/yyyy"
           value={filters.from}
           onChange={(event) => setFilters({ ...filters, from: event.target.value })}
         />
         <TextInput
           aria-label="Đến ngày booking"
-          type="date"
+          inputMode="numeric"
+          placeholder="dd/MM/yyyy"
           value={filters.to}
           onChange={(event) => setFilters({ ...filters, to: event.target.value })}
         />

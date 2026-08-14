@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, EmptyState, Skeleton, SurfaceCard } from '../components/ui';
+import { Button, EmptyState, SurfaceCard } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { getVenueDetail, type VenueDetail } from '../lib/venueBookingApi';
 
@@ -18,19 +19,6 @@ function textList(value: unknown): string[] {
 
 function BookVenueButton({ venueId, className = '' }: { venueId: string; className?: string }) {
   return <Link to={`/booking?venueId=${encodeURIComponent(venueId)}`} className={`inline-flex items-center justify-center rounded-full bg-brand-yellow px-6 py-3 text-sm font-bold uppercase tracking-[.04em] text-brand-navy transition duration-150 hover:-translate-y-px hover:bg-brand-yellow-hover ${className}`}>Đặt sân</Link>;
-}
-
-function VenueDetailSkeleton() {
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]" aria-live="polite">
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-5 w-1/2" />
-        <SurfaceCard className="space-y-4"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-16 w-full" /></SurfaceCard>
-      </div>
-      <SurfaceCard className="space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-5 w-2/3" /></SurfaceCard>
-    </div>
-  );
 }
 
 export function VenueDetailPage() {
@@ -72,7 +60,7 @@ export function VenueDetailPage() {
   const retry = () => setReloadKey((value) => value + 1);
 
   if (loading) {
-    return <main className="min-h-screen bg-canvas py-8 sm:py-10"><div className="page-container"><VenueDetailSkeleton /></div></main>;
+    return <main className="min-h-screen bg-canvas py-8 sm:py-10"><div className="page-container"><RouteState variant="loading" title="Đang tải thông tin cơ sở" /></div></main>;
   }
 
   if (loadError !== null && isNotFound(loadError)) {
@@ -86,7 +74,7 @@ export function VenueDetailPage() {
   if (loadError) {
     return (
       <main className="min-h-screen bg-canvas py-8 sm:py-10"><div className="page-container">
-        <SurfaceCard><p role="alert" className="text-sm text-danger">{loadError}</p><Button tone="secondary" className="mt-4" onClick={retry}>Thử lại</Button></SurfaceCard>
+        <RouteState variant="error" title="Không thể tải cơ sở" description={loadError} onRetry={retry} />
       </div></main>
     );
   }

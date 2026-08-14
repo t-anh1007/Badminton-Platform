@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, EmptyState, Modal, SelectInput, Skeleton, SurfaceCard, Toast } from '../components/ui';
+import { Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import {
   approveMatchJoin,
   cancelMatch,
@@ -177,21 +178,10 @@ export function MatchDetailPage() {
     return (
       <div className="page-container py-8">
         <h1 className="text-h1">Chi tiết kèo</h1>
-        <p className="mt-2 text-sm text-ink-500">Đang tải trạng thái tham gia</p>
-        {error ? (
-          <div className="mt-6">
-            <EmptyState
-              title="Không thể mở kèo"
-              description={error}
-              action={<Button onClick={() => void load()}>Thử lại</Button>}
-            />
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-            <Skeleton className="h-96" />
-            <Skeleton className="h-72" />
-          </div>
-        )}
+        <div className="mt-6">{error
+          ? <RouteState variant="error" title="Không thể mở kèo" description={error} onRetry={() => void load()} />
+          : <RouteState variant="loading" title="Đang tải trạng thái tham gia" />}
+        </div>
       </div>
     );
   const join = detail.actions.ownJoin;

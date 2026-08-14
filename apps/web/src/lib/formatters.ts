@@ -48,3 +48,12 @@ export function formatDuration(minutes: number) {
   if (remainder === 0) return `${hours} giờ`
   return `${hours} giờ ${remainder} phút`
 }
+
+export function parseDateFieldVi(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim())
+  if (!match) return null
+  const [, day, month, year] = match
+  const date = new Date(`${year}-${month}-${day}T00:00:00.000Z`)
+  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() + 1 !== Number(month) || date.getUTCDate() !== Number(day)) return null
+  return `${year}-${month}-${day}`
+}

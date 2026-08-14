@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Avatar, Badge, Button, EmptyState, Modal, SelectInput, Skeleton, SurfaceCard, Toast } from '../components/ui';
+import { Avatar, Badge, Button, EmptyState, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { MetricCard } from '../components/courtin/MetricCard';
 import type { SkillTier } from '../lib/matchApi';
@@ -85,18 +86,14 @@ export function PassportPage() {
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
       <PageHeader eyebrow="Hồ sơ thi đấu" title="Hồ sơ trình độ" description="Rating có độ bất định — không phải bảng xếp hạng." actions={isOwner ? <Button disabled={Boolean(own && !own.canDeclareTier)} onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined} />
       {loading ? (
-        <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
-          <div>
-            <p className="mb-2 text-sm text-ink-500">Đang xác định trình độ</p>
-            <Skeleton className="h-64" />
-          </div>
-          <Skeleton className="h-64" />
-        </div>
+        <div className="mt-6"><RouteState variant="loading" title="Đang tải hồ sơ trình độ" /></div>
       ) : error || !passport ? (
         <div className="mt-6">
-          <EmptyState
+          <RouteState
+            variant="error"
             title="Chưa thể mở hồ sơ trình độ"
             description={error || 'Hồ sơ trình độ chưa tồn tại.'}
+            onRetry={() => void load()}
             action={isOwner ? <Button onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined}
           />
         </div>

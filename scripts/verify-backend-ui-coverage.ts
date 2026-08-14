@@ -271,6 +271,72 @@ function defaultRow(capability: DiscoveredCapability, eventAllowlist: EventAllow
   }
 }
 
+function finalSurface(capability: DiscoveredCapability): string {
+  if (capability.classification === 'ops') return 'admin:system-health'
+  if (capability.kind === 'event') return 'indirect:domain-events'
+  if (capability.kind === 'socket') return 'player:quick-match'
+  if (capability.access === 'internal') return `indirect:${capability.service}`
+  const path = capability.pathOrName
+  if (capability.service === 'account-service') {
+    if (path.startsWith('/admin/')) return 'admin:accounts'
+    if (path.startsWith('/auth/')) return 'player:authentication'
+    return 'player:profile'
+  }
+  if (capability.service === 'venue-booking-service') {
+    if (path.startsWith('/admin/')) return 'admin:bookings'
+    if (path.includes('/providers/:providerId/') || path.endsWith('/approve') || path.endsWith('/reject')) return 'admin:providers'
+    if (path === '/providers' || path === '/providers/me') return 'player:provider-onboarding'
+    if (path.startsWith('/providers/me/') || path.startsWith('/internal-bookings') || path.startsWith('/replacements') || path.includes('cancel-provider')) return 'provider:workspace'
+    if ((path.startsWith('/venues') || path.startsWith('/courts')) && capability.methodOrEvent !== 'GET') return 'provider:workspace'
+    return path.startsWith('/bookings') || path.startsWith('/holds') || path.startsWith('/courts') ? 'player:booking' : 'player:venues'
+  }
+  if (capability.service === 'finance-service') {
+    if (path.startsWith('/admin/')) return 'admin:finance'
+    if (path.startsWith('/providers/')) return 'provider:finance'
+    if (path.startsWith('/disputes')) return 'player:disputes'
+    if (path.startsWith('/wallet')) return 'player:wallet'
+    return 'player:payment-terminal'
+  }
+  if (capability.service === 'matchmaking-service') {
+    if (path.startsWith('/admin/') || path.includes('/admin/evaluations') || path.endsWith('/review')) return 'admin:evaluations'
+    if (path.includes('/passport') || path.includes('/evaluations')) return 'player:passport'
+    return 'player:matches'
+  }
+  if (capability.service === 'community-service') {
+    if (path.startsWith('/admin/')) return path.includes('/tickets') ? 'admin:tickets' : 'admin:moderation'
+    if (path.endsWith('/status')) return 'admin:tickets'
+    if (path.startsWith('/tickets')) return 'player:support'
+    return 'player:community'
+  }
+  return `player:${capability.service}`
+}
+
+function finalEvidence(capability: DiscoveredCapability, surfaceId: string): string {
+  if (capability.classification === 'ops') return 'browser:admin-system-health'
+  if (capability.kind === 'event' || capability.access === 'internal' || capability.access === 'webhook') return `browser:${surfaceId.replace(':', '-')}`
+  if (surfaceId.startsWith('admin:')) return surfaceId === 'admin:system-health' ? 'browser:admin-system-health' : 'test:web-admin-operations'
+  if (surfaceId.startsWith('provider:')) return 'test:web-provider-operations'
+  if (capability.service === 'matchmaking-service' || capability.kind === 'socket') return 'test:web-match-community-support'
+  if (capability.service === 'community-service') return 'test:web-match-community-support'
+  return 'test:web-account-venue-finance'
+}
+
+function finalizeRow(capability: DiscoveredCapability, old: CapabilityManifestRow | undefined, eventAllowlist: EventAllowlist): CapabilityManifestRow {
+  const base = old ? { ...old, ...capability, classification: old.classification } : defaultRow(capability, eventAllowlist)
+  if (capability.kind === 'event') {
+    const event = eventAllowlist.events.find((entry) => entry.name === capability.pathOrName)
+    if (!event) throw new Error(`Missing event metadata for ${capability.pathOrName}`)
+    return { ...base, ...event, classification: 'indirect' }
+  }
+  const classification: CapabilityClassification = capability.classification === 'ops'
+    ? 'ops'
+    : capability.classification === 'indirect' || capability.access === 'internal' || capability.access === 'webhook' || capability.kind === 'event'
+      ? 'indirect'
+      : 'direct'
+  const surfaceId = finalSurface(capability)
+  return { ...base, classification, surfaceId, task: defaultTask(capability), evidenceId: finalEvidence(capability, surfaceId) }
+}
+
 export function validateManifest(
   discovered: DiscoveredCapability[],
   manifest: CapabilityManifest,
@@ -299,7 +365,7 @@ export function validateManifest(
       || source.methodOrEvent !== row.methodOrEvent
       || source.pathOrName !== row.pathOrName
       || source.access !== row.access
-      || source.classification !== row.classification
+      || (source.classification !== 'planned' && source.classification !== row.classification)
       || source.source !== row.source
     )) reasons.push('source identity drift')
     if (reasons.length > 0) invalid.push({ row, reasons })
@@ -323,10 +389,12 @@ function runCli() {
       ? JSON.parse(readFileSync(manifestPath, 'utf8')) as CapabilityManifest
       : { version: 2, capabilities: [] }
     const existingById = new Map(existing.capabilities.map((row) => [row.id, row]))
+    const finalize = process.argv.includes('--finalize')
     const capabilities = discovered.map((capability) => {
       const old = existingById.get(capability.id)
+      if (finalize) return finalizeRow(capability, old, allowlist)
       return old && old.methodOrEvent && old.pathOrName && old.access && old.task
-        ? { ...old, ...capability }
+        ? { ...old, ...capability, classification: old.classification }
         : defaultRow(capability, allowlist)
     })
     writeFileSync(manifestPath, `${JSON.stringify({ version: 2, capabilities }, null, 2)}\n`)

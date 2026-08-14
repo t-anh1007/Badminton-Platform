@@ -3,6 +3,7 @@ import { Button, TextInput } from './ui';
 import { MetricCard } from './courtin/MetricCard';
 import { OperationsTable } from './courtin/OperationsTable';
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWallets, getMyWithdrawals, type RevenueRow, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
+import { parseDateFieldVi } from '../lib/formatters.js';
 
 const money = (value: bigint | string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
 
@@ -14,15 +15,20 @@ export function FinancePanel() {
   const [filters, setFilters] = useState({ venueId: '', from: '', to: '' });
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ amount: '100000', bankCode: '', bankAccountNumber: '', bankAccountName: '' });
-  const reload = () => getMyWallets().then(async (wallets) => {
+  const reload = () => {
+    const from = filters.from ? parseDateFieldVi(filters.from) : undefined;
+    const to = filters.to ? parseDateFieldVi(filters.to) : undefined;
+    if ((filters.from && !from) || (filters.to && !to)) { setMessage('Ngày phải theo định dạng dd/MM/yyyy.'); return Promise.resolve(); }
+    return getMyWallets().then(async (wallets) => {
     const business = wallets.find((wallet) => wallet.walletType === 'business') ?? null;
     setBusinessWallet(business);
     if (!business) { setRows([]); setWithdrawals([]); setLoaded(true); return; }
-    const [nextRows, nextWithdrawals] = await Promise.all([getMyRevenue(filters), getMyWithdrawals()]);
+    const [nextRows, nextWithdrawals] = await Promise.all([getMyRevenue({ ...filters, from: from ?? '', to: to ?? '' }), getMyWithdrawals()]);
     setRows(nextRows);
     setWithdrawals(nextWithdrawals);
     setLoaded(true);
-  }).catch((error: Error) => { setLoaded(true); setMessage(error.message); });
+    }).catch((error: Error) => { setLoaded(true); setMessage(error.message); });
+  };
   useEffect(() => { reload(); }, []);
 
   async function submit(event: React.FormEvent) {
@@ -43,8 +49,8 @@ export function FinancePanel() {
       <div className="mt-4">
         <form className="mb-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); reload(); }}>
           <TextInput aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })} placeholder="Venue ID" />
-          <TextInput aria-label="Từ ngày" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
-          <TextInput aria-label="Đến ngày" type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+          <TextInput aria-label="Từ ngày" inputMode="numeric" placeholder="dd/MM/yyyy" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+          <TextInput aria-label="Đến ngày" inputMode="numeric" placeholder="dd/MM/yyyy" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
           <Button type="submit" size="sm">Lọc doanh thu</Button>
         </form>
         <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingId}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : new Date(row.releaseAt).toLocaleString('vi-VN')}</td></tr>)}</OperationsTable>

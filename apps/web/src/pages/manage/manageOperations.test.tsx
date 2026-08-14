@@ -32,7 +32,7 @@ it('loads replacement choices and requires a provider-fault reason before cancel
 })
 it('filters revenue and validates/cancels provider withdrawals', async () => {
   render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ:/)
-  fireEvent.change(screen.getByLabelText('Lọc venue'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
+  fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
   for (const [label, value] of [['amount','100'],['bankCode','VCB'],['bankAccountNumber','123'],['bankAccountName','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } }); const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1)); fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
 })

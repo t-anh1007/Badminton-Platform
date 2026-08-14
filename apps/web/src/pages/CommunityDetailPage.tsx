@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Avatar, Badge, Button, EmptyState, Modal, Skeleton, SurfaceCard, TextArea, Toast } from '../components/ui';
+import { Avatar, Badge, Button, Modal, SurfaceCard, TextArea, Toast } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
 import {
   createCommunityComment,
@@ -184,22 +185,18 @@ export function CommunityDetailPage() {
   if (loading)
     return (
       <div className="page-container py-8 sm:py-10">
-        <p className="courtin-kicker">Cộng đồng</p>
-        <h1 className="mt-1 text-h1">Chi tiết bài viết</h1>
-        <Skeleton className="mt-5 h-64" />
-        <section className="mt-5" aria-label="Bình luận">
-          <h2 className="text-h2">Bình luận</h2>
-          <Skeleton className="mt-4 h-44" />
-        </section>
+        <RouteState variant="loading" title="Đang tải bài viết và bình luận" />
       </div>
     );
 
   if (error || !post)
     return (
       <div className="page-container py-8 sm:py-10">
-        <EmptyState
+        <RouteState
+          variant="error"
           title="Không thể mở bài viết"
           description={error || 'Bài viết không còn công khai hoặc không tồn tại.'}
+          onRetry={() => void load()}
           action={<Button onClick={() => navigate('/community')}>Về bảng tin</Button>}
         />
       </div>

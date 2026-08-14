@@ -12,6 +12,7 @@ import {
   TextArea,
   Toast,
 } from '../components/ui';
+import { RouteState } from '../components/RouteState.js';
 import {
   createCommunityReport,
   editCommunityPost,
@@ -412,20 +413,9 @@ export function CommunityPage() {
             )}
           </SurfaceCard>
 
-          {error && (
-            <div className="rounded-xl border border-danger bg-danger-bg p-4 text-sm text-danger">
-              {error}{' '}
-              <button className="font-semibold underline" onClick={() => void loadFeed()}>
-                Thử lại
-              </button>
-            </div>
-          )}
+          {error && <RouteState variant="error" title="Không thể tải bảng tin" description={error} onRetry={() => void loadFeed()} />}
           {loading ? (
-            <div className="space-y-4">
-              {[0, 1, 2].map((item) => (
-                <Skeleton key={item} className="h-52" />
-              ))}
-            </div>
+            <RouteState variant="loading" title="Đang tải bảng tin cộng đồng" />
           ) : posts.length === 0 ? (
             <EmptyState
               title="Chưa có bài viết, hãy là người đầu tiên"
