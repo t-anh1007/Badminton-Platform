@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
+import { RoleGuard } from './routing/RoleGuard';
 import { AppLayout } from './layout/AppLayout';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
@@ -17,16 +18,6 @@ import { SupportPage } from './pages/SupportPage';
 import { AssistantPage } from './pages/AssistantPage';
 
 function App() {
-  const roles = (() => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      return token
-        ? (JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).roles as string[])
-        : [];
-    } catch {
-      return [];
-    }
-  })();
   return (
     <BrowserRouter>
       <Routes>
@@ -47,7 +38,8 @@ function App() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/admin" element={roles.includes('admin') ? <AdminPage /> : <Navigate to="/" replace />} />
+          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<HomePage />} /></Route>
+          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminPage />} /></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
