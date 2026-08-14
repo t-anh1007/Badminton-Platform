@@ -35,4 +35,20 @@ describe('SessionProvider', () => {
     await act(() => result.current.refresh())
     expect(result.current.session?.roles).toEqual(['player', 'provider'])
   })
+
+  it('attempts server logout before clearing the local session', async () => {
+    let resolveLogout!: () => void
+    vi.mocked(logout).mockImplementation(() => new Promise((resolve) => { resolveLogout = () => resolve({ message: 'ok' }) }))
+    const { result } = renderHook(() => useSession(), { wrapper: SessionProvider })
+    act(() => result.current.establish({ accessToken: token('p1'), refreshToken: 'refresh-token', roles: ['player'] }))
+
+    let pending!: Promise<void>
+    act(() => { pending = result.current.logout() })
+    expect(logout).toHaveBeenCalledWith('refresh-token')
+    expect(result.current.session?.userId).toBe('p1')
+
+    await act(async () => { resolveLogout(); await pending })
+    expect(result.current.session).toBeNull()
+    expect(localStorage.getItem('courtin.session')).toBeNull()
+  })
 })

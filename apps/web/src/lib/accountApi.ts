@@ -43,7 +43,7 @@ export const resetPassword = (body: { token: string; newPassword: string }) =>
 export const changePassword = (body: { currentPassword: string; newPassword: string; currentRefreshToken?: string }) =>
   api<{ message: string }>('/auth/password/change', { method: 'POST', body: JSON.stringify(body) });
 export const getMyProfile = () => api<ProfileResult>('/profile/me');
-export const updateMyProfile = (body: { displayName: string; phone: string; visibility: 'public' | 'private' }) =>
+export const updateMyProfile = (body: { displayName: string; avatarUrl?: string; phone: string; visibility: 'public' | 'private' }) =>
   api<ProfileResult['playerProfile']>('/profile/me', { method: 'PATCH', body: JSON.stringify(body) });
 export const getAdminAccounts = (filters: { query?: string; status?: string } = {}) => {
   const query = new URLSearchParams(Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])));

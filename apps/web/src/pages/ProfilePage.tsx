@@ -8,6 +8,8 @@ import { MetricCard } from '../components/courtin/MetricCard';
 import { changePassword, getMyProfile, updateMyProfile, type ProfileResult } from '../lib/accountApi';
 import { createTopupIntent, getMyWallets, getWalletLedger, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
 import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
+import { RoleBadge } from '../components/RoleBadge';
+import type { UserRole } from '../session/session';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
@@ -28,7 +30,7 @@ export function ProfilePage() {
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState('100000');
   const [topupIntent, setTopupIntent] = useState<{ matchCode: string; amount: string } | null>(null);
-  const [form, setForm] = useState({ displayName: '', phone: '', visibility: 'public' as 'public' | 'private' });
+  const [form, setForm] = useState({ displayName: '', avatarUrl: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function ProfilePage() {
         setPast(nextPast);
         setForm({
           displayName: nextProfile.playerProfile?.displayName ?? '',
+          avatarUrl: nextProfile.playerProfile?.avatarUrl ?? '',
           phone: nextProfile.phone ?? '',
           visibility: nextProfile.playerProfile?.visibility ?? 'public',
         });
@@ -105,9 +108,10 @@ export function ProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <SurfaceCard>
-            <Avatar label={profile?.playerProfile?.displayName ?? 'N'} className="h-16 w-16 text-xl" />
+            {profile?.playerProfile?.avatarUrl ? <img src={profile.playerProfile.avatarUrl} alt="Ảnh đại diện tài khoản" className="h-16 w-16 rounded-full object-cover" /> : <Avatar label={profile?.playerProfile?.displayName ?? 'N'} className="h-16 w-16 text-xl" />}
             <h1 className="mt-4 text-h2">Hồ sơ của tôi</h1>
             <p className="mt-1 text-sm text-ink-500">{profile?.email}</p>
+            <div className="mt-3 flex flex-wrap gap-2" aria-label="Vai trò tài khoản">{profile?.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin').map((role) => <RoleBadge key={role} role={role} />)}</div>
             <div className="mt-5 space-y-3 border-y border-line py-4 text-sm">
               <p><span className="text-ink-500">Số booking</span><strong className="float-right text-figures">{upcoming.length + past.length}</strong></p>
               <p><span className="text-ink-500">Trình độ</span><span className="float-right">Chưa cập nhật</span></p>
@@ -147,6 +151,7 @@ export function ProfilePage() {
       <Modal open={editOpen} title="Cập nhật thông tin" onClose={() => setEditOpen(false)}>
         <form onSubmit={save} className="grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium">Tên hiển thị<TextInput required value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>
+          <label className="grid gap-1.5 text-sm font-medium">URL ảnh đại diện<TextInput type="url" value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://…" /></label>
           <label className="grid gap-1.5 text-sm font-medium">Số điện thoại<TextInput value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
           <label className="grid gap-1.5 text-sm font-medium">Hiển thị<SelectInput value={form.visibility} onChange={(event) => setForm({ ...form, visibility: event.target.value as 'public' | 'private' })}><option value="public">Công khai</option><option value="private">Riêng tư</option></SelectInput></label>
           <Button type="submit">Lưu thay đổi</Button>
