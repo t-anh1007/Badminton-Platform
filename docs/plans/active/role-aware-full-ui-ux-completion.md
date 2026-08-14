@@ -499,23 +499,23 @@ git commit -m "feat(booking): select contiguous court slots"
 - Backend booking summary includes `holdExpiresAt`, `terminalStatus`, court/venue display snapshot and never returns a user-facing booking code.
 - Web produces `waitForBookingTerminal(id, { signal, intervalMs: 750, timeoutMs: 15000 })`.
 
-- [ ] **Step 1: Write failing HTTP tests for safe payment/confirmation summary**
+- [x] **Step 1: Write failing HTTP tests for safe payment/confirmation summary**
 
 Assert held booking returns exact `holdExpiresAt`; confirmed/cancelled are terminal; player may only read their own booking; response includes display fields but no public booking UUID label.
 
-- [ ] **Step 2: Verify backend tests fail**
+- [x] **Step 2: Verify backend tests fail**
 
 Run: `npm test -w @khoaluantn/venue-booking-service -- test/bookingHttp.test.ts`
 
-- [ ] **Step 3: Extend the existing DTO without changing booking state transitions**
+- [x] **Step 3: Extend the existing DTO without changing booking state transitions**
 
 Use existing `createHold -> createBookingFromHold -> finance payment -> PaymentCompleted` sequence. The single CTA invokes the first two calls, then stores `{ bookingId, holdExpiresAt }` in route state.
 
-- [ ] **Step 4: Write failing payment component tests**
+- [x] **Step 4: Write failing payment component tests**
 
 Assert payment state disables date/court/slot controls, countdown derives from backend expiry, balance success stops timer, late terminal cancellation shows recovery, and successful polling navigates to `/booking/confirmation`.
 
-- [ ] **Step 5: Implement payment and confirmation UI**
+- [x] **Step 5: Implement payment and confirmation UI**
 
 ```ts
 type PaymentPhase = 'selecting' | 'creating' | 'paying' | 'confirming' | 'confirmed' | 'expired' | 'failed';
@@ -523,7 +523,7 @@ type PaymentPhase = 'selecting' | 'creating' | 'paying' | 'confirming' | 'confir
 
 Do not render `booking.id`. Confirmation actions are `Xem đặt sân của tôi` and `Tìm kèo từ sân này` when the booking state permits it.
 
-- [ ] **Step 6: Run focused proof and commit**
+- [x] **Step 6: Run focused proof and commit**
 
 ```powershell
 npm test -w @khoaluantn/venue-booking-service -- test/bookingHttp.test.ts
@@ -1206,7 +1206,7 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Task 2 — session refresh and role context.
 - [x] Task 3 — role-aware shell.
 - [x] Task 4 — multi-slot booking selection.
-- [ ] Task 5 — payment terminal UX.
+- [x] Task 5 — payment terminal UX.
 - [ ] Task 6 — cancellation and wallet labels.
 - [x] Task 7 — provider onboarding/read models.
 - [ ] Task 8 — provider venue operations.
