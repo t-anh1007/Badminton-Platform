@@ -4,6 +4,7 @@ import { Badge, Button, EmptyState, SelectInput, SurfaceCard, TextInput } from '
 import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
+import { formatMoneyVnd } from '../lib/formatters.js';
 
 type LocationChoice = { id: string; label: string; lat: number; lng: number };
 type SortOrder = 'distance' | 'price' | 'name';
@@ -15,7 +16,6 @@ const CITY_CHOICES: readonly LocationChoice[] = [
 ];
 
 const RADIUS_OPTIONS = [5, 10, 20] as const;
-const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 
 function readCoordinate(value: string | null): number | null {
   if (value === null || value.trim() === '') return null;
@@ -36,7 +36,7 @@ function initialLocation(searchParams: URLSearchParams): LocationChoice {
 function formatLowestPrice(price: string | null): string | null {
   if (price === null) return null;
   const value = Number(price);
-  return Number.isFinite(value) ? currencyFormatter.format(value) : null;
+  return Number.isFinite(value) ? formatMoneyVnd(Math.round(value)) : null;
 }
 
 function errorMessage(error: unknown): string {

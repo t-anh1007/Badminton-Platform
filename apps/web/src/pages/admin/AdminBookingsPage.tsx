@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
 import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
-import { formatDateTimeVi, parseDateFieldVi } from '../../lib/formatters.js'
+import { formatDateTimeVi, formatMoneyVnd, parseDateFieldVi } from '../../lib/formatters.js'
 
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
@@ -91,7 +91,7 @@ export function AdminBookingsPage() {
               <p className="font-bold">{row.court.venue.name} · {row.court.name}</p>
               <p className="mt-1 text-sm text-ink-700">{row.player.label}</p>
               <p className="text-sm text-ink-500">
-                {formatDateTimeVi(row.startAt)} · {Number(row.priceSnapshot).toLocaleString('vi-VN')}đ
+                {formatDateTimeVi(row.startAt)} · {formatMoneyVnd(row.priceSnapshot)}
               </p>
               <Badge>{row.status}</Badge>
             </div>

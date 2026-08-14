@@ -1,4 +1,5 @@
 import type { SelectableSlot } from '../booking/selection.js';
+import { formatMoneyVnd } from '../lib/formatters.js';
 
 export type SlotStatus = 'available' | 'held' | 'booked' | 'unavailable';
 
@@ -45,7 +46,7 @@ export function SlotGrid({ courtName, slots, onSelect }: { courtName: string; sl
           >
             <div className="text-figures text-sm font-medium">{rangeLabel}</div>
             <div className="text-caption !text-inherit">{slot.selected ? 'ĐÃ CHỌN' : STATUS_LABEL[slot.status]}</div>
-            <div className="text-figures text-xs">{slot.price.toLocaleString('vi-VN')}đ</div>
+            <div className="text-figures text-xs">{formatMoneyVnd(slot.price)}</div>
           </button>
           );
         })}

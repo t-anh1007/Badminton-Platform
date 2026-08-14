@@ -15,7 +15,7 @@ import {
 import { RouteState } from '../components/RouteState.js';
 import { createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
-import { formatDateTimeVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -29,7 +29,7 @@ type HydratedMatch = MatchRow & {
   organizer?: { displayName: string; tier: SkillTier | null };
 };
 type MatchSource = ({ kind: 'booking' } & MatchBookingSource) | ({ kind: 'hold' } & MatchHoldSource);
-const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : `${Number(value).toLocaleString('vi-VN')}₫`);
+const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : formatMoneyVnd(value));
 const skillRange = (row: MatchRow) =>
   row.skillMin || row.skillMax
     ? `${row.skillMin ? tierLabels[row.skillMin] : 'Mọi bậc'} – ${row.skillMax ? tierLabels[row.skillMax] : 'Mọi bậc'}`

@@ -20,7 +20,7 @@ import {
   payMatchOrganizerContributionBalance,
   payMatchJoinBalance,
 } from '../lib/financeApi';
-import { formatDateTimeVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -29,7 +29,7 @@ const tierLabels: Record<SkillTier, string> = {
   intermediate_plus: 'Trung bình khá',
   advanced: 'Bán chuyên',
 };
-const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : `${Number(value).toLocaleString('vi-VN')}₫`);
+const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : formatMoneyVnd(value));
 
 export function MatchDetailPage() {
   const { id = '' } = useParams();
@@ -459,7 +459,7 @@ export function MatchDetailPage() {
           <div className="space-y-3">
             <p>Chuyển đúng số tiền và nội dung dưới đây:</p>
             <p className="text-figures text-2xl font-bold text-green-700">
-              {Number(sepay.amount).toLocaleString('vi-VN')}₫
+              {formatMoneyVnd(sepay.amount)}
             </p>
             <div className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"><strong className="text-figures">{sepay.matchCode}</strong><Button size="sm" tone="secondary" onClick={() => void copySepayCode()}>Sao chép mã</Button></div>
             <p className="text-sm text-ink-500">Trạng thái sẽ được cập nhật sau khi webhook ngân hàng được đối soát.</p>

@@ -11,11 +11,11 @@ import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from 
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
 import { RouteState } from '../components/RouteState.js';
-import { formatDateTimeVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
-const money = (value?: string) => `${BigInt(value ?? '0').toLocaleString('vi-VN')}đ`;
+const money = (value?: string) => formatMoneyVnd(value ?? '0');
 
 export function ProfilePage() {
   const [params, setParams] = useSearchParams();

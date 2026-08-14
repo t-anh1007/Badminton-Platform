@@ -11,7 +11,7 @@ beforeEach(() => vi.clearAllMocks())
 
 it('renders the refund preview inside its booking and hides all cancellation actions once cancelled', () => {
   const view = render(<BookingCard booking={booking('1')} preview={50} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
-  expect(screen.getByText('Bạn sẽ được hoàn 50% — 90.000₫.')).toBeInTheDocument()
+  expect(screen.getByText('Bạn sẽ được hoàn 50% — 90.000đ.')).toBeInTheDocument()
   view.rerender(<BookingCard booking={booking('1', 'cancelled')} preview={50} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
   expect(screen.queryByRole('button', { name: /hủy|hoàn/i })).not.toBeInTheDocument()
 })

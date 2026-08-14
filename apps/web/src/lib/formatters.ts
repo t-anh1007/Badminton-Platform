@@ -14,10 +14,7 @@ const timeFormatter = new Intl.DateTimeFormat('vi-VN', {
   hour12: false,
 })
 
-const moneyFormatter = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-})
+const numberFormatter = new Intl.NumberFormat('vi-VN')
 
 function asDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
@@ -34,8 +31,12 @@ export function formatDateTimeVi(value: Date | string) {
   return `${dateFormatter.format(date)} ${timeFormatter.format(date)}`
 }
 
-export function formatMoneyVnd(value: string | bigint) {
-  return moneyFormatter.format(typeof value === 'bigint' ? value : BigInt(value))
+/** Định dạng tiền VND thống nhất toàn app: "180.000đ" — số theo dấu chấm phân
+ * cách nghìn kiểu vi-VN, hậu tố "đ" liền số (quy ước phổ biến trong UI Việt,
+ * không dùng ký hiệu "₫" của Intl để tránh hiển thị lẫn lộn hai kiểu). */
+export function formatMoneyVnd(value: string | bigint | number) {
+  const amount = typeof value === 'bigint' || typeof value === 'number' ? value : BigInt(value)
+  return `${numberFormatter.format(amount)}đ`
 }
 
 export function formatDuration(minutes: number) {

@@ -4,9 +4,9 @@ import {
   type DisputeEligibleRow, type DisputeRow,
 } from '../lib/financeApi';
 import { Button, SelectInput, SurfaceCard, TextArea } from './ui';
-import { formatDateTimeVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
-const money = (value: string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
+const money = formatMoneyVnd;
 
 export function DisputePanel() {
   const [eligible, setEligible] = useState<DisputeEligibleRow[]>([]);

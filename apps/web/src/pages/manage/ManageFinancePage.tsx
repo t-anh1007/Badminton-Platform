@@ -8,10 +8,10 @@ import {
   type RevenueRow,
   type WithdrawalRow,
 } from '../../lib/financeApi'
-import { parseDateFieldVi } from '../../lib/formatters.js'
+import { formatMoneyVnd, parseDateFieldVi } from '../../lib/formatters.js'
 
 const sumNet = (rows: RevenueRow[]) => rows.reduce((total, row) => total + BigInt(row.net), 0n).toString()
-const money = (value: string) => `${Number(value).toLocaleString('vi-VN')}đ`
+const money = formatMoneyVnd
 
 export function ManageFinancePage() {
   const [revenue, setRevenue] = useState<RevenueRow[]>([])

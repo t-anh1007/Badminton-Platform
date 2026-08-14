@@ -3,9 +3,9 @@ import { Button, TextInput } from './ui';
 import { MetricCard } from './courtin/MetricCard';
 import { OperationsTable } from './courtin/OperationsTable';
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWallets, getMyWithdrawals, type RevenueRow, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
-import { formatDateTimeVi, parseDateFieldVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd, parseDateFieldVi } from '../lib/formatters.js';
 
-const money = (value: bigint | string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
+const money = formatMoneyVnd;
 
 export function FinancePanel() {
   const [rows, setRows] = useState<RevenueRow[]>([]);

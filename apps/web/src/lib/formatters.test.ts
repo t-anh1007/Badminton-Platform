@@ -8,7 +8,8 @@ describe('Vietnamese presentation formatters', () => {
   })
 
   it('formats VND and duration from domain values', () => {
-    expect(formatMoneyVnd('180000')).toBe('180.000 ₫')
+    expect(formatMoneyVnd('180000')).toBe('180.000đ')
+    expect(formatMoneyVnd(45000)).toBe('45.000đ')
     expect(formatDuration(90)).toBe('1 giờ 30 phút')
   })
 })

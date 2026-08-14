@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getAdminDisputes, resolveDispute, type DisputeRow } from '../lib/financeApi';
 import { Button, Modal, TextInput } from './ui';
-import { formatDateTimeVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
-const money = (value: string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
+const money = formatMoneyVnd;
 type Decision = 'full_refund' | 'partial_refund' | 'rejected';
 type PendingDecision = { id: string; decision: Decision; amount: string; reason: string };
 
