@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput } from '../../components/ui'
 import { getAdminEvaluations, reviewAdminEvaluation, type AdminEvaluationRow } from '../../lib/matchApi'
+import { formatDateTimeVi } from '../../lib/formatters.js'
 
 const tierLabel: Record<string, string> = {
   newcomer: 'Mới chơi', beginner: 'Cơ bản', intermediate: 'Trung bình', intermediate_plus: 'Khá', advanced: 'Nâng cao',
@@ -50,7 +51,7 @@ export function AdminEvaluationsPage() {
                 <p className="font-bold">{row.rater.label} → {row.ratee.label}</p>
                 <p className="mt-1 text-sm text-ink-500">Mức cảm nhận: {tierLabel[row.perceivedTier ?? ''] ?? 'Chưa xác định'}</p>
                 <p className="text-sm text-ink-500">{reasonLabel[row.flagReason ?? ''] ?? 'Cần Admin xác minh'}</p>
-                <p className="text-caption">Gửi lúc {new Date(row.createdAt).toLocaleString('vi-VN')}</p>
+                <p className="text-caption">Gửi lúc {formatDateTimeVi(row.createdAt)}</p>
               </div>
               <Badge tone={row.reviewStatus === 'pending' ? 'warning' : row.reviewStatus === 'approved' ? 'success' : 'danger'}>{row.reviewStatus === 'pending' ? 'Chờ duyệt' : row.reviewStatus === 'approved' ? 'Đã chấp thuận' : 'Đã từ chối'}</Badge>
             </div>

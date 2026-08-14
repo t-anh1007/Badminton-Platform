@@ -8,6 +8,7 @@ export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export interface CommunityPost {
   id: string;
   authorUserId: string;
+  authorDisplayName?: string | null;
   body: string;
   status: ContentStatus;
   createdAt: string;
@@ -36,6 +37,7 @@ export interface CommunityComment {
   id: string;
   postId: string;
   authorUserId: string;
+  authorDisplayName?: string | null;
   body: string;
   status: ContentStatus;
   createdAt: string;

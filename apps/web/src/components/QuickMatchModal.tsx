@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Button } from './ui'
+import { formatDateTimeVi } from '../lib/formatters.js'
 import type { MatchCourt, MatchVenue } from '../lib/matchApi'
 
 export interface QuickMatchProgress {
@@ -68,7 +69,7 @@ export function QuickMatchModal({
           {proposal ? (
             <div className="rounded-2xl border border-line bg-canvas p-4">
               <p className="font-bold text-brand-navy">{proposal.venue.name} · {proposal.court.name}</p>
-              <p className="mt-1 text-sm text-ink-500">{new Date(proposal.startAt).toLocaleString('vi-VN')} · {Number(proposal.feePerSlot).toLocaleString('vi-VN')}đ/người</p>
+              <p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(proposal.startAt)} · {Number(proposal.feePerSlot).toLocaleString('vi-VN')}đ/người</p>
               <div className="mt-4 flex flex-wrap gap-3"><Button onClick={() => onAccept(proposal.matchId)}>Xác nhận tham gia</Button><Button tone="secondary" onClick={onCancel}>Bỏ qua</Button></div>
             </div>
           ) : <Button className="w-full" tone="secondary" onClick={onCancel}>Dừng tìm</Button>}

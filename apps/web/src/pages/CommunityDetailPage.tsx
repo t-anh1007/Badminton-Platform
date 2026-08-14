@@ -15,15 +15,16 @@ import {
   type ReportTarget,
 } from '../lib/communityApi';
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
+import { formatDateTimeVi } from '../lib/formatters.js';
 
-function userLabel(userId: string) {
-  return userId ? 'Thành viên cộng đồng' : 'Người chơi';
+const formatDate = formatDateTimeVi;
+
+function userLabel(name?: string | null) {
+  return name?.trim() || 'Thành viên cộng đồng';
+}
+function avatarLabel(name?: string | null) {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : 'C';
 }
 
 export function CommunityDetailPage() {
@@ -218,9 +219,9 @@ export function CommunityDetailPage() {
           <div className="p-5 sm:p-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar label={post.authorUserId.slice(0, 1)} className="h-11 w-11" />
+                <Avatar label={avatarLabel(post.authorDisplayName)} className="h-11 w-11" />
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorUserId)}</p>
+                  <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorDisplayName)}</p>
                   <p className="text-caption">
                     {formatDate(post.createdAt)}
                     {post.editedAt ? ' · đã chỉnh sửa' : ''}
@@ -278,7 +279,7 @@ export function CommunityDetailPage() {
             </button>
           ) : (
             <div className="mt-4 flex items-start gap-3">
-              <Avatar label={session.userId.slice(0, 1)} className="mt-1 shrink-0" />
+              <Avatar label={avatarLabel(session.userId)} className="mt-1 shrink-0" />
               <div className="min-w-0 flex-1">
                 <TextArea
                   rows={3}
@@ -308,10 +309,10 @@ export function CommunityDetailPage() {
                 const commentOwner = session?.userId === comment.authorUserId;
                 return (
                   <article key={comment.id} className="flex gap-3 py-5 first:pt-0 last:pb-0">
-                    <Avatar label={comment.authorUserId.slice(0, 1)} className="shrink-0" />
+                    <Avatar label={avatarLabel(comment.authorDisplayName)} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
-                        <p className="text-sm font-semibold">{commentOwner ? 'Bạn' : userLabel(comment.authorUserId)}</p>
+                        <p className="text-sm font-semibold">{commentOwner ? 'Bạn' : userLabel(comment.authorDisplayName)}</p>
                         <p className="text-caption">{formatDate(comment.createdAt)}</p>
                       </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-700">{comment.body}</p>

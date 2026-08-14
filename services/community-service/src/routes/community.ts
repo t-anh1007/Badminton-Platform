@@ -1,6 +1,33 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AccountEligibilityClient } from '../clients/account.js';
+
+interface AuthorLike { authorUserId: string }
+interface PostLike extends AuthorLike { id?: string; comments?: AuthorLike[] }
+
+async function attachDisplayNames<T extends PostLike>(
+  client: AccountEligibilityClient,
+  posts: T[],
+): Promise<Array<T & { authorDisplayName: string | null; comments?: Array<AuthorLike & { authorDisplayName: string | null }> }>> {
+  const ids = new Set<string>();
+  for (const post of posts) {
+    if (post.authorUserId) ids.add(post.authorUserId);
+    for (const comment of post.comments ?? []) if (comment.authorUserId) ids.add(comment.authorUserId);
+  }
+  if (ids.size === 0) return posts as never;
+  let lookup = new Map<string, string | null>();
+  try {
+    const rows = await client.getPublicDisplayNames(Array.from(ids));
+    lookup = new Map(rows.map((row) => [row.userId, row.displayName]));
+  } catch {
+    // Bỏ qua lỗi lookup — vẫn trả về bài viết với displayName=null để UI dùng fallback.
+  }
+  return posts.map((post) => ({
+    ...post,
+    authorDisplayName: lookup.get(post.authorUserId) ?? null,
+    comments: post.comments?.map((comment) => ({ ...comment, authorDisplayName: lookup.get(comment.authorUserId) ?? null })),
+  })) as never;
+}
 import {
   addTicketMessage,
   createComment,
@@ -68,7 +95,8 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     '/posts',
     withErrorHandling(async (req, res) => {
       const { page, pageSize } = pagination.parse(req.query);
-      res.status(200).json({ posts: await listPublishedPosts(page, pageSize) });
+      const posts = await listPublishedPosts(page, pageSize);
+      res.status(200).json({ posts: await attachDisplayNames(accountEligibilityClient, posts) });
     }),
   );
   router.get(
@@ -77,13 +105,16 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requirePlayer,
     withErrorHandling(async (req, res) => {
       const userId = (req as AuthenticatedRequest).user!.id;
-      res.status(200).json({ posts: await listOwnPosts(userId) });
+      const posts = await listOwnPosts(userId);
+      res.status(200).json({ posts: await attachDisplayNames(accountEligibilityClient, posts) });
     }),
   );
   router.get(
     '/posts/:postId',
     withErrorHandling(async (req, res) => {
-      res.status(200).json(await getPublishedPost(uuid.parse(req.params.postId)));
+      const post = await getPublishedPost(uuid.parse(req.params.postId));
+      const [enriched] = await attachDisplayNames(accountEligibilityClient, [post]);
+      res.status(200).json(enriched);
     }),
   );
   router.post(

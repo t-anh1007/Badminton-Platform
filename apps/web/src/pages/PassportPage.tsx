@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, EmptyState, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
+import { formatDateTimeVi } from '../lib/formatters.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { MetricCard } from '../components/courtin/MetricCard';
 import type { SkillTier } from '../lib/matchApi';
@@ -13,7 +14,6 @@ import {
   type OwnPassport,
   type PublicPassport,
 } from '../lib/passportApi';
-import { formatDateTimeVi } from '../lib/formatters';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -113,7 +113,7 @@ export function PassportPage() {
                   </div>
                 </div>
               </div>
-              {own && <p className="text-caption">Cập nhật {new Date(own.updatedAt).toLocaleString('vi-VN')}</p>}
+              {own && <p className="text-caption">Cập nhật {formatDateTimeVi(own.updatedAt)}</p>}
             </div>
           </SurfaceCard>
           {own ? (
@@ -198,7 +198,7 @@ export function PassportPage() {
                           <p className="font-medium">Trận hoàn thành {matchIndex + 1}</p>
                           <p className="text-caption">Đã ghi nhận vào hồ sơ trình độ</p>
                         </div>
-                        <p className="text-sm text-ink-500">{new Date(match.completedAt).toLocaleString('vi-VN')}</p>
+                        <p className="text-sm text-ink-500">{formatDateTimeVi(match.completedAt)}</p>
                       </div>
                       {match.evaluationCandidates.length > 0 && (
                         <div className="mt-3 flex flex-wrap items-center gap-2">

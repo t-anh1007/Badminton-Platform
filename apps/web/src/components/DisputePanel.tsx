@@ -4,6 +4,7 @@ import {
   type DisputeEligibleRow, type DisputeRow,
 } from '../lib/financeApi';
 import { Button, SelectInput, SurfaceCard, TextArea } from './ui';
+import { formatDateTimeVi } from '../lib/formatters.js';
 
 const money = (value: string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
 
@@ -37,7 +38,7 @@ export function DisputePanel() {
       <SurfaceCard><form onSubmit={submit} className="grid gap-3">
         <SelectInput aria-label="Booking cần tranh chấp" value={bookingId} onChange={(event) => setBookingId(event.target.value)} required>
           <option value="">Chọn booking đủ điều kiện</option>
-          {eligible.map((row) => <option key={row.bookingId} value={row.bookingId}>Ca kết thúc {new Date(row.endAt).toLocaleString('vi-VN')} · {money(row.gross)} · hạn {new Date(row.deadlineAt).toLocaleString('vi-VN')}</option>)}
+          {eligible.map((row) => <option key={row.bookingId} value={row.bookingId}>Ca kết thúc {formatDateTimeVi(row.endAt)} · {money(row.gross)} · hạn {formatDateTimeVi(row.deadlineAt)}</option>)}
         </SelectInput>
         <TextArea aria-label="Lý do tranh chấp" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Lý do bắt buộc" required />
         <TextArea aria-label="Bằng chứng" value={evidence} onChange={(event) => setEvidence(event.target.value)} placeholder="Bằng chứng — mỗi URL một dòng" />
@@ -45,7 +46,7 @@ export function DisputePanel() {
       </form></SurfaceCard>
       <h3 className="mt-5 font-semibold">Tranh chấp của tôi</h3>
       <div className="mt-2 space-y-2">{disputes.map((row) => <div key={row.id} className="rounded-xl border border-line bg-surface p-3">
-        <p>Tranh chấp gửi {new Date(row.createdAt).toLocaleString('vi-VN')} · {row.status === 'open' ? 'Đang xử lý' : row.resolution}</p>
+        <p>Tranh chấp gửi {formatDateTimeVi(row.createdAt)} · {row.status === 'open' ? 'Đang xử lý' : row.resolution}</p>
         <p className="text-sm text-ink-900/60">{row.reason}{row.resolutionAmount ? ` · Hoàn ${money(row.resolutionAmount)}` : ''}</p>
       </div>)}</div>
       {message && <p className="mt-3 text-sm" role="status">{message}</p>}

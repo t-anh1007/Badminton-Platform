@@ -20,6 +20,7 @@ import {
   payMatchOrganizerContributionBalance,
   payMatchJoinBalance,
 } from '../lib/financeApi';
+import { formatDateTimeVi } from '../lib/formatters.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -215,7 +216,7 @@ export function MatchDetailPage() {
             <div className="mt-6 grid gap-4 border-y border-line py-5 sm:grid-cols-2">
               <div>
                 <p className="text-caption">Thời gian</p>
-                <p className="mt-1 font-medium">{new Date(detail.startAt).toLocaleString('vi-VN')}</p>
+                <p className="mt-1 font-medium">{formatDateTimeVi(detail.startAt)}</p>
               </div>
               <div>
                 <p className="text-caption">Phí tham gia</p>
@@ -329,7 +330,7 @@ export function MatchDetailPage() {
           </SurfaceCard>
         </aside>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 p-3 shadow-[0_-6px_24px_rgb(20_30_40_/_8%)] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 p-3 pr-24 shadow-[0_-6px_24px_rgb(20_30_40_/_8%)] backdrop-blur sm:pr-28">
         <div className="page-container flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             {detail.actions.isOrganizer ? (

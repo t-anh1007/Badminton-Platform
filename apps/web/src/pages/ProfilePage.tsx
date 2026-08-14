@@ -11,6 +11,7 @@ import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from 
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
 import { RouteState } from '../components/RouteState.js';
+import { formatDateTimeVi } from '../lib/formatters.js';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
@@ -168,7 +169,9 @@ export function ProfilePage() {
             <p className="mt-1 text-sm text-ink-500">{profile?.email}</p>
             <div className="mt-3 flex flex-wrap gap-2" aria-label="Vai trò tài khoản">{profile?.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin').map((role) => <RoleBadge key={role} role={role} />)}</div>
             <div className="mt-5 space-y-3 border-y border-line py-4 text-sm">
-              <p><span className="text-ink-500">Số booking</span><strong className="float-right text-figures">{upcoming.length + past.length}</strong></p>
+              <p><span className="text-ink-500">Sắp tới</span><strong className="float-right text-figures">{upcoming.filter((booking) => booking.status !== 'cancelled').length}</strong></p>
+              <p><span className="text-ink-500">Đã qua</span><strong className="float-right text-figures">{past.filter((booking) => booking.status !== 'cancelled').length}</strong></p>
+              <p><span className="text-ink-500">Đã hủy</span><strong className="float-right text-figures">{cancelledBookings.length}</strong></p>
               <p><span className="text-ink-500">Trình độ</span><span className="float-right">Chưa cập nhật</span></p>
             </div>
             <Button tone="secondary" className="mt-5 w-full" onClick={() => setEditOpen(true)}>Cập nhật thông tin</Button>
@@ -195,7 +198,7 @@ export function ProfilePage() {
             <div className="mt-6">
               <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /></div>
               <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
-              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || new Date(entry.ts).toLocaleString('vi-VN')}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
+              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
             </div>
           )}
 

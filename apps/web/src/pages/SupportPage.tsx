@@ -11,6 +11,7 @@ import {
   Toast,
 } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
+import { formatDateTimeVi } from '../lib/formatters.js';
 import {
   addSupportTicketMessage,
   createSupportTicket,
@@ -52,12 +53,7 @@ const statusMap: Record<
   },
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
+const formatDate = formatDateTimeVi;
 
 export function SupportPage() {
   const session = getCommunitySession();

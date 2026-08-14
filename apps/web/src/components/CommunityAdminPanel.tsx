@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getOpenCommunityReports, moderateCommunityReport, restoreCommunityContent, type CommunityReport } from '../lib/communityAdminApi';
 import { Badge, Button, EmptyState, Modal, TextArea } from './ui';
+import { formatDateTimeVi } from '../lib/formatters.js';
 
 type Pending = {
   report: CommunityReport;
@@ -82,7 +83,7 @@ export function CommunityAdminPanel() {
                     <Badge>{report.targetType}</Badge>
                   </div>
                   <p className="mt-2 font-medium">{report.reason}</p>
-                  <p className="text-caption">{new Date(report.createdAt).toLocaleString('vi-VN')}</p>
+                  <p className="text-caption">{formatDateTimeVi(report.createdAt)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" tone="secondary" onClick={() => requestAction(report, 'dismiss')}>

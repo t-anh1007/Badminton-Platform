@@ -15,6 +15,7 @@ import {
 import { RouteState } from '../components/RouteState.js';
 import { createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
+import { formatDateTimeVi } from '../lib/formatters.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -215,7 +216,7 @@ export function MatchListPage() {
               <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-500">Thời gian</dt>
-                  <dd className="text-right font-medium">{new Date(match.startAt).toLocaleString('vi-VN')}</dd>
+                  <dd className="text-right font-medium">{formatDateTimeVi(match.startAt)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-500">Sân</dt>
@@ -247,7 +248,7 @@ export function MatchListPage() {
               <SelectInput aria-label="Nguồn tạo kèo" className="mt-1" value={sourceKey} onChange={(event) => setSourceKey(event.target.value)}>
                 {matchSources.map((source) => (
                   <option key={`${source.kind}:${source.id}`} value={`${source.kind}:${source.id}`}>
-                    {source.court.venue.name} · {source.court.name} · {new Date(source.startAt).toLocaleString('vi-VN')} · {source.kind === 'hold' ? 'Đang giữ' : 'Chờ thanh toán'}
+                    {source.court.venue.name} · {source.court.name} · {formatDateTimeVi(source.startAt)} · {source.kind === 'hold' ? 'Đang giữ' : 'Chờ thanh toán'}
                   </option>
                 ))}
               </SelectInput>

@@ -101,7 +101,7 @@ export interface MatchBookingSource {
   status: 'held';
   court: MatchSourceCourt;
 }
-export interface ProviderRow { id: string; orgName: string; status: string; }
+export interface ProviderRow { id: string; orgName: string; status: string; userId?: string; contact?: { contact?: string; email?: string; phone?: string } | null; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }

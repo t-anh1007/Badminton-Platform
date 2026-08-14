@@ -50,16 +50,16 @@ const ticketStatus: Record<TicketStatus, { label: string; tone: 'success' | 'war
   closed: { label: 'Đã đóng', tone: 'neutral' },
 };
 
-function shortUser(userId: string) {
-  return userId ? 'Thành viên cộng đồng' : 'Người chơi';
-}
+import { formatDateTimeVi } from '../lib/formatters.js';
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+function authorLabel(name?: string | null) {
+  return name?.trim() || 'Thành viên cộng đồng';
 }
+function avatarLabel(name?: string | null) {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : 'C';
+}
+const formatDate = formatDateTimeVi;
 
 function PostCard({
   post,
@@ -80,9 +80,9 @@ function PostCard({
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar label={post.authorUserId.slice(0, 1)} />
+            <Avatar label={avatarLabel(post.authorDisplayName)} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-900">{shortUser(post.authorUserId)}</p>
+              <p className="truncate text-sm font-semibold text-ink-900">{authorLabel(post.authorDisplayName)}</p>
               <p className="text-caption">
                 {formatDate(post.createdAt)}
                 {post.editedAt ? ' · đã chỉnh sửa' : ''}
@@ -394,7 +394,7 @@ export function CommunityPage() {
                 className="flex w-full items-center gap-3 text-left"
                 onClick={() => requireSession(() => setComposerOpen(true))}
               >
-                <Avatar label={session?.userId.slice(0, 1) ?? 'K'} />
+                <Avatar label={avatarLabel(session?.userId)} />
                 <span className="flex-1 rounded-full bg-canvas px-4 py-3 text-sm text-ink-500 transition hover:bg-green-50 hover:text-green-700">
                   Chia sẻ với cộng đồng...
                 </span>
@@ -402,7 +402,7 @@ export function CommunityPage() {
             ) : (
               <div>
                 <div className="flex items-center gap-3">
-                  <Avatar label={session?.userId.slice(0, 1)} />
+                  <Avatar label={avatarLabel(session?.userId)} />
                   <div>
                     <p className="text-sm font-semibold">Bài viết công khai</p>
                     <p className="text-caption">Mọi người đều có thể xem bài này</p>
@@ -500,7 +500,7 @@ export function CommunityPage() {
         </aside>
       </div>
 
-      <Button className="fixed bottom-5 right-4 z-40 shadow-lg lg:hidden" onClick={() => setSupportOpen(true)}>
+      <Button className="fixed bottom-24 right-4 z-40 shadow-lg lg:hidden" onClick={() => setSupportOpen(true)}>
         Hỗ trợ
       </Button>
 

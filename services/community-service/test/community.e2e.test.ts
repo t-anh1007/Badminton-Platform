@@ -15,6 +15,9 @@ const app = createApp({
     async isVerifiedPlayer(userId: string) {
       return verifiedPlayers.has(userId);
     },
+    async getPublicDisplayNames(userIds: string[]) {
+      return userIds.map((userId) => ({ userId, displayName: null }));
+    },
   },
 });
 
@@ -64,7 +67,10 @@ describe('Task 15 — ảnh bài viết có quyền sở hữu', () => {
     };
     const imageKeys = [0, 1, 2, 3].map((position) => `community/posts/${author.userId}/post-${position}.jpg`);
     const appWithStorage = createApp({
-      accountEligibilityClient: { async isVerifiedPlayer(userId) { return userId === author.userId; } },
+      accountEligibilityClient: {
+        async isVerifiedPlayer(userId) { return userId === author.userId; },
+        async getPublicDisplayNames(userIds) { return userIds.map((userId) => ({ userId, displayName: null })); },
+      },
       objectStorage: storage,
     });
 

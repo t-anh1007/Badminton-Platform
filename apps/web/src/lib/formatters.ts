@@ -7,13 +7,10 @@ const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
   year: 'numeric',
 })
 
-const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
+const timeFormatter = new Intl.DateTimeFormat('vi-VN', {
   timeZone: VIETNAM_TIME_ZONE,
   hour: '2-digit',
   minute: '2-digit',
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
   hour12: false,
 })
 
@@ -33,7 +30,8 @@ export function formatDateVi(value: Date | string) {
 }
 
 export function formatDateTimeVi(value: Date | string) {
-  return dateTimeFormatter.format(asDate(value)).replace(', ', ' ')
+  const date = asDate(value)
+  return `${dateFormatter.format(date)} ${timeFormatter.format(date)}`
 }
 
 export function formatMoneyVnd(value: string | bigint) {

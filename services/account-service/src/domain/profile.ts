@@ -9,6 +9,31 @@ export interface UpdateProfileInput {
   visibility?: 'public' | 'private';
 }
 
+/** Trả về `displayName` + trạng thái hiển thị cho danh sách userId — dùng để enrich
+ * feed cộng đồng, gợi ý kèo, v.v. Không trả lỗi khi thiếu — user không tìm thấy
+ * hoặc riêng tư sẽ có `displayName: null`, caller tự hiển thị fallback. */
+export async function getPublicDisplayNames(userIds: string[]) {
+  if (userIds.length === 0) return [];
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: {
+      id: true,
+      verified: true,
+      status: true,
+      roles: true,
+      playerProfile: { select: { displayName: true, visibility: true } },
+    },
+  });
+  return userIds.map((userId) => {
+    const user = users.find((current) => current.id === userId);
+    if (!user || !user.verified || user.status !== 'active' || !user.playerProfile) {
+      return { userId, displayName: null };
+    }
+    const isPublic = user.playerProfile.visibility === 'public';
+    return { userId, displayName: isPublic ? user.playerProfile.displayName : null };
+  });
+}
+
 export async function getPublicMatchProfile(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

@@ -3,7 +3,7 @@ import { Button, TextInput } from './ui';
 import { MetricCard } from './courtin/MetricCard';
 import { OperationsTable } from './courtin/OperationsTable';
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWallets, getMyWithdrawals, type RevenueRow, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
-import { parseDateFieldVi } from '../lib/formatters.js';
+import { formatDateTimeVi, parseDateFieldVi } from '../lib/formatters.js';
 
 const money = (value: bigint | string) => `${BigInt(value).toLocaleString('vi-VN')}đ`;
 
@@ -53,7 +53,7 @@ export function FinancePanel() {
           <TextInput aria-label="Đến ngày" inputMode="numeric" placeholder="dd/MM/yyyy" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
           <Button type="submit" size="sm">Lọc doanh thu</Button>
         </form>
-        <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingId}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : new Date(row.releaseAt).toLocaleString('vi-VN')}</td></tr>)}</OperationsTable>
+        <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingId}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : formatDateTimeVi(row.releaseAt)}</td></tr>)}</OperationsTable>
       </div>
       <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2">
         <TextInput aria-label="Số tiền rút" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Tối thiểu 100.000đ" />
