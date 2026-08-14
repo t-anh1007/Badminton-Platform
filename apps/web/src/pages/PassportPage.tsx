@@ -12,6 +12,7 @@ import {
   type OwnPassport,
   type PublicPassport,
 } from '../lib/passportApi';
+import { formatDateTimeVi } from '../lib/formatters';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -82,7 +83,7 @@ export function PassportPage() {
   return (
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
-      <PageHeader eyebrow="Hồ sơ thi đấu" title="Player Passport" description="Rating có độ bất định — không phải bảng xếp hạng." actions={isOwner ? <Button onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined} />
+      <PageHeader eyebrow="Hồ sơ thi đấu" title="Hồ sơ trình độ" description="Rating có độ bất định — không phải bảng xếp hạng." actions={isOwner ? <Button disabled={Boolean(own && !own.canDeclareTier)} onClick={() => setDeclareOpen(true)}>Khai báo trình độ</Button> : undefined} />
       {loading ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
           <div>
@@ -151,6 +152,7 @@ export function PassportPage() {
                   </div>
                 )}
               </SurfaceCard>
+              {!own.canDeclareTier && own.nextDeclarationAt && <p className="text-sm text-ink-500">Bạn có thể khai báo lại từ {formatDateTimeVi(own.nextDeclarationAt)}.</p>}
               <SurfaceCard>
                 <div className="flex items-start justify-between gap-3">
                   <div>

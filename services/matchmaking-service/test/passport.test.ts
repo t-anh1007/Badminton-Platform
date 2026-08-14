@@ -94,7 +94,7 @@ describe('MMP-09 — standardized tier declaration', () => {
     expect(response.body.sigma).toBe(0.06);
   });
 
-  it('enforces the approved 30-day re-declaration cooldown', async () => {
+  it('enforces the approved 7-day re-declaration cooldown and returns recovery metadata', async () => {
     const user = newUser();
     await request(app)
       .put('/passports/me/declaration')
@@ -108,10 +108,11 @@ describe('MMP-09 — standardized tier declaration', () => {
       .send({ tier: 'advanced' })
       .expect(409);
 
-    expect(response.body.error.code).toBe('TIER_REDECLARATION_COOLDOWN');
+    expect(response.body.error.code).toBe('LEVEL_DECLARATION_COOLDOWN');
+    expect(response.body.error.details.nextDeclarationAt).toBeTruthy();
   });
 
-  it('accepts exactly at T+30 days and serializes concurrent re-declarations', async () => {
+  it('accepts exactly at T+7 days and serializes concurrent re-declarations', async () => {
     const user = newUser();
     const boundary = new Date('2026-08-08T00:00:00.000Z');
     await prisma.passport.create({
@@ -122,7 +123,7 @@ describe('MMP-09 — standardized tier declaration', () => {
         ratingRd: 100,
         ratingSigma: 0.06,
         matchesPlayed: 5,
-        declaredAt: new Date('2026-07-09T00:00:00.000Z'),
+        declaredAt: new Date('2026-08-01T00:00:00.000Z'),
       },
     });
 

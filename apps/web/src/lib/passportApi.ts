@@ -42,6 +42,8 @@ export interface OwnPassport extends PublicPassport {
     evaluationCandidates: Array<{ userId: string; submitted: boolean }>;
   }>;
   updatedAt: string;
+  nextDeclarationAt: string | null;
+  canDeclareTier: boolean;
 }
 export const getOwnPassport = () => api<OwnPassport>('/passports/me');
 export const getPublicPassport = (userId: string) => api<PublicPassport>(`/passports/${userId}`);

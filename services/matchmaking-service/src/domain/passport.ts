@@ -2,7 +2,6 @@ import type { Prisma, SkillTier } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import {
-  REDECLARATION_DAYS,
   TIER_CENTERS,
   coldStart,
   describeRating,
@@ -11,7 +10,7 @@ import {
   type RatingResult,
 } from './rating.js';
 
-const REDECLARATION_MS = REDECLARATION_DAYS * 24 * 60 * 60 * 1000;
+export const DECLARATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function declareTier(userId: string, tier: SkillTier, now = new Date()) {
   return prisma.$transaction(async (tx) => {
@@ -34,10 +33,10 @@ export async function declareTier(userId: string, tier: SkillTier, now = new Dat
     }
 
     if (existing.declaredAt) {
-      const nextAllowedAt = new Date(existing.declaredAt.getTime() + REDECLARATION_MS);
+      const nextAllowedAt = new Date(existing.declaredAt.getTime() + DECLARATION_COOLDOWN_MS);
       if (now < nextAllowedAt) {
-        throw new AppError(409, 'TIER_REDECLARATION_COOLDOWN', 'Chỉ được khai lại bậc mỗi 30 ngày.', {
-          nextAllowedAt: nextAllowedAt.toISOString(),
+        throw new AppError(409, 'LEVEL_DECLARATION_COOLDOWN', 'Chỉ được khai lại trình độ mỗi 7 ngày.', {
+          nextDeclarationAt: nextAllowedAt.toISOString(),
         });
       }
     }
@@ -131,7 +130,7 @@ async function findRecentCompletedMatches(userId: string) {
   });
 }
 
-export async function getOwnPassport(userId: string) {
+export async function getOwnPassport(userId: string, now = new Date()) {
   const [passport, countedEvaluations, flaggedEvaluationCount] = await Promise.all([
     prisma.passport.findUnique({ where: { userId } }),
     prisma.evaluation.findMany({
@@ -167,6 +166,8 @@ export async function getOwnPassport(userId: string) {
     flaggedEvaluationCount,
     recentMatches: await findRecentCompletedMatches(userId),
     updatedAt: passport.updatedAt,
+    nextDeclarationAt: passport.declaredAt ? new Date(passport.declaredAt.getTime() + DECLARATION_COOLDOWN_MS).toISOString() : null,
+    canDeclareTier: !passport.declaredAt || now.getTime() >= passport.declaredAt.getTime() + DECLARATION_COOLDOWN_MS,
   };
 }
 
