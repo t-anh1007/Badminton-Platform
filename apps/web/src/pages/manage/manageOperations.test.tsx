@@ -2,6 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { ManageCalendarPage } from './ManageCalendarPage.js'
 import { ManageIncidentsPage } from './ManageIncidentsPage.js'
+import { ManageFinancePage } from './ManageFinancePage.js'
+import { cancelMyWithdrawal, createWithdrawal, getMyRevenue } from '../../lib/financeApi.js'
+vi.mock('../../lib/financeApi.js', () => ({ getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'b', venueId: 'v1', gross: '100', net: '90', commission: '10', releaseAt: '', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', amount: '50', status: 'pending' }]), createWithdrawal: vi.fn().mockResolvedValue({}), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
 import { cancelInternalBooking, createInternalBooking, getMyManagedVenues, getVenueCalendar } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
@@ -26,4 +29,10 @@ it('loads replacement choices and requires a provider-fault reason before cancel
   expect(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })).toBeDisabled()
   fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
   fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
+})
+it('filters revenue and validates/cancels provider withdrawals', async () => {
+  render(<ManageFinancePage />); await screen.findByText(/Pending:/)
+  fireEvent.change(screen.getByLabelText('Lọc venue'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
+  for (const [label, value] of [['amount','100'],['bankCode','VCB'],['bankAccountNumber','123'],['bankAccountName','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } }); const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1)); fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
 })
