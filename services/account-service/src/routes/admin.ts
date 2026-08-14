@@ -5,7 +5,9 @@ import { listAdminAccounts, lockAccount, unlockAccount } from '../domain/adminAc
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 
 export const adminRouter = Router();
-adminRouter.get('/users', requireAuth, requireRole('admin'), h(async (req, res) => res.json(await listAdminAccounts(z.object({ query: z.string().optional(), status: z.enum(['active', 'locked']).optional() }).parse(req.query)))));
+adminRouter.get('/users', requireAuth, requireRole('admin'), h(async (req, res) => {
+  res.json(await listAdminAccounts(z.object({ query: z.string().optional(), status: z.enum(['active', 'locked']).optional() }).parse(req.query)));
+}));
 
 const reasonSchema = z.object({ reason: z.string() });
 
