@@ -126,3 +126,49 @@ export function askSupportAssistant(question: string) {
     body: JSON.stringify({ question }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Điểm ghép API trợ lý (bong bóng chat CSKH).
+// Hiện dùng backend sẵn có: hỏi chính sách/dữ liệu (askSupportAssistant) và
+// gợi ý kèo F-02 (chatAiMatchSuggestions). Khi có API AI real-time mới, chỉ cần
+// thay phần thân hai hàm dưới — component `AssistantBubble` không phải sửa.
+// ---------------------------------------------------------------------------
+export type AssistantReplyKind = 'support' | 'match';
+
+export interface AssistantReply {
+  kind: AssistantReplyKind;
+  answer: string;
+  fallback: boolean;
+  sources?: AssistantSource[];
+  actionPath?: string;
+  suggestions?: AiMatchSuggestion[];
+}
+
+function standardSupportActionPath(path?: string): string | undefined {
+  if (path === '/players/me/bookings') return '/profile?tab=bookings';
+  return path && path.startsWith('/') ? path : undefined;
+}
+
+/** Câu hỏi chính sách / dữ liệu của chính người dùng. */
+export async function sendSupportMessage(question: string): Promise<AssistantReply> {
+  const reply = await askSupportAssistant(question);
+  return {
+    kind: 'support',
+    answer: reply.answer,
+    fallback: reply.source === 'fallback',
+    sources: reply.sources,
+    actionPath: standardSupportActionPath(reply.actionPath),
+  };
+}
+
+/** Gợi ý kèo phù hợp (F-02) — trả kèm thẻ kèo. */
+export async function sendMatchSuggestionMessage(message: string): Promise<AssistantReply> {
+  const reply = await chatAiMatchSuggestions(message);
+  return {
+    kind: 'match',
+    answer: reply.answer,
+    fallback: reply.suggestions.some((item) => item.source === 'fallback') && reply.suggestions.length === 0,
+    actionPath: reply.actionPath,
+    suggestions: reply.suggestions,
+  };
+}

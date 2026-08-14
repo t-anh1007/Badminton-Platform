@@ -50,7 +50,13 @@ export interface VenueDetail {
   lng: number;
   amenities: unknown;
   images: unknown;
-  courts: Array<{ id: string; name: string }>;
+  courts: Array<{ id: string; name: string; bookingRule: CourtBookingRule | null }>;
+}
+
+export interface CourtBookingRule {
+  stepMinutes: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
 }
 
 export interface AvailabilitySlot {

@@ -74,7 +74,10 @@ export function BookingPage() {
   const [dateField, setDateField] = useState(() => formatDateField(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)))
 
   const step = booking ? 3 : hold ? 2 : 1
-  const selectedCourtName = detail?.courts.find((court) => court.id === courtId)?.name ?? 'Sân'
+  const selectedCourt = detail?.courts.find((court) => court.id === courtId)
+  const selectedCourtName = selectedCourt?.name ?? 'Sân'
+  const bookingRule = selectedCourt?.bookingRule ?? null
+  const meetsMinDuration = !bookingRule || !selection || selection.durationMinutes >= bookingRule.minDurationMinutes
 
   const clearFlow = () => {
     setSelection(null)
@@ -166,6 +169,21 @@ export function BookingPage() {
       setMessage('Đã bỏ chọn khung giờ.')
       return
     }
+    // BR-VEN-10: quá thời lượng tối đa — chặn tại client, giữ lựa chọn hiện tại.
+    if (bookingRule && proposed.durationMinutes > bookingRule.maxDurationMinutes) {
+      setMessage(`Mỗi lượt đặt tối đa ${bookingRule.maxDurationMinutes} phút. Hãy bỏ bớt một khung giờ.`)
+      return
+    }
+    // Chưa đạt thời lượng tối thiểu — hiển thị tạm bằng giá tính phía client,
+    // chưa gọi select-slot (server sẽ báo INVALID_DURATION nếu gọi sớm).
+    if (bookingRule && proposed.durationMinutes < bookingRule.minDurationMinutes) {
+      setSelection(proposed)
+      setHold(null)
+      setBooking(null)
+      const missingSlots = Math.ceil((bookingRule.minDurationMinutes - proposed.durationMinutes) / bookingRule.stepMinutes)
+      setMessage(`Chọn thêm ${missingSlots} khung giờ liền nhau (tối thiểu ${bookingRule.minDurationMinutes} phút) để tiếp tục.`)
+      return
+    }
     void run(async () => {
       const validated = await selectSlot(proposed.courtId, { startAt: proposed.startAt, durationMinutes: proposed.durationMinutes })
       setSelection({ ...proposed, startAt: validated.startAt, endAt: validated.endAt, durationMinutes: validated.durationMinutes, totalPrice: validated.totalPrice })
@@ -252,7 +270,9 @@ export function BookingPage() {
           <SurfaceCard>
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
-            {selection && !booking && <Button className="mt-5 w-full" disabled={loading} onClick={() => void confirm()}>XÁC NHẬN</Button>}
+            {selection && !booking && (meetsMinDuration
+              ? <Button className="mt-5 w-full" disabled={loading} onClick={() => void confirm()}>XÁC NHẬN</Button>
+              : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
