@@ -159,6 +159,11 @@ describe('MMP-09 — standardized tier declaration', () => {
 });
 
 describe('MMP-11 — Player Passport views', () => {
+  it('uses the Vietnamese product name when a profile does not exist', async () => {
+    const response = await request(app).get(`/passports/${randomUUID()}`).expect(404);
+    expect(response.body.error.message).toBe('Hồ sơ trình độ chưa tồn tại.');
+  });
+
   it('AC-MMP-11-1: owner sees rating, uncertainty and five completed matches', async () => {
     const user = newUser();
     await prisma.passport.create({

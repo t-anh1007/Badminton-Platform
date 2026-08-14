@@ -71,7 +71,7 @@ export async function applyRatingPeriodInTransaction(
   }
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))`;
   const current = await tx.passport.findUnique({ where: { userId } });
-  if (!current) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Player Passport chưa tồn tại.');
+  if (!current) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Hồ sơ trình độ chưa tồn tại.');
   const next = updateRating(
     {
       rating: current.ratingMu,
@@ -146,7 +146,7 @@ export async function getOwnPassport(userId: string, now = new Date()) {
       where: { rateeUserId: userId, flagged: true, reviewStatus: 'pending' },
     }),
   ]);
-  if (!passport) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Player Passport chưa tồn tại.');
+  if (!passport) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Hồ sơ trình độ chưa tồn tại.');
   const evaluationScore =
     countedEvaluations.length === 0
       ? null
@@ -173,7 +173,7 @@ export async function getOwnPassport(userId: string, now = new Date()) {
 
 export async function getPublicPassport(userId: string) {
   const passport = await prisma.passport.findUnique({ where: { userId } });
-  if (!passport) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Player Passport chưa tồn tại.');
+  if (!passport) throw new AppError(404, 'PASSPORT_NOT_FOUND', 'Hồ sơ trình độ chưa tồn tại.');
   return {
     userId,
     tier: describeRating({

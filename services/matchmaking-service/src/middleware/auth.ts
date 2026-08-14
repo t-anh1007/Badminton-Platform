@@ -30,7 +30,7 @@ export function optionalAuth(req: AuthenticatedRequest, res: Response, next: Nex
 
 export function requirePlayer(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   if (!req.user?.roles.includes('player')) {
-    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chỉ người chơi được thao tác Passport.' } });
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chỉ người chơi được thao tác hồ sơ trình độ.' } });
     return;
   }
   next();
