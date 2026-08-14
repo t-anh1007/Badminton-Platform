@@ -33,7 +33,7 @@ Date: 2026-08-14
 
 ## Status
 
-Active — design đã được PO duyệt, chưa bắt đầu code.
+Active — design đã được PO duyệt, implementation đang được điều phối theo hai worker.
 
 ## Outcome
 
@@ -1202,7 +1202,7 @@ git commit -m "docs(acceptance): record final browser verification"
 - [x] Design sections and technical architecture approved by PO.
 - [x] Design spec committed as `753e666`.
 - [x] Implementation plan drafted and self-reviewed.
-- [ ] Task 1 — authority and web test harness.
+- [x] Task 1 — authority and web test harness (`aaf0243`, fixes `486fd3a`, `96637c3`; review PASS).
 - [ ] Task 2 — session refresh and role context.
 - [ ] Task 3 — role-aware shell.
 - [ ] Task 4 — multi-slot booking selection.
