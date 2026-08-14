@@ -123,6 +123,19 @@ describe('AI-01 matchmaker', () => {
     expect(response.body.answer).toContain('không tự thực hiện');
     expect(await prisma.join.count({ where: { participantUserId: playerUserId } })).toBe(0);
   });
+
+  it('normalizes only criteria grounded in the player message before recomputing suggestions', async () => {
+    const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
+    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await createOpenMatch('intermediate');
+    const response = await request(app)
+      .post('/matches/suggestions/ai/chat')
+      .set('Authorization', `Bearer ${playerToken(playerUserId)}`)
+      .send({ message: 'Tìm kèo tại Phú Nhuận, tối đa 120.000đ' })
+      .expect(200);
+    expect(response.body.normalizedCriteria).toEqual({ area: 'Phú Nhuận', feeMax: '120000' });
+    expect(response.body.suggestions.every((item: { matchId: string; score: number }) => item.matchId && Number.isFinite(item.score))).toBe(true);
+  });
   it('AC-AI-01-1/2/4/5: ranks three public matches and leaves joining to the standard MMP-04 route', async () => {
     const playerUserId = randomUUID();
     passportUserIds.push(playerUserId);

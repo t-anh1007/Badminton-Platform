@@ -40,6 +40,18 @@ function normalizeAssistantCriteria(input: unknown): NormalizedMatchCriteria {
   return parsed.success ? parsed.data : {};
 }
 
+function inferCriteriaFromMessage(message: string): NormalizedMatchCriteria {
+  const inferred: Record<string, string> = {};
+  const area = message.match(/(?:ở|tại|khu vực)\s+([^,.;]+?)(?=\s+(?:dưới|tối đa|từ|sau|trước|đến)\b|[,.;]|$)/iu)?.[1]?.trim();
+  if (area) inferred.area = area;
+  const fee = message.match(/(?:dưới|tối đa)\s+([\d.\s]+)\s*(?:đ|vnd)(?:\s|$)/iu)?.[1]?.replace(/\D/g, '');
+  if (fee) inferred.feeMax = fee;
+  const isoDates = message.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})/g) ?? [];
+  if (isoDates[0]) inferred.startFrom = isoDates[0];
+  if (isoDates[1]) inferred.endBefore = isoDates[1];
+  return normalizeAssistantCriteria(inferred);
+}
+
 const createSchema = z.object({
   bookingId: z.string().uuid().optional(),
   holdId: z.string().uuid().optional(),
@@ -91,7 +103,9 @@ export function createMatchRouter(
   }));
   router.post('/suggestions/ai/chat', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = assistantChatSchema.parse(req.body);
-    const normalizedCriteria = normalizeAssistantCriteria(input.criteria);
+    const inferredCriteria = inferCriteriaFromMessage(input.message);
+    const suppliedCriteria = normalizeAssistantCriteria(input.criteria);
+    const normalizedCriteria = normalizeAssistantCriteria({ ...inferredCriteria, ...suppliedCriteria });
     const criteria = {
       ...normalizedCriteria,
       startFrom: normalizedCriteria.startFrom ? new Date(normalizedCriteria.startFrom) : undefined,
