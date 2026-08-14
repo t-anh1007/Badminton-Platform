@@ -355,6 +355,12 @@ export async function listMyMatchSources(userId: string) {
   return { holds, bookings };
 }
 
+export async function listAdminBookings(input: { query?: string; status?: string; from?: string; to?: string }) {
+  const query = input.query?.trim();
+  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status as never } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: new Date(input.from) } : {}), ...(input.to ? { lte: new Date(input.to) } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
+  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, playerId: b.userId, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
+}
+
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */
 export async function getMyBookingDetail(userId: string, bookingId: string) {
   const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { court: { include: { venue: true } } } });

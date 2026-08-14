@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getMatchContext, getPaymentStatus, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { createBookingFromHold, getMatchContext, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
 export const bookingRouter = Router();
+bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => res.json((await listAdminBookings(z.object({ query: z.string().optional(), status: z.string().optional(), from: z.string().optional(), to: z.string().optional() }).parse(req.query))).map(serializeBooking))));
 
 /** `res.json()` KHÔNG serialize được `bigint` native (ném TypeError 500 —
  * lỗi P1 Codex bắt: test domain không chạm HTTP nên không lộ). `priceSnapshot`
