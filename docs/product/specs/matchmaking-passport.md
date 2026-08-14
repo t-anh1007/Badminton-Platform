@@ -215,6 +215,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 **AC**
 - `AC-MMP-09-1` — Given player mới, When khai báo bậc "TB", Then rating khởi tạo quanh TB với độ bất định (RD) cao.
 - `AC-MMP-09-2` — Given player đã có lịch sử đánh giá, When khai lại bậc, Then hệ thống KHÔNG ghi đè rating đã học mà chỉ điều chỉnh có kiểm soát theo D26 (chống gian lận hạ bậc).
+- `AC-MMP-09-3` — Given player vừa khai hoặc đổi bậc, When thử khai lại trong bảy ngày, Then hệ thống từ chối và trả `nextDeclarationAt` để UI hiển thị thời điểm được phép tiếp theo.
 
 ### MMP-10 — Đánh giá sau trận
 - **Actor**: người chơi (`confirmed` của kèo `completed`). **Workflow**: sau `BookingCompleted`, mở

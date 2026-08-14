@@ -26,8 +26,7 @@ source: docs/SCOPE_BASELINE.md §2.6, docs/product/phasing.md §4
 
 ## 2. Mô hình miền
 
-- **POST (bài viết)**: `authorUserId`, nội dung (text + ảnh 【PO-REVIEW: có cho ảnh không, lưu ở
-  đâu — đề xuất: text-only GĐ2 cho gọn, ảnh hoãn】), `status` (`published`/`hidden`/`removed`),
+- **POST (bài viết)**: `authorUserId`, nội dung và tối đa bốn metadata ảnh đã xác minh ownership object storage, `status` (`published`/`hidden`/`removed`),
   timestamps. Chỉ công khai.
 - **COMMENT (bình luận)**: `authorUserId`, `postId`, nội dung text, `status`.
 - **REPORT (báo cáo vi phạm)**: `reporterUserId`, target (postId/commentId), lý do, `status`
@@ -86,6 +85,7 @@ published ─(admin ẩn tạm COM-07)─> hidden ─(admin khôi phục)─> pu
 - `AC-COM-02-1` — Given player đã xác minh, When đăng bài hợp lệ, Then bài `published` và hiện trên bảng tin.
 - `AC-COM-02-2` — Given nội dung rỗng/quá dài (【PO-REVIEW: giới hạn ký tự】), When đăng, Then bị từ chối với thông báo rõ.
 - `AC-COM-02-3` — Given user bị khóa (`AccountLocked`), When cố đăng, Then bị chặn.
+- `AC-COM-02-4` — Given player chọn từ 0 đến 4 ảnh JPEG/PNG/WebP đã được cấp quyền upload, When đăng bài, Then metadata ảnh được lưu theo đúng thứ tự; ảnh thứ năm hoặc object key ngoài namespace bị từ chối.
 
 ### COM-03 — Chỉnh sửa bài viết
 - **Actor**: tác giả. **Workflow**: sửa nội dung bài của mình → cập nhật, đánh dấu "đã sửa".
@@ -146,6 +146,5 @@ published ─(admin ẩn tạm COM-07)─> hidden ─(admin khôi phục)─> pu
 - Chat CSKH realtime (dùng ticket bất đồng bộ).
 
 ## 8. Quyết định chờ PO chốt
-1. Bài viết có cho ảnh không (đề xuất: text-only GĐ2, ảnh hoãn).
-2. Giới hạn ký tự bài/bình luận.
-3. Ticket có phân loại/độ ưu tiên không (đề xuất: chủ đề tự do, không phân loại GĐ2).
+1. Giới hạn ký tự bài/bình luận.
+2. Ticket có phân loại/độ ưu tiên không (đề xuất: chủ đề tự do, không phân loại GĐ2).

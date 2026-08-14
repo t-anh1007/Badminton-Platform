@@ -28,6 +28,7 @@ lại từ `SCOPE_BASELINE.md`.
 | 2026-08-05 | Thêm `FIN-14 Đối soát giao dịch chưa khớp` vào GĐ1. Tổng chức năng GĐ1 tăng từ 39 lên **40** | D15 — bịt lỗ hổng tiền nằm ngoài ledger |
 | 2026-08-09 | Chèn **Giai đoạn 2.5 — Tinh chỉnh UI/UX theo Playo.co** giữa GĐ2 và GĐ3 (mục 4B). **0 UC nền mới** — chỉ re-skin/re-layout `apps/web` theo playo.co. Phần "UI/UX Polish" của GĐ3 (P3-M4) thu hẹp tương ứng. | D-UI1 (PO, phiên này) — xem `PLAN_PHASE2.5.md`, `docs/design/` |
 | 2026-08-13 | Chuyển visual authority của Phase 2.5 sang file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2`; Playo/ACTL chỉ còn là lịch sử. Không đổi UC, vai trò, API, service hoặc scope chức năng. | D45 — PO |
+| 2026-08-14 | Bổ sung delivery UI/UX đã duyệt: shell theo context role, payment terminal dùng hạn hold backend, khai trình độ cooldown 7 ngày và tối đa bốn ảnh Community có ownership storage. | D46–D48 — PO |
 
 > D1 thay thế cách diễn đạt "lát cắt dọc mỏng" ở [ADR 0001](../decisions/0001-tech-stack.md)
 > và [ADR 0002](../decisions/0002-tech-stack-microservices.md). Hai ADR đó vẫn đúng về

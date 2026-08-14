@@ -57,6 +57,9 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 
 | D44 | 2026-08-09 | **Quick Match không tự duyệt; capacity áp dụng toàn bộ JOIN:** chấp nhận đề xuất F-03 luôn tạo `JOIN pending`; chỉ organizer được duyệt mới chuyển sang `approved` và mở hold thanh toán 10 phút. Suất tạm giữ là mọi JOIN `approved` hoặc `confirmed`; `pending` không chiếm chỗ. Khóa transaction trên `matchId` bảo đảm chỉ một suất cuối được giữ cho mọi luồng JOIN; candidate còn lại nhận `MATCH_FULL` trước contribution, debit, platform reserve hay ledger. Finance vẫn fail-safe/idempotent với payment receipt stale hoặc đến muộn. **PO duyệt và làm rõ tại P2-final 2026-08-09.** | F-03, BR-MMP-05/06, AC-FIN-05-7 |
 | D45 | 2026-08-13 | **Figma COURTIN là visual authority.** PO chọn file `FHuhhmlhPSl8gOUuUx7az2` làm nguồn quyết định duy nhất cho màu sắc, typography, radius, shadow, layout và component anatomy của `apps/web`. Quyết định này supersede visual identity Playo/ACTL lịch sử, nhưng không thay đổi phạm vi chức năng, HTTP/Socket.IO contract, auth, role, chính sách tài chính hoặc yêu cầu accessibility/performance hiện hành. | Toàn bộ `apps/web`, tài liệu thiết kế và Phase 2.5 |
+| D46 | 2026-08-14 | Shell dùng context vai trò đã có trong session; chuyển context chỉ đổi điều hướng và không cấp quyền. Booking chuyển sang payment terminal sau một CTA xác nhận, dùng `holdExpiresAt` từ backend. | `apps/web`, ACC-03, BOK-06, BOK-07 |
+| D47 | 2026-08-14 | Người chơi chỉ được khai hoặc đổi bậc trình độ tối đa một lần mỗi 7 ngày; backend trả `nextDeclarationAt` để UI hiển thị thời điểm thử lại. | MMP-09, Passport |
+| D48 | 2026-08-14 | Community lưu tối đa bốn metadata ảnh mỗi bài; Community và Venue xác thực object key theo namespace và chủ sở hữu trước khi lưu command. | COM-02..04, VEN-03 |
 
 ### Lý do đáng ghi nhớ
 

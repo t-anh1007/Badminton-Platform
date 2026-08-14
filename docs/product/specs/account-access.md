@@ -157,6 +157,7 @@ active ──(ACC-08 khóa)──> locked ──(ACC-08 khôi phục)──> act
 - `AC-ACC-03-4` — **Given** email không tồn tại, **When** đăng nhập, **Then** thông báo lỗi giống hệt trường hợp sai mật khẩu.
 - `AC-ACC-03-5` — **Given** đã sai mật khẩu 5 lần trong 15 phút, **When** thử lần thứ sáu kể cả với mật khẩu đúng, **Then** hệ thống từ chối và cho biết thời điểm được thử lại.
 - `AC-ACC-03-6` — **Given** người dùng có cả hai vai `player` và `provider`, **When** đăng nhập, **Then** token chứa cả hai vai và giao diện cho phép cả đặt sân lẫn quản lý sân.
+- `AC-ACC-03-7` — **Given** provider vừa được duyệt, **When** client làm mới session bằng refresh token hợp lệ, **Then** access token và tập role mới chứa `provider`; UI chỉ dùng role đã trả về để đổi context.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC; kiểm tra thủ công rằng thông báo lỗi ở AC-ACC-03-4 trùng khớp từng ký tự.
 
