@@ -37,6 +37,18 @@ export interface SupportAssistantReply {
   actionPath?: string;
 }
 
+export interface MatchAssistantReply {
+  answer: string;
+  normalizedCriteria: {
+    area?: string;
+    startFrom?: string;
+    endBefore?: string;
+    feeMax?: string;
+  };
+  suggestions: AiMatchSuggestion[];
+  actionPath?: string;
+}
+
 export class AssistantApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -105,7 +117,7 @@ export function listAiMatchSuggestions() {
   return api<{ suggestions: AiMatchSuggestion[] }>(MATCHMAKING_URL, '/matches/suggestions/ai');
 }
 export function chatAiMatchSuggestions(message: string, criteria?: Record<string, unknown>) {
-  return api<{ answer: string; normalizedCriteria: Record<string, unknown>; suggestions: AiMatchSuggestion[] }>(MATCHMAKING_URL, '/matches/suggestions/ai/chat', { method: 'POST', body: JSON.stringify({ message, criteria }) });
+  return api<MatchAssistantReply>(MATCHMAKING_URL, '/matches/suggestions/ai/chat', { method: 'POST', body: JSON.stringify({ message, criteria }) });
 }
 
 export function askSupportAssistant(question: string) {

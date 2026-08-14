@@ -108,6 +108,21 @@ describe('AI-01 matchmaker', () => {
     const response = await request(app).post('/matches/suggestions/ai/chat').set('Authorization', `Bearer ${playerToken(playerUserId)}`).send({ message: 'Tìm kèo tối nay', criteria: { area: 'Quận 1', feeMax: '120000' } }).expect(200);
     expect(response.body.normalizedCriteria.area).toBe('Quận 1'); expect(response.body.suggestions[0]).toMatchObject({ score: expect.any(Number), matchId: expect.any(String) }); expect(await prisma.join.count({ where: { participantUserId: playerUserId } })).toBe(0);
   });
+
+  it('falls back from invalid normalized criteria and returns a navigation CTA for action requests', async () => {
+    const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
+    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await createOpenMatch('intermediate');
+    const response = await request(app)
+      .post('/matches/suggestions/ai/chat')
+      .set('Authorization', `Bearer ${playerToken(playerUserId)}`)
+      .send({ message: 'Tham gia kèo này giúp tôi', criteria: { feeMax: 'không hợp lệ' } })
+      .expect(200);
+    expect(response.body.normalizedCriteria).toEqual({});
+    expect(response.body.actionPath).toBe('/matches');
+    expect(response.body.answer).toContain('không tự thực hiện');
+    expect(await prisma.join.count({ where: { participantUserId: playerUserId } })).toBe(0);
+  });
   it('AC-AI-01-1/2/4/5: ranks three public matches and leaves joining to the standard MMP-04 route', async () => {
     const playerUserId = randomUUID();
     passportUserIds.push(playerUserId);

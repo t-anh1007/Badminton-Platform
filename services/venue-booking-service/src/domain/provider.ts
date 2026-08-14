@@ -4,7 +4,7 @@ import { writeOutbox } from '../lib/outbox.js';
 
 export interface RegisterProviderInput {
   orgName: string;
-  contact?: unknown;
+  contact?: { contact?: string; email?: string; phone?: string };
 }
 
 export function listProviders(status?: 'pending' | 'approved' | 'rejected' | 'suspended') {

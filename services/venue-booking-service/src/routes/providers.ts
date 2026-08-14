@@ -7,7 +7,17 @@ import { requireAuth, requireRole, type AuthenticatedRequest } from '../middlewa
 
 export const providerRouter = Router();
 
-const registerSchema = z.object({ orgName: z.string(), contact: z.unknown().optional() });
+const providerContactSchema = z.object({
+  contact: z.string().trim().min(1).max(200).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().trim().min(8).max(20).optional(),
+}).strict().refine((value) => Boolean(value.contact || value.email || value.phone), {
+  message: 'Cần ít nhất một thông tin liên hệ.',
+});
+const registerSchema = z.object({
+  orgName: z.string().trim().min(1).max(200),
+  contact: providerContactSchema.optional(),
+}).strict();
 const listSchema = z.object({ status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional() });
 
 providerRouter.get('/', requireAuth, requireRole('admin'), h(async (req, res) => {

@@ -52,6 +52,15 @@ describe('VEN-01 — Đăng ký nhà cung cấp sân', () => {
     const res = await request(app).post('/providers').send({ orgName: 'X' });
     expect(res.status).toBe(401);
   });
+
+  it('từ chối contact không có cấu trúc trước khi tạo hồ sơ', async () => {
+    const token = signTestAccessToken(fakeUserId(), ['player']);
+    await request(app)
+      .post('/providers')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ orgName: 'Sân sai dữ liệu', contact: '0901000000' })
+      .expect(400);
+  });
 });
 
 describe('VEN-02 — Xét duyệt nhà cung cấp sân (phần venue-booking-service)', () => {

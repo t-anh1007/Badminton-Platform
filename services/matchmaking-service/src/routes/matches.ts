@@ -24,11 +24,21 @@ const searchSchema = z.object({
 });
 const normalizedCriteriaSchema = z.object({
   area: z.string().trim().min(1).optional(),
-  startFrom: z.coerce.date().optional(),
-  endBefore: z.coerce.date().optional(),
-  feeMax: z.string().regex(/^\d+$/).transform(BigInt).optional(),
-}).refine((input) => !input.startFrom || !input.endBefore || input.startFrom < input.endBefore, { message: 'startFrom must be before endBefore' });
-const assistantChatSchema = z.object({ message: z.string().trim().min(1).max(1000), criteria: normalizedCriteriaSchema.optional() }).strict();
+  startFrom: z.string().datetime({ offset: true }).optional(),
+  endBefore: z.string().datetime({ offset: true }).optional(),
+  feeMax: z.string().regex(/^\d+$/).optional(),
+}).strict().refine((input) => !input.startFrom || !input.endBefore
+  || new Date(input.startFrom) < new Date(input.endBefore), { message: 'startFrom must be before endBefore' });
+export type NormalizedMatchCriteria = z.infer<typeof normalizedCriteriaSchema>;
+const assistantChatSchema = z.object({
+  message: z.string().trim().min(1).max(1000),
+  criteria: z.unknown().optional(),
+}).strict();
+
+function normalizeAssistantCriteria(input: unknown): NormalizedMatchCriteria {
+  const parsed = normalizedCriteriaSchema.safeParse(input ?? {});
+  return parsed.success ? parsed.data : {};
+}
 
 const createSchema = z.object({
   bookingId: z.string().uuid().optional(),
@@ -81,10 +91,26 @@ export function createMatchRouter(
   }));
   router.post('/suggestions/ai/chat', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = assistantChatSchema.parse(req.body);
-    const criteria = normalizedCriteriaSchema.parse(input.criteria ?? {});
+    const normalizedCriteria = normalizeAssistantCriteria(input.criteria);
+    const criteria = {
+      ...normalizedCriteria,
+      startFrom: normalizedCriteria.startFrom ? new Date(normalizedCriteria.startFrom) : undefined,
+      endBefore: normalizedCriteria.endBefore ? new Date(normalizedCriteria.endBefore) : undefined,
+      feeMax: normalizedCriteria.feeMax ? BigInt(normalizedCriteria.feeMax) : undefined,
+      minOpenSlots: 1,
+    };
     const userId = (req as AuthenticatedRequest).user!.id;
     const suggestions = await suggestAiMatches(venueBookingClient, userId, criteria, matchmakerClient);
-    res.status(200).json({ answer: suggestions.length ? `Tìm thấy ${suggestions.length} kèo phù hợp theo F-02.` : 'Chưa có kèo phù hợp.', normalizedCriteria: criteria, suggestions });
+    const asksForAction = /(tham gia|vào kèo|join|đặt sân|thanh toán|hủy)/iu.test(input.message);
+    const answer = asksForAction
+      ? `Tìm thấy ${suggestions.length} kèo theo F-02. Tôi không tự thực hiện hành động; hãy mở danh sách kèo để kiểm tra và xác nhận.`
+      : suggestions.length ? `Tìm thấy ${suggestions.length} kèo phù hợp theo F-02.` : 'Chưa có kèo phù hợp.';
+    res.status(200).json({
+      answer,
+      normalizedCriteria,
+      suggestions,
+      ...(asksForAction ? { actionPath: '/matches' } : {}),
+    });
   }));
   router.post('/:matchId/joins', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);

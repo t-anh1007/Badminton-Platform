@@ -1,16 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Badge, Button, EmptyState, SegmentedControl, Skeleton, SurfaceCard, TextArea } from '../components/ui';
+import { Button, EmptyState, SegmentedControl, SurfaceCard, TextArea } from '../components/ui';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { AssistantChat } from '../components/AssistantChat';
-import {
-  AssistantApiError,
-  askSupportAssistant,
-  getAssistantSession,
-  listAiMatchSuggestions,
-  type AiMatchSuggestion,
-  type AssistantSource,
-} from '../lib/assistantApi';
+import { askSupportAssistant, type AssistantSource } from '../lib/assistantApi';
+import { useSession } from '../session/SessionProvider';
 
 type AssistantTab = 'suggestions' | 'chat';
 
@@ -25,7 +19,7 @@ interface ChatMessage {
 
 const tabs = [
   { value: 'suggestions', label: 'Gợi ý kèo' },
-  { value: 'chat', label: 'Chat hỗ trợ' },
+  { value: 'chat', label: 'Hỏi chính sách' },
 ] as const;
 
 const starterQuestions = [
@@ -34,52 +28,18 @@ const starterQuestions = [
   'Hướng dẫn tôi mở luồng hủy booking',
 ] as const;
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
 function standardActionPath(path?: string): string | undefined {
   if (path === '/players/me/bookings') return '/profile?tab=bookings';
   return undefined;
 }
 
 export function AssistantPage() {
-  const session = getAssistantSession();
+  const { session } = useSession();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AssistantTab>('suggestions');
-  const [suggestions, setSuggestions] = useState<AiMatchSuggestion[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(Boolean(session?.roles.includes('player')));
-  const [suggestionsError, setSuggestionsError] = useState('');
-  const [passportRequired, setPassportRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-
-  const loadSuggestions = async () => {
-    if (!session?.roles.includes('player')) return;
-    setSuggestionsLoading(true);
-    setSuggestionsError('');
-    setPassportRequired(false);
-    try {
-      const response = await listAiMatchSuggestions();
-      setSuggestions(response.suggestions);
-    } catch (cause) {
-      if (cause instanceof AssistantApiError && cause.code === 'PASSPORT_REQUIRED') {
-        setPassportRequired(true);
-      } else {
-        setSuggestionsError(cause instanceof Error ? cause.message : 'Không thể tải gợi ý kèo.');
-      }
-    } finally {
-      setSuggestionsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadSuggestions();
-  }, []);
 
   const sendQuestion = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -139,8 +99,6 @@ export function AssistantPage() {
         </p>
       </div>
 
-      {session?.roles.includes('player') && tab === 'suggestions' && <div className="mt-6"><AssistantChat /></div>}
-
       {!session ? (
         <div className="mt-6">
           <EmptyState
@@ -157,38 +115,7 @@ export function AssistantPage() {
           />
         </div>
       ) : tab === 'suggestions' ? (
-        <section className="mt-6" aria-label="Gợi ý kèo phù hợp">
-          {suggestionsLoading ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Skeleton className="h-64" />
-              <Skeleton className="h-64" />
-            </div>
-          ) : passportRequired ? (
-            <EmptyState
-              title="Khai báo trình độ để nhận gợi ý"
-              description="Điểm phù hợp F-02 cần dữ liệu trong hồ sơ trình độ của bạn."
-              action={<Button onClick={() => navigate('/passport')}>Mở hồ sơ trình độ</Button>}
-            />
-          ) : suggestionsError ? (
-            <EmptyState
-              title="Không thể tải gợi ý"
-              description={suggestionsError}
-              action={<Button onClick={() => void loadSuggestions()}>Thử lại</Button>}
-            />
-          ) : suggestions.length === 0 ? (
-            <EmptyState
-              title="Chưa có kèo phù hợp"
-              description="Hãy thử lại khi có kèo mới hoặc mở danh sách kèo để điều chỉnh lựa chọn."
-              action={<Button onClick={() => navigate('/matches')}>Xem tất cả kèo</Button>}
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {suggestions.map((suggestion) => (
-                <SuggestionCard key={suggestion.matchId} suggestion={suggestion} />
-              ))}
-            </div>
-          )}
-        </section>
+        <div className="mt-6"><AssistantChat /></div>
       ) : (
         <section className="mt-6" aria-label="Chat hỗ trợ">
           <SurfaceCard className="flex min-h-[620px] flex-col overflow-hidden p-0 sm:p-0">
@@ -245,40 +172,6 @@ export function AssistantPage() {
         </section>
       )}
     </div>
-  );
-}
-
-function SuggestionCard({ suggestion }: { suggestion: AiMatchSuggestion }) {
-  return (
-    <SurfaceCard hoverable className="flex h-full flex-col">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-caption text-brand-navy">Điểm phù hợp F-02</p>
-          <p className="text-figures mt-1 text-3xl font-bold text-brand-navy">{Math.round(suggestion.score)}</p>
-        </div>
-        <Badge tone={suggestion.source === 'fallback' ? 'warning' : 'success'}>
-          {suggestion.source === 'fallback' ? 'Giải thích rút gọn' : 'Gemini có căn cứ'}
-        </Badge>
-      </div>
-      <h2 className="mt-5 text-h3">
-        {suggestion.match.venue.name} · {suggestion.match.court.name}
-      </h2>
-      <p className="mt-2 text-sm text-ink-500">
-        {formatDate(suggestion.match.startAt)} · còn {suggestion.match.openSlots} chỗ
-      </p>
-      <p className="mt-4 flex-1 rounded-xl bg-canvas p-3 text-sm leading-6 text-ink-700">{suggestion.explanation}</p>
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-figures text-sm font-semibold">
-          {Number(suggestion.match.feePerSlot).toLocaleString('vi-VN')}₫ / chỗ
-        </p>
-        <Link
-          to={`/matches/${suggestion.matchId}`}
-          className="inline-flex rounded-full bg-brand-yellow px-4 py-2.5 text-sm font-bold text-brand-navy transition hover:-translate-y-px hover:bg-brand-yellow-hover"
-        >
-          Xem kèo
-        </Link>
-      </div>
-    </SurfaceCard>
   );
 }
 
