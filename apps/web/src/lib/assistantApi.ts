@@ -104,6 +104,9 @@ async function api<T>(baseUrl: string, path: string, init?: RequestInit): Promis
 export function listAiMatchSuggestions() {
   return api<{ suggestions: AiMatchSuggestion[] }>(MATCHMAKING_URL, '/matches/suggestions/ai');
 }
+export function chatAiMatchSuggestions(message: string, criteria?: Record<string, unknown>) {
+  return api<{ answer: string; normalizedCriteria: Record<string, unknown>; suggestions: AiMatchSuggestion[] }>(MATCHMAKING_URL, '/matches/suggestions/ai/chat', { method: 'POST', body: JSON.stringify({ message, criteria }) });
+}
 
 export function askSupportAssistant(question: string) {
   return api<SupportAssistantReply>(COMMUNITY_URL, '/assistant/chat', {

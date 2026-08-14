@@ -22,6 +22,7 @@ const searchSchema = z.object({
 }).refine((input) => !input.startFrom || !input.endBefore || input.startFrom < input.endBefore, {
   message: 'startFrom must be before endBefore',
 });
+const assistantChatSchema = z.object({ message: z.string().trim().min(1).max(1000), criteria: searchSchema.partial().optional() }).strict();
 
 const createSchema = z.object({
   bookingId: z.string().uuid().optional(),
@@ -71,6 +72,14 @@ export function createMatchRouter(
     const userId = (req as AuthenticatedRequest).user!.id;
     const suggestions = await suggestAiMatches(venueBookingClient, userId, filters, matchmakerClient);
     res.status(200).json({ suggestions });
+  }));
+  router.post('/suggestions/ai/chat', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = assistantChatSchema.parse(req.body);
+    const filters = searchSchema.parse(input.criteria ?? {});
+    const { skill: _ignoredSkill, ...criteria } = filters;
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const suggestions = await suggestAiMatches(venueBookingClient, userId, criteria, matchmakerClient);
+    res.status(200).json({ answer: suggestions.length ? `Tìm thấy ${suggestions.length} kèo phù hợp theo F-02.` : 'Chưa có kèo phù hợp.', normalizedCriteria: criteria, suggestions });
   }));
   router.post('/:matchId/joins', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);
