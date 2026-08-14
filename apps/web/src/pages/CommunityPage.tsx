@@ -50,7 +50,7 @@ const ticketStatus: Record<TicketStatus, { label: string; tone: 'success' | 'war
 };
 
 function shortUser(userId: string) {
-  return `Người chơi ${userId.slice(0, 8)}`;
+  return userId ? 'Thành viên cộng đồng' : 'Người chơi';
 }
 
 function formatDate(value: string) {
@@ -371,7 +371,7 @@ export function CommunityPage() {
                         return (
                           <div key={report.id} className="flex items-center justify-between gap-2 text-xs">
                             <span className="truncate">
-                              {report.targetType === 'post' ? 'Bài viết' : 'Bình luận'} {report.targetId.slice(0, 6)}
+                              {report.targetType === 'post' ? 'Bài viết đã báo cáo' : 'Bình luận đã báo cáo'}
                             </span>
                             <Badge tone={status.tone}>{status.label}</Badge>
                           </div>

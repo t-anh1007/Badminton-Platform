@@ -89,6 +89,47 @@ export function MatchDetailPage() {
       void load();
     }
   }, [remaining, detail?.actions.ownJoin?.id, detail?.actions.ownJoin?.status]);
+  useEffect(() => {
+    if (!sepay || !id) return;
+    let active = true;
+    let attempts = 0;
+    let timer: number;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const next = await getMatchDetail(id);
+        if (!active) return;
+        const completed = sepay.purpose === 'participant'
+          ? next.actions.ownJoin?.status === 'confirmed'
+          : next.status === 'confirmed' && !next.actions.canPayOrganizerContribution;
+        if (completed) {
+          setDetail(next);
+          setSepay(null);
+          setNotice('Đã xác nhận thanh toán SePay.');
+          window.clearInterval(timer);
+          return;
+        }
+      } catch {
+        // Giữ modal mở để người dùng vẫn thấy nội dung chuyển khoản.
+      }
+      if (attempts >= 20) {
+        setNotice('Chưa thấy giao dịch SePay. Hãy kiểm tra lại trạng thái kèo sau.');
+        window.clearInterval(timer);
+      }
+    };
+    timer = window.setInterval(() => { void poll(); }, 1_500);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [id, sepay]);
+
+  const copySepayCode = async () => {
+    if (!sepay) return;
+    try {
+      await navigator.clipboard.writeText(sepay.matchCode);
+      setNotice('Đã sao chép nội dung chuyển khoản.');
+    } catch {
+      setNotice('Không thể sao chép tự động. Hãy chọn mã và sao chép thủ công.');
+    }
+  };
 
   const mutate = async (operation: () => Promise<unknown>, success: string) => {
     try {
@@ -225,11 +266,11 @@ export function MatchDetailPage() {
                 <p className="mt-4 text-sm text-ink-500">Chưa có yêu cầu đang chờ.</p>
               ) : (
                 <div className="mt-4 space-y-3">
-                  {pending.map((item) => (
+                  {pending.map((item, index) => (
                     <div key={item.id} className="rounded-xl border border-line p-4">
                       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                         <div>
-                          <p className="font-medium">Người chơi · {item.participantUserId.slice(0, 8)}</p>
+                          <p className="font-medium">Người chơi đang chờ {index + 1}</p>
                           <p className="text-caption">
                             {item.participantTier ? tierLabels[item.participantTier] : 'Chưa có hồ sơ trình độ'} · Hợp{' '}
                             {Math.round(item.compatibilityScore)}%
@@ -429,7 +470,7 @@ export function MatchDetailPage() {
             <p className="text-figures text-2xl font-bold text-green-700">
               {Number(sepay.amount).toLocaleString('vi-VN')}₫
             </p>
-            <p className="rounded-xl bg-canvas p-3 text-figures font-semibold">{sepay.matchCode}</p>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"><strong className="text-figures">{sepay.matchCode}</strong><Button size="sm" tone="secondary" onClick={() => void copySepayCode()}>Sao chép mã</Button></div>
             <p className="text-sm text-ink-500">Trạng thái sẽ được cập nhật sau khi webhook ngân hàng được đối soát.</p>
           </div>
         )}

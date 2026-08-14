@@ -22,7 +22,7 @@ function formatDate(value: string) {
 }
 
 function userLabel(userId: string) {
-  return `Người chơi ${userId.slice(0, 8)}`;
+  return userId ? 'Thành viên cộng đồng' : 'Người chơi';
 }
 
 export function CommunityDetailPage() {
@@ -223,7 +223,7 @@ export function CommunityDetailPage() {
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar label={post.authorUserId.slice(0, 1)} className="h-11 w-11" />
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{userLabel(post.authorUserId)}</p>
+                  <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorUserId)}</p>
                   <p className="text-caption">
                     {formatDate(post.createdAt)}
                     {post.editedAt ? ' · đã chỉnh sửa' : ''}
@@ -314,7 +314,7 @@ export function CommunityDetailPage() {
                     <Avatar label={comment.authorUserId.slice(0, 1)} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
-                        <p className="text-sm font-semibold">{userLabel(comment.authorUserId)}</p>
+                        <p className="text-sm font-semibold">{commentOwner ? 'Bạn' : userLabel(comment.authorUserId)}</p>
                         <p className="text-caption">{formatDate(comment.createdAt)}</p>
                       </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-700">{comment.body}</p>

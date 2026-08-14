@@ -194,24 +194,24 @@ export function PassportPage() {
                 </div>
               ) : (
                 <div className="mt-4 divide-y divide-line">
-                  {own.recentMatches.map((match) => (
+                  {own.recentMatches.map((match, matchIndex) => (
                     <div key={match.id} className="py-4">
                       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                         <div>
-                          <p className="font-medium">Kèo {match.id.slice(0, 8)}</p>
-                          <p className="text-caption">Booking {match.bookingId.slice(0, 8)}</p>
+                          <p className="font-medium">Trận hoàn thành {matchIndex + 1}</p>
+                          <p className="text-caption">Đã ghi nhận vào hồ sơ trình độ</p>
                         </div>
                         <p className="text-sm text-ink-500">{new Date(match.completedAt).toLocaleString('vi-VN')}</p>
                       </div>
                       {match.evaluationCandidates.length > 0 && (
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span className="text-caption">Đánh giá người cùng kèo:</span>
-                          {match.evaluationCandidates.map((candidate) => {
+                          {match.evaluationCandidates.map((candidate, candidateIndex) => {
                             const windowOpen =
                               Date.now() <= new Date(match.completedAt).getTime() + 72 * 60 * 60 * 1000;
                             return candidate.submitted ? (
                               <Badge key={candidate.userId} tone="success">
-                                {candidate.userId.slice(0, 8)} · đã gửi
+                                Người cùng kèo {candidateIndex + 1} · đã gửi
                               </Badge>
                             ) : (
                               <Button
@@ -226,7 +226,7 @@ export function PassportPage() {
                                   })
                                 }
                               >
-                                {windowOpen ? `Đánh giá ${candidate.userId.slice(0, 8)}` : 'Đã hết 72 giờ'}
+                                {windowOpen ? `Đánh giá người cùng kèo ${candidateIndex + 1}` : 'Đã hết 72 giờ'}
                               </Button>
                             );
                           })}

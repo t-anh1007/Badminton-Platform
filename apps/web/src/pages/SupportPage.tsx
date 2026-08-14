@@ -17,7 +17,6 @@ import {
   getCommunitySession,
   getSupportTicket,
   listSupportTickets,
-  setSupportTicketStatus,
   type SupportTicket,
   type SupportTicketDetail,
   type TicketStatus,
@@ -80,7 +79,6 @@ export function SupportPage() {
   const [ticketBody, setTicketBody] = useState('');
   const [replyBody, setReplyBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [statusAction, setStatusAction] = useState<'resolved' | 'closed' | null>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
 
   const loadTickets = async (preferredId?: string) => {
@@ -168,27 +166,6 @@ export function SupportPage() {
       setSubmitting(false);
     }
   };
-  const updateTicketStatus = async () => {
-    if (!detail || !statusAction) return;
-    setSubmitting(true);
-    try {
-      await setSupportTicketStatus(detail.id, statusAction);
-      setNotice({
-        message: statusAction === 'resolved' ? 'Đã giải quyết ticket.' : 'Đã đóng ticket.',
-        tone: 'success',
-      });
-      setStatusAction(null);
-      await Promise.all([loadDetail(detail.id), loadTickets(detail.id)]);
-    } catch (cause) {
-      setNotice({
-        message: cause instanceof Error ? cause.message : 'Không thể cập nhật trạng thái ticket.',
-        tone: 'error',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (!session)
     return (
       <div className="page-container py-8 sm:py-10">
@@ -213,7 +190,6 @@ export function SupportPage() {
     );
 
   const canCreate = session.roles.includes('player');
-  const isAdmin = session.roles.includes('admin');
   const canReply = detail?.status === 'open' || detail?.status === 'in_progress';
 
   return (
@@ -286,7 +262,7 @@ export function SupportPage() {
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </div>
                     <p className="mt-2 text-caption">
-                      {formatDate(ticket.createdAt)} · #{ticket.id.slice(0, 8)}
+                      {formatDate(ticket.createdAt)}
                     </p>
                   </button>
                 );
@@ -319,7 +295,7 @@ export function SupportPage() {
               <div className="border-b border-line p-5 sm:p-6">
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
-                    <p className="text-caption">TICKET #{detail.id.slice(0, 8)}</p>
+                    <p className="text-caption">YÊU CẦU HỖ TRỢ</p>
                     <h2 className="mt-1 text-h2">{detail.subject}</h2>
                     <p className="mt-2 text-sm text-ink-500">Tạo lúc {formatDate(detail.createdAt)}</p>
                   </div>
@@ -328,17 +304,6 @@ export function SupportPage() {
                 <p className="mt-4 rounded-xl bg-canvas p-3 text-sm text-ink-500">
                   {statusMap[detail.status].description}
                 </p>
-                {isAdmin && (detail.status === 'in_progress' || detail.status === 'resolved') && (
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      size="sm"
-                      tone={detail.status === 'resolved' ? 'danger' : 'primary'}
-                      onClick={() => setStatusAction(detail.status === 'in_progress' ? 'resolved' : 'closed')}
-                    >
-                      {detail.status === 'in_progress' ? 'Đã giải quyết' : 'Đóng ticket'}
-                    </Button>
-                  </div>
-                )}
               </div>
               <div className="max-h-[440px] space-y-4 overflow-y-auto bg-canvas/60 p-4 sm:p-6">
                 {detail.messages.map((message) => {
@@ -401,27 +366,6 @@ export function SupportPage() {
         </section>
       </div>
 
-      <Modal
-        open={statusAction !== null}
-        title={statusAction === 'resolved' ? 'Xác nhận đã giải quyết' : 'Xác nhận đóng ticket'}
-        onClose={() => setStatusAction(null)}
-      >
-        <p className="text-sm text-ink-500">
-          Thao tác sẽ chuyển trạng thái ticket theo đúng thứ tự xử lý và dừng nhận phản hồi khi đã giải quyết.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button tone="secondary" onClick={() => setStatusAction(null)}>
-            Quay lại
-          </Button>
-          <Button
-            tone={statusAction === 'closed' ? 'danger' : 'primary'}
-            disabled={submitting}
-            onClick={() => void updateTicketStatus()}
-          >
-            {statusAction === 'resolved' ? 'Đã giải quyết' : 'Đóng ticket'}
-          </Button>
-        </div>
-      </Modal>
       <Modal open={createOpen} title="Tạo ticket hỗ trợ" onClose={() => setCreateOpen(false)} initialFocusRef={subjectRef}>
         <p className="text-sm text-ink-500">Mô tả một vấn đề mỗi ticket để đội ngũ hỗ trợ theo dõi rõ trạng thái.</p>
         <label className="mt-4 block text-sm font-medium">
