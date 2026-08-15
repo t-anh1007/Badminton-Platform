@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { login, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
+import { login, loginWithGoogle, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
 import { useSession } from '../session/SessionProvider'
 import { Button, TextInput } from './ui'
+import { GoogleSignInButton } from './GoogleSignInButton'
 
 type Mode = 'login' | 'register' | 'verify'
 
@@ -69,6 +70,20 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
     }
   }
 
+  const handleGoogle = async (idToken: string) => {
+    setError('')
+    setMessage('')
+    setLoading(true)
+    try {
+      establish(await loginWithGoogle(idToken))
+      onAuthenticated?.()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Không thể đăng nhập bằng Google.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const showMode = (next: 'login' | 'register') => {
     setMode(next)
     setError('')
@@ -113,6 +128,18 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
           {mode === 'login' && <Link to="/reset-password" onClick={onNavigateAway} className="w-fit text-sm font-bold text-brand-navy hover:underline">Quên mật khẩu?</Link>}
           <Button type="submit" size="lg" className="mt-2 w-full" disabled={loading}>{loading ? 'Đang xử lý…' : mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Tạo tài khoản' : 'Xác minh email'}</Button>
         </form>
+        {mode !== 'verify' && (
+          <div className="mt-6">
+            <div className="mb-4 flex items-center gap-3 text-caption text-ink-500">
+              <span className="h-px flex-1 bg-line" />
+              HOẶC
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <div className="flex justify-center">
+              <GoogleSignInButton onCredential={(t) => void handleGoogle(t)} disabled={loading} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

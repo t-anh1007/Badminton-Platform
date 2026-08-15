@@ -12,4 +12,5 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET ?? 'change-me-in-real-env',
   accessTokenTtlSec: 15 * 60, // 15 phút
   refreshTokenTtlSec: 30 * 24 * 60 * 60, // 30 ngày
+  googleOauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
 };

@@ -32,6 +32,8 @@ export const resendVerificationEmail = (email: string) =>
   api<{ message: string }>('/auth/verify/resend', { method: 'POST', body: JSON.stringify({ email }) });
 export const login = (body: { email: string; password: string }) =>
   api<SessionResult>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+export const loginWithGoogle = (idToken: string) =>
+  api<SessionResult>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) });
 export const refreshSession = (refreshToken: string) =>
   api<SessionResult>('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) });
 export const logout = (refreshToken: string) =>

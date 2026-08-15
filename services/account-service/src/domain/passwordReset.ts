@@ -76,6 +76,9 @@ export async function changePassword(
   currentRefreshToken?: string,
 ): Promise<void> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  if (!user.passwordHash) {
+    throw new AppError('NO_PASSWORD_SET', 'Tài khoản đăng nhập bằng Google chưa đặt mật khẩu.', 400);
+  }
 
   const currentOk = await verifyPassword(currentPassword, user.passwordHash);
   if (!currentOk) {

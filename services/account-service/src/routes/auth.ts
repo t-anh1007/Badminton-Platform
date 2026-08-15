@@ -4,6 +4,7 @@ import { h } from './handler.js';
 import { registerUser } from '../domain/registration.js';
 import { verifyEmailCode, resendVerificationCode } from '../domain/verification.js';
 import { login, logout, refreshSession } from '../domain/session.js';
+import { loginWithGoogle } from '../domain/googleAuth.js';
 import { requestPasswordReset, resetPassword, changePassword } from '../domain/passwordReset.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -54,6 +55,17 @@ authRouter.post(
   h(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
     const result = await login(email, password);
+    res.status(200).json(result);
+  }),
+);
+
+const googleSchema = z.object({ idToken: z.string().min(10) });
+
+authRouter.post(
+  '/google',
+  h(async (req, res) => {
+    const { idToken } = googleSchema.parse(req.body);
+    const result = await loginWithGoogle(idToken);
     res.status(200).json(result);
   }),
 );
