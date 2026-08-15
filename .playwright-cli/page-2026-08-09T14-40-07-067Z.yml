@@ -1,0 +1,53 @@
+- generic [ref=f2e3]:
+  - status "Đang tải" [ref=f2e4]:
+    - paragraph [ref=f2e8]: Đang chuẩn bị sân cho bạn
+  - banner [ref=f2e9]:
+    - generic [ref=f2e10]:
+      - link "Cầu Lông - trang chủ" [ref=f2e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f2e15]: Cầu Lông
+      - generic [ref=f2e16]:
+        - button "Đăng nhập / Đăng ký" [ref=f2e17]
+        - button "Mở menu điều hướng" [ref=f2e18]:
+          - generic [ref=f2e19]: ☰
+  - main [ref=f2e20]:
+    - generic [ref=f2e21]:
+      - generic [ref=f2e22]:
+        - generic [ref=f2e23]:
+          - paragraph [ref=f2e24]: Hỗ trợ có căn cứ
+          - heading "Trợ lý AI" [level=1] [ref=f2e25]
+          - paragraph [ref=f2e26]: Tìm kèo phù hợp hoặc hỏi chính sách và dữ liệu của chính bạn.
+        - generic [ref=f2e27]:
+          - button "Gợi ý kèo" [ref=f2e28]
+          - button "Chat hỗ trợ" [ref=f2e29]
+      - generic [ref=f2e30]:
+        - generic [ref=f2e31]: ⓘ
+        - paragraph [ref=f2e32]:
+          - strong [ref=f2e33]: AI không tự thực hiện hành động.
+          - text: Mọi CTA chỉ mở luồng nghiệp vụ chuẩn để bạn tự kiểm tra và xác nhận.
+      - generic [ref=f2e35]:
+        - generic [ref=f2e36]: ⌁
+        - heading "Đăng nhập để dùng trợ lý" [level=2] [ref=f2e37]
+        - paragraph [ref=f2e38]: Trợ lý cần nhận diện tài khoản để chỉ truy xuất dữ liệu của chính bạn.
+        - button "Đăng nhập" [ref=f2e40]
+  - contentinfo [ref=f2e41]:
+    - generic [ref=f2e42]:
+      - generic [ref=f2e43]:
+        - paragraph [ref=f2e44]: Cầu Lông
+        - paragraph [ref=f2e45]: Đặt sân, tìm kèo và kết nối cộng đồng cầu lông trong một nơi.
+      - generic [ref=f2e46]:
+        - generic [ref=f2e47]:
+          - link "Về chúng tôi" [ref=f2e48] [cursor=pointer]:
+            - /url: /
+          - link "Liên hệ" [ref=f2e49] [cursor=pointer]:
+            - /url: /
+          - link "Điều khoản" [ref=f2e50] [cursor=pointer]:
+            - /url: /
+          - link "Chính sách hủy" [ref=f2e51] [cursor=pointer]:
+            - /url: /
+          - link "Chính sách bảo mật" [ref=f2e52] [cursor=pointer]:
+            - /url: /
+        - generic "Mạng xã hội" [ref=f2e53]:
+          - generic [ref=f2e54]: f
+          - generic [ref=f2e55]: ig
+    - generic [ref=f2e56]: © 2026 Cầu Lông. Dành cho cộng đồng cầu lông Việt Nam.

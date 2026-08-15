@@ -1,57 +1,28 @@
 {
   "meta": {
     "project": "Khoaluantn - Badminton Platform",
-    "orchestrator": "Claude Code",
-    "workers": ["code-generator", "code-reviewer", "documentation-writer", "test-engineer"],
-    "last_updated": "2026-08-03T00:00:00Z"
+    "purpose": "Compatibility task index",
+    "authoritative_task_source": "docs/product/phase-1-handoff.md",
+    "authoritative_status_source": "docs/product/phase-1-progress.md",
+    "decision_source": "docs/product/decision-log.md",
+    "last_synced": "2026-08-06"
   },
-  "phases": {
-    "phase_1_discovery": {
-      "name": "Product Discovery",
-      "status": "pending",
-      "owner": "Claude (Orchestrator)",
-      "tasks": [
-        {
-          "id": "discovery-001",
-          "title": "Validate business requirements",
-          "description": "Review existing discovery docs and identify unknowns",
-          "status": "pending",
-          "priority": "P0"
-        }
-      ]
-    },
-    "phase_2_planning": {
-      "name": "Architecture & Planning",
-      "status": "pending",
-      "owner": "Claude (Orchestrator)",
-      "tasks": [
-        {
-          "id": "plan-001",
-          "title": "Define core domain models",
-          "description": "Design data models for Court, Booking, Player, Community",
-          "status": "pending",
-          "priority": "P0"
-        }
-      ]
-    },
-    "phase_3_implementation": {
-      "name": "Code Generation & Testing",
-      "status": "pending",
-      "owner": "Codex (Worker)",
-      "tasks": []
-    }
+  "current": {
+    "phase": "phase_1_implementation",
+    "last_verified_milestone": "G3",
+    "next_milestone": "G4"
   },
-  "task_template": {
-    "task_id": "",
-    "title": "",
-    "description": "",
-    "scope": "",
-    "constraints": [],
-    "acceptance_criteria": [],
-    "success_tests": [],
-    "out_of_scope": [],
-    "assigned_to": "codex-worker-name",
-    "status": "pending",
-    "priority": "P1"
-  }
+  "execution_order": [
+    "Gboot",
+    "G0",
+    "Gdesign",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5",
+    "G6",
+    "G7"
+  ],
+  "note": "Do not manage task completion here. Read the handoff and progress ledger before assigning work."
 }

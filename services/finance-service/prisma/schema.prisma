@@ -1,0 +1,342 @@
+// finance-service — Prisma schema (schema-per-service, D17/ADR 0004).
+// G0: áp lược đồ theo docs/architecture/data-model.md §3 + decision-log.md §5.
+// Bất biến: service này CHỈ định nghĩa/đụng schema "finance" của chính nó;
+// không FK, không model tham chiếu bảng của service khác. userId/bookingId... là
+// tham chiếu (không FK) sang account-service / venue-booking-service.
+
+generator client {
+  provider = "prisma-client-js"
+  // Bắt buộc output riêng — tránh service khác ghi đè client khi hoist (xem
+  // ghi chú trong account-service/prisma/schema.prisma, phát hiện lúc làm G1).
+  output = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("FINANCE_DATABASE_URL")
+}
+
+/// D3 + D16: personal/business tách riêng; platform là ví hệ thống không có chủ.
+enum WalletType {
+  personal
+  business
+  platform
+}
+
+enum LedgerEntryType {
+  topup
+  payment
+  refund
+  payout
+  commission
+  release
+  reserve
+  settlement
+}
+
+enum MatchFundingStatus {
+  collecting
+  /// D39: all contributions remain reserved/paid while Venue decides the
+  /// fenced booking command. Ledger settlement happens only after its result.
+  settling
+  settled
+  cancelled
+}
+
+enum MatchContributionRole {
+  participant
+  organizer
+}
+
+enum MatchContributionStatus {
+  pending
+  paid
+  settled
+  refunded
+}
+
+enum PaymentMethod {
+  balance
+  sepay
+}
+
+enum PaymentRefType {
+  booking
+  matchFee
+  /// G4: nạp số dư (FIN-02) — không có đối tượng tham chiếu bên ngoài, refId
+  /// tự trỏ về chính PaymentIntent.id.
+  topup
+}
+
+enum PaymentIntentStatus {
+  pending
+  completed
+  failed
+}
+
+enum SepayDirection {
+  in
+  out
+}
+
+/// BR-FIN-17: đối soát ánh xạ 1-1 theo từng sự kiện.
+enum SepayStatus {
+  unmatched
+  matched_auto
+  matched_manual
+  out_of_scope
+}
+
+/// BR-FIN-19: partially_paid — yêu cầu đã có bút toán payout không bao giờ về rejected.
+enum WithdrawalStatus {
+  pending
+  paid
+  rejected
+  partially_paid
+}
+
+enum DisputeStatus {
+  open
+  resolved
+}
+
+model Wallet {
+  id     String     @id @default(uuid())
+  /// D16: nullable — ví platform không có chủ.
+  userId String?
+  /// D3: bỏ UK đơn lẻ trên userId — một user có thể có cả ví personal lẫn business.
+  walletType WalletType
+  available  BigInt     @default(0)
+  /// ADR 0003 + BR-FIN-16: pending/reserved chỉ có ý nghĩa cho ví business.
+  pending  BigInt @default(0)
+  reserved BigInt @default(0)
+  currency String @default("VND")
+
+  ledgerEntries LedgerEntry[]
+  bookingRevenues BookingRevenue[]
+
+  @@unique([userId, walletType])
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id       String          @id @default(uuid())
+  walletId String
+  wallet   Wallet          @relation(fields: [walletId], references: [id])
+  amount   BigInt
+  type     LedgerEntryType
+  refType  String
+  refId    String
+  referenceSummary Json?
+  before   BigInt
+  after    BigInt
+  ts       DateTime        @default(now())
+
+  @@map("ledger_entries")
+}
+
+model PaymentIntent {
+  id        String               @id @default(uuid())
+  userId    String
+  amount    BigInt
+  method    PaymentMethod
+  refType   PaymentRefType
+  refId     String
+  /// G4 (FIN-02/FIN-04): mã nội dung chuyển khoản duy nhất SePay khớp webhook
+  /// vào đúng intent này — chỉ có ý nghĩa khi method=sepay.
+  matchCode String?              @unique
+  status    PaymentIntentStatus  @default(pending)
+  createdAt DateTime             @default(now())
+
+  @@map("payment_intents")
+}
+
+model SepayEvent {
+  id          String         @id @default(uuid())
+  direction   SepayDirection
+  amount      BigInt
+  rawRef      String
+  /// G4 (BR-FIN-17/BR-FIN-09): mã giao dịch phía SePay — khóa idempotency khi
+  /// webhook bị gửi lại (redelivery), khác với `id` (uuid nội bộ của ta).
+  externalRef String?        @unique
+  matchedType String?
+  matchedId   String?
+  /// BR-FIN-17: trạng thái đối soát 1-1 theo từng sự kiện.
+  status      SepayStatus    @default(unmatched)
+  receivedAt  DateTime       @default(now())
+  allocations SepayAllocation[]
+
+  @@map("sepay_events")
+}
+
+/// Outbox Pattern (dùng chung, xem account-service/venue-booking-service) —
+/// finance-service publish PaymentCompleted (FIN-03/04) qua đây.
+model Outbox {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+
+  @@map("outbox")
+}
+
+/// Idempotency cho consumer (UserRegistered, BookingConfirmed).
+model ProcessedEvent {
+  eventId     String   @id
+  processedAt DateTime @default(now())
+
+  @@map("processed_events")
+}
+
+/// Immutable recovery record for a legacy finance event that cannot safely be
+/// interpreted under the current schema. The broker message is acknowledged
+/// only after this row has been durably written, so it is never silently lost.
+model QuarantinedEvent {
+  eventId       String   @id
+  eventType     String
+  payload       Json
+  reason        String
+  quarantinedAt DateTime @default(now())
+
+  @@index([eventType, quarantinedAt])
+  @@map("quarantined_events")
+}
+
+model WithdrawalRequest {
+  id            String            @id @default(uuid())
+  sellerUserId  String
+  amount        BigInt
+  status        WithdrawalStatus  @default(pending)
+  /// BR-FIN-19: số tiền đã thực chi khi chưa đủ (partially_paid).
+  paidAmount    BigInt?
+  sePayEventId  String?
+  transferCode  String            @unique
+  bankCode      String
+  bankAccountNumber String
+  bankAccountName String
+  rejectionReason String?
+  createdAt     DateTime          @default(now())
+  processedAt   DateTime?
+
+  @@map("withdrawal_requests")
+}
+
+/// FIN-09: metadata của đúng khoản release theo booking, để đáo hạn và hiển thị
+/// mà không truy vấn chéo schema venue_booking (D17).
+model BookingRevenue {
+  bookingId        String   @id
+  businessWalletId String
+  businessWallet   Wallet   @relation(fields: [businessWalletId], references: [id])
+  businessUserId   String
+  venueId          String
+  gross            BigInt
+  net              BigInt
+  commission       BigInt
+  endAt            DateTime
+  releaseAt        DateTime
+  releasedAt       DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([businessUserId, releaseAt])
+  @@map("booking_revenues")
+}
+
+/// BR-FIN-17: một sự kiện ngân hàng có thể có nhiều đối ứng (ví dụ payout +
+/// out_of_scope khi chi vượt), tổng các dòng phải bằng amount của sự kiện.
+model SepayAllocation {
+  id           String     @id @default(uuid())
+  sepayEventId String
+  sepayEvent   SepayEvent @relation(fields: [sepayEventId], references: [id])
+  kind         String
+  amount       BigInt
+  refId        String?
+  reason       String?
+  createdAt    DateTime   @default(now())
+
+  @@index([sepayEventId])
+  @@unique([kind, refId])
+  @@map("sepay_allocations")
+}
+
+/// BR-FIN-13 + A-FIN-09: audit tiền riêng trong finance-service, append-only.
+model FinanceAudit {
+  id          String   @id @default(uuid())
+  actorUserId String
+  action      String
+  refType     String
+  refId       String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([refType, refId])
+  @@map("finance_audits")
+}
+
+model Dispute {
+  id              String        @id @default(uuid())
+  refType         String
+  refId           String
+  /// D11: liên kết tới booking (venue-booking-service) — không FK chéo schema.
+  bookingId       String        @unique
+  raiserUserId    String
+  reason          String        @default("")
+  evidence        Json?
+  status          DisputeStatus @default(open)
+  resolution      String?
+  resolutionAmount BigInt?
+  decidedByUserId String?
+  /// D11: mốc hạn 24 giờ tính từ lúc ca kết thúc — hoãn giải phóng doanh thu tới khi qua mốc này.
+  deadlineAt      DateTime
+  createdAt       DateTime      @default(now())
+  resolvedAt      DateTime?
+
+  @@map("disputes")
+}
+
+/// FIN-05: aggregate tài chính riêng của một kèo; chỉ giữ ID/snapshot từ
+/// matchmaking/venue, không FK xuyên schema.
+model MatchFunding {
+  matchId               String             @id
+  bookingId             String             @unique
+  organizerUserId       String
+  capacity              Int
+  feePerSlot            BigInt
+  bookingPrice          BigInt
+  organizerContribution BigInt
+  cutoffAt              DateTime
+  status                MatchFundingStatus @default(collecting)
+  settlementAttemptId   String?
+  settlementVenueRevision Int @default(0)
+  settledAt             DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime           @default(now())
+  contributions         MatchContribution[]
+
+  @@map("match_fundings")
+}
+
+model MatchContribution {
+  id              String                  @id @default(uuid())
+  contributionKey String                  @unique
+  matchId         String
+  funding         MatchFunding            @relation(fields: [matchId], references: [matchId])
+  joinId          String?                 @unique
+  userId          String
+  role            MatchContributionRole
+  amount          BigInt
+  status          MatchContributionStatus @default(pending)
+  expiresAt       DateTime?
+  paymentMethod   PaymentMethod?
+  paymentIntentId String?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime                @default(now())
+
+  @@index([matchId, status])
+  @@map("match_contributions")
+}

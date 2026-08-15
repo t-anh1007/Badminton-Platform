@@ -26,6 +26,9 @@ lại từ `SCOPE_BASELINE.md`.
 |---|---|---|
 | 2026-08-05 | `BOK-10` bổ sung **Admin** làm actor liên quan | D13 — hệ quả của D4, xem [decision-log](decision-log.md) |
 | 2026-08-05 | Thêm `FIN-14 Đối soát giao dịch chưa khớp` vào GĐ1. Tổng chức năng GĐ1 tăng từ 39 lên **40** | D15 — bịt lỗ hổng tiền nằm ngoài ledger |
+| 2026-08-09 | Chèn **Giai đoạn 2.5 — Tinh chỉnh UI/UX theo Playo.co** giữa GĐ2 và GĐ3 (mục 4B). **0 UC nền mới** — chỉ re-skin/re-layout `apps/web` theo playo.co. Phần "UI/UX Polish" của GĐ3 (P3-M4) thu hẹp tương ứng. | D-UI1 (PO, phiên này) — xem `PLAN_PHASE2.5.md`, `docs/design/` |
+| 2026-08-13 | Chuyển visual authority của Phase 2.5 sang file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2`; Playo/ACTL chỉ còn là lịch sử. Không đổi UC, vai trò, API, service hoặc scope chức năng. | D45 — PO |
+| 2026-08-14 | Bổ sung delivery UI/UX đã duyệt: shell theo context role, payment terminal dùng hạn hold backend, khai trình độ cooldown 7 ngày và tối đa bốn ảnh Community có ownership storage. | D46–D48 — PO |
 
 > D1 thay thế cách diễn đạt "lát cắt dọc mỏng" ở [ADR 0001](../decisions/0001-tech-stack.md)
 > và [ADR 0002](../decisions/0002-tech-stack-microservices.md). Hai ADR đó vẫn đúng về
@@ -68,6 +71,7 @@ chuyển sang hệ mã module, để tránh lệch tham chiếu với tài liệ
 |---|---|---:|---|
 | **GĐ1** | account-access, venue-scheduling, court-booking, finance-disputes | **40** | Nền tảng + hành trình đặt sân trả tiền hoàn chỉnh |
 | **GĐ2** | matchmaking-passport, community-support, ai, + `FIN-05` | **22 UC + 5 tính năng mới** | Cộng đồng, ghép kèo, lớp AI — điểm nhấn bảo vệ |
+| **GĐ2.5** | `apps/web` (frontend) | **0 UC nền** | Tinh chỉnh UI/UX toàn bộ trang theo playo.co (~90–100%). Chỉ FE + docs design, không đụng service/API. Xem mục 4B. |
 | **GĐ3** | — | **0 UC nền** | Hoàn thiện, kiểm thử, tài liệu, bàn giao. `F-05` nếu tái kích hoạt. |
 
 Tổng: 62 UC nền (40 + 22) + 5 tính năng mới được chấp nhận + 1 hoãn. Trong đó 61 UC đến từ
@@ -185,6 +189,25 @@ mới phải được PO duyệt riêng và ghi vào bảng này.
 `F-06` và `F-08` đã bị loại từ phiên brainstorm, không đưa lại.
 
 ---
+
+## 4B. Giai đoạn 2.5 — Tinh chỉnh UI/UX theo COURTIN
+
+**0 UC nền mới.** Đây là giai đoạn **re-skin + re-layout** frontend `apps/web` theo
+file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2` — **giữ nguyên phạm vi nghiệp vụ cầu
+lông** (không trainer, không đa môn, không karma).
+
+- **Nguồn thẩm quyền:** Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2` theo D45 và
+  [`docs/design/courtin-figma-authority.md`](../design/courtin-figma-authority.md).
+- **Ranh giới:** chỉ sửa `apps/web` + docs design; **không** đụng `services/*`,
+  schema, API, event, logic nghiệp vụ.
+- **Cập nhật 2026-08-13 (D45):** mọi mockup và code mới lấy Figma COURTIN làm chuẩn;
+  tài liệu Playo/ACTL không còn có thẩm quyền quyết định hình thức. Giữ nguyên ràng
+  buộc hiệu năng DESIGN.md §5.
+- **Đối chiếu scope:** không bổ sung feature từ visual reference; Admin, Passport,
+  AI, Cộng đồng, tranh chấp và ví kinh doanh chỉ thể hiện dữ liệu/hành động đã được
+  specification hiện hành cho phép.
+- **Hệ quả GĐ3:** phần "UI/UX Polish" (P3-M4) thu hẹp — polish thị giác đã làm ở
+  GĐ2.5; P3-M4 còn polish nội dung demo + a11y cuối.
 
 ## 5. Giai đoạn 3
 

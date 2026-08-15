@@ -586,7 +586,7 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 
 | # | Giả định | Rủi ro |
 |---|---|---|
-| A-FIN-01 | **Tỷ lệ hoa hồng đặt lúc triển khai, giá trị khởi đầu đề xuất 10%.** Mọi AC viết theo tham số `r` nên đổi số không phải sửa spec | **Trung bình — chạm doanh thu**, nhưng không chạm luồng |
+| ~~A-FIN-01~~ | ✅ **Đã duyệt — [decision-log D19](../decision-log.md) chốt `r = 10%` (0.10) ngày 2026-08-06.** Mọi AC vẫn tham số hóa theo `r` nên đổi số không phải sửa spec | Không còn là giả định |
 | A-FIN-02 | Ngưỡng rút tối thiểu 100.000đ | Thấp — tham số |
 | A-FIN-03 | Số tiền nạp tối thiểu 10.000đ | Thấp — tham số |
 | A-FIN-04 | Mỗi nhà cung cấp chỉ có **một yêu cầu rút `pending`** tại một thời điểm | **Trung bình — chạm chính sách.** Đơn giản hóa đối soát, nhưng làm chậm chủ sân rút nhiều lần |

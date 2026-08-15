@@ -1,9 +1,11 @@
 ---
 type: architecture
 status: draft
-updated: 2026-08-04
+updated: 2026-08-06
 builds_on: docs/architecture/system-architecture.md
 purpose: Data model đầy đủ 5 service (ERD per-service) + state machine các thực thể có vòng đời.
+applied: "G0 (2026-08-06) đã áp 12 thay đổi tại decision-log.md §5 vào 3 ERD GĐ1 (account,
+  venue-booking, finance). matchmaking/community giữ nguyên bản nháp GĐ2, chưa áp/migrate."
 ---
 
 # Data model — đầy đủ 5 service
@@ -25,7 +27,7 @@ erDiagram
         string email UK
         string phone
         string passwordHash
-        enum role "player|provider|admin"
+        enum[] roles "player|provider|admin — TẬP HỢP, D3 (không còn enum đơn giá trị)"
         bool verified
         enum status "active|locked"
         timestamptz createdAt
@@ -75,14 +77,12 @@ erDiagram
     COURT ||--o{ BOOKING_RULE : constrained_by
     COURT ||--o{ HOLD : temp_locks
     COURT ||--o{ BOOKING : booked_as
-    PROVIDER ||--o{ CANCELLATION_POLICY : defines
-    BOOKING ||--o{ BOOKING_REVIEW : reviewed_by
 
     PROVIDER {
         uuid id PK
         uuid userId
         string orgName
-        enum status "pending|approved|suspended"
+        enum status "pending|approved|suspended|rejected"
         jsonb contact
     }
     VENUE {
@@ -122,24 +122,28 @@ erDiagram
         uuid id PK
         uuid courtId FK
         tstzrange timeRange
-        uuid userId
+        uuid userId "nullable — BR-VEN-08a, booking nội bộ không gắn tài khoản"
+        string guestName "nullable, chỉ dùng khi source=internal — BR-VEN-08a"
+        string guestContact "nullable, chỉ dùng khi source=internal — BR-VEN-08a"
         enum source "marketplace|internal"
         enum status "held|confirmed|completed|cancelled"
+        enum cancellationReason "nullable — self|provider_fault|platform_admin, D10 (phân biệt FIN-07 tự hủy vs FIN-08 hoàn 100%)"
         jsonb policySnapshot
         bigint priceSnapshot
         timestamptz createdAt
-    }
-    BOOKING_REVIEW {
-        uuid id PK
-        uuid bookingId FK
-        uuid raterUserId
-        enum ratee "player|venue"
-        int score
-        string comment
-        timestamptz publishedAt
+        timestamptz courtChangedAt "nullable — BOK-10-6, dấu booking đã được phía sân đổi sân con"
     }
 ```
 **Chống đặt trùng:** `EXCLUDE` constraint trên `(courtId, timeRange)` cho booking `confirmed` + advisory lock khi tạo hold.
+
+> **`BOOKING_REVIEW` đã bị loại khỏi ERD (D7)** — không có use case đánh giá booking sân ở GĐ1;
+> nếu mở lại ở giai đoạn sau, dựng thực thể mới lúc đó thay vì phục hồi bản này.
+> **`CANCELLATION_POLICY` đã bị loại khỏi ERD (D9)** — chính sách hủy là hằng số nền tảng
+> (`BR-BOK-05`), không phải cấu hình theo `PROVIDER`; chỉ còn `policySnapshot` trên `BOOKING`.
+> **`OPERATING_HOURS`, `CLOSURE`, `BOOKING_RULE`** được nhắc tới trong quan hệ ở trên nhưng
+> **chưa có định nghĩa cột nào ở đây** — đây là khoảng trống có từ trước, không thuộc 12 thay
+> đổi G0 phải áp. Trường cụ thể do **G2** (chủ sở hữu VEN-05/VEN-06/VEN-07) định nghĩa khi hiện
+> thực các use case đó, tránh G0 tự suy đoán trước một quyết định thiết kế nghiệp vụ.
 
 ## 3. finance-service
 
@@ -152,9 +156,11 @@ erDiagram
 
     WALLET {
         uuid id PK
-        uuid userId UK
+        uuid userId "nullable — ví platform không có chủ (D16); bỏ UK đơn lẻ, D3"
+        enum walletType "personal|business|platform — D3, D16"
         bigint available
-        bigint pending
+        bigint pending "chỉ có ý nghĩa cho business — ADR 0003"
+        bigint reserved "chỉ có ý nghĩa cho business — BR-FIN-16, ba phân vùng"
         string currency
     }
     LEDGER_ENTRY {
@@ -185,26 +191,66 @@ erDiagram
         string rawRef
         string matchedType
         uuid matchedId
+        enum status "unmatched|matched_auto|matched_manual|out_of_scope — BR-FIN-17"
         timestamptz receivedAt
     }
     WITHDRAWAL_REQUEST {
         uuid id PK
         uuid sellerUserId
         bigint amount
-        enum status "pending|paid|rejected"
+        enum status "pending|paid|rejected|partially_paid — BR-FIN-19"
+        bigint paidAmount "nullable, mặc định 0 — BR-FIN-19"
         uuid sePayEventId
         timestamptz createdAt
         timestamptz processedAt
+    }
+    BOOKING_REVENUE {
+        uuid bookingId PK "metadata release theo booking marketplace"
+        uuid businessWalletId FK
+        uuid businessUserId
+        uuid venueId
+        bigint gross
+        bigint net
+        bigint commission
+        timestamptz endAt
+        timestamptz releaseAt
+        timestamptz releasedAt
+        timestamptz cancelledAt "đã hủy — không còn đủ điều kiện tranh chấp"
+        timestamptz createdAt
+    }
+    SEPAY_ALLOCATION {
+        uuid id PK
+        uuid sepayEventId FK
+        string kind "topup|booking|payout|out_of_scope"
+        bigint amount
+        uuid refId
+        string reason
+    }
+    FINANCE_AUDIT {
+        uuid id PK
+        uuid actorUserId
+        string action
+        string refType
+        uuid refId
+        string reason
+        jsonb metadata
+        timestamptz createdAt
     }
     DISPUTE {
         uuid id PK
         string refType
         uuid refId
+        uuid bookingId UK "liên kết duy nhất tới booking — D11 (venue-booking, không FK chéo schema)"
         uuid raiserUserId
+        string reason
         jsonb evidence
         enum status "open|resolved"
         string resolution
+        bigint resolutionAmount
         uuid decidedByUserId
+        timestamptz deadlineAt "mốc hạn 24 giờ từ lúc ca kết thúc — D11"
+        timestamptz createdAt
+        timestamptz resolvedAt
     }
 ```
 

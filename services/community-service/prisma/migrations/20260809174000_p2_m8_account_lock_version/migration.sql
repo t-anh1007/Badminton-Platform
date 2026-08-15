@@ -1,0 +1,1 @@
+ALTER TABLE "account_locks" ADD COLUMN "stateVersion" INTEGER NOT NULL DEFAULT 0;

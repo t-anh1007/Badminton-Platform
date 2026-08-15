@@ -1,29 +1,31 @@
-# Product Docs
+# Bản đồ tài liệu sản phẩm
 
-This directory contains current consumer-product behavior derived from real
-accepted intent. Harness deliberately ships no fake product domains.
+Thư mục này là nguồn sự thật cho phạm vi và hành vi sản phẩm đã được chấp nhận.
+Đọc theo nhu cầu, không nạp toàn bộ tài liệu cho mọi task.
 
-When a user provides a product specification, derive smaller living documents
-here instead of keeping one growing specification as the operating manual. Name
-files after actual product domains, such as `overview.md`, `billing.md`,
-`permissions.md`, or `api-conventions.md`.
+## Điểm vào chính
 
-## Current Product Contract
+- `phasing.md`: phạm vi và phân bổ chức năng theo giai đoạn.
+- `decision-log.md`: quyết định sản phẩm đang có hiệu lực.
+- `phase-1-goal.md`: mục tiêu và chuẩn hoàn thành Giai đoạn 1.
+- `phase-1-handoff.md`: thứ tự milestone, phụ thuộc và ranh giới bàn giao.
+- `phase-1-progress.md`: trạng thái triển khai, test ledger và bằng chứng.
+- `coverage-matrix.md`: độ phủ của spec đã duyệt; không thay thế test ledger.
 
-No consumer-specific product contract is shipped in this generic directory.
-The upstream `repository-harness` contract lives in the root README, current
-workflow and architecture documents, lasting decisions, optional orchestration
-contract, implementation, and executable tests.
+## Spec theo miền
 
-## Update Rule
+- `specs/account-access.md`: tài khoản, xác minh, phiên và phân quyền.
+- `specs/venue-scheduling.md`: nhà cung cấp, cơ sở, sân, lịch và giá.
+- `specs/court-booking.md`: tìm sân, giữ chỗ và booking.
+- `specs/finance-disputes.md`: thanh toán, ví, doanh thu, hoàn tiền, đối soát và
+  tranh chấp.
 
-When behavior changes:
+## Tài liệu thiết kế hỗ trợ
 
-1. Update the affected product document when the expected behavior changed.
-2. Update the active execution plan when complex work uses one.
-3. Add a lasting decision only when future work must inherit a consequential
-   product, architecture, data, security, compatibility, or validation choice.
-4. Add or update executable proof that exercises the behavior.
+- `gboot-goal.md`: bootstrap monorepo và hạ tầng nền.
+- `gdesign-goal.md`: baseline giao diện Giai đoạn 1.
+- `gdesign-screenshots/`: bằng chứng hiển thị theo viewport.
 
-Bounded changes do not require a story packet, proof-matrix row, or Harness CLI
-mutation.
+Khi hành vi được duyệt thay đổi, cập nhật spec/decision liên quan và bằng chứng
+thực thi tương ứng. Không suy ra trạng thái triển khai từ số lượng chức năng hay
+frontmatter `approved`; dùng `phase-1-progress.md` và test chạy được.

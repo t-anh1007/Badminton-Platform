@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@import "@fontsource/archivo/latin-800.css";
+@import "@fontsource/archivo/vietnamese-800.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/inter/vietnamese-400.css";
+@import "@fontsource/inter/vietnamese-500.css";
+@import "@fontsource/inter/vietnamese-600.css";
+@import "@fontsource/inter/vietnamese-700.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+
+@theme {
+  --color-brand-navy: #15446c;
+  --color-brand-navy-raised: #1e547c;
+  --color-brand-yellow: #f5e663;
+  --color-brand-yellow-hover: #fff18a;
+  --color-ink-900: #171717;
+  --color-ink-700: #343434;
+  --color-ink-500: #666666;
+  --color-ink-300: #9a9a96;
+  --color-line: #e5e5e0;
+  --color-surface: #ffffff;
+  --color-canvas: #f7f7f5;
+  --color-success: #2d7b62;
+  --color-success-bg: #e4f2ec;
+  --color-warning: #a66a00;
+  --color-warning-bg: #fff3c7;
+  --color-danger: #e63946;
+  --color-danger-bg: #fff0f1;
+  --color-info: #1e547c;
+  --color-focus: #f5e663;
+  /* Backward-compatible semantic aliases. Existing business states keep their names. */
+  --color-green-700: #15446c;
+  --color-green-600: #15446c;
+  --color-green-500: #1e547c;
+  --color-green-100: #dce9f1;
+  --color-green-50: #edf4f7;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 3px rgb(21 68 108 / 7%), 0 1px 2px rgb(21 68 108 / 5%);
+  --shadow-raised: 0 12px 32px rgb(21 68 108 / 14%);
+  --animate-courtin-arrival: courtin-arrival 520ms ease-out both;
+  --animate-skeleton-shimmer: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes courtin-arrival { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes skeleton-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+@layer base {
+  html { min-width: 320px; background: var(--color-canvas); color: var(--color-ink-900); font-family: var(--font-sans); }
+  body { margin: 0; }
+  button, input, select, textarea { font: inherit; }
+  :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+}
+
+@layer components {
+  .page-container { width: min(100% - 2rem, 1320px); margin-inline: auto; }
+  .text-h1 { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.035em; color: var(--color-brand-navy); }
+  .text-h2 { font-family: var(--font-display); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; color: var(--color-brand-navy); }
+  .text-h3 { font-family: var(--font-display); font-size: 1.125rem; font-weight: 800; line-height: 1.25; color: var(--color-brand-navy); }
+  .text-body { font-size: 1rem; font-weight: 400; line-height: 1.6; }
+  .text-caption { color: var(--color-ink-500); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; line-height: 1.5; text-transform: uppercase; }
+  .text-figures { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .surface-card { border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); }
+  .courtin-kicker { color: var(--color-brand-navy); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; line-height: 1.4; text-transform: uppercase; }
+}
+
+@media (min-width: 640px) { .page-container { width: min(100% - 3rem, 1320px); } }
+.community-media-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.community-media-grid button { min-width: 0; }
+.media-lightbox { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 1rem; background: rgb(10 22 34 / 88%); }
+.media-lightbox button { cursor: zoom-out; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }

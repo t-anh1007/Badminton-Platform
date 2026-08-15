@@ -1,0 +1,75 @@
+import { prisma } from '../lib/prisma.js';
+import { AppError } from '../lib/errors.js';
+
+async function getOwnedCourtOrThrow(userId: string, courtId: string) {
+  const court = await prisma.court.findUniqueOrThrow({
+    where: { id: courtId },
+    include: { venue: { include: { provider: true } } },
+  });
+  if (court.venue.provider.userId !== userId) {
+    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu sân này.', 403);
+  }
+  return court;
+}
+
+/** VEN-04 — Thêm sân con (AC-VEN-04-1). */
+export async function addCourt(userId: string, venueId: string, name: string) {
+  const venue = await prisma.venue.findUniqueOrThrow({
+    where: { id: venueId },
+    include: { provider: true },
+  });
+  if (venue.provider.userId !== userId) {
+    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
+  }
+  if (venue.provider.status !== 'approved') {
+    throw new AppError('PROVIDER_NOT_APPROVED', 'Hồ sơ nhà cung cấp chưa được duyệt.', 403);
+  }
+  const trimmed = name.trim();
+  if (!trimmed) throw new AppError('COURT_NAME_REQUIRED', 'Tên sân không được để trống.', 400);
+
+  const dup = await prisma.court.findFirst({ where: { venueId, name: trimmed } });
+  if (dup) throw new AppError('DUPLICATE_COURT_NAME', 'Tên sân đã tồn tại trong cơ sở này.', 409);
+
+  return prisma.court.create({ data: { venueId, name: trimmed, active: true } });
+}
+
+/** VEN-04 — Vô hiệu hóa sân con (AC-VEN-04-2, 03, 05). BR-VEN-05/05a: chặn nếu
+ * còn booking confirmed tương lai HOẶC hold chưa hết hạn. */
+export async function deactivateCourt(userId: string, courtId: string): Promise<void> {
+  const court = await getOwnedCourtOrThrow(userId, courtId);
+  const now = new Date();
+
+  const futureConfirmed = await prisma.booking.findMany({
+    where: { courtId: court.id, status: 'confirmed', startAt: { gt: now } },
+    select: { id: true, startAt: true, endAt: true },
+  });
+  if (futureConfirmed.length > 0) {
+    throw new AppError(
+      'BLOCKED_BY_FUTURE_BOOKINGS',
+      `Còn ${futureConfirmed.length} booking đã xác nhận trong tương lai. Hủy qua BOK-10 trước khi vô hiệu hóa.`,
+      409,
+      { bookings: futureConfirmed },
+    );
+  }
+
+  const activeHold = await prisma.hold.findFirst({
+    where: { courtId: court.id, expiresAt: { gt: now } },
+    orderBy: { expiresAt: 'asc' },
+  });
+  if (activeHold) {
+    throw new AppError(
+      'BLOCKED_BY_ACTIVE_HOLD',
+      `Còn một lượt giữ chỗ chưa hết hạn, thử lại sau ${activeHold.expiresAt.toISOString()}.`,
+      409,
+      { holdExpiresAt: activeHold.expiresAt },
+    );
+  }
+
+  await prisma.court.update({ where: { id: court.id }, data: { active: false } });
+}
+
+/** VEN-04 — Lịch sử booking của sân (AC-VEN-04-4) — không lọc theo active. */
+export async function getCourtBookingHistory(userId: string, courtId: string) {
+  const court = await getOwnedCourtOrThrow(userId, courtId);
+  return prisma.booking.findMany({ where: { courtId: court.id }, orderBy: { startAt: 'desc' } });
+}

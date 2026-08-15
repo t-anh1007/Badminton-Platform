@@ -68,7 +68,12 @@ Hard Gate trong [phase-1-handoff.md](product/phase-1-handoff.md), cắt xuống 
 
 ```
 Task: <một câu, một kết quả>
-Thuộc gói: <Gboot | G0 | G1…G7>
+Thuộc gói: <Gboot | G0 | Gdesign | G1…G7>
+
+Routing (bắt buộc — theo docs/CLAUDE_CODEX_CAPABILITIES.md):
+- model: <model Codex/GPT chọn cho task này>
+- reasoning_effort: <low | medium | high — theo độ khó/rủi ro task>
+- lý do routing: <một câu vì sao model+effort này hợp task>
 
 Context bắt buộc đọc trước:
 - <file spec + AC liên quan>
@@ -187,6 +192,10 @@ Công cụ sẵn có: `stitch-design` (sinh design system + màn hình), `react-
 ## 9. Nguyên tắc bất di
 
 1. Claude **không tự viết code sản phẩm** trừ khi sửa lỗi nhỏ khi review. Việc code là của Codex.
+   - **Ngoại lệ toàn bộ GĐ1 (quyết định PO [D21](product/decision-log.md), 2026-08-06):** **goal
+     triển khai GĐ1 do Claude Code thực thi trọn vẹn** (Gboot→G7); manual này **không áp dụng cho
+     goal đó**. Manual vẫn là tham chiếu cho mọi công việc Codex-orchestrated **ngoài** goal GĐ1
+     và cho GĐ2 trở đi. (D21 thay thế D20/Hybrid.)
 2. Claude **không nghiệm thu thay PO**, và **không đẩy việc review lên PO**.
 3. Mọi `Done when` phải dẫn **mã AC cụ thể**, không mô tả chung chung.
 4. Không task nào được vượt phạm vi đã ghi. Codex phát hiện cần vượt → dừng và báo Claude.

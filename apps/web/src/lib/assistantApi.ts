@@ -1,0 +1,174 @@
+const MATCHMAKING_URL = import.meta.env.VITE_MATCHMAKING_URL ?? '/api/matchmaking';
+const COMMUNITY_URL = import.meta.env.VITE_COMMUNITY_URL ?? '/api/community';
+
+export interface AssistantSession {
+  userId: string;
+  roles: string[];
+}
+
+export interface AiMatchSuggestion {
+  matchId: string;
+  score: number;
+  explanation: string;
+  source: 'gemini' | 'fallback';
+  joinPath: string;
+  match: {
+    id: string;
+    openSlots: number;
+    feePerSlot: string;
+    skillMin: string | null;
+    skillMax: string | null;
+    startAt: string;
+    endAt: string;
+    court: { id: string; name: string };
+    venue: { id: string; name: string; address: string };
+  };
+}
+
+export interface AssistantSource {
+  id: string;
+  title: string;
+}
+
+export interface SupportAssistantReply {
+  answer: string;
+  sources: AssistantSource[];
+  source: 'gemini' | 'fallback' | 'safety';
+  actionPath?: string;
+}
+
+export interface MatchAssistantReply {
+  answer: string;
+  normalizedCriteria: {
+    area?: string;
+    startFrom?: string;
+    endBefore?: string;
+    feeMax?: string;
+  };
+  suggestions: AiMatchSuggestion[];
+  actionPath?: string;
+}
+
+export class AssistantApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'AssistantApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function accessToken(): string | null {
+  return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
+}
+
+export function getAssistantSession(): AssistantSession | null {
+  const token = accessToken();
+  if (!token) return null;
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+    const normalizedPart = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = normalizedPart.padEnd(Math.ceil(normalizedPart.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(normalized)) as {
+      sub?: string;
+      roles?: unknown;
+    };
+    return payload.sub
+      ? {
+          userId: payload.sub,
+          roles: Array.isArray(payload.roles)
+            ? payload.roles.filter((role): role is string => typeof role === 'string')
+            : [],
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function api<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+  const token = accessToken();
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
+  });
+  const body = (await response.json().catch(() => ({}))) as T & {
+    error?: { code?: string; message?: string };
+  };
+  if (!response.ok) {
+    throw new AssistantApiError(
+      body.error?.message ?? 'Không thể kết nối trợ lý lúc này.',
+      response.status,
+      body.error?.code,
+    );
+  }
+  return body;
+}
+
+export function listAiMatchSuggestions() {
+  return api<{ suggestions: AiMatchSuggestion[] }>(MATCHMAKING_URL, '/matches/suggestions/ai');
+}
+export function chatAiMatchSuggestions(message: string, criteria?: Record<string, unknown>) {
+  return api<MatchAssistantReply>(MATCHMAKING_URL, '/matches/suggestions/ai/chat', { method: 'POST', body: JSON.stringify({ message, criteria }) });
+}
+
+export function askSupportAssistant(question: string) {
+  return api<SupportAssistantReply>(COMMUNITY_URL, '/assistant/chat', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Điểm ghép API trợ lý (bong bóng chat CSKH).
+// Hiện dùng backend sẵn có: hỏi chính sách/dữ liệu (askSupportAssistant) và
+// gợi ý kèo F-02 (chatAiMatchSuggestions). Khi có API AI real-time mới, chỉ cần
+// thay phần thân hai hàm dưới — component `AssistantBubble` không phải sửa.
+// ---------------------------------------------------------------------------
+export type AssistantReplyKind = 'support' | 'match';
+
+export interface AssistantReply {
+  kind: AssistantReplyKind;
+  answer: string;
+  fallback: boolean;
+  sources?: AssistantSource[];
+  actionPath?: string;
+  suggestions?: AiMatchSuggestion[];
+}
+
+function standardSupportActionPath(path?: string): string | undefined {
+  if (path === '/players/me/bookings') return '/profile?tab=bookings';
+  return path && path.startsWith('/') ? path : undefined;
+}
+
+/** Câu hỏi chính sách / dữ liệu của chính người dùng. */
+export async function sendSupportMessage(question: string): Promise<AssistantReply> {
+  const reply = await askSupportAssistant(question);
+  return {
+    kind: 'support',
+    answer: reply.answer,
+    fallback: reply.source === 'fallback',
+    sources: reply.sources,
+    actionPath: standardSupportActionPath(reply.actionPath),
+  };
+}
+
+/** Gợi ý kèo phù hợp (F-02) — trả kèm thẻ kèo. */
+export async function sendMatchSuggestionMessage(message: string): Promise<AssistantReply> {
+  const reply = await chatAiMatchSuggestions(message);
+  return {
+    kind: 'match',
+    answer: reply.answer,
+    fallback: reply.suggestions.some((item) => item.source === 'fallback') && reply.suggestions.length === 0,
+    actionPath: reply.actionPath,
+    suggestions: reply.suggestions,
+  };
+}

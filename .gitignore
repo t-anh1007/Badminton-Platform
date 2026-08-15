@@ -3,6 +3,17 @@
 
 # Node
 node_modules/
+dist/
+*.tsbuildinfo
+output/
+
+# Env (giữ .env.example, bỏ .env thật)
+.env
+**/.env
+!**/.env.example
+
+# Prisma generated client
+**/node_modules/.prisma/
 
 # OS
 .DS_Store
@@ -14,3 +25,12 @@ Thumbs.db
 # Harness core maintenance binary
 scripts/bin/harness
 scripts/bin/harness.exe
+
+# Agent worktrees
+.worktrees/
+
+# Python bytecode cache in skills
+__pycache__/
+
+# Local superpowers plugin runtime/logs
+.superpowers/

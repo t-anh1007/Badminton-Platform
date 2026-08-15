@@ -283,6 +283,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 - `AC-BOK-07-2` — **Given** một hold đã hết hạn, **When** `PaymentCompleted` về cho booking đó, **Then** booking ở trạng thái `cancelled`, không chuyển sang `confirmed`, và khoản tiền được ghi có vào ví cá nhân của người chơi.
 - `AC-BOK-07-3` — **Given** một booking vừa `confirmed` với giá 250k, **When** chủ sân đổi biểu giá ngay sau đó, **Then** `priceSnapshot` của booking vẫn là 250k.
 - `AC-BOK-07-4` — **Given** sự kiện `PaymentCompleted` bị phát lại hai lần, **When** `venue-booking-service` xử lý, **Then** booking chỉ chuyển trạng thái một lần và không sinh sự kiện `BookingConfirmed` thứ hai.
+- `AC-BOK-07-5` — **Given** người chơi xác nhận đặt sân thành công, **When** booking `held` được tạo, **Then** UI chuyển payment terminal, khóa lựa chọn và đếm ngược từ `holdExpiresAt` do backend trả về.
 - `AC-BOK-07-5` — **Given** người chơi không thanh toán cho tới khi hold hết hạn, **When** tác vụ nền chạy, **Then** booking chuyển `cancelled` và slot trở lại khả dụng.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 5 AC. AC-BOK-07-2 và AC-BOK-07-4 là kiểm thử tích hợp qua hàng đợi sự kiện; AC-BOK-07-4 chứng minh consumer idempotent.

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Use Case"
-  short_description: "Viết và review Use Case theo flow Actor–Hệ thống"
-  default_prompt: "Dùng $usecase để viết Use Case tiếng Việt từ brainstorm, URD hoặc PRD hiện có."
