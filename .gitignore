@@ -34,3 +34,7 @@ __pycache__/
 
 # Local superpowers plugin runtime/logs
 .superpowers/
+
+# Local harness backups and Playwright CLI debug artifacts (logs/screenshots)
+.harness-backup/
+.playwright-cli/
