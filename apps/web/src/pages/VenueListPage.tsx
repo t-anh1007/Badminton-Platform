@@ -5,16 +5,16 @@ import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
 import { formatMoneyVnd } from '../lib/formatters.js';
+import { VenuesMap } from '../components/map/VenuesMap';
+import { reverseGeocode } from '../lib/geocoding';
 
-type LocationChoice = { id: string; label: string; lat: number; lng: number };
+type Origin = { label: string; lat: number; lng: number };
 type SortOrder = 'distance' | 'price' | 'name';
+type ViewMode = 'list' | 'map';
 
-const CITY_CHOICES: readonly LocationChoice[] = [
-  { id: 'ho-chi-minh', label: 'Thành phố Hồ Chí Minh', lat: 10.8231, lng: 106.6297 },
-  { id: 'ha-noi', label: 'Hà Nội', lat: 21.0285, lng: 105.8542 },
-  { id: 'da-nang', label: 'Đà Nẵng', lat: 16.0544, lng: 108.2022 },
-];
-
+// Điểm gốc mặc định khi chưa có vị trí (trung tâm TP.HCM). Người dùng thay bằng
+// nút "Dùng vị trí của tôi" hoặc click trên bản đồ — không còn preset cứng.
+const DEFAULT_ORIGIN: Origin = { label: 'Trung tâm TP.HCM', lat: 10.8231, lng: 106.6297 };
 const RADIUS_OPTIONS = [5, 10, 20] as const;
 
 function readCoordinate(value: string | null): number | null {
@@ -23,14 +23,11 @@ function readCoordinate(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function initialLocation(searchParams: URLSearchParams): LocationChoice {
+function initialOrigin(searchParams: URLSearchParams): Origin {
   const lat = readCoordinate(searchParams.get('lat'));
   const lng = readCoordinate(searchParams.get('lng'));
-  if (lat !== null && lng !== null) {
-    const matchingCity = CITY_CHOICES.find((city) => city.lat === lat && city.lng === lng);
-    return matchingCity ?? { id: 'linked-location', label: 'Vị trí trên liên kết', lat, lng };
-  }
-  return CITY_CHOICES[0];
+  if (lat !== null && lng !== null) return { label: 'Vị trí trên liên kết', lat, lng };
+  return DEFAULT_ORIGIN;
 }
 
 function formatLowestPrice(price: string | null): string | null {
@@ -60,7 +57,10 @@ function minuteOfDay(value: string): number | null {
 
 export function VenueListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [location, setLocation] = useState<LocationChoice>(() => initialLocation(searchParams));
+  const [origin, setOrigin] = useState<Origin>(() => initialOrigin(searchParams));
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [radiusKm, setRadiusKm] = useState<number>(() => {
     const value = Number(searchParams.get('radiusKm'));
     return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
@@ -94,8 +94,8 @@ export function VenueListPage() {
     }
     try {
       const result = await searchVenues({
-        lat: location.lat,
-        lng: location.lng,
+        lat: origin.lat,
+        lng: origin.lng,
         radiusKm,
         ...(minPrice ? { minPrice: Number(minPrice) } : {}),
         ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
@@ -111,7 +111,7 @@ export function VenueListPage() {
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }, [date, endTime, location.lat, location.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime]);
+  }, [date, endTime, origin.lat, origin.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime]);
 
   useEffect(() => {
     void runSearch(false);
@@ -119,12 +119,40 @@ export function VenueListPage() {
 
   useEffect(() => {
     const nextParams = new URLSearchParams({
-      lat: String(location.lat),
-      lng: String(location.lng),
+      lat: String(origin.lat),
+      lng: String(origin.lng),
       radiusKm: String(radiusKm),
     });
     setSearchParams(nextParams, { replace: true });
-  }, [location.lat, location.lng, radiusKm, setSearchParams]);
+  }, [origin.lat, origin.lng, radiusKm, setSearchParams]);
+
+  const useMyLocation = () => {
+    if (!('geolocation' in navigator)) { setLocateError('Trình duyệt không hỗ trợ định vị.'); return; }
+    setLocating(true); setLocateError('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setOrigin({ label: 'Vị trí của bạn', lat: latitude, lng: longitude });
+        setLocating(false);
+        void reverseGeocode(latitude, longitude).then((addr) => {
+          if (addr) setOrigin((current) => (current.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
+        });
+      },
+      (error) => {
+        setLocating(false);
+        setLocateError(error.code === error.PERMISSION_DENIED ? 'Bạn đã từ chối quyền vị trí. Hãy click trên bản đồ để chọn điểm.' : 'Không lấy được vị trí. Hãy click trên bản đồ để chọn điểm.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const pickOriginOnMap = (lat: number, lng: number) => {
+    setOrigin({ label: 'Điểm đã chọn trên bản đồ', lat, lng });
+    setLocateError('');
+    void reverseGeocode(lat, lng).then((addr) => {
+      if (addr) setOrigin((current) => (current.lat === lat && current.lng === lng ? { ...current, label: addr } : current));
+    });
+  };
 
   const visibleVenues = useMemo(() => {
     const normalizedFilter = nameFilter.trim().toLocaleLowerCase('vi-VN');
@@ -140,25 +168,21 @@ export function VenueListPage() {
     ));
   }, [nameFilter, sortOrder, venues]);
 
-  const selectLocation = (id: string) => {
-    const nextLocation = CITY_CHOICES.find((city) => city.id === id);
-    if (nextLocation) setLocation(nextLocation);
-  };
-
   return (
     <main className="min-h-screen bg-canvas pb-12 pt-8 sm:pt-10">
       <div className="page-container">
-        <PageHeader eyebrow="Đặt sân cầu lông" title={`Sân cầu lông tại ${location.label}`} description="Tìm theo khu vực, bán kính và tên sân; dữ liệu khả dụng vẫn đến từ API hiện có." />
+        <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />
         <form
           className="surface-card sticky top-[76px] z-10 my-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(event) => { event.preventDefault(); void runSearch(true); }}
         >
-          <div>
-            <label htmlFor="venue-city" className="mb-1.5 block text-caption">Khu vực</label>
-            <SelectInput id="venue-city" value={location.id} onChange={(event) => selectLocation(event.target.value)}>
-              {location.id === 'linked-location' && <option value="linked-location">Vị trí trên liên kết</option>}
-              {CITY_CHOICES.map((city) => <option key={city.id} value={city.id}>{city.label}</option>)}
-            </SelectInput>
+          <div className="sm:col-span-2">
+            <span className="mb-1.5 block text-caption">Vị trí tìm kiếm</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" tone="secondary" size="sm" onClick={useMyLocation} disabled={locating}>{locating ? 'Đang định vị…' : '📍 Dùng vị trí của tôi'}</Button>
+              <span className="truncate text-sm text-ink-600" title={origin.label}>{origin.label}</span>
+            </div>
+            {locateError && <p className="mt-1 text-xs text-danger">{locateError}</p>}
           </div>
           <div>
             <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
@@ -187,7 +211,13 @@ export function VenueListPage() {
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
-          {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
+          <div className="flex items-center gap-3">
+            {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
+            <div className="inline-flex overflow-hidden rounded-full border border-line" role="tablist" aria-label="Chế độ hiển thị">
+              <button type="button" role="tab" aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'list' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Danh sách</button>
+              <button type="button" role="tab" aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'map' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Bản đồ</button>
+            </div>
+          </div>
         </div>
 
         {loadError && (
@@ -198,7 +228,18 @@ export function VenueListPage() {
           <RouteState variant="loading" title="Đang tìm sân phù hợp" />
         )}
 
-        {!loading && !loadError && visibleVenues.length === 0 && (
+        {!loading && !loadError && viewMode === 'map' && (
+          <div className="grid gap-2">
+            <p className="text-sm text-ink-500">Click lên bản đồ để đổi điểm tìm kiếm. Marker xanh là vị trí của bạn.</p>
+            <VenuesMap
+              origin={{ lat: origin.lat, lng: origin.lng }}
+              venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice }))}
+              onPickOrigin={pickOriginOnMap}
+            />
+          </div>
+        )}
+
+        {!loading && !loadError && viewMode === 'list' && visibleVenues.length === 0 && (
           <EmptyState
             title={nameFilter.trim() ? 'Không tìm thấy sân theo tên này' : 'Không có sân trong bán kính này'}
             description={nameFilter.trim() ? 'Thử bỏ bớt từ khóa hoặc chọn khu vực khác.' : 'Hãy thử mở rộng bán kính tìm kiếm.'}
@@ -206,7 +247,7 @@ export function VenueListPage() {
           />
         )}
 
-        {!loading && !loadError && visibleVenues.length > 0 && (
+        {!loading && !loadError && viewMode === 'list' && visibleVenues.length > 0 && (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {visibleVenues.map((venue) => {
               const lowestPrice = formatLowestPrice(venue.lowestPrice);

@@ -11,6 +11,14 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(),
   addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
   savePricing: vi.fn(), saveBookingRule: vi.fn(),
+  authorizeVenueImage: vi.fn(), uploadVenueImage: vi.fn(),
+}))
+
+// Leaflet không chạy trong jsdom → thay picker bằng nút đặt toạ độ cố định.
+vi.mock('../../components/map/LocationPicker.js', () => ({
+  LocationPicker: ({ onChange }: { onChange: (next: { lat: number; lng: number }) => void }) => (
+    <button type="button" onClick={() => onChange({ lat: 10.7, lng: 106.6 })}>đặt vị trí</button>
+  ),
 }))
 
 const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [], closures: [], pricingRules: [], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
@@ -22,7 +30,7 @@ it('exposes the empty CTA, maps every create field and prevents duplicate submit
   vi.mocked(venueApi.createManagedVenue).mockReturnValue(new Promise<void>((done) => { resolve = done }) as never)
   render(<MemoryRouter><ManageVenuesPage /></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Thêm sân kinh doanh' }))
-  fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } }); fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: '1 A' } }); fireEvent.change(screen.getByLabelText('Vĩ độ'), { target: { value: '10.7' } }); fireEvent.change(screen.getByLabelText('Kinh độ'), { target: { value: '106.6' } }); fireEvent.change(screen.getByLabelText('Tiện ích'), { target: { value: 'wifi, bãi xe' } })
+  fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } }); fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: '1 A' } }); fireEvent.click(screen.getByRole('button', { name: 'đặt vị trí' })); fireEvent.change(screen.getByLabelText('Tiện ích'), { target: { value: 'wifi, bãi xe' } })
   const save = screen.getByRole('button', { name: 'Lưu cơ sở' }); fireEvent.click(save); fireEvent.click(save)
   expect(venueApi.createManagedVenue).toHaveBeenCalledTimes(1)
   expect(venueApi.createManagedVenue).toHaveBeenCalledWith({ name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: ['wifi', 'bãi xe'], images: [] })

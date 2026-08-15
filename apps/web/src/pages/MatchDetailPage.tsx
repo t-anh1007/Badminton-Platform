@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
+import { LocationMap } from '../components/map/LocationMap';
 import {
   approveMatchJoin,
   cancelMatch,
@@ -238,6 +239,9 @@ export function MatchDetailPage() {
               </div>
             </div>
             <p className="mt-5 text-sm text-ink-500">{detail.venue.address}</p>
+            {Number.isFinite(detail.venue.lat) && Number.isFinite(detail.venue.lng) && (
+              <LocationMap lat={detail.venue.lat} lng={detail.venue.lng} label={detail.venue.name} className="mt-3" />
+            )}
             <a
               className="mt-2 inline-block text-sm font-semibold text-brand-navy"
               target="_blank"

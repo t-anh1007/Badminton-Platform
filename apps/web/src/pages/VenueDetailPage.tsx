@@ -4,6 +4,7 @@ import { Button, EmptyState, SurfaceCard } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { getVenueDetail, type VenueDetail } from '../lib/venueBookingApi';
+import { LocationMap } from '../components/map/LocationMap';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Không thể tải thông tin cơ sở. Hãy thử lại.';
@@ -86,7 +87,8 @@ export function VenueDetailPage() {
   const hasCourts = venue.courts.length > 0;
   const images = textList(venue.images);
   const amenities = textList(venue.amenities);
-  const mapQuery = Number.isFinite(venue.lat) && Number.isFinite(venue.lng) ? `${venue.lat},${venue.lng}` : venue.address;
+  const hasCoords = Number.isFinite(venue.lat) && Number.isFinite(venue.lng);
+  const mapQuery = hasCoords ? `${venue.lat},${venue.lng}` : venue.address;
   const mapUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
 
   return (
@@ -115,7 +117,7 @@ export function VenueDetailPage() {
               <p className="mt-2 text-sm text-ink-500">Chọn sân con và khung giờ ở bước tiếp theo.</p>
               {hasCourts ? <BookVenueButton venueId={venue.id} className="mt-5 w-full" /> : <Button disabled className="mt-5 w-full">Sân đang cập nhật</Button>}
             </SurfaceCard>
-            {mapUrl && <SurfaceCard className="mt-4"><h2 className="text-h3">Vị trí</h2><p className="mt-2 text-sm text-ink-500">{venue.address}</p><a href={mapUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-semibold text-brand-navy hover:underline">Mở chỉ đường</a></SurfaceCard>}
+            <SurfaceCard className="mt-4"><h2 className="text-h3">Vị trí</h2><p className="mt-2 text-sm text-ink-500">{venue.address}</p>{hasCoords && <LocationMap lat={venue.lat} lng={venue.lng} label={venue.name} className="mt-3" />}{mapUrl && <a href={mapUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-semibold text-brand-navy hover:underline">Mở chỉ đường</a>}</SurfaceCard>
           </aside>
         </div>
       </div>
