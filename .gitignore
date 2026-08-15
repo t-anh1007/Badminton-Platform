@@ -44,3 +44,5 @@ dev-services.log
 
 # CodeGraph index (local development only, not needed for deploy)
 .codegraph/
+.vercel
+.env*

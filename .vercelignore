@@ -1,0 +1,19 @@
+# Exclude everything by default; Vercel build runs npm ci + build inside sandbox
+node_modules
+.git
+*.log
+
+# Backend services — not needed for frontend build
+services/
+apps/api/
+
+# Built artifacts from local dev (Vercel rebuilds in sandbox)
+apps/web/dist
+**/dist
+**/.turbo
+
+# Infra / docs / misc
+infra/
+docs/
+.codegraph/
+*.jsonl
