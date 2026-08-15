@@ -14,12 +14,18 @@ export function createApp() {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type,x-sepay-signature');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
       if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
     }
     next();
   });
-  app.use(express.json());
+  // Giữ lại raw body để xác thực HMAC-SHA256 của SePay (ký trên đúng byte gốc,
+  // KHÔNG phải JSON tái tạo — thứ tự khóa/khoảng trắng có thể khác).
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }));
 
   app.get('/health', (_req, res) => {
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });

@@ -24,8 +24,8 @@ vi.mock('../lib/matchApi.js', () => ({
   approveMatchJoin: vi.fn().mockResolvedValue({}), rejectMatchJoin: vi.fn().mockResolvedValue({}), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../lib/financeApi.js', () => ({
-  payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000' }),
-  payMatchOrganizerContributionBalance: vi.fn().mockResolvedValue({}), createMatchOrganizerContributionSepayIntent: vi.fn().mockResolvedValue({ intentId: 'organizer-intent-hidden', matchCode: 'KLTORG01', amount: '45000' }),
+  payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
+  payMatchOrganizerContributionBalance: vi.fn().mockResolvedValue({}), createMatchOrganizerContributionSepayIntent: vi.fn().mockResolvedValue({ intentId: 'organizer-intent-hidden', matchCode: 'KLTORG01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTORG01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTORG01' } }),
 }))
 vi.mock('../lib/passportApi.js', () => ({
   getOwnPassport: vi.fn().mockResolvedValue({ userId: 'owner-user-id', tier: 'intermediate', declaredTier: 'intermediate', matchesPlayed: 1, rating: 1500, rd: 80, sigma: 0.06, uncertainty: 'established', evaluationScore: null, evaluationCount: 0, flaggedEvaluationCount: 0, updatedAt: '2026-08-15T00:00:00Z', nextDeclarationAt: null, canDeclareTier: true, recentMatches: [{ id: 'match-id-must-not-render', bookingId: 'booking-id-must-not-render', completedAt: new Date().toISOString(), evaluationCandidates: [{ userId: 'candidate-id-must-not-render', submitted: false }] }] }),
@@ -81,7 +81,8 @@ it('derives organizer join, payment and cancel controls from MatchDetail.actions
   fireEvent.click(screen.getByRole('button', { name: 'Trả phần organizer' }))
   expect(await screen.findByText('KLTORG01')).toBeInTheDocument()
   expect(screen.queryByText('organizer-intent-hidden')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Sao chép mã' }))
+  const organizerDialog = screen.getByText('KLTORG01').closest('[role="dialog"]') as HTMLElement
+  fireEvent.click(within(organizerDialog).getAllByRole('button', { name: 'Chép' })[1]!)
   await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('KLTORG01'))
   const organizerPaymentDialog = screen.getByText('KLTORG01').closest('[role="dialog"]') as HTMLElement
   fireEvent.click(within(organizerPaymentDialog).getByRole('button', { name: 'Đóng hộp thoại' }))

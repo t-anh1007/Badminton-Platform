@@ -112,10 +112,25 @@ export interface DisputeRow {
   }>;
 }
 
+export interface SepayPayInstruction {
+  bankCode: string;
+  accountNumber: string;
+  accountName: string;
+  amount: string;
+  matchCode: string;
+  qrImageUrl: string;
+}
+export interface SepayIntent {
+  intentId: string;
+  matchCode: string;
+  amount: string;
+  payment: SepayPayInstruction;
+}
+
 export const getMyWallets = () => api<WalletRow[]>('/wallets/me');
 export const getWalletLedger = (walletId: string) => api<WalletLedgerResult>(`/wallets/${walletId}/ledger`);
 export const createTopupIntent = (amount: string) =>
-  api<{ intentId: string; matchCode: string; amount: string }>('/wallet/topup-intents', {
+  api<SepayIntent>('/wallet/topup-intents', {
     method: 'POST',
     body: JSON.stringify({ amount }),
   });
@@ -124,19 +139,19 @@ export const payBookingBalance = (bookingId: string) =>
     method: 'POST',
   });
 export const createBookingSepayIntent = (bookingId: string) =>
-  api<{ intentId: string; matchCode: string; amount: string }>(`/bookings/${bookingId}/pay/sepay`, { method: 'POST' });
+  api<SepayIntent>(`/bookings/${bookingId}/pay/sepay`, { method: 'POST' });
 export const payMatchJoinBalance = (matchId: string, joinId: string) =>
   api<{ message: string }>(`/matches/${matchId}/joins/${joinId}/pay/balance`, {
     method: 'POST',
   });
 export const createMatchJoinSepayIntent = (matchId: string, joinId: string) =>
-  api<{ intentId: string; matchCode: string; amount: string }>(`/matches/${matchId}/joins/${joinId}/pay/sepay`, {
+  api<SepayIntent>(`/matches/${matchId}/joins/${joinId}/pay/sepay`, {
     method: 'POST',
   });
 export const payMatchOrganizerContributionBalance = (matchId: string) =>
   api<{ message: string }>(`/matches/${matchId}/organizer-contribution/pay/balance`, { method: 'POST' });
 export const createMatchOrganizerContributionSepayIntent = (matchId: string) =>
-  api<{ intentId: string; matchCode: string; amount: string }>(`/matches/${matchId}/organizer-contribution/pay/sepay`, {
+  api<SepayIntent>(`/matches/${matchId}/organizer-contribution/pay/sepay`, {
     method: 'POST',
   });
 export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {

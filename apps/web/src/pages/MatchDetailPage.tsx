@@ -20,8 +20,10 @@ import {
   createMatchJoinSepayIntent,
   payMatchOrganizerContributionBalance,
   payMatchJoinBalance,
+  type SepayPayInstruction,
 } from '../lib/financeApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { SepayPayBox } from '../components/SepayPayBox.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -45,6 +47,7 @@ export function MatchDetailPage() {
   const [sepay, setSepay] = useState<{
     matchCode: string;
     amount: string;
+    payment: SepayPayInstruction;
     purpose: 'participant' | 'organizer';
   } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -124,15 +127,6 @@ export function MatchDetailPage() {
     return () => { active = false; window.clearInterval(timer); };
   }, [id, sepay]);
 
-  const copySepayCode = async () => {
-    if (!sepay) return;
-    try {
-      await navigator.clipboard.writeText(sepay.matchCode);
-      setNotice('Đã sao chép nội dung chuyển khoản.');
-    } catch {
-      setNotice('Không thể sao chép tự động. Hãy chọn mã và sao chép thủ công.');
-    }
-  };
 
   const mutate = async (operation: () => Promise<unknown>, success: string) => {
     try {
@@ -461,12 +455,8 @@ export function MatchDetailPage() {
       >
         {sepay && (
           <div className="space-y-3">
-            <p>Chuyển đúng số tiền và nội dung dưới đây:</p>
-            <p className="text-figures text-2xl font-bold text-green-700">
-              {formatMoneyVnd(sepay.amount)}
-            </p>
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-canvas p-3"><strong className="text-figures">{sepay.matchCode}</strong><Button size="sm" tone="secondary" onClick={() => void copySepayCode()}>Sao chép mã</Button></div>
-            <p className="text-sm text-ink-500">Trạng thái sẽ được cập nhật sau khi webhook ngân hàng được đối soát.</p>
+            <p>Quét mã hoặc chuyển đúng số tiền và nội dung dưới đây:</p>
+            <SepayPayBox payment={sepay.payment} />
           </div>
         )}
       </Modal>

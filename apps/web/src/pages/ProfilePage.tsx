@@ -6,7 +6,8 @@ import { DisputePanel } from '../components/DisputePanel';
 import { Avatar, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
 import { MetricCard } from '../components/courtin/MetricCard';
 import { changePassword, getMyProfile, updateMyProfile, type ProfileResult } from '../lib/accountApi';
-import { createTopupIntent, getMyWallets, getWalletLedger, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
+import { createTopupIntent, getMyWallets, getWalletLedger, type SepayIntent, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
+import { SepayPayBox } from '../components/SepayPayBox.js';
 import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
@@ -33,7 +34,7 @@ export function ProfilePage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState('100000');
-  const [topupIntent, setTopupIntent] = useState<{ matchCode: string; amount: string } | null>(null);
+  const [topupIntent, setTopupIntent] = useState<SepayIntent | null>(null);
   const [topupBaseline, setTopupBaseline] = useState('0');
   const [topupState, setTopupState] = useState<'idle' | 'pending' | 'completed' | 'timeout'>('idle');
   const [form, setForm] = useState({ displayName: '', avatarUrl: '', phone: '', visibility: 'public' as 'public' | 'private' });
@@ -132,15 +133,6 @@ export function ProfilePage() {
     return () => { active = false; window.clearInterval(timer); };
   }, [topupBaseline, topupIntent, topupState]);
 
-  const copyTopupCode = async () => {
-    if (!topupIntent) return;
-    try {
-      await navigator.clipboard.writeText(topupIntent.matchCode);
-      setMessage('Đã sao chép nội dung chuyển khoản.');
-    } catch {
-      setMessage('Không thể sao chép tự động. Hãy chọn và sao chép mã hiển thị.');
-    }
-  };
 
   const reloadBookings = async () => {
     const [nextUpcoming, nextPast] = await Promise.all([getMyUpcomingBookings(), getMyBookingHistory()]);
@@ -228,7 +220,7 @@ export function ProfilePage() {
         <div className="grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
           <Button onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button>
-          {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3 text-sm text-green-700"><p>Chuyển đúng <strong className="text-figures">{money(topupIntent.amount)}</strong> với nội dung:</p><p className="mt-2 flex flex-wrap items-center gap-2"><strong className="text-figures text-base">{topupIntent.matchCode}</strong><Button size="sm" tone="secondary" onClick={() => void copyTopupCode()}>Sao chép mã</Button></p><p className="mt-2">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'completed' ? 'Đã nạp tiền thành công.' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
+          {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={topupIntent.payment} /><p className="mt-2 text-sm text-green-700">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'completed' ? 'Đã nạp tiền thành công.' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
         </div>
       </Modal>
     </main>

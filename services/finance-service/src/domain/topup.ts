@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
+import { buildSepayPayInstruction } from './sepayPayInstruction.js';
 
 function generateMatchCode(): string {
   // Mã nội dung chuyển khoản ngắn, dễ gõ tay — đủ ngẫu nhiên để duy nhất
@@ -16,5 +17,5 @@ export async function createTopupIntent(userId: string, amount: bigint) {
   });
   // refId tự trỏ về chính intent — topup không có đối tượng tham chiếu ngoài.
   await prisma.paymentIntent.update({ where: { id: intent.id }, data: { refId: intent.id } });
-  return { intentId: intent.id, matchCode, amount: amount.toString() };
+  return { intentId: intent.id, matchCode, amount: amount.toString(), payment: buildSepayPayInstruction(matchCode, amount) };
 }

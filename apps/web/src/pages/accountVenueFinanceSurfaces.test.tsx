@@ -20,7 +20,7 @@ vi.mock('../lib/accountApi.js', () => ({
 vi.mock('../lib/financeApi.js', () => ({
   getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', pending: '0', reserved: '0', currency: 'VND' }]),
   getWalletLedger: vi.fn().mockResolvedValue({ wallet: {}, entries: [] }),
-  createTopupIntent: vi.fn().mockResolvedValue({ intentId: 'must-not-render', matchCode: 'KLTABC123', amount: '100000' }),
+  createTopupIntent: vi.fn().mockResolvedValue({ intentId: 'must-not-render', matchCode: 'KLTABC123', amount: '100000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '100000', matchCode: 'KLTABC123', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=100000&des=KLTABC123' } }),
   getEligibleDisputeBookings: vi.fn().mockResolvedValue([{ bookingId: 'booking-must-not-render', venueId: 'venue-id', gross: '180000', endAt: '2026-08-15T09:00:00Z', deadlineAt: '2026-08-16T09:00:00Z' }]),
   getMyDisputes: vi.fn().mockResolvedValue([]), createDispute: vi.fn().mockResolvedValue({}),
 }))
@@ -87,7 +87,7 @@ it('renders a safe top-up instruction with copy action and no intent UUID', asyn
   fireEvent.click(screen.getByRole('button', { name: 'Tạo mã chuyển khoản' }))
   expect(await screen.findByText('KLTABC123')).toBeInTheDocument()
   expect(screen.queryByText('must-not-render')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Sao chép mã' }))
+  fireEvent.click(screen.getAllByRole('button', { name: 'Chép' })[1]!)
   await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('KLTABC123'))
   expect(createTopupIntent).toHaveBeenCalledWith('100000')
 })
