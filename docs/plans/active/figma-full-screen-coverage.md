@@ -48,6 +48,8 @@ target_file: FHuhhmlhPSl8gOUuUx7az2
 ### F3 — Match, community, support and AI
 
 - [x] Create Match — Mobile `107:2`; desktop source `92:2` retained.
+- [x] Host Participant Approval (MMP-05/F-02) — Desktop `113:2` and Mobile `113:19`.
+- [x] Post-match Fair Review (MMP-10/F-07) — Desktop `113:37` and Mobile `113:55`.
 - [x] Player Passport Owner — Mobile `107:18`; desktop source `90:2` retained.
 - [x] Player Passport Public — Mobile `107:34`; desktop source `90:184` retained.
 - [x] Player Passport Cold Start — Mobile `107:50`; desktop source `90:267` retained.
@@ -101,6 +103,7 @@ F6 does not block F1–F5 while `F-05` remains postponed. If activated, F6 becom
 
 ## Progress evidence
 
+- 2026-08-14, match-lifecycle gap batch complete and screenshot-checked: Host Participant Approval `113:2`/`113:19` and Post-match Fair Review `113:37`/`113:55`. The frames were cloned from existing COURTIN approval/form patterns and adapted to MMP-05/F-02 and MMP-10/F-07; Archivo/Inter font-family validation passed and no text node exceeded its frame bounds.
 - 2026-08-13, F1 complete and direct-checked: Homepage Mobile `102:2`; Login `100:2`/`100:23`; Register `100:41`/`100:64`; Verify Email `100:84`/`100:103`; Reset Password `100:119`/`100:138`; Venue Explorer `102:22`/`102:59`; Venue Detail `102:86`/`102:104`. Metadata and screenshots were retrieved for every frame. The Login Mobile screenshot exposed title/description overlap; it was corrected in-place and re-screenshoted (`100:23`) before recording coverage.
 - 2026-08-13, F2 complete and direct-checked: Booking History Mobile `105:2`; cancellation/refund `105:25`/`105:41`; Wallet Mobile `105:56`; Payment Confirmation Mobile `105:76`; Player Dispute `105:89`/`105:107`; Account Settings `105:124`/`105:143`. Metadata and screenshots were retrieved for all nine new frames; existing desktop sources `92:319`, `89:494`, `96:210` were rechecked by metadata and screenshot.
 - 2026-08-13, F3 complete: new node IDs are recorded on every F3 row. Metadata and screenshot requests succeeded for all 12 generated frames; the existing desktop sources remain the corresponding COURTIN authority patterns.

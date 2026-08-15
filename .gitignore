@@ -28,3 +28,9 @@ scripts/bin/harness.exe
 
 # Agent worktrees
 .worktrees/
+
+# Python bytecode cache in skills
+__pycache__/
+
+# Local superpowers plugin runtime/logs
+.superpowers/
