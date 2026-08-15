@@ -20,6 +20,7 @@ export interface VenueSearchResult {
   lng: number;
   address: string;
   amenities: unknown;
+  images: unknown;
   distanceKm: number;
   lowestPrice: bigint | null;
 }
@@ -85,6 +86,7 @@ export async function searchVenues(
       lng: venue.lng,
       address: venue.address,
       amenities: venue.amenities,
+      images: venue.images,
       distanceKm,
       lowestPrice: lowestPriceForVenue(venue.courts),
     });

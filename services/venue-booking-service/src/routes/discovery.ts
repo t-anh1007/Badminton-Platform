@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 import { h } from './handler.js';
 import { searchVenues, filterAndSortVenues } from '../domain/search.js';
 import { getAvailabilitySchedule } from '../domain/availability.js';
@@ -7,7 +8,17 @@ import { selectSlot } from '../domain/slotSelection.js';
 import { createHold } from '../domain/hold.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
-export const discoveryRouter = Router();
+async function firstImageUrl(images: unknown, storage: ObjectStorageClient): Promise<string | null> {
+  if (!Array.isArray(images) || images.length === 0) return null;
+  const raw = images[0];
+  const key = typeof raw === 'string'
+    ? raw
+    : raw && typeof raw === 'object' && 'objectKey' in raw
+      ? String((raw as { objectKey: unknown }).objectKey)
+      : null;
+  if (!key || key.trim().length === 0) return null;
+  return /^https?:\/\//i.test(key) ? key : storage.getReadUrl(key);
+}
 
 const searchSchema = z.object({
   lat: z.coerce.number(),
@@ -21,65 +32,75 @@ const searchSchema = z.object({
   endMinute: z.coerce.number().optional(),
 });
 
-// BOK-01 + BOK-02 — công khai, không cần đăng nhập.
-discoveryRouter.get(
-  '/search',
-  h(async (req, res) => {
-    const q = searchSchema.parse(req.query);
-    const base = await searchVenues(q.lat, q.lng, q.radiusKm);
-    const filtered = await filterAndSortVenues(base, {
-      minPrice: q.minPrice,
-      maxPrice: q.maxPrice,
-      sortBy: q.sortBy,
-      availability:
-        q.date && q.startMinute !== undefined && q.endMinute !== undefined
-          ? { date: q.date, startMinute: q.startMinute, endMinute: q.endMinute }
-          : undefined,
-    });
-    res.status(200).json(
-      filtered.map((r) => ({ ...r, lowestPrice: r.lowestPrice !== null ? r.lowestPrice.toString() : null })),
-    );
-  }),
-);
-
 const availabilitySchema = z.object({ date: z.coerce.date() });
-
-// BOK-04 — công khai.
-discoveryRouter.get(
-  '/courts/:courtId/availability',
-  h(async (req, res) => {
-    const { date } = availabilitySchema.parse(req.query);
-    const result = await getAvailabilitySchedule(req.params.courtId!, date);
-    res.status(200).json({
-      closed: result.closed,
-      slots: result.slots.map((s) => ({ ...s, price: s.price !== null ? s.price.toString() : null })),
-    });
-  }),
-);
-
 const selectSchema = z.object({ startAt: z.coerce.date(), durationMinutes: z.number().int().positive() });
-
-// BOK-05 — cần đăng nhập (AC-BOK-05-5).
-discoveryRouter.post(
-  '/courts/:courtId/select-slot',
-  requireAuth,
-  h(async (req, res) => {
-    const { startAt, durationMinutes } = selectSchema.parse(req.body);
-    const result = await selectSlot(req.params.courtId!, startAt, durationMinutes);
-    res.status(200).json({ ...result, totalPrice: result.totalPrice.toString() });
-  }),
-);
-
 const holdSchema = z.object({ courtId: z.string(), startAt: z.coerce.date(), endAt: z.coerce.date() });
 
-// BOK-06 — cần đăng nhập.
-discoveryRouter.post(
-  '/holds',
-  requireAuth,
-  h(async (req, res) => {
-    const input = holdSchema.parse(req.body);
-    const userId = (req as AuthenticatedRequest).user!.id;
-    const hold = await createHold(userId, input);
-    res.status(201).json(hold);
-  }),
-);
+export function createDiscoveryRouter(resolveStorage: () => ObjectStorageClient) {
+  const discoveryRouter = Router();
+
+  // BOK-01 + BOK-02 — công khai, không cần đăng nhập.
+  discoveryRouter.get(
+    '/search',
+    h(async (req, res) => {
+      const q = searchSchema.parse(req.query);
+      const base = await searchVenues(q.lat, q.lng, q.radiusKm);
+      const filtered = await filterAndSortVenues(base, {
+        minPrice: q.minPrice,
+        maxPrice: q.maxPrice,
+        sortBy: q.sortBy,
+        availability:
+          q.date && q.startMinute !== undefined && q.endMinute !== undefined
+            ? { date: q.date, startMinute: q.startMinute, endMinute: q.endMinute }
+            : undefined,
+      });
+      const storage = resolveStorage();
+      const rows = await Promise.all(
+        filtered.map(async (r) => ({
+          ...r,
+          lowestPrice: r.lowestPrice !== null ? r.lowestPrice.toString() : null,
+          coverImage: await firstImageUrl(r.images, storage),
+        })),
+      );
+      res.status(200).json(rows.map(({ images: _images, ...rest }) => rest));
+    }),
+  );
+
+  // BOK-04 — công khai.
+  discoveryRouter.get(
+    '/courts/:courtId/availability',
+    h(async (req, res) => {
+      const { date } = availabilitySchema.parse(req.query);
+      const result = await getAvailabilitySchedule(req.params.courtId!, date);
+      res.status(200).json({
+        closed: result.closed,
+        slots: result.slots.map((s) => ({ ...s, price: s.price !== null ? s.price.toString() : null })),
+      });
+    }),
+  );
+
+  // BOK-05 — cần đăng nhập (AC-BOK-05-5).
+  discoveryRouter.post(
+    '/courts/:courtId/select-slot',
+    requireAuth,
+    h(async (req, res) => {
+      const { startAt, durationMinutes } = selectSchema.parse(req.body);
+      const result = await selectSlot(req.params.courtId!, startAt, durationMinutes);
+      res.status(200).json({ ...result, totalPrice: result.totalPrice.toString() });
+    }),
+  );
+
+  // BOK-06 — cần đăng nhập.
+  discoveryRouter.post(
+    '/holds',
+    requireAuth,
+    h(async (req, res) => {
+      const input = holdSchema.parse(req.body);
+      const userId = (req as AuthenticatedRequest).user!.id;
+      const hold = await createHold(userId, input);
+      res.status(201).json(hold);
+    }),
+  );
+
+  return discoveryRouter;
+}

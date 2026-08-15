@@ -3,7 +3,7 @@ import { providerRouter } from './routes/providers.js';
 import { createVenueRouter } from './routes/venues.js';
 import { scheduleRouter } from './routes/schedule.js';
 import { calendarRouter } from './routes/calendar.js';
-import { discoveryRouter } from './routes/discovery.js';
+import { createDiscoveryRouter } from './routes/discovery.js';
 import { bookingRouter } from './routes/bookings.js';
 import { env } from './lib/env.js';
 import { createVenueUploadRouter } from './routes/uploads.js';
@@ -38,7 +38,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }
   app.use('/venues', createVenueRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/', scheduleRouter);
   app.use('/', calendarRouter);
-  app.use('/', discoveryRouter);
+  app.use('/', createDiscoveryRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/', bookingRouter);
 
   return app;
