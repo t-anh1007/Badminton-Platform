@@ -12,7 +12,8 @@
     "start:prod": "node dist/index.js"
   },
   "dependencies": {
-    "express": "^4.21.1"
+    "express": "^4.21.1",
+    "http-proxy-middleware": "^3.0.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
