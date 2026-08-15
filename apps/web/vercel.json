@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm ci && npm run build -w @khoaluantn/web",
+  "buildCommand": "npm run build -w @khoaluantn/web",
   "outputDirectory": "apps/web/dist",
   "framework": "vite",
   "rewrites": [
