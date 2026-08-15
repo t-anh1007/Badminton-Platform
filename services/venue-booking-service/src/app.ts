@@ -1,6 +1,6 @@
 import express from 'express';
 import { providerRouter } from './routes/providers.js';
-import { venueRouter } from './routes/venues.js';
+import { createVenueRouter } from './routes/venues.js';
 import { scheduleRouter } from './routes/schedule.js';
 import { calendarRouter } from './routes/calendar.js';
 import { discoveryRouter } from './routes/discovery.js';
@@ -35,7 +35,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }
 
   app.use('/providers', providerRouter);
   app.use('/providers', createVenueUploadRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
-  app.use('/venues', venueRouter);
+  app.use('/venues', createVenueRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/', scheduleRouter);
   app.use('/', calendarRouter);
   app.use('/', discoveryRouter);
