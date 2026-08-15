@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { createServer, type Server } from 'node:http';
 import jwt from 'jsonwebtoken';
@@ -137,13 +137,21 @@ async function postSepayWebhook(
   rawRef: string,
   expectedStatus = 200,
 ): Promise<void> {
+  // `externalRef` (UUID e2e) đóng vai `id` SePay → giữ nguyên tính idempotent
+  // khi test bắn trùng. `content` mang mã đối soát (rawRef).
+  const raw = JSON.stringify({ id: externalRef, transferType: 'in', transferAmount: amount.toString(), content: rawRef });
+  // Ký HMAC-SHA256 `{timestamp}.{raw_body}` đúng như SePay production.
+  const secret = process.env.SEPAY_WEBHOOK_SECRET ?? 'dev-sepay-secret-change-me';
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const signature = `sha256=${createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex')}`;
   const response = await fetch(`${financeBaseUrl}/webhooks/sepay`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-sepay-signature': process.env.SEPAY_WEBHOOK_SECRET ?? 'dev-sepay-secret-change-me',
+      'x-sepay-timestamp': ts,
+      'x-sepay-signature': signature,
     },
-    body: JSON.stringify({ externalRef, amount: amount.toString(), rawRef }),
+    body: raw,
   });
   expect(response.status).toBe(expectedStatus);
 }

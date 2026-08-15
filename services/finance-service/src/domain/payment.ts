@@ -4,6 +4,7 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { postLedgerEntry } from './wallet.js';
 import { fetchPaymentStatus } from '../lib/venueBookingClient.js';
+import { buildSepayPayInstruction } from './sepayPayInstruction.js';
 
 function generateMatchCode(): string {
   return `KLT${randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
@@ -97,5 +98,5 @@ export async function createBookingSepayIntent(userId: string, bookingId: string
       matchCode,
     },
   });
-  return { intentId: intent.id, matchCode, amount: status.gross };
+  return { intentId: intent.id, matchCode, amount: status.gross, payment: buildSepayPayInstruction(matchCode, status.gross) };
 }

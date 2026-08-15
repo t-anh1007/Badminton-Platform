@@ -18,6 +18,7 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { ensurePlatformWallet, getOrCreateWallet, postLedgerEntry } from './wallet.js';
 import { resolveMatchBooking } from '../lib/venueBookingClient.js';
+import { buildSepayPayInstruction } from './sepayPayInstruction.js';
 
 const positiveMoney = z.string().regex(/^[1-9]\d*$/);
 const nonNegativeMoney = z.string().regex(/^\d+$/);
@@ -276,7 +277,7 @@ export async function createMatchContributionSepayIntent(userId: string, contrib
   const existing = await prisma.paymentIntent.findFirst({
     where: { userId, refType: 'matchFee', refId: contribution.id, status: 'pending' },
   });
-  if (existing) return { intentId: existing.id, matchCode: existing.matchCode!, amount: existing.amount.toString() };
+  if (existing) return { intentId: existing.id, matchCode: existing.matchCode!, amount: existing.amount.toString(), payment: buildSepayPayInstruction(existing.matchCode!, existing.amount) };
   const matchCode = `KLT${randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   const intent = await prisma.paymentIntent.create({
     data: {
@@ -288,7 +289,7 @@ export async function createMatchContributionSepayIntent(userId: string, contrib
       matchCode,
     },
   });
-  return { intentId: intent.id, matchCode, amount: intent.amount.toString() };
+  return { intentId: intent.id, matchCode, amount: intent.amount.toString(), payment: buildSepayPayInstruction(matchCode, intent.amount) };
 }
 
 export async function reserveMatchContributionFromSepay(
