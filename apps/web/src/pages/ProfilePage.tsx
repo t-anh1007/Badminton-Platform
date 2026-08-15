@@ -122,6 +122,11 @@ export function ProfilePage() {
           setWallets(nextWallets);
           setTopupState('completed');
           setMessage('Đã ghi nhận tiền nạp vào ví.');
+          window.setTimeout(() => {
+            setTopupOpen(false);
+            setTopupIntent(null);
+            setTopupState('idle');
+          }, 4000);
           return;
         }
       } catch {
@@ -216,11 +221,23 @@ export function ProfilePage() {
         </form>
       </Modal>
 
-      <Modal open={topupOpen} title="Nạp tiền bằng SePay" onClose={() => setTopupOpen(false)}>
+      <Modal open={topupOpen} title="Nạp tiền bằng SePay" onClose={() => { setTopupOpen(false); if (topupState === 'completed') { setTopupIntent(null); setTopupState('idle'); } }}>
         <div className="grid gap-4">
-          <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
-          <Button onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button>
-          {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={topupIntent.payment} /><p className="mt-2 text-sm text-green-700">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'completed' ? 'Đã nạp tiền thành công.' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
+          {topupState === 'completed' ? (
+            <div role="status" aria-live="assertive" className="rounded-xl border-2 border-green-500 bg-green-50 p-6 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-3xl text-white" aria-hidden="true">✓</div>
+              <h3 className="mt-3 text-h3 text-green-700">Nạp tiền thành công!</h3>
+              {topupIntent && <p className="mt-1 text-figures text-2xl font-bold text-green-700">+{formatMoneyVnd(topupIntent.payment.amount)}</p>}
+              <p className="mt-2 text-sm text-ink-500">Số dư ví đã được cập nhật. Cửa sổ sẽ tự đóng…</p>
+              <Button className="mt-4" onClick={() => { setTopupOpen(false); setTopupIntent(null); setTopupState('idle'); }}>Đóng ngay</Button>
+            </div>
+          ) : (
+            <>
+              <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
+              <Button onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button>
+              {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={topupIntent.payment} /><p className="mt-2 text-sm text-green-700">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
+            </>
+          )}
         </div>
       </Modal>
     </main>
