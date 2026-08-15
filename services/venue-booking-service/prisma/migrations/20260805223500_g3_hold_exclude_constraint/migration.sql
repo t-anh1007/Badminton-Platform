@@ -15,6 +15,11 @@
 --
 -- courtId (uuid) dùng "=" trong gist index cần btree_gist (cài ở
 -- infra/postgres-init/02-extensions.sql, cấp database).
+-- btree_gist is a database-level extension required for EXCLUDE USING gist
+-- with uuid equality + tstzrange overlap. Install here so migration is
+-- self-contained and works on fresh Railway Postgres without manual setup.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 ALTER TABLE "holds"
   ADD CONSTRAINT "holds_no_overlap"
   EXCLUDE USING gist (
