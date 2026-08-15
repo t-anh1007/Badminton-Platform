@@ -9,11 +9,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "dotenv -e ../../.env -- node dist/index.js",
+    "start:prod": "prisma migrate deploy && node dist/index.js",
     "prisma:generate": "cd ../.. && dotenv -e .env -- prisma generate --schema services/community-service/prisma/schema.prisma",
     "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "prisma:validate": "dotenv -e ../../.env -- prisma validate",
-    "postinstall": "cd ../.. && dotenv -e .env -- prisma generate --schema services/community-service/prisma/schema.prisma",
+    "postinstall": "prisma generate",
     "test": "dotenv -e ../../.env -- tsx ../../scripts/run-isolated-community-tests.ts"
   },
   "dependencies": {

@@ -9,12 +9,13 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "dotenv -e ../../.env -- node dist/index.js",
+    "start:prod": "prisma migrate deploy && node dist/index.js",
     "prisma:generate": "dotenv -e ../../.env -- prisma generate",
     "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "prisma:validate": "dotenv -e ../../.env -- prisma validate",
-    "test": "dotenv -e ../../.env -- vitest run",
-    "postinstall": "dotenv -e ../../.env -- prisma generate"
+    "postinstall": "prisma generate",
+    "test": "dotenv -e ../../.env -- vitest run"
   },
   "dependencies": {
     "@khoaluantn/eventbus": "^0.1.0",
