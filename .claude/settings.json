@@ -8,6 +8,12 @@
     "edit": ["src/**", "docs/**", ".claude/**", ".codex/**"],
     "write": ["outputs/**", "docs/**"]
   },
+  "enabledPlugins": {
+    "mattpocock-skills@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "railway@claude-plugins-official": true
+  },
   "hooks": {
     "pre-codex-task": "Verify task has clear success criteria",
     "post-codex-output": "Review against acceptance criteria"

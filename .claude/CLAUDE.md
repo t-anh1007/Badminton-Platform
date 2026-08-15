@@ -37,3 +37,23 @@ cũ; không đặt mã ứng dụng mới ở đó.
 Trước khi giao hoặc thực thi task, kiểm tra trạng thái Git để không ghi đè thay
 đổi của người dùng/agent khác. Báo cáo cuối phải tách rõ kết quả, bằng chứng và
 rủi ro còn lại.
+
+## Khi nào dùng Global Skill
+
+**Nguyên tắc**: Chỉ invoke skill khi task phức tạp, nhiều bước, hoặc cần cấu trúc
+đặc thù — KHÔNG dùng cho task đơn giản có thể trả lời trực tiếp (tốn context).
+
+| Tình huống | Skill cần dùng |
+|---|---|
+| Yêu cầu mục tiêu mơ hồ, thiếu tiêu chí | `/goal-griller` |
+| Debug lỗi khó tái hiện hoặc nhiều nguyên nhân | `/systematic-debugging` |
+| Review diff/PR phức tạp trước commit | `/requesting-code-review` |
+| Nhận feedback review → áp dụng | `/receiving-code-review` |
+| Triage bug/issue nhiều khả năng | `/rtk-triage` hoặc `/issue-triage` |
+| Viết plan cho milestone mới | `/writing-plans` |
+| Thực thi plan đã có từng bước | `/executing-plans` |
+| UI/UX frontend phức tạp (layout, design system) | `/web-design-guidelines` |
+| Brainstorm giải pháp kỹ thuật | `/brainstorming` |
+
+**Không dùng skill khi**: sửa bug rõ ràng, thêm field nhỏ, trả lời câu hỏi đơn
+giản, refactor cục bộ — làm trực tiếp sẽ nhanh hơn và rẻ hơn.
