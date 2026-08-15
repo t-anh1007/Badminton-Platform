@@ -28,6 +28,25 @@ async function attachDisplayNames<T extends PostLike>(
     comments: post.comments?.map((comment) => ({ ...comment, authorDisplayName: lookup.get(comment.authorUserId) ?? null })),
   })) as never;
 }
+
+interface ImageBearing { images?: Array<{ objectKey: string }> }
+
+// Replaces each image's stored objectKey with a browser-usable read URL so the
+// client can render <img src>. Without storage (e.g. unit context) keys pass through.
+async function attachImageUrls<T extends ImageBearing>(
+  resolveObjectStorage: (() => ObjectStorageClient) | undefined,
+  entities: T[],
+): Promise<T[]> {
+  const storage = resolveObjectStorage?.();
+  if (!storage) return entities;
+  return Promise.all(entities.map(async (entity) => {
+    if (!entity.images?.length) return entity;
+    const images = await Promise.all(
+      entity.images.map(async (image) => ({ ...image, objectKey: await storage.getReadUrl(image.objectKey) })),
+    );
+    return { ...entity, images };
+  }));
+}
 import {
   addTicketMessage,
   createComment,
@@ -96,7 +115,7 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     withErrorHandling(async (req, res) => {
       const { page, pageSize } = pagination.parse(req.query);
       const posts = await listPublishedPosts(page, pageSize);
-      res.status(200).json({ posts: await attachDisplayNames(accountEligibilityClient, posts) });
+      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, posts)) });
     }),
   );
   router.get(
@@ -106,14 +125,14 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     withErrorHandling(async (req, res) => {
       const userId = (req as AuthenticatedRequest).user!.id;
       const posts = await listOwnPosts(userId);
-      res.status(200).json({ posts: await attachDisplayNames(accountEligibilityClient, posts) });
+      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, posts)) });
     }),
   );
   router.get(
     '/posts/:postId',
     withErrorHandling(async (req, res) => {
       const post = await getPublishedPost(uuid.parse(req.params.postId));
-      const [enriched] = await attachDisplayNames(accountEligibilityClient, [post]);
+      const [enriched] = await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, [post]));
       res.status(200).json(enriched);
     }),
   );
@@ -123,7 +142,9 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requirePlayer,
     withErrorHandling(async (req, res) => {
       const { body, images = [] } = postBody.parse(req.body);
-      res.status(201).json(await createPost(accountEligibilityClient, (req as AuthenticatedRequest).user!.id, body, images, images.length ? resolveObjectStorage?.() : undefined));
+      const created = await createPost(accountEligibilityClient, (req as AuthenticatedRequest).user!.id, body, images, images.length ? resolveObjectStorage?.() : undefined);
+      const [withUrls] = await attachImageUrls(resolveObjectStorage, [created]);
+      res.status(201).json(withUrls);
     }),
   );
   router.patch(
@@ -132,18 +153,16 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requirePlayer,
     withErrorHandling(async (req, res) => {
       const { body, images } = postBody.parse(req.body);
-      res
-        .status(200)
-        .json(
-          await editPost(
-            accountEligibilityClient,
-            uuid.parse(req.params.postId),
-            (req as AuthenticatedRequest).user!.id,
-            body,
-            images,
-            images?.length ? resolveObjectStorage?.() : undefined,
-          ),
-        );
+      const updated = await editPost(
+        accountEligibilityClient,
+        uuid.parse(req.params.postId),
+        (req as AuthenticatedRequest).user!.id,
+        body,
+        images,
+        images?.length ? resolveObjectStorage?.() : undefined,
+      );
+      const [withUrls] = await attachImageUrls(resolveObjectStorage, [updated]);
+      res.status(200).json(withUrls);
     }),
   );
   router.delete(

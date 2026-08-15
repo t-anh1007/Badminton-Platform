@@ -64,10 +64,12 @@ export async function registerUser(input: RegisterInput): Promise<{ userId: stri
 
   // Luồng lỗi ACC-01: gửi email thất bại KHÔNG rollback tài khoản đã tạo.
   try {
-    await emailSender.send(email, 'Mã xác minh tài khoản', `Mã xác minh của bạn là: ${code}`);
-  } catch {
+    await emailSender.send(email, 'Mã xác minh tài khoản Courtin', `Mã xác minh của bạn là: ${code}\n\nMã có hiệu lực trong ${VERIFICATION_TTL_MIN} phút.`);
+  } catch (err) {
     // Nuốt lỗi gửi email có chủ đích — tài khoản vẫn tồn tại, người dùng bấm
-    // "gửi lại mã" ở ACC-02.
+    // "gửi lại mã" ở ACC-02. Log để chẩn đoán khi SMTP fail trên prod.
+    // eslint-disable-next-line no-console
+    console.error('[registration] SMTP send failed:', err instanceof Error ? err.message : err);
   }
 
   return { userId };

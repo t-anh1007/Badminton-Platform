@@ -7,7 +7,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "r2": "dotenv -e ../../.env -- wrangler r2",
+    "r2:buckets": "dotenv -e ../../.env -- wrangler r2 bucket list",
+    "r2:ls": "dotenv -e ../../.env -- node scripts/r2-ls.mjs",
+    "r2:cors:list": "dotenv -e ../../.env -- wrangler r2 bucket cors list courtin-images",
+    "r2:cors:set": "dotenv -e ../../.env -- wrangler r2 bucket cors set courtin-images --file r2-cors.json -y"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.971.0",
@@ -15,6 +20,7 @@
   },
   "devDependencies": {
     "typescript": "^5.6.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
   }
 }
