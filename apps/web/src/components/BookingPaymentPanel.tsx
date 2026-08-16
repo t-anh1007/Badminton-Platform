@@ -34,10 +34,18 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
   const pay = async () => {
     setPhase('paying'); setMessage('')
     try {
+      // Số dư trừ ngay (đồng bộ) nên xác nhận trong vài giây; SePay cần người
+      // dùng mở app ngân hàng quét QR rồi chờ webhook, có thể lâu — poll đến khi
+      // hết hạn giữ chỗ thay vì bỏ cuộc sau 15s (nếu không UI báo "hết hạn" sớm
+      // dù webhook xác thực thành công ngay sau đó).
+      let waitOptions: { intervalMs?: number; timeoutMs?: number } = {}
       if (method === 'balance') await payBookingBalance(bookingId)
-      else { const intent = await createBookingSepayIntent(bookingId); setPayment(intent.payment) }
+      else {
+        const intent = await createBookingSepayIntent(bookingId); setPayment(intent.payment)
+        waitOptions = { intervalMs: 2500, timeoutMs: Math.max(0, new Date(holdExpiresAt).getTime() - Date.now()) }
+      }
       setPhase('confirming')
-      const result = await waitForBookingTerminal(bookingId)
+      const result = await waitForBookingTerminal(bookingId, waitOptions)
       if (result.booking.terminalStatus === 'confirmed') { setPhase('confirmed'); onConfirmed(result); return }
       setPhase('expired'); setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại slot.')
     } catch (error) { setPhase('failed'); setMessage(error instanceof Error ? error.message : 'Không thể xác nhận thanh toán.') }
