@@ -1,5 +1,5 @@
 import express from 'express';
-import { providerRouter } from './routes/providers.js';
+import { createProviderRouter } from './routes/providers.js';
 import { createVenueRouter } from './routes/venues.js';
 import { scheduleRouter } from './routes/schedule.js';
 import { calendarRouter } from './routes/calendar.js';
@@ -34,7 +34,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });
   });
 
-  app.use('/providers', providerRouter);
+  app.use('/providers', createProviderRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/providers', createVenueUploadRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/venues', createVenueRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/', scheduleRouter);

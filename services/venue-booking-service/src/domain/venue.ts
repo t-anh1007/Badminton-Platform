@@ -1,6 +1,28 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import type { Prisma } from '@prisma/client';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
+
+/** Turn stored venue images ([{ objectKey }] or legacy strings) into
+ * `{ objectKey, url }` entries so the manage UI can render <img src>. */
+async function resolveImageEntries(images: unknown, storage: ObjectStorageClient) {
+  if (!Array.isArray(images)) return [];
+  const keys = images
+    .map((image) =>
+      typeof image === 'string'
+        ? image
+        : image && typeof image === 'object' && 'objectKey' in image
+          ? String((image as { objectKey: unknown }).objectKey)
+          : null,
+    )
+    .filter((key): key is string => !!key && key.trim().length > 0);
+  return Promise.all(
+    keys.map(async (objectKey) => ({
+      objectKey,
+      url: /^https?:\/\//i.test(objectKey) ? objectKey : await storage.getReadUrl(objectKey),
+    })),
+  );
+}
 
 export interface CreateVenueInput {
   name: string;
@@ -106,7 +128,7 @@ const managedVenueInclude = {
 
 type ManagedVenueEntity = Prisma.VenueGetPayload<{ include: typeof managedVenueInclude }>;
 
-function managedVenueDto(venue: ManagedVenueEntity) {
+async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorageClient) {
   return {
     id: venue.id,
     name: venue.name,
@@ -114,7 +136,7 @@ function managedVenueDto(venue: ManagedVenueEntity) {
     lat: venue.lat,
     lng: venue.lng,
     amenities: venue.amenities,
-    images: venue.images,
+    images: await resolveImageEntries(venue.images, storage),
     courts: venue.courts.map((court) => ({
       id: court.id,
       name: court.name,
@@ -132,20 +154,20 @@ function managedVenueDto(venue: ManagedVenueEntity) {
   };
 }
 
-export async function listManagedVenues(userId: string) {
+export async function listManagedVenues(userId: string, storage: ObjectStorageClient) {
   const venues = await prisma.venue.findMany({
     where: { provider: { userId } },
     include: managedVenueInclude,
     orderBy: { name: 'asc' },
   });
-  return venues.map(managedVenueDto);
+  return Promise.all(venues.map((venue) => managedVenueDto(venue, storage)));
 }
 
-export async function getManagedVenueDetail(userId: string, venueId: string) {
+export async function getManagedVenueDetail(userId: string, venueId: string, storage: ObjectStorageClient) {
   const venue = await prisma.venue.findFirst({
     where: { id: venueId, provider: { userId } },
     include: managedVenueInclude,
   });
   if (!venue) throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
-  return managedVenueDto(venue);
+  return managedVenueDto(venue, storage);
 }
