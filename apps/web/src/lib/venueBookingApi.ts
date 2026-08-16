@@ -38,6 +38,7 @@ export interface VenueSearchRow {
   lat: number;
   lng: number;
   amenities: unknown;
+  coverImage: string | null;
   distanceKm: number;
   lowestPrice: string | null;
 }

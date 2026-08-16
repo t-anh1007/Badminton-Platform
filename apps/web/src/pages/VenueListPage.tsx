@@ -40,14 +40,20 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Không thể tải danh sách sân. Hãy thử lại.';
 }
 
-function parseVietnameseDate(value: string): string | null {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+function parseDateInput(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
   if (!match) return null;
   const [, day, month, year] = match;
   const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
   return date.getUTCFullYear() === Number(year) && date.getUTCMonth() + 1 === Number(month) && date.getUTCDate() === Number(day)
     ? `${year}-${month}-${day}` : null;
 }
+
+const PRICE_MIN = 0;
+const PRICE_MAX = 500_000;
+const PRICE_STEP = 10_000;
 
 function minuteOfDay(value: string): number | null {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
@@ -61,6 +67,7 @@ export function VenueListPage() {
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [filterOpen, setFilterOpen] = useState(true);
   const [radiusKm, setRadiusKm] = useState<number>(() => {
     const value = Number(searchParams.get('radiusKm'));
     return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
@@ -83,7 +90,7 @@ export function VenueListPage() {
     setLoading(true);
     setLoadError(null);
     const availabilityUsed = Boolean(date || startTime || endTime);
-    const parsedDate = date ? parseVietnameseDate(date) : null;
+    const parsedDate = date ? parseDateInput(date) : null;
     const startMinute = startTime ? minuteOfDay(startTime) : null;
     const endMinute = endTime ? minuteOfDay(endTime) : null;
     if (validateAvailability && availabilityUsed && (!parsedDate || startMinute === null || endMinute === null || startMinute >= endMinute)) {
@@ -129,20 +136,39 @@ export function VenueListPage() {
   const useMyLocation = () => {
     if (!('geolocation' in navigator)) { setLocateError('Trình duyệt không hỗ trợ định vị.'); return; }
     setLocating(true); setLocateError('');
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; setLocating(false); } };
+    // Safety net: một số trình duyệt (Edge/Chrome khi user chưa bấm cho phép) không
+    // gọi callback đúng hạn timeout gốc → tự thoát trạng thái "Đang định vị…"
+    // sau 12s để nút không kẹt.
+    const safety = window.setTimeout(() => {
+      if (!settled) {
+        setLocateError('Không nhận được vị trí trong 12s. Hãy kiểm tra quyền vị trí của trình duyệt hoặc click trên bản đồ.');
+        finish();
+      }
+    }, 12000);
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        window.clearTimeout(safety);
         const { latitude, longitude } = position.coords;
         setOrigin({ label: 'Vị trí của bạn', lat: latitude, lng: longitude });
-        setLocating(false);
+        finish();
         void reverseGeocode(latitude, longitude).then((addr) => {
           if (addr) setOrigin((current) => (current.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
         });
       },
       (error) => {
-        setLocating(false);
-        setLocateError(error.code === error.PERMISSION_DENIED ? 'Bạn đã từ chối quyền vị trí. Hãy click trên bản đồ để chọn điểm.' : 'Không lấy được vị trí. Hãy click trên bản đồ để chọn điểm.');
+        window.clearTimeout(safety);
+        setLocateError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Bạn đã từ chối quyền vị trí. Hãy click trên bản đồ để chọn điểm.'
+            : error.code === error.TIMEOUT
+              ? 'Định vị quá lâu. Hãy thử lại hoặc click trên bản đồ.'
+              : 'Không lấy được vị trí. Hãy click trên bản đồ để chọn điểm.',
+        );
+        finish();
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     );
   };
 
@@ -172,42 +198,106 @@ export function VenueListPage() {
     <main className="min-h-screen bg-canvas pb-12 pt-8 sm:pt-10">
       <div className="page-container">
         <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />
-        <form
-          className="surface-card sticky top-[76px] z-10 my-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4"
-          onSubmit={(event) => { event.preventDefault(); void runSearch(true); }}
-        >
-          <div className="sm:col-span-2">
-            <span className="mb-1.5 block text-caption">Vị trí tìm kiếm</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" tone="secondary" size="sm" onClick={useMyLocation} disabled={locating}>{locating ? 'Đang định vị…' : '📍 Dùng vị trí của tôi'}</Button>
-              <span className="truncate text-sm text-ink-600" title={origin.label}>{origin.label}</span>
-            </div>
-            {locateError && <p className="mt-1 text-xs text-danger">{locateError}</p>}
+
+        <div className="sticky top-[76px] z-10 my-6">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <Button type="button" tone="secondary" size="sm" onClick={() => setFilterOpen((prev) => !prev)} aria-expanded={filterOpen} aria-controls="venue-filter-panel">
+              {filterOpen ? '▲ Ẩn bộ lọc' : '▼ Hiện bộ lọc'}
+            </Button>
+            {!filterOpen && (
+              <span className="text-xs text-ink-500">
+                {origin.label} · {radiusKm} km{minPrice || maxPrice ? ` · ${minPrice ? formatMoneyVnd(minPrice) : '0đ'}–${maxPrice ? formatMoneyVnd(maxPrice) : '∞'}` : ''}
+              </span>
+            )}
           </div>
-          <div>
-            <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
-            <TextInput id="venue-name" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
-          </div>
-          <div>
-            <label htmlFor="venue-radius" className="mb-1.5 block text-caption">Bán kính</label>
-            <SelectInput id="venue-radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))}>
-              {RADIUS_OPTIONS.map((option) => <option key={option} value={option}>{option} km</option>)}
-            </SelectInput>
-          </div>
-          <div>
-            <label htmlFor="venue-sort" className="mb-1.5 block text-caption">Sắp xếp</label>
-            <SelectInput id="venue-sort" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}>
-              <option value="distance">Gần nhất</option>
-              <option value="price">Giá thấp nhất</option>
-              <option value="name">Tên sân</option>
-            </SelectInput>
-          </div>
-          <div><label htmlFor="venue-min-price" className="mb-1.5 block text-caption">Giá từ</label><TextInput id="venue-min-price" inputMode="numeric" value={minPrice} onChange={(event) => setMinPrice(event.target.value.replace(/\D/g, ''))} placeholder="100.000" /></div>
-          <div><label htmlFor="venue-max-price" className="mb-1.5 block text-caption">Giá đến</label><TextInput id="venue-max-price" inputMode="numeric" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value.replace(/\D/g, ''))} placeholder="300.000" /></div>
-          <div><label htmlFor="venue-date" className="mb-1.5 block text-caption">Ngày chơi</label><TextInput id="venue-date" placeholder="dd/MM/yyyy" value={date} onChange={(event) => setDate(event.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-2"><label className="grid gap-1.5 text-caption">Từ giờ<TextInput aria-label="Giờ bắt đầu" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="grid gap-1.5 text-caption">Đến giờ<TextInput aria-label="Giờ kết thúc" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>
-          <Button type="submit" className="self-end lg:col-span-4 lg:justify-self-end" disabled={loading}>Tìm sân</Button>
-        </form>
+          {filterOpen && (
+            <form
+              id="venue-filter-panel"
+              className="surface-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4"
+              onSubmit={(event) => { event.preventDefault(); void runSearch(true); }}
+            >
+              <div className="sm:col-span-2">
+                <span className="mb-1.5 block text-caption">Vị trí tìm kiếm</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" tone="secondary" size="sm" onClick={useMyLocation} disabled={locating}>{locating ? 'Đang định vị…' : '📍 Dùng vị trí của tôi'}</Button>
+                  <span className="truncate text-sm text-ink-600" title={origin.label}>{origin.label}</span>
+                </div>
+                {locateError && <p className="mt-1 text-xs text-danger">{locateError}</p>}
+              </div>
+              <div>
+                <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
+                <TextInput id="venue-name" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+              </div>
+              <div>
+                <label htmlFor="venue-radius" className="mb-1.5 block text-caption">Bán kính</label>
+                <SelectInput id="venue-radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))}>
+                  {RADIUS_OPTIONS.map((option) => <option key={option} value={option}>{option} km</option>)}
+                </SelectInput>
+              </div>
+              <div>
+                <label htmlFor="venue-sort" className="mb-1.5 block text-caption">Sắp xếp</label>
+                <SelectInput id="venue-sort" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}>
+                  <option value="distance">Gần nhất</option>
+                  <option value="price">Giá thấp nhất</option>
+                  <option value="name">Tên sân</option>
+                </SelectInput>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-2">
+                <div className="mb-1.5 flex items-center justify-between text-caption">
+                  <span>Khoảng giá / giờ</span>
+                  <span className="text-figures text-ink-700">
+                    {minPrice ? formatMoneyVnd(minPrice) : '0đ'} – {maxPrice ? formatMoneyVnd(maxPrice) : `${formatMoneyVnd(String(PRICE_MAX))}+`}
+                  </span>
+                </div>
+                <div className="relative h-10">
+                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink-100" aria-hidden="true" />
+                  {(() => {
+                    const lo = Math.max(PRICE_MIN, Math.min(PRICE_MAX, Number(minPrice) || PRICE_MIN));
+                    const hi = Math.max(PRICE_MIN, Math.min(PRICE_MAX, Number(maxPrice) || PRICE_MAX));
+                    const left = (lo / PRICE_MAX) * 100;
+                    const right = 100 - (hi / PRICE_MAX) * 100;
+                    return <div className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand-navy" style={{ left: `${left}%`, right: `${right}%` }} aria-hidden="true" />;
+                  })()}
+                  <input
+                    type="range" aria-label="Giá tối thiểu"
+                    min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP}
+                    value={Number(minPrice) || PRICE_MIN}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      const cap = Number(maxPrice) || PRICE_MAX;
+                      setMinPrice(String(Math.min(next, cap)));
+                    }}
+                    className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-navy [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-navy"
+                  />
+                  <input
+                    type="range" aria-label="Giá tối đa"
+                    min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP}
+                    value={Number(maxPrice) || PRICE_MAX}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      const floor = Number(minPrice) || PRICE_MIN;
+                      setMaxPrice(String(Math.max(next, floor)));
+                    }}
+                    className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-navy [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-navy"
+                  />
+                </div>
+                <div className="mt-1 flex gap-2">
+                  <TextInput aria-label="Giá tối thiểu (nhập tay)" inputMode="numeric" value={minPrice} onChange={(event) => setMinPrice(event.target.value.replace(/\D/g, ''))} placeholder="0" />
+                  <TextInput aria-label="Giá tối đa (nhập tay)" inputMode="numeric" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value.replace(/\D/g, ''))} placeholder={String(PRICE_MAX)} />
+                  {(minPrice || maxPrice) && (
+                    <Button type="button" tone="ghost" size="sm" onClick={() => { setMinPrice(''); setMaxPrice(''); }}>Xoá</Button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="venue-date" className="mb-1.5 block text-caption">Ngày chơi</label>
+                <TextInput id="venue-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-2"><label className="grid gap-1.5 text-caption">Từ giờ<TextInput aria-label="Giờ bắt đầu" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="grid gap-1.5 text-caption">Đến giờ<TextInput aria-label="Giờ kết thúc" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>
+              <Button type="submit" className="self-end lg:col-span-4 lg:justify-self-end" disabled={loading}>Tìm sân</Button>
+            </form>
+          )}
+        </div>
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
@@ -253,14 +343,24 @@ export function VenueListPage() {
               const lowestPrice = formatLowestPrice(venue.lowestPrice);
               return (
                 <Link key={venue.venueId} to={`/venues/${encodeURIComponent(venue.venueId)}`} className="block rounded-2xl focus-visible:outline-none">
-                  <SurfaceCard hoverable className="h-full">
+                  <SurfaceCard hoverable className="h-full overflow-hidden !p-0">
                     <div className="flex h-full flex-col">
-                      <div className="flex items-center justify-between gap-2"><p className="text-caption text-brand-navy">Sân cầu lông</p><Badge tone="success">Đặt được</Badge></div>
-                      <h2 className="mt-2 text-h3 text-ink-900">{venue.name}</h2>
-                      <p className="mt-2 text-sm leading-6 text-ink-500">{venue.address}</p>
-                      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-sm">
-                        <span className="text-figures text-ink-700">~{venue.distanceKm.toFixed(1)} km</span>
-                        {lowestPrice && <span className="text-figures font-medium text-brand-navy">Từ {lowestPrice}</span>}
+                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-ink-100">
+                        {venue.coverImage ? (
+                          <img src={venue.coverImage} alt={`Ảnh ${venue.name}`} loading="lazy" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-ink-400" aria-hidden="true">🏸</div>
+                        )}
+                        <Badge tone="success" className="absolute right-3 top-3">Đặt được</Badge>
+                      </div>
+                      <div className="flex flex-1 flex-col p-5">
+                        <p className="text-caption text-brand-navy">Sân cầu lông</p>
+                        <h2 className="mt-1 text-h3 text-ink-900">{venue.name}</h2>
+                        <p className="mt-2 text-sm leading-6 text-ink-500">{venue.address}</p>
+                        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-sm">
+                          <span className="text-figures text-ink-700">~{venue.distanceKm.toFixed(1)} km</span>
+                          {lowestPrice && <span className="text-figures font-medium text-brand-navy">Từ {lowestPrice}</span>}
+                        </div>
                       </div>
                     </div>
                   </SurfaceCard>
