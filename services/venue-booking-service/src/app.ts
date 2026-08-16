@@ -10,6 +10,7 @@ import { createVenueUploadRouter } from './routes/uploads.js';
 import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'venue-booking-service';
+// Deploy: /search trả coverImage (PR #6) cần rebuild service này trên Railway.
 
 export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }) {
   const app = express();
