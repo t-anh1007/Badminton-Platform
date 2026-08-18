@@ -107,7 +107,6 @@ nguyên tắc của nó thay vì tìm skill thay thế.
 | UI/UX frontend phức tạp (layout, design system) | `/web-design-guidelines` (review) hoặc `/frontend-design` (xây mới) |
 | Brainstorm giải pháp kỹ thuật | `/brainstorming` |
 | Commit / push / merge / deploy | `/release` (skill dự án, `.claude/skills/`) |
-| Dựng dữ liệu demo + test browser | `/demo-smoke` (skill dự án, `.claude/skills/`) |
 
 **Không dùng skill khi**: sửa bug rõ ràng, thêm field nhỏ, trả lời câu hỏi đơn
 giản, refactor cục bộ — làm trực tiếp sẽ nhanh hơn và rẻ hơn.
