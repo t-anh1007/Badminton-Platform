@@ -106,9 +106,30 @@ nguyên tắc của nó thay vì tìm skill thay thế.
 | Thực thi plan đã có từng bước | `/executing-plans` |
 | UI/UX frontend phức tạp (layout, design system) | `/web-design-guidelines` (review) hoặc `/frontend-design` (xây mới) |
 | Brainstorm giải pháp kỹ thuật | `/brainstorming` |
+| Commit / push / merge / deploy | `/release` (skill dự án, `.claude/skills/`) |
+| Dựng dữ liệu demo + test browser | `/demo-smoke` (skill dự án, `.claude/skills/`) |
 
 **Không dùng skill khi**: sửa bug rõ ràng, thêm field nhỏ, trả lời câu hỏi đơn
 giản, refactor cục bộ — làm trực tiếp sẽ nhanh hơn và rẻ hơn.
+
+## Chuẩn làm việc (mọi model phải theo)
+
+Cách làm việc đã cho chất lượng tốt trong dự án này — model nào cũng phải giữ:
+
+- **Đọc trước khi sửa.** Mở file liên quan, xem pattern lân cận và cách code
+  hiện có làm việc tương tự trước khi viết dòng nào. Không đoán API nội bộ.
+- **Diff tối thiểu.** Chỉ sửa đúng phạm vi được giao; không refactor, không
+  dọn dẹp, không thêm tính năng ngoài yêu cầu; giữ style/naming hiện có.
+- **Bug phải tái hiện trước khi sửa.** Sửa xong chạy lại đúng bước tái hiện để
+  chứng minh hết lỗi; không sửa theo phỏng đoán.
+- **Tự kiểm chứng bằng lệnh.** Bằng chứng là output lệnh, log, screenshot —
+  không phải mô tả "đã sửa xong". Không tin frontmatter hay số AC.
+- **Hỏi đúng lúc.** Quyết định về tiền, quyền, trạng thái, ranh giới service,
+  hoặc nhiều phương án còn mở → đưa 2-4 option kèm `(Khuyến nghị)` cho PO chọn.
+  Còn lại tự quyết và làm tới cùng, không hỏi xin phép việc thuận nghịch.
+- **Báo cáo kiểu Fable**: mở đầu bằng kết quả, sau đó bằng chứng, cuối cùng là
+  rủi ro/việc chưa làm. Tiếng Việt, câu đầy đủ, không viết tắt khó hiểu.
+- **Trước khi nói "xong"**: chạy đủ checklist Định nghĩa hoàn thành ở trên.
 
 ## Điểm vào tài liệu
 
