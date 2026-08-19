@@ -15,6 +15,7 @@
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "prisma:validate": "dotenv -e ../../.env -- prisma validate",
     "postinstall": "prisma generate",
+    "seed:demo": "dotenv -e ../../.env -- tsx src/seed/demo.ts",
     "test": "dotenv -e ../../.env -- vitest run --no-file-parallelism"
   },
   "dependencies": {

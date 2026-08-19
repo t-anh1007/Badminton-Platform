@@ -13,4 +13,7 @@ export const env = {
   accessTokenTtlSec: 15 * 60, // 15 phút
   refreshTokenTtlSec: 30 * 24 * 60 * 60, // 30 ngày
   googleOauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+  // Cổng "Test demo" — bật mặc định; đặt DEMO_LOGIN_ENABLED=false để tắt.
+  demoLoginEnabled: process.env.DEMO_LOGIN_ENABLED !== 'false',
+  demoEmail: (process.env.DEMO_ACCOUNT_EMAIL ?? 'demo@courtin.local').trim().toLowerCase(),
 };

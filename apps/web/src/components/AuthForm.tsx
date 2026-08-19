@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { login, loginWithGoogle, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
+import { demoLogin, login, loginWithGoogle, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
 import { useSession } from '../session/SessionProvider'
 import { Button, TextInput } from './ui'
 import { GoogleSignInButton } from './GoogleSignInButton'
@@ -84,6 +84,20 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
     }
   }
 
+  const handleDemo = async () => {
+    setError('')
+    setMessage('')
+    setLoading(true)
+    try {
+      establish(await demoLogin())
+      onAuthenticated?.()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Không thể vào chế độ demo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const showMode = (next: 'login' | 'register') => {
     setMode(next)
     setError('')
@@ -104,17 +118,16 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
           <p className="mt-2 text-sm leading-6 text-surface/75">Đăng nhập, xác minh và đặt lại mật khẩu vẫn dùng luồng account hiện có.</p>
         </div>
       </aside>
-      <div className="p-5 sm:p-8">
-        <div className="mb-7 flex rounded-full bg-canvas p-1" role="tablist">
+      <div className="p-5 sm:px-6 sm:py-5">
+        <div className="mb-4 flex rounded-full bg-canvas p-1" role="tablist">
           <button type="button" role="tab" aria-selected={mode === 'login'} onClick={() => showMode('login')} className={`flex-1 rounded-full px-3 py-2 text-sm font-bold ${mode === 'login' ? 'bg-brand-navy text-surface' : 'text-ink-500'}`}>Đăng nhập</button>
           <button type="button" role="tab" aria-selected={mode === 'register'} onClick={() => showMode('register')} className={`flex-1 rounded-full px-3 py-2 text-sm font-bold ${mode === 'register' ? 'bg-brand-navy text-surface' : 'text-ink-500'}`}>Đăng ký</button>
         </div>
-        <p className="courtin-kicker">COURTIN / {mode === 'verify' ? 'XÁC MINH' : 'TÀI KHOẢN'}</p>
-        <h2 className="mt-1 text-h2">{title}</h2>
-        <p className="mt-2 text-sm text-ink-500">{mode === 'verify' ? 'Nhập mã 6 chữ số đã gửi tới email của bạn.' : 'Dùng email và mật khẩu của tài khoản COURTIN.'}</p>
+        <h2 className="text-h3">{title}</h2>
+        <p className="mt-1 text-sm text-ink-500">{mode === 'verify' ? 'Nhập mã 6 chữ số đã gửi tới email của bạn.' : 'Dùng email và mật khẩu của tài khoản COURTIN.'}</p>
         {error && <p role="alert" className="mt-4 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>}
         {message && <p role="status" className="mt-4 rounded-xl bg-success-bg px-3 py-2 text-sm text-success">{message}</p>}
-        <form onSubmit={submit} className="mt-6 grid gap-4">
+        <form onSubmit={submit} className="mt-4 grid gap-3">
           {mode === 'register' && <label className="grid gap-1.5 text-sm font-semibold text-ink-700">Tên hiển thị<TextInput required value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Nguyễn Văn A" /></label>}
           <label className="grid gap-1.5 text-sm font-semibold text-ink-700">Email<TextInput type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ban@vidu.com" /></label>
           {mode !== 'verify' ? (
@@ -129,14 +142,18 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
           <Button type="submit" size="lg" className="mt-2 w-full" disabled={loading}>{loading ? 'Đang xử lý…' : mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Tạo tài khoản' : 'Xác minh email'}</Button>
         </form>
         {mode !== 'verify' && (
-          <div className="mt-6">
-            <div className="mb-4 flex items-center gap-3 text-caption text-ink-500">
+          <div className="mt-4">
+            <div className="mb-3 flex items-center gap-3 text-caption text-ink-500">
               <span className="h-px flex-1 bg-line" />
               HOẶC
               <span className="h-px flex-1 bg-line" />
             </div>
             <div className="flex justify-center">
               <GoogleSignInButton onCredential={(t) => void handleGoogle(t)} disabled={loading} />
+            </div>
+            <div className="mt-3 rounded-xl border border-dashed border-line bg-canvas p-3 text-center">
+              <button type="button" disabled={loading} onClick={() => void handleDemo()} className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-green-600 px-4 py-2 text-sm font-bold uppercase tracking-[0.035em] text-surface transition duration-150 hover:-translate-y-px hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">Dùng thử demo (Test demo)</button>
+              <p className="mt-1.5 text-xs leading-snug text-ink-500">Không cần tài khoản — vào ngay với vai người chơi.</p>
             </div>
           </div>
         )}

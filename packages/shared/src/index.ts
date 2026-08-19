@@ -16,6 +16,28 @@ export const SERVICES = [
 
 export type ServiceName = (typeof SERVICES)[number];
 
+/** Danh tính tài khoản "Test demo / Vãng lai" — cố định để cổng đăng nhập demo
+ * và script seed dữ liệu mẫu (npm run seed:demo) luôn khớp cùng một userId trên
+ * mọi service (schema-per-service, không FK xuyên schema — chỉ chia sẻ ID). */
+export const DEMO_USER_ID = '00000000-0000-4000-8000-0000000d3701';
+export const DEMO_EMAIL = 'demo@courtin.local';
+/** ID cố định cho các thực thể do seed demo tạo, để upsert idempotent. */
+export const DEMO_IDS = {
+  provider: '00000000-0000-4000-8000-0000000d3702',
+  venue: '00000000-0000-4000-8000-0000000d3703',
+  courtA: '00000000-0000-4000-8000-0000000d3704',
+  courtB: '00000000-0000-4000-8000-0000000d3705',
+  bookingUpcoming: '00000000-0000-4000-8000-0000000d3706',
+  bookingPast: '00000000-0000-4000-8000-0000000d3707',
+  bookingCancelled: '00000000-0000-4000-8000-0000000d3708',
+  match: '00000000-0000-4000-8000-0000000d3709',
+  matchOpen: '00000000-0000-4000-8000-0000000d370a',
+  /// Booking gắn với kèo đã hoàn tất / kèo đang mở (cần tồn tại thật ở
+  /// venue-booking để matchmaking.findPublicMatches lấy được match context).
+  matchCompletedBooking: '00000000-0000-4000-8000-0000000d3901',
+  matchOpenBooking: '00000000-0000-4000-8000-0000000d390b',
+} as const;
+
 /** Runtime contracts cho HTTP liên service (ADR 0004 / D18). */
 export const publicMatchProfileSchema = z.object({
   userId: z.string().uuid(),
