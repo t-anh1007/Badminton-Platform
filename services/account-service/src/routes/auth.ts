@@ -5,6 +5,7 @@ import { registerUser } from '../domain/registration.js';
 import { verifyEmailCode, resendVerificationCode } from '../domain/verification.js';
 import { login, logout, refreshSession } from '../domain/session.js';
 import { loginWithGoogle } from '../domain/googleAuth.js';
+import { demoLogin } from '../domain/demoAccount.js';
 import { requestPasswordReset, resetPassword, changePassword } from '../domain/passwordReset.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -55,6 +56,14 @@ authRouter.post(
   h(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
     const result = await login(email, password);
+    res.status(200).json(result);
+  }),
+);
+
+authRouter.post(
+  '/demo',
+  h(async (_req, res) => {
+    const result = await demoLogin();
     res.status(200).json(result);
   }),
 );

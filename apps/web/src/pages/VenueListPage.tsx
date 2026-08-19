@@ -67,7 +67,7 @@ export function VenueListPage() {
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [filterOpen, setFilterOpen] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(() => {
     const value = Number(searchParams.get('radiusKm'));
     return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
