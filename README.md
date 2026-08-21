@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🏸 Nền tảng cầu lông — Booking & Community
+<img src="docs/assets/courtin-logo.svg" alt="Courtin" width="360" />
+
+# Courtin — Badminton Community Platform
 
 **Nền tảng kết nối chủ sân, người chơi và cộng đồng cầu lông, xây dựng theo kiến trúc Microservices Event-Driven**
 
@@ -30,9 +32,8 @@
 5. [System Design & kỹ thuật cốt lõi — giải quyết gì cho bài toán](#5-system-design--kỹ-thuật-cốt-lõi--giải-quyết-gì-cho-bài-toán)
 6. [Các luồng nghiệp vụ quan trọng](#6-các-luồng-nghiệp-vụ-quan-trọng)
 7. [Mô hình dữ liệu](#7-mô-hình-dữ-liệu)
-8. [Cấu trúc dự án](#8-cấu-trúc-dự-án)
-9. [Chạy dự án](#9-chạy-dự-án)
-10. [Kỹ năng & tư duy hệ thống thể hiện qua dự án](#10-kỹ-năng--tư-duy-hệ-thống-thể-hiện-qua-dự-án)
+8. [Cấu trúc & chạy dự án](#8-cấu-trúc--chạy-dự-án)
+9. [Kỹ năng & tư duy hệ thống thể hiện qua dự án](#9-kỹ-năng--tư-duy-hệ-thống-thể-hiện-qua-dự-án)
 
 ---
 
@@ -405,7 +406,7 @@ Chi tiết: [docs/architecture/data-model.md](docs/architecture/data-model.md).
 
 ---
 
-## 8. Cấu trúc dự án
+## 8. Cấu trúc & chạy dự án
 
 ```text
 apps/
@@ -430,9 +431,7 @@ e2e/                       Playwright
 Mỗi service: `src/{routes,controllers,domain,repo,events}` +
 `prisma/schema.prisma` (schema riêng).
 
----
-
-## 9. Chạy dự án
+**Chạy cục bộ:**
 
 ```bash
 npm install
@@ -440,29 +439,21 @@ npm run infra:up        # PostgreSQL + Redis + RabbitMQ qua docker compose
 npm run dev             # chạy song song 6 service (concurrently)
 ```
 
-Kiểm chứng trước khi commit:
+**Kiểm chứng trước khi commit:**
 
 ```bash
 npm run build           # tsc -b toàn workspace — bắt buộc chạy ở root
-```
-
-```bash
 npm run test -w services/finance-service   # test tập trung workspace vừa sửa
-```
-
-```bash
 npm run e2e             # Playwright, cần .env ở root
 ```
 
 Env: một `.env` ở root (service load qua `dotenv -e ../../.env`); mẫu ở
-[.env.example](.env.example) — không commit `.env` thật.
-
-> **Lưu ý build**: lỗi type ở `apps/web` làm **fail cả deploy backend trên
-> Railway** — luôn chạy root build trước khi commit.
+[.env.example](.env.example). Lỗi type ở `apps/web` làm **fail cả deploy backend
+trên Railway** — luôn chạy root build trước khi commit.
 
 ---
 
-## 10. Kỹ năng & tư duy hệ thống thể hiện qua dự án
+## 9. Kỹ năng & tư duy hệ thống thể hiện qua dự án
 
 **Thiết kế hệ thống phân tán**
 - Phân rã theo **bounded context** (domain), data ownership rõ ràng, không chia

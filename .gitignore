@@ -46,3 +46,6 @@ dev-services.log
 .codegraph/
 .vercel
 .env*
+
+# Log runtime cục bộ (npm run dev ghi ra), không đưa vào git
+.runtime-logs/

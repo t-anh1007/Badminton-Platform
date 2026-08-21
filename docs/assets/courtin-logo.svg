@@ -1,0 +1,29 @@
+<svg width="420" height="120" viewBox="0 0 420 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Courtin — Badminton Community Platform">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16a34a"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Badge: shuttlecock -->
+  <g transform="translate(60 60)">
+    <circle r="52" fill="url(#g)"/>
+    <!-- cork -->
+    <circle cx="0" cy="22" r="11" fill="#ffffff"/>
+    <!-- feathers -->
+    <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none">
+      <path d="M0 12 L-22 -30"/>
+      <path d="M0 12 L-11 -34"/>
+      <path d="M0 12 L0 -36"/>
+      <path d="M0 12 L11 -34"/>
+      <path d="M0 12 L22 -30"/>
+    </g>
+    <path d="M-22 -30 Q0 -18 22 -30" stroke="#ffffff" stroke-width="3.5" fill="none" opacity="0.85"/>
+    <path d="M-14 -22 Q0 -12 14 -22" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.6"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="126" y="58" font-family="'Archivo','Segoe UI',Arial,sans-serif" font-size="42" font-weight="800" fill="url(#g)" letter-spacing="-1">Courtin</text>
+  <text x="128" y="86" font-family="'Inter','Segoe UI',Arial,sans-serif" font-size="15" font-weight="600" fill="#64748b" letter-spacing="2">BADMINTON COMMUNITY</text>
+</svg>
