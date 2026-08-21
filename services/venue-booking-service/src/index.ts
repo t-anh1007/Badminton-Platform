@@ -1,4 +1,6 @@
+import { startWithIdleRelease } from '@khoaluantn/eventbus';
 import { env } from './lib/env.js';
+import { prisma } from './lib/prisma.js';
 import { createApp } from './app.js';
 import { bootstrapEventConsumption } from './lib/eventConsumer.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
@@ -13,16 +15,14 @@ app.listen(env.port, () => {
   console.log(`[${SERVICE_NAME}] listening on :${env.port}`);
 });
 
-// AC-BOK-06-3 + AC-BOK-07-5: dọn hold/booking held hết hạn ở runtime.
-startReapScheduler();
-
-bootstrapEventConsumption().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('[venue-booking-service] không kết nối được RabbitMQ (consume):', err);
-});
-
-// G4: cần publish BookingConfirmed/PaymentTooLate — trước chỉ có consume.
-bootstrapEventPublishing().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('[venue-booking-service] không kết nối được RabbitMQ (publish):', err);
+// Xem ghi chú ở finance-service/src/index.ts về cơ chế buông khi rảnh.
+startWithIdleRelease({
+  label: SERVICE_NAME,
+  start: async () => [
+    // AC-BOK-06-3 + AC-BOK-07-5: dọn hold/booking held hết hạn ở runtime.
+    startReapScheduler(),
+    await bootstrapEventConsumption(),
+    await bootstrapEventPublishing(),
+  ],
+  onRelease: () => prisma.$disconnect(),
 });

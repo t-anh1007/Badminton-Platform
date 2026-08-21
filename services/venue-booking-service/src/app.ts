@@ -1,3 +1,4 @@
+import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
 import { createProviderRouter } from './routes/providers.js';
 import { createVenueRouter } from './routes/venues.js';
@@ -14,6 +15,8 @@ const SERVICE_NAME = 'venue-booking-service';
 
 export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }) {
   const app = express();
+  // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
+  app.use((_req, _res, next) => { markActivity(); next(); });
   app.use((req, res, next) => {
     const origin = req.get('origin');
     if (origin && env.webOrigins.includes(origin)) {

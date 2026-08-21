@@ -1,3 +1,4 @@
+import { startWithIdleRelease } from '@khoaluantn/eventbus';
 import { prisma } from './lib/prisma.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { bootstrapRatingEventConsumption } from './lib/ratingEventConsumer.js';
@@ -13,34 +14,30 @@ const PORT = Number(process.env.MATCHMAKING_PORT ?? 3004);
 
 const venueBookingClient = new HttpVenueBookingClient();
 const app = createApp({ venueBookingClient });
-const stopJoinExpiryScheduler = startJoinExpiryScheduler();
-const stopMatchCutoffScheduler = startMatchCutoffScheduler();
 
 const server = app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`[${SERVICE_NAME}] listening on :${PORT}`);
 });
+// Gateway WebSocket bám vào http server, không buông theo chu kỳ rảnh: phiên
+// Tìm nhanh đang mở phải sống tới khi người dùng đóng.
 const stopQuickMatchGateway = attachQuickMatchGateway(server, venueBookingClient);
 
-let stopPublishing: (() => Promise<void>) | undefined;
-let stopConsuming: (() => Promise<void>) | undefined;
-let stopMatchLifecycleConsuming: (() => Promise<void>) | undefined;
-void bootstrapEventPublishing()
-  .then((stop) => { stopPublishing = stop; })
-  .catch((err) => console.error(`[${SERVICE_NAME}] RabbitMQ relay unavailable`, err));
-void bootstrapRatingEventConsumption()
-  .then((stop) => { stopConsuming = stop; })
-  .catch((err) => console.error(`[${SERVICE_NAME}] RabbitMQ rating consumer unavailable`, err));
-void bootstrapMatchLifecycleEventConsumption()
-  .then((stop) => { stopMatchLifecycleConsuming = stop; })
-  .catch((err) => console.error(`[${SERVICE_NAME}] RabbitMQ match lifecycle consumer unavailable`, err));
+// Xem ghi chú ở finance-service/src/index.ts về cơ chế buông khi rảnh.
+const idle = startWithIdleRelease({
+  label: SERVICE_NAME,
+  start: async () => [
+    startJoinExpiryScheduler(),
+    startMatchCutoffScheduler(),
+    await bootstrapRatingEventConsumption(),
+    await bootstrapMatchLifecycleEventConsumption(),
+    await bootstrapEventPublishing(),
+  ],
+  onRelease: () => prisma.$disconnect(),
+});
 
 async function shutdown(): Promise<void> {
-  await stopJoinExpiryScheduler();
-  await stopMatchCutoffScheduler();
-  await stopConsuming?.();
-  await stopMatchLifecycleConsuming?.();
-  await stopPublishing?.();
+  await idle.stop();
   await stopQuickMatchGateway();
   await prisma.$disconnect();
   server.close();

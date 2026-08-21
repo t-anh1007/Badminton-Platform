@@ -15,8 +15,7 @@
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "prisma:validate": "dotenv -e ../../.env -- prisma validate",
     "postinstall": "prisma generate",
-    "seed:demo": "dotenv -e ../../.env -- tsx src/seed/demo.ts",
-    "test": "dotenv -e ../../.env -- vitest run"
+    "test": "dotenv -e ../../.env -v OUTBOX_RELAY_INTERVAL_MS=200 -- vitest run"
   },
   "dependencies": {
     "@khoaluantn/eventbus": "^0.1.0",

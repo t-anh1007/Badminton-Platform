@@ -1,3 +1,4 @@
+import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
 import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
@@ -8,6 +9,8 @@ const SERVICE_NAME = 'account-service';
 
 export function createApp() {
   const app = express();
+  // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
+  app.use((_req, _res, next) => { markActivity(); next(); });
   app.use(express.json());
 
   app.get('/health', (_req, res) => {
