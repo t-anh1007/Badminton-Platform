@@ -1,6 +1,6 @@
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { createHash } from 'node:crypto';
-import { connectRabbitMQ } from '@khoaluantn/eventbus';
+import { connectRabbitMQ, shouldRequeue } from '@khoaluantn/eventbus';
 import { env } from './env.js';
 import { grantProviderRole } from '../domain/providerRole.js';
 
@@ -27,7 +27,10 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[account-service] lỗi xử lý event, requeue:', err);
-    channel.nack(msg, false, true);
+    // Requeue vô điều kiện là bẫy poison message: event không bao giờ xử lý
+    // được sẽ quay lại ngay, đốt CPU consumer + broker + DB vô hạn. Thử lại
+    // đúng một lần rồi bỏ.
+    channel.nack(msg, false, shouldRequeue(err, msg));
   }
 }
 

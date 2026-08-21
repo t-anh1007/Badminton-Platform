@@ -1,7 +1,7 @@
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { createHash } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
-import { connectRabbitMQ } from '@khoaluantn/eventbus';
+import { connectRabbitMQ, shouldRequeue } from '@khoaluantn/eventbus';
 import { env } from './env.js';
 import { prisma } from './prisma.js';
 import { handleUserRegistered, handleProviderApproved } from '../domain/walletProvisioning.js';
@@ -69,6 +69,34 @@ export async function quarantineLegacyMatchConfirmed(eventId: string, payload: R
   });
 }
 
+/** Cất event không xử lý được vào bảng quarantine trước khi bỏ, để không mất
+ * dữ liệu tiền bạc — có thể dựng lại thủ công sau khi điều tra. Tự nuốt lỗi ghi
+ * DB: quarantine hỏng thì vẫn phải nack cho xong, không được để message treo
+ * giữ channel. */
+async function quarantineFailedEvent(eventId: string, raw: string, reason: string): Promise<void> {
+  try {
+    let eventType = 'Unknown';
+    let payload: unknown = { raw };
+    try {
+      const parsed = JSON.parse(raw) as { type?: unknown; payload?: unknown };
+      if (typeof parsed.type === 'string') eventType = parsed.type;
+      if (parsed.payload !== undefined) payload = parsed.payload;
+    } catch {
+      // Payload không parse được thì giữ nguyên raw để điều tra.
+    }
+    await prisma.quarantinedEvent.upsert({
+      where: { eventId },
+      update: {},
+      create: { eventId, eventType, payload: payload as Prisma.InputJsonValue, reason },
+    });
+    // eslint-disable-next-line no-console
+    console.error(`[finance-service] đã quarantine event ${eventId} (${eventType})`);
+  } catch (quarantineError) {
+    // eslint-disable-next-line no-console
+    console.error('[finance-service] không quarantine được event', eventId, quarantineError);
+  }
+}
+
 async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: EventConsumerHooks): Promise<void> {
   if (!msg) return;
   try {
@@ -112,9 +140,16 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: E
     }
     channel.ack(msg);
   } catch (err) {
+    // Requeue vô điều kiện từng khiến service quay ~100 event/giây khi gặp một
+    // event không bao giờ xử lý được. Thử lại đúng một lần, sau đó cất vào
+    // quarantine rồi bỏ — không mất dữ liệu, không quay vòng.
+    const requeue = shouldRequeue(err, msg);
     // eslint-disable-next-line no-console
-    console.error('[finance-service] lỗi xử lý event, requeue:', err);
-    channel.nack(msg, false, true);
+    console.error(`[finance-service] lỗi xử lý event (requeue=${requeue}):`, err);
+    if (!requeue) {
+      await quarantineFailedEvent(eventIdOf(msg), msg.content.toString(), String(err));
+    }
+    channel.nack(msg, false, requeue);
   }
 }
 
