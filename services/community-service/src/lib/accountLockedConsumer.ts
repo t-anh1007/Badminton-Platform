@@ -1,6 +1,7 @@
+import { shouldRequeue } from '@khoaluantn/eventbus';
 import { createHash } from 'node:crypto';
 import type { Channel, ConsumeMessage } from 'amqplib';
-import { ZodError, z } from 'zod';
+import { z } from 'zod';
 import { prisma } from './prisma.js';
 
 const EVENT_TYPE = 'AccountLocked';
@@ -47,9 +48,10 @@ async function consumeMessage(channel: Channel, message: ConsumeMessage | null):
     channel.ack(message);
   } catch (error) {
     console.error('[community-service AccountLocked consumer]', error);
-    // Invalid envelopes cannot become valid on redelivery. Reject them instead
-    // of looping forever; transient database/broker failures are retried.
-    channel.nack(message, false, !(error instanceof ZodError || error instanceof SyntaxError));
+    // Requeue vô điều kiện là bẫy poison message: event không bao giờ xử lý
+    // được sẽ quay lại ngay, đốt CPU consumer + broker + DB vô hạn. Thử lại
+    // đúng một lần rồi bỏ.
+    channel.nack(message, false, shouldRequeue(error, message));
   }
 }
 

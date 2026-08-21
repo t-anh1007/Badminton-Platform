@@ -1,3 +1,4 @@
+import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
 import { GeminiSupportAssistant, type SupportAssistantClient } from '@khoaluantn/ai';
 import type { PolicyRetriever } from '@khoaluantn/ai';
@@ -18,6 +19,8 @@ export function createApp(dependencies?: {
   objectStorage?: ObjectStorageClient;
 }) {
   const app = express();
+  // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
+  app.use((_req, _res, next) => { markActivity(); next(); });
   app.use(express.json());
   app.get('/health', (_req, res) => {
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });

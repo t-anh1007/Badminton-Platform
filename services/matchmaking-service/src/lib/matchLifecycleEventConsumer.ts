@@ -1,3 +1,4 @@
+import { shouldRequeue } from '@khoaluantn/eventbus';
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -327,7 +328,10 @@ async function consumeMessage(
     channel.ack(message);
   } catch (error) {
     console.error('[matchmaking-service match lifecycle consumer]', error);
-    channel.nack(message, false, true);
+    // Requeue vô điều kiện là bẫy poison message: event không bao giờ xử lý
+    // được sẽ quay lại ngay, đốt CPU consumer + broker + DB vô hạn. Thử lại
+    // đúng một lần rồi bỏ.
+    channel.nack(message, false, shouldRequeue(error, message));
   }
 }
 

@@ -16,10 +16,12 @@ async function resolveImageEntries(images: unknown, storage: ObjectStorageClient
           : null,
     )
     .filter((key): key is string => !!key && key.trim().length > 0);
+  // Key bắt đầu bằng "/" là asset tĩnh của frontend (apps/web/public), không
+  // phải objectKey — trả nguyên xi, đừng map qua object storage.
   return Promise.all(
     keys.map(async (objectKey) => ({
       objectKey,
-      url: /^https?:\/\//i.test(objectKey) ? objectKey : await storage.getReadUrl(objectKey),
+      url: /^(?:https?:\/\/|\/)/i.test(objectKey) ? objectKey : await storage.getReadUrl(objectKey),
     })),
   );
 }

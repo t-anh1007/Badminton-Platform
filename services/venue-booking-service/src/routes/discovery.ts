@@ -17,7 +17,9 @@ async function firstImageUrl(images: unknown, storage: ObjectStorageClient): Pro
       ? String((raw as { objectKey: unknown }).objectKey)
       : null;
   if (!key || key.trim().length === 0) return null;
-  return /^https?:\/\//i.test(key) ? key : storage.getReadUrl(key);
+  // Key bắt đầu bằng "/" là asset tĩnh của frontend (apps/web/public), không
+  // phải objectKey — trả nguyên xi, đừng map qua object storage.
+  return /^(?:https?:\/\/|\/)/i.test(key) ? key : storage.getReadUrl(key);
 }
 
 const searchSchema = z.object({

@@ -11,6 +11,7 @@ function internalServiceHeaders(): Record<string, string> {
 
 export interface VenueBookingClient {
   getMatchContext(bookingId: string): Promise<VenueMatchContext | null>;
+  getMatchContexts?(bookingIds: string[]): Promise<Array<VenueMatchContext | null>>;
   createBookingFromHold(holdId: string, authorization: string): Promise<string>;
   cancelConfirmedBooking(bookingId: string, authorization: string): Promise<{ refundPercent: number }>;
   resolveMatchBooking(input: {
@@ -34,6 +35,16 @@ export class HttpVenueBookingClient implements VenueBookingClient {
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`venue-booking match context failed with ${response.status}`);
     return venueMatchContextSchema.parse(await response.json());
+  }
+
+  async getMatchContexts(bookingIds: string[]): Promise<Array<VenueMatchContext | null>> {
+    const response = await fetch(`${this.baseUrl}/internal/bookings/match-contexts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bookingIds }),
+    });
+    if (!response.ok) throw new Error(`venue-booking batch match context failed with ${response.status}`);
+    return z.object({ contexts: z.array(venueMatchContextSchema.nullable()) }).parse(await response.json()).contexts;
   }
 
   async createBookingFromHold(holdId: string, authorization: string): Promise<string> {

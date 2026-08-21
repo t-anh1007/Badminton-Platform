@@ -144,12 +144,10 @@ export async function findPublicMatches(
     },
   });
 
-  const hydrated = await Promise.all(
-    candidates.map(async (match) => ({
-      match,
-      context: await venueBookingClient.getMatchContext(match.bookingId),
-    })),
-  );
+  const contexts = venueBookingClient.getMatchContexts
+    ? await venueBookingClient.getMatchContexts(candidates.map((match) => match.bookingId))
+    : await Promise.all(candidates.map((match) => venueBookingClient.getMatchContext(match.bookingId)));
+  const hydrated = candidates.map((match, index) => ({ match, context: contexts[index] ?? null }));
 
   return hydrated
     .flatMap(({ match, context }) => {

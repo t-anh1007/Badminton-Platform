@@ -49,6 +49,9 @@ target_file: FHuhhmlhPSl8gOUuUx7az2
 
 - [x] Create Match — Mobile `107:2`; desktop source `92:2` retained.
 - [x] Host Participant Approval (MMP-05/F-02) — Desktop `113:2` and Mobile `113:19`.
+- [ ] Match Join Payment Confirmation (MMP-06/FIN-05) — Desktop `117:2` and Mobile `117:109`; frames exist, but the inherited desktop status-label overlap still needs a separately authorized repair and screenshot recheck.
+- [x] Match Cancellation & Contribution Refund (MMP-08/FIN-05) — Desktop `119:2` and Mobile `120:2`.
+- [x] Standardized Skill Declaration (MMP-09/F-01) — Desktop `117:122` and Mobile `117:141`.
 - [x] Post-match Fair Review (MMP-10/F-07) — Desktop `113:37` and Mobile `113:55`.
 - [x] Player Passport Owner — Mobile `107:18`; desktop source `90:2` retained.
 - [x] Player Passport Public — Mobile `107:34`; desktop source `90:184` retained.
@@ -103,6 +106,8 @@ F6 does not block F1–F5 while `F-05` remains postponed. If activated, F6 becom
 
 ## Progress evidence
 
+- 2026-08-21, MMP-08 cancellation/refund batch complete and screenshot-checked: desktop `119:2` and mobile `120:2`. Both were cloned from COURTIN cancellation/refund frames `105:25`/`105:41`; desktop adds a participant allocation panel while mobile uses stacked total/per-wallet summaries. A newly cloned desktop allocation card was found at page level, reparented into `119:2`, and re-screenshoted. Final hierarchy validation found only the two intended top-level frames, no out-of-bounds descendants, and only Archivo/Inter/Geist Mono font families. No pre-existing frame was modified or deleted.
+- 2026-08-15, MMP-06 and MMP-09 frames were added at `117:2`/`117:109` and `117:122`/`117:141`. The fifth skill tier in the MMP-09 clones was repaired and re-screenshoted; the inherited desktop MMP-06 status-label overlap remains unresolved and therefore its row is not complete.
 - 2026-08-14, match-lifecycle gap batch complete and screenshot-checked: Host Participant Approval `113:2`/`113:19` and Post-match Fair Review `113:37`/`113:55`. The frames were cloned from existing COURTIN approval/form patterns and adapted to MMP-05/F-02 and MMP-10/F-07; Archivo/Inter font-family validation passed and no text node exceeded its frame bounds.
 - 2026-08-13, F1 complete and direct-checked: Homepage Mobile `102:2`; Login `100:2`/`100:23`; Register `100:41`/`100:64`; Verify Email `100:84`/`100:103`; Reset Password `100:119`/`100:138`; Venue Explorer `102:22`/`102:59`; Venue Detail `102:86`/`102:104`. Metadata and screenshots were retrieved for every frame. The Login Mobile screenshot exposed title/description overlap; it was corrected in-place and re-screenshoted (`100:23`) before recording coverage.
 - 2026-08-13, F2 complete and direct-checked: Booking History Mobile `105:2`; cancellation/refund `105:25`/`105:41`; Wallet Mobile `105:56`; Payment Confirmation Mobile `105:76`; Player Dispute `105:89`/`105:107`; Account Settings `105:124`/`105:143`. Metadata and screenshots were retrieved for all nine new frames; existing desktop sources `92:319`, `89:494`, `96:210` were rechecked by metadata and screenshot.

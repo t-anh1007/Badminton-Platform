@@ -20,7 +20,9 @@ async function toImageUrls(images: unknown, storage: ObjectStorageClient): Promi
           : null,
     )
     .filter((key): key is string => !!key && key.trim().length > 0);
-  return Promise.all(keys.map((key) => (/^https?:\/\//i.test(key) ? Promise.resolve(key) : storage.getReadUrl(key))));
+  // Key bắt đầu bằng "/" là asset tĩnh của frontend (apps/web/public), không
+  // phải objectKey — trả nguyên xi, đừng map qua object storage.
+  return Promise.all(keys.map((key) => (/^(?:https?:\/\/|\/)/i.test(key) ? Promise.resolve(key) : storage.getReadUrl(key))));
 }
 
 export function createVenueRouter(resolveStorage: () => ObjectStorageClient) {

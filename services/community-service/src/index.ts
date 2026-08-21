@@ -1,3 +1,4 @@
+import { startWithIdleRelease } from '@khoaluantn/eventbus';
 import { prisma } from './lib/prisma.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { createApp } from './app.js';
@@ -11,13 +12,15 @@ const server = app.listen(PORT, () => {
   console.log(`[${SERVICE_NAME}] listening on :${PORT}`);
 });
 
-let stopPublishing: (() => Promise<void>) | undefined;
-void bootstrapEventPublishing()
-  .then((stop) => { stopPublishing = stop; })
-  .catch((err) => console.error(`[${SERVICE_NAME}] RabbitMQ relay unavailable`, err));
+// Xem ghi chú ở finance-service/src/index.ts về cơ chế buông khi rảnh.
+const idle = startWithIdleRelease({
+  label: SERVICE_NAME,
+  start: async () => [await bootstrapEventPublishing()],
+  onRelease: () => prisma.$disconnect(),
+});
 
 async function shutdown(): Promise<void> {
-  await stopPublishing?.();
+  await idle.stop();
   await prisma.$disconnect();
   server.close();
 }

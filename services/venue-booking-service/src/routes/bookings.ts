@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getMatchContext, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { createBookingFromHold, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
@@ -57,6 +57,14 @@ bookingRouter.get(
   '/internal/bookings/:id/match-context',
   h(async (req, res) => {
     res.status(200).json(await getMatchContext(req.params.id!));
+  }),
+);
+
+bookingRouter.post(
+  '/internal/bookings/match-contexts',
+  h(async (req, res) => {
+    const { bookingIds } = z.object({ bookingIds: z.array(z.string().uuid()).min(1).max(500) }).parse(req.body);
+    res.status(200).json({ contexts: await getMatchContexts(bookingIds) });
   }),
 );
 

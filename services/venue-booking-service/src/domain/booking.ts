@@ -121,6 +121,41 @@ export async function getMatchContext(bookingId: string) {
   });
 }
 
+/** Batch variant for matchmaking list hydration; preserves the service boundary
+ * while avoiding one HTTP and one database query per public match. */
+export async function getMatchContexts(bookingIds: string[]) {
+  const bookings = await prisma.booking.findMany({
+    where: { id: { in: bookingIds } },
+    include: { court: { include: { venue: true } } },
+  });
+  const now = new Date();
+  const expiredIds = bookings
+    .filter((booking) => booking.status === 'held' && (!booking.holdExpiresAt || booking.holdExpiresAt <= now))
+    .map((booking) => booking.id);
+  if (expiredIds.length > 0) {
+    await prisma.booking.updateMany({ where: { id: { in: expiredIds }, status: 'held' }, data: { status: 'cancelled' } });
+  }
+  const expired = new Set(expiredIds);
+  const byId = new Map(bookings.map((booking) => [booking.id, venueMatchContextSchema.parse({
+    bookingId: booking.id,
+    ownerUserId: booking.userId,
+    status: expired.has(booking.id) ? 'cancelled' : booking.status,
+    priceSnapshot: booking.priceSnapshot.toString(),
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
+    court: { id: booking.court.id, name: booking.court.name },
+    venue: {
+      id: booking.court.venue.id,
+      name: booking.court.venue.name,
+      address: booking.court.venue.address,
+      lat: booking.court.venue.lat,
+      lng: booking.court.venue.lng,
+    },
+  })]));
+  return bookingIds.map((bookingId) => byId.get(bookingId) ?? null);
+}
+
 /** AC-BOK-07-5 — tác vụ nền quét booking `held` quá hạn hold -> `cancelled`,
  * slot trở lại khả dụng (không còn hold VÀ không còn booking held chặn chỗ). */
 export async function reapExpiredHeldBookings(): Promise<number> {
