@@ -1,5 +1,4 @@
 import { prisma } from '../lib/prisma.js';
-import { isRangeFree } from './slotAvailability.js';
 
 const DEFAULT_RADIUS_KM = 10; // A-BOK-04
 
@@ -121,19 +120,22 @@ export async function filterAndSortVenues(
     const { date, startMinute, endMinute } = params.availability;
     const startAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, startMinute));
     const endAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, endMinute));
-    const kept: VenueSearchResult[] = [];
-    for (const r of results) {
-      const courts = await prisma.court.findMany({ where: { venueId: r.venueId, active: true } });
-      let anyFree = false;
-      for (const c of courts) {
-        if (await isRangeFree(c.id, startAt, endAt)) {
-          anyFree = true;
-          break;
-        }
-      }
-      if (anyFree) kept.push(r);
-    }
-    results = kept;
+    const now = new Date();
+    const freeCourts = await prisma.court.findMany({
+      where: {
+        venueId: { in: results.map((result) => result.venueId) },
+        active: true,
+        bookings: {
+          none: { status: 'confirmed', startAt: { lt: endAt }, endAt: { gt: startAt } },
+        },
+        holds: {
+          none: { expiresAt: { gt: now }, startAt: { lt: endAt }, endAt: { gt: startAt } },
+        },
+      },
+      select: { venueId: true },
+    });
+    const venueIdsWithFreeCourt = new Set(freeCourts.map((court) => court.venueId));
+    results = results.filter((result) => venueIdsWithFreeCourt.has(result.venueId));
   }
 
   if (params.sortBy === 'price') {
