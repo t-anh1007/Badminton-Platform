@@ -2,7 +2,7 @@
 //  1) Nâng tài khoản THẬT (ADMIN_EMAIL) lên quyền admin — KHÔNG đụng mật khẩu / Google.
 //  2) Seed 2 chủ sân demo (1 approved + 1 pending) và 1-2 mẫu mỗi phần để test.
 // Mọi bản ghi demo gắn email @khoaluantn-demo.local / venue tên "DEMO" → xóa bằng
-// scripts/demo-cleanup.ts. Tài khoản admin thật KHÔNG bị cleanup đụng tới.
+// Tài khoản admin thật KHÔNG bị script nào khác đụng tới.
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { PrismaClient as AccountPrismaClient, UserRole } from '../services/account-service/node_modules/@prisma/client/index.js';

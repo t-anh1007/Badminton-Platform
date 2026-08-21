@@ -26,7 +26,7 @@ export async function demoLogin(): Promise<LoginResult> {
     const passwordHash = await hashPassword(`demo-${Date.now()}-${Math.random().toString(36).slice(2)}A1`);
     user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
-        // ID cố định để seed dữ liệu mẫu (npm run seed:demo) khớp userId trên mọi service.
+        // ID cố định để mọi service nhận ra cùng một tài khoản vãng lai.
         data: { id: DEMO_USER_ID, email, passwordHash, roles: ['player'], verified: true },
       });
       await tx.playerProfile.create({ data: { userId: created.id, displayName: 'Khách demo' } });
