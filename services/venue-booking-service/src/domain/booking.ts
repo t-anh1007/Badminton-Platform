@@ -375,10 +375,18 @@ export async function listMyBookings(userId: string) {
     orderBy: { startAt: 'desc' },
     include: { court: { include: { venue: true } } },
   });
+  // Booking bị hủy khi còn là hold chưa thanh toán không phải lịch sử giao dịch
+  // của người chơi. Vẫn giữ bản ghi hết hạn tự động ở DB để đối soát kỹ thuật,
+  // nhưng không đưa vào bất kỳ tab lịch sử nào.
+  const visibleBookings = bookings.filter((booking) => !(
+    booking.status === 'cancelled'
+    && booking.holdExpiresAt !== null
+    && booking.cancellationReason === null
+  ));
   const now = Date.now();
   return {
-    upcoming: bookings.filter((b) => b.startAt.getTime() >= now),
-    past: bookings.filter((b) => b.startAt.getTime() < now),
+    upcoming: visibleBookings.filter((b) => b.startAt.getTime() >= now),
+    past: visibleBookings.filter((b) => b.startAt.getTime() < now),
   };
 }
 

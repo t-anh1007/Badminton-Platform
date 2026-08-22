@@ -37,6 +37,29 @@ function parseDateField(value: string): string | null {
   return `${year}-${month}-${day}`
 }
 
+const vietnamClock = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+function getVietnamClock(now = new Date()): { date: string; minute: number } {
+  const parts = Object.fromEntries(vietnamClock.formatToParts(now).map((part) => [part.type, part.value]))
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minute: Number(parts.hour) * 60 + Number(parts.minute),
+  }
+}
+
+function isPastSlot(date: string, startMinute: number, now = new Date()): boolean {
+  const current = getVietnamClock(now)
+  return date < current.date || (date === current.date && startMinute <= current.minute)
+}
+
 function HoldCountdown({ expiresAt, onExpired }: { expiresAt?: string; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0)
   const onExpiredRef = useRef(onExpired)
@@ -70,6 +93,7 @@ export function BookingPage() {
   const [error, setError] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
   const retryAfterAuth = useRef<(() => void) | null>(null)
+  const availabilityRequestId = useRef(0)
   const [date, setDate] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10))
   const [dateField, setDateField] = useState(() => formatDateField(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)))
 
@@ -86,33 +110,38 @@ export function BookingPage() {
   }
 
   const loadAvailability = async (nextCourtId: string, nextDate: string) => {
+    const requestId = ++availabilityRequestId.current
     setAvailabilityLoading(true)
     setError('')
+    setSlots([])
     try {
       const schedule = await getCourtAvailability(nextCourtId, nextDate)
+      if (requestId !== availabilityRequestId.current) return
       setSlots(schedule.slots.map((slot) => {
         const start = new Date(`${nextDate}T00:00:00.000Z`)
         start.setUTCMinutes(slot.startMinute)
+        const past = isPastSlot(nextDate, slot.startMinute)
         return {
           time: `${Math.floor(slot.startMinute / 60).toString().padStart(2, '0')}:${(slot.startMinute % 60).toString().padStart(2, '0')}`,
           endTime: `${Math.floor(slot.endMinute / 60).toString().padStart(2, '0')}:${(slot.endMinute % 60).toString().padStart(2, '0')}`,
-          status: slot.available ? 'available' : 'unavailable',
+          status: past ? 'past' : slot.available ? 'available' : 'unavailable',
           price: Number(slot.price ?? 0),
           selection: {
             courtId: nextCourtId,
             date: nextDate,
             startAt: start.toISOString(),
             endMinute: slot.endMinute,
-            available: slot.available,
+            available: slot.available && !past,
             price: slot.price ?? '0',
           },
         }
       }))
       setMessage(schedule.closed ? 'Sân đóng cửa vào ngày đã chọn.' : '')
     } catch (caught) {
+      if (requestId !== availabilityRequestId.current) return
       setError(caught instanceof Error ? caught.message : 'Không thể tải lịch sân.')
     } finally {
-      setAvailabilityLoading(false)
+      if (requestId === availabilityRequestId.current) setAvailabilityLoading(false)
     }
   }
 
@@ -158,7 +187,7 @@ export function BookingPage() {
   }
 
   const choose = (slot: Slot) => {
-    if (!slot.selection) return
+    if (!slot.selection || slot.status !== 'available' || isPastSlot(slot.selection.date, Number(slot.time.slice(0, 2)) * 60 + Number(slot.time.slice(3, 5)))) return
     const availableSlots = slots.flatMap((item) => item.selection ? [item.selection] : [])
     const proposed = toggleSlot(selection, slot.selection, availableSlots)
     if (proposed === selection) {
@@ -258,7 +287,7 @@ export function BookingPage() {
                     type="date"
                     aria-label="Chọn ngày từ lịch"
                     value={date}
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={getVietnamClock().date}
                     disabled={Boolean(booking)}
                     onChange={(event) => { if (event.target.value && event.target.value !== date) changeDate(event.target.value) }}
                     className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0 disabled:cursor-not-allowed"

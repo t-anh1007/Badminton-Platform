@@ -35,6 +35,18 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   if (booking.userId !== userId) {
     throw new AppError('FORBIDDEN', 'Không có quyền hủy booking này.', 403);
   }
+  if (booking.status === 'held') {
+    return prisma.$transaction(async (tx) => {
+      const removed = await tx.booking.deleteMany({
+        where: { id: booking.id, status: 'held' },
+      });
+      if (removed.count !== 1) {
+        throw new AppError('BOOKING_CHANGED_CONCURRENTLY', 'Booking vừa được xử lý trước đó.', 409);
+      }
+      if (booking.holdId) await tx.hold.deleteMany({ where: { id: booking.holdId } });
+      return { status: 'cancelled' as const, refundPercent: 0 };
+    });
+  }
   // D39/D33 recovery: if the Venue cancellation committed but Matchmaking
   // crashed before it consumed the result, the same authenticated owner gets
   // the durable policy outcome rather than a misleading conflict.

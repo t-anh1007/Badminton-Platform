@@ -1,7 +1,7 @@
 import type { SelectableSlot } from '../booking/selection.js';
 import { formatMoneyVnd } from '../lib/formatters.js';
 
-export type SlotStatus = 'available' | 'held' | 'booked' | 'unavailable';
+export type SlotStatus = 'available' | 'held' | 'booked' | 'unavailable' | 'past';
 
 export interface Slot {
   time: string;
@@ -17,6 +17,7 @@ const STATUS_STYLE: Record<SlotStatus, string> = {
   held: 'bg-brand-yellow text-brand-navy cursor-not-allowed',
   booked: 'bg-ink-700/10 text-ink-900/40 cursor-not-allowed',
   unavailable: 'bg-ink-700/10 text-ink-900/40 cursor-not-allowed',
+  past: 'bg-ink-700/5 text-ink-500/60 cursor-not-allowed',
 };
 
 const STATUS_LABEL: Record<SlotStatus, string> = {
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<SlotStatus, string> = {
   held: 'Đang giữ',
   booked: 'Đã đặt',
   unavailable: 'Đã kín',
+  past: 'Đã qua',
 };
 
 /** Slot state and price rendered from the real availability response. */

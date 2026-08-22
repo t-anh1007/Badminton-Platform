@@ -75,3 +75,34 @@ it('uses one confirmation action to create a hold and booking, then locks select
   await waitFor(() => expect(within(view.container).getByRole('textbox', { name: /ngày đặt sân/i })).toBeDisabled())
   expect(within(view.container).getByRole('combobox')).toBeDisabled()
 })
+
+it('shows elapsed slots for today but does not allow selecting them', async () => {
+  vi.setSystemTime(new Date('2026-08-14T09:15:00.000Z')) // 16:15 tại Việt Nam
+  vi.mocked(getCourtAvailability).mockResolvedValue({ closed: false, slots: [
+    { startMinute: 16 * 60, endMinute: 16 * 60 + 30, available: true, price: '180000' },
+    { startMinute: 16 * 60 + 30, endMinute: 17 * 60, available: true, price: '180000' },
+  ] })
+
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  const dateField = await screen.findByRole('textbox', { name: /ngày đặt sân/i })
+  fireEvent.change(dateField, { target: { value: '14/08/2026' } })
+
+  const elapsed = await screen.findByRole('button', { name: 'Đã qua 16:00 - 16:30' })
+  expect(elapsed).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Chọn 16:30 - 17:00' })).toBeEnabled()
+  expect(screen.getByText('Đã qua')).toBeInTheDocument()
+})
+
+it('clears stale slots when a past date is rejected', async () => {
+  vi.mocked(getCourtAvailability)
+    .mockResolvedValueOnce({ closed: false, slots: [{ startMinute: 360, endMinute: 390, available: true, price: '180000' }] })
+    .mockRejectedValueOnce(new Error('Không thể xem lịch của ngày đã qua.'))
+
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  expect(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' })).toBeInTheDocument()
+
+  fireEvent.change(screen.getByRole('textbox', { name: /ngày đặt sân/i }), { target: { value: '13/08/2026' } })
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể xem lịch của ngày đã qua.')
+  expect(screen.queryByRole('button', { name: /06:00 - 06:30/ })).not.toBeInTheDocument()
+})

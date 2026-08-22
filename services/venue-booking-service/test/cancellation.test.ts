@@ -45,6 +45,34 @@ async function setupConfirmedBooking(hoursUntilStart: number, price = 200000n) {
 }
 
 describe('BOK-09 — Người chơi hủy booking', () => {
+  it('hủy booking đang giữ chỗ thì xóa booking tạm, giải phóng hold và không lưu lịch sử', async () => {
+    const playerId = fakeUserId();
+    const provider = await createApprovedProvider(fakeUserId());
+    const { court } = await createVenueWithCourt(provider.id);
+    const startAt = new Date(Date.now() + 24 * 3_600_000);
+    const hold = await createHold(playerId, {
+      courtId: court.id,
+      startAt,
+      endAt: new Date(startAt.getTime() + 3_600_000),
+    });
+    const booking = await prisma.booking.create({
+      data: {
+        holdId: hold.id, courtId: court.id, startAt, endAt: new Date(startAt.getTime() + 3_600_000),
+        userId: playerId, source: 'marketplace', status: 'held', priceSnapshot: 200000n,
+        policySnapshot: CANCELLATION_POLICY, holdExpiresAt: hold.expiresAt,
+      },
+    });
+
+    const response = await request(app).post(`/players/me/bookings/${booking.id}/cancel`)
+      .set('Authorization', `Bearer ${signTestAccessToken(playerId, ['player'])}`).send();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: 'cancelled', refundPercent: 0 });
+    expect(await prisma.booking.findUnique({ where: { id: booking.id } })).toBeNull();
+    expect(await prisma.hold.findUnique({ where: { id: hold.id } })).toBeNull();
+    expect(await prisma.outbox.count({ where: { aggregateId: booking.id, eventType: 'BookingCancelled' } })).toBe(0);
+  });
+
   for (const [hours, refundPercent] of [
     [30, 100],
     [10, 50],
