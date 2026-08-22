@@ -41,6 +41,7 @@ export interface VenueSearchRow {
   coverImage: string | null;
   distanceKm: number;
   lowestPrice: string | null;
+  courtCount: number;
 }
 
 export interface VenueDetail {
@@ -110,7 +111,10 @@ export interface VenueUploadAuthorization { objectKey: string; uploadUrl: string
 export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string }; court: { name: string; venue: { name: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number; minPrice?: number; maxPrice?: number; sortBy?: 'distance' | 'price'; date?: string; startMinute?: number; endMinute?: number }) {
-  const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) query.set(key, String(value));
+  });
   return api<VenueSearchRow[]>(`/search?${query}`);
 }
 
@@ -132,9 +136,12 @@ export const authorizeVenueImage = (mimeType: 'image/jpeg' | 'image/png' | 'imag
 export async function uploadVenueImage(authorization: VenueUploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> { onProgress?.(0); const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file }); if (!response.ok) throw new Error('Không thể tải ảnh cơ sở lên.'); onProgress?.(100) }
 export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
 export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+export const deactivateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/deactivate`, { method: 'POST' });
+export const activateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/activate`, { method: 'POST' });
 export const addManagedCourt = (venueId: string, name: string, images: Array<{ objectKey: string }>) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name, images }) });
 export const updateManagedCourt = (courtId: string, body: Partial<{ name: string; images: Array<{ objectKey: string }> }>) => api<ManagedCourt>(`/venues/courts/${courtId}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const deactivateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/deactivate`, { method: 'POST' });
+export const activateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/activate`, { method: 'POST' });
 export const saveOperatingHours = (id: string, body: { weekday: number; openMinute: number; closeMinute: number }) => api(`/courts/${id}/operating-hours`, { method: 'POST', body: JSON.stringify(body) });
 export const replaceOperatingHours = (id: string, hours: Array<{ weekday: number; openMinute: number; closeMinute: number }>) => api(`/courts/${id}/operating-hours`, { method: 'PUT', body: JSON.stringify({ hours }) });
 export const addClosure = (id: string, body: { date: string; reason?: string }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });

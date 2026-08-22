@@ -5,7 +5,7 @@ import {
   createManagedVenue,
   addManagedCourt,
   saveBookingRule,
-  saveOperatingHours,
+  replaceOperatingHours,
   savePricing,
   getMyManagedVenues,
   authorizeVenueImage,
@@ -139,7 +139,8 @@ export function ManageVenuesPage() {
       const price = Number(setup.hourlyPrice);
       return { court, setup, openMinute, closeMinute, operatingDuration, price };
     });
-    const invalidCourt = resolvedCourts.find(({ setup, openMinute, closeMinute, operatingDuration, price }) => setup.weekdays.length === 0 || openMinute >= closeMinute || operatingDuration < MIN_BOOKING_DURATION_MINUTES || !Number.isSafeInteger(price) || price <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(setup.effectiveFrom));
+    const today = new Date().toISOString().slice(0, 10);
+    const invalidCourt = resolvedCourts.find(({ setup, openMinute, closeMinute, operatingDuration, price }) => setup.weekdays.length === 0 || openMinute >= closeMinute || operatingDuration < MIN_BOOKING_DURATION_MINUTES || !Number.isSafeInteger(price) || price <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(setup.effectiveFrom) || setup.effectiveFrom < today);
     if (invalidCourt) { setError(`Kiểm tra lại lịch hoạt động và giá của ${invalidCourt.court.name}.`); return; }
     if (uploadingCount > 0) { setError(`Còn ${uploadingCount} ảnh đang tải lên, vui lòng đợi hoặc gỡ trước khi lưu.`); return; }
     setBusy(true); setError(''); setNotice('');
@@ -160,9 +161,7 @@ export function ManageVenuesPage() {
       for (const item of resolvedCourts) {
         const { court: draft, setup, openMinute, closeMinute, operatingDuration, price } = item;
         const court = await addManagedCourt(venue.id, draft.name, draft.images.filter((image) => image.status === 'uploaded').map((image) => ({ objectKey: image.objectKey! })));
-        for (const weekday of setup.weekdays) {
-          await saveOperatingHours(court.id, { weekday, openMinute, closeMinute });
-        }
+        await replaceOperatingHours(court.id, setup.weekdays.map((weekday) => ({ weekday, openMinute, closeMinute })));
         await savePricing(court.id, {
           effectiveFrom: `${setup.effectiveFrom}T00:00:00.000Z`,
           rules: setup.weekdays.map((weekday) => ({ weekday, startMinute: openMinute, endMinute: closeMinute, price })),
@@ -174,7 +173,8 @@ export function ManageVenuesPage() {
     } catch (cause) {
       if (createdVenueId) {
         setOpen(false); resetForm(); await load();
-        setError('Cơ sở đã được tạo nhưng có cấu hình sân con chưa hoàn tất. Mở cơ sở vừa tạo để kiểm tra và bổ sung phần còn thiếu.');
+        const reason = cause instanceof Error ? cause.message : 'Lỗi không xác định.';
+        setError(`Cơ sở đã được tạo nhưng cấu hình sân con chưa hoàn tất: ${reason} Mở cơ sở vừa tạo để kiểm tra phần đã lưu.`);
       } else {
         setError(cause instanceof Error ? cause.message : 'Không thể lưu cơ sở.');
       }
@@ -328,25 +328,29 @@ export function ManageVenuesPage() {
           {venues.map((venue) => {
             const imgs = Array.isArray(venue.images) ? venue.images : [];
             const cover = imgs.length > 0
-              ? (typeof imgs[0] === 'string' ? String(imgs[0]) : (imgs[0] as { objectKey?: string }).objectKey ?? null)
+              ? (typeof imgs[0] === 'string' ? String(imgs[0]) : (imgs[0] as { url?: string }).url ?? null)
               : null;
             const courtSummary = venue.courts.length;
+            const inactiveCourts = venue.courts.filter((court) => !court.active);
+            const venueStopped = courtSummary > 0 && inactiveCourts.length === courtSummary;
             return (
               <Link key={venue.id} to={`/manage/venues/${venue.id}`} className="block rounded-2xl focus-visible:outline-none">
-                <SurfaceCard hoverable className="h-full !p-0 overflow-hidden">
+                <SurfaceCard hoverable className={`h-full !p-0 overflow-hidden ${venueStopped ? 'bg-ink-100 opacity-75' : ''}`}>
                   <div className="flex h-full flex-col">
-                    <div className="aspect-[16/9] w-full bg-ink-100">
-                      {cover && /^https?:\/\//i.test(cover) ? (
-                        <img src={cover} alt={`Ảnh ${venue.name}`} loading="lazy" className="h-full w-full object-cover" />
+                    <div className="aspect-video w-full overflow-hidden bg-ink-100">
+                      {cover && /^(?:https?:\/\/|\/)/i.test(cover) ? (
+                        <img src={cover} alt={`Ảnh ${venue.name}`} loading="lazy" className={`h-full w-full object-cover object-center ${venueStopped ? 'grayscale' : ''}`} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-2xl text-ink-400" aria-hidden="true">🏸</div>
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-4">
                       <strong className="text-ink-900">{venue.name}</strong>
+                      {venueStopped && <span className="mt-2 w-fit rounded-full bg-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-600">Cơ sở đã ngừng hoạt động</span>}
+                      {!venueStopped && inactiveCourts.length > 0 && <span className="mt-2 text-xs font-medium text-danger">Đã ngừng: {inactiveCourts.map((court) => court.name).join(', ')}</span>}
                       <p className="mt-1 text-sm text-ink-500">{venue.address}</p>
                       <p className="mt-auto pt-3 text-xs text-ink-500">
-                        {courtSummary} sân con · {imgs.length} ảnh
+                        {courtSummary} sân con
                       </p>
                     </div>
                   </div>

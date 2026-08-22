@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../src/lib/prisma.js';
-import { addCourt, deactivateCourt, getCourtBookingHistory } from '../src/domain/court.js';
+import { activateCourt, activateVenueCourts, addCourt, deactivateCourt, deactivateVenueCourts, getCourtBookingHistory } from '../src/domain/court.js';
 import { createApprovedProvider, createVenueWithCourt } from './helpers.js';
 
 afterAll(async () => {
@@ -68,5 +68,42 @@ describe('VEN-04 — Quản lý danh sách sân con', () => {
     await expect(deactivateCourt(provider.userId, court.id)).rejects.toMatchObject({
       code: 'BLOCKED_BY_ACTIVE_HOLD',
     });
+  });
+
+  it('ngừng cơ sở -> vô hiệu hóa đồng loạt toàn bộ sân con', async () => {
+    const provider = await createApprovedProvider();
+    const { venue, court } = await createVenueWithCourt(provider.id);
+    const second = await addCourt(provider.userId, venue.id, 'Sân thứ hai', [{ objectKey: 'venue/images/court-2.webp' }]);
+
+    await expect(deactivateVenueCourts(provider.userId, venue.id)).resolves.toBe(2);
+    const courts = await prisma.court.findMany({ where: { id: { in: [court.id, second.id] } } });
+    expect(courts.every((item) => item.active === false)).toBe(true);
+  });
+
+  it('ngừng cơ sở bị chặn -> không sân con nào bị vô hiệu hóa dở dang', async () => {
+    const provider = await createApprovedProvider();
+    const { venue, court } = await createVenueWithCourt(provider.id);
+    const second = await addCourt(provider.userId, venue.id, 'Sân thứ hai', [{ objectKey: 'venue/images/court-2.webp' }]);
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.booking.create({ data: { courtId: second.id, startAt: future, endAt: new Date(future.getTime() + 3600_000), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'A', guestContact: '0900' } });
+
+    await expect(deactivateVenueCourts(provider.userId, venue.id)).rejects.toMatchObject({ code: 'BLOCKED_BY_FUTURE_BOOKINGS' });
+    const courts = await prisma.court.findMany({ where: { id: { in: [court.id, second.id] } } });
+    expect(courts.every((item) => item.active === true)).toBe(true);
+  });
+
+  it('kích hoạt lại sân và cơ sở chỉ đổi active, giữ nguyên lịch sử booking', async () => {
+    const provider = await createApprovedProvider();
+    const { venue, court } = await createVenueWithCourt(provider.id);
+    const second = await addCourt(provider.userId, venue.id, 'Sân thứ hai', [{ objectKey: 'venue/images/court-2.webp' }]);
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const booking = await prisma.booking.create({ data: { courtId: court.id, startAt: past, endAt: new Date(past.getTime() + 3600_000), source: 'internal', status: 'completed', priceSnapshot: 100000n, guestName: 'A', guestContact: '0900' } });
+    await deactivateVenueCourts(provider.userId, venue.id);
+    await activateCourt(provider.userId, court.id);
+    await expect(activateVenueCourts(provider.userId, venue.id)).resolves.toBe(1);
+
+    const courts = await prisma.court.findMany({ where: { id: { in: [court.id, second.id] } } });
+    expect(courts.every((item) => item.active === true)).toBe(true);
+    await expect(prisma.booking.findUnique({ where: { id: booking.id } })).resolves.toMatchObject({ id: booking.id, priceSnapshot: 100000n });
   });
 });

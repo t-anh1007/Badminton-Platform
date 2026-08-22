@@ -41,7 +41,9 @@ export function ManageIncidentsPage() {
     }
     try {
       const result = await getVenueCalendar(nextVenueId, nextDate)
-      const ownedBookings = result.entries.filter((entry) => entry.kind === 'booking')
+      const ownedBookings = result.entries.filter(
+        (entry): entry is typeof entry & { id: string } => entry.kind === 'booking' && typeof entry.id === 'string',
+      )
       setBookings(ownedBookings)
       setBookingId(ownedBookings[0]?.id ?? '')
       setCourts([])

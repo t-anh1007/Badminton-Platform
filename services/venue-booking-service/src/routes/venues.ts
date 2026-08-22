@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 import { h } from './handler.js';
 import { createVenue, updateVenue } from '../domain/venue.js';
-import { addCourt, deactivateCourt, getCourtBookingHistory, updateCourt } from '../domain/court.js';
+import { activateCourt, activateVenueCourts, addCourt, deactivateCourt, deactivateVenueCourts, getCourtBookingHistory, updateCourt } from '../domain/court.js';
 import { getVenueDetail } from '../domain/venueDetail.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -71,6 +71,26 @@ venueRouter.patch(
   }),
 );
 
+venueRouter.post(
+  '/:id/deactivate',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const count = await deactivateVenueCourts(userId, req.params.id!);
+    res.status(200).json({ message: `Đã ngừng hoạt động ${count} sân con trong cơ sở.`, count });
+  }),
+);
+
+venueRouter.post(
+  '/:id/activate',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const count = await activateVenueCourts(userId, req.params.id!);
+    res.status(200).json({ message: `Đã kích hoạt lại ${count} sân con trong cơ sở.`, count });
+  }),
+);
+
 const courtImageSchema = z.array(z.object({ objectKey: z.string().trim().min(1) }).strict()).min(1).max(5);
 const courtSchema = z.object({ name: z.string(), images: courtImageSchema });
 
@@ -103,6 +123,16 @@ venueRouter.post(
     const userId = (req as AuthenticatedRequest).user!.id;
     await deactivateCourt(userId, req.params.courtId!);
     res.status(200).json({ message: 'Đã vô hiệu hóa sân.' });
+  }),
+);
+
+venueRouter.post(
+  '/courts/:courtId/activate',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    await activateCourt(userId, req.params.courtId!);
+    res.status(200).json({ message: 'Đã kích hoạt lại sân.' });
   }),
 );
 

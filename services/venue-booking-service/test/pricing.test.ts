@@ -11,6 +11,21 @@ afterAll(async () => {
 const WEEKDAY = 3; // Thứ Tư — cố định để test không phụ thuộc ngày chạy
 
 describe('VEN-06 — Thiết lập biểu giá theo lịch', () => {
+  it('cho phép ngày hiệu lực là 00:00 UTC của ngày hiện tại', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    await setOperatingHours(provider.userId, court.id, WEEKDAY, 8 * 60, 22 * 60);
+    const now = new Date();
+    const startOfTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    await expect(savePricingRules(
+      provider.userId,
+      court.id,
+      [{ weekday: WEEKDAY, startMinute: 8 * 60, endMinute: 22 * 60, price: 100000 }],
+      startOfTodayUtc,
+    )).resolves.toMatchObject({ version: 1 });
+  });
+
   it('AC-VEN-06-1: sân mở 6h-22h, biểu giá phủ trọn không chồng lấn -> lưu, BOK-04 (getEffectivePricingWindows) đọc đúng', async () => {
     const provider = await createApprovedProvider();
     const { court } = await createVenueWithCourt(provider.id);

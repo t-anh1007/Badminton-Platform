@@ -29,11 +29,12 @@ export async function savePricingRules(
 ) {
   const court = await getOwnedCourtOrThrow(userId, courtId);
 
-  // Dung sai 60s cho "ngay bây giờ" — tránh việc gọi savePricingRules(new Date())
-  // rồi vài ms sau Date.now() đã lớn hơn effectiveFrom, khiến "hiện tại" bị
-  // hiểu nhầm thành "quá khứ".
-  const PAST_TOLERANCE_MS = 60_000;
-  if (effectiveFrom.getTime() < Date.now() - PAST_TOLERANCE_MS) {
+  // Trường effectiveFrom được nhập theo ngày, không phải một thời điểm trong ngày.
+  // Vì vậy 00:00 UTC của hôm nay vẫn hợp lệ dù người dùng lưu vào buổi chiều.
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const effectiveDayUtc = Date.UTC(effectiveFrom.getUTCFullYear(), effectiveFrom.getUTCMonth(), effectiveFrom.getUTCDate());
+  if (effectiveDayUtc < todayUtc) {
     throw new AppError('EFFECTIVE_FROM_IN_PAST', 'Thời điểm hiệu lực không được ở quá khứ.', 400);
   }
 

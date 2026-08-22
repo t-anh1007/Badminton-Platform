@@ -10,7 +10,7 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([]),
   createManagedVenue: (...args: unknown[]) => createVenue(...args),
   addManagedCourt: (...args: unknown[]) => addCourt(...args),
-  saveOperatingHours: vi.fn().mockResolvedValue({}),
+  replaceOperatingHours: vi.fn().mockResolvedValue({}),
   savePricing: vi.fn().mockResolvedValue({}),
   saveBookingRule: vi.fn().mockResolvedValue({}),
   authorizeVenueImage: (...args: unknown[]) => authorize(...args),

@@ -23,6 +23,7 @@ interface LocationPickerProps {
   onAddressResolved?: (address: string) => void;
   className?: string;
   disabled?: boolean;
+  initialQuery?: string;
 }
 
 function ClickCapture({ onPick, disabled = false }: { onPick: (lat: number, lng: number) => void; disabled?: boolean }) {
@@ -39,7 +40,7 @@ function Recenter({ value }: { value: PickedLocation | null }) {
 }
 
 /** Bản đồ OSM cho phép chọn vị trí: tìm địa chỉ, click hoặc kéo marker. */
-export function LocationPicker({ value, onChange, onAddressResolved, className = '', disabled = false }: LocationPickerProps) {
+export function LocationPicker({ value, onChange, onAddressResolved, className = '', disabled = false, initialQuery = '' }: LocationPickerProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeoResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -47,6 +48,10 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
   const markerRef = useRef<LeafletMarker>(null);
+
+  useEffect(() => {
+    if (initialQuery) setQuery(initialQuery);
+  }, [initialQuery]);
 
   // Debounce gọi Nominatim để tôn trọng rate-limit ~1 req/s.
   useEffect(() => {

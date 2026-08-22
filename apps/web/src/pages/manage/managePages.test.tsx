@@ -8,8 +8,8 @@ import { ManageVenueDetailPage } from './ManageVenueDetailPage.js'
 import { ManageVenuesPage } from './ManageVenuesPage.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
-  getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(),
-  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
+  getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(), deactivateManagedVenue: vi.fn(), activateManagedVenue: vi.fn(),
+  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), activateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
   savePricing: vi.fn(), saveBookingRule: vi.fn(),
   authorizeVenueImage: vi.fn(), uploadVenueImage: vi.fn(),
 }))
@@ -53,7 +53,7 @@ it('exposes the empty CTA, maps every create field and prevents duplicate submit
   expect(venueApi.createManagedVenue).toHaveBeenCalledWith({ name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: ['wifi', 'bãi xe'], images: [] })
   expect(save).toBeDisabled(); resolve(venue); await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu và hoàn tất cấu hình' })).not.toBeInTheDocument())
   expect(venueApi.addManagedCourt).toHaveBeenCalledWith('v1', 'Sân 1', [{ objectKey: 'venue/images/court.webp' }])
-  expect(venueApi.saveOperatingHours).toHaveBeenCalledTimes(7)
+  expect(venueApi.replaceOperatingHours).toHaveBeenCalledWith('c1', [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, openMinute: 480, closeMinute: 1320 })))
   expect(venueApi.savePricing).toHaveBeenCalled()
   expect(venueApi.saveBookingRule).toHaveBeenCalledWith('c1', { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 840 })
 })
