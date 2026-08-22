@@ -144,6 +144,8 @@ export async function findPublicMatches(
     },
   });
 
+  if (candidates.length === 0) return [];
+
   const contexts = venueBookingClient.getMatchContexts
     ? await venueBookingClient.getMatchContexts(candidates.map((match) => match.bookingId))
     : await Promise.all(candidates.map((match) => venueBookingClient.getMatchContext(match.bookingId)));

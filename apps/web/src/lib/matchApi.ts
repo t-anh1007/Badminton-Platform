@@ -87,11 +87,15 @@ export interface AdminEvaluationRow {
   match: { status: string; completedAt: string | null };
 }
 
-export function listMatches(filters: { area?: string; skill?: SkillTier; startFrom?: string } = {}) {
+export function listMatches(
+  filters: { area?: string; skill?: SkillTier; startFrom?: string; endBefore?: string; feeMax?: string } = {},
+) {
   const query = new URLSearchParams();
   if (filters.area) query.set('area', filters.area);
   if (filters.skill) query.set('skill', filters.skill);
   if (filters.startFrom) query.set('startFrom', filters.startFrom);
+  if (filters.endBefore) query.set('endBefore', filters.endBefore);
+  if (filters.feeMax) query.set('feeMax', filters.feeMax);
   return api<{ matches: MatchRow[] }>(`/matches${query.size ? `?${query}` : ''}`);
 }
 export const getMatchDetail = (id: string) => api<MatchDetail>(`/matches/${id}`);
