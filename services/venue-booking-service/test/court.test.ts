@@ -11,7 +11,7 @@ describe('VEN-04 — Quản lý danh sách sân con', () => {
   it('AC-VEN-04-1: thêm sân con -> active=true, thuộc đúng cơ sở', async () => {
     const provider = await createApprovedProvider();
     const { venue } = await createVenueWithCourt(provider.id);
-    const court = await addCourt(provider.userId, venue.id, 'San moi');
+    const court = await addCourt(provider.userId, venue.id, 'San moi', [{ objectKey: 'venue/images/court.webp' }]);
     expect(court.active).toBe(true);
     expect(court.venueId).toBe(venue.id);
   });

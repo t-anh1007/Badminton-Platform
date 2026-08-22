@@ -1,7 +1,7 @@
 ---
 type: decision-log
 status: living
-updated: 2026-08-14
+updated: 2026-08-22
 purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 
@@ -60,6 +60,7 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D46 | 2026-08-14 | Shell dùng context vai trò đã có trong session; chuyển context chỉ đổi điều hướng và không cấp quyền. Booking chuyển sang payment terminal sau một CTA xác nhận, dùng `holdExpiresAt` từ backend. | `apps/web`, ACC-03, BOK-06, BOK-07 |
 | D47 | 2026-08-14 | Người chơi chỉ được khai hoặc đổi bậc trình độ tối đa một lần mỗi 7 ngày; backend trả `nextDeclarationAt` để UI hiển thị thời điểm thử lại. | MMP-09, Passport |
 | D48 | 2026-08-14 | Community lưu tối đa bốn metadata ảnh mỗi bài; Community và Venue xác thực object key theo namespace và chủ sở hữu trước khi lưu command. | COM-02..04, VEN-03 |
+| D49 | 2026-08-22 | Mỗi sân con có cấu hình lịch, giá, quy tắc đặt và **1–5 ảnh riêng**. Khi tạo cơ sở, chủ sân chọn thiết lập chung hoặc riêng; thiết lập chung chỉ là thao tác hàng loạt và vẫn lưu cấu hình vào từng sân. Người chơi thấy ảnh của sân con đang chọn khi đặt sân. | VEN-04..07, BOK-03, BOK-04 |
 
 ### Lý do đáng ghi nhớ
 

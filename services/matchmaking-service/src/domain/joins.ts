@@ -108,6 +108,23 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
 
+    // Kèo có phí chỉ được mở khoản chờ sau khi MatchCreated đã được ghi bền
+    // vững vào outbox. Dữ liệu legacy từng thiếu event này nhưng vẫn phát
+    // JoinApproved, khiến finance không thể dựng MatchFunding.
+    if (match.feePerSlot > 0n) {
+      const fundingEvent = await tx.outbox.findFirst({
+        where: { aggregateId: match.id, eventType: 'MatchCreated' },
+        select: { id: true },
+      });
+      if (!fundingEvent) {
+        throw new AppError(
+          409,
+          'MATCH_FUNDING_NOT_INITIALIZED',
+          'Kèo chưa khởi tạo dữ liệu chia phí. Vui lòng tạo kèo mới.',
+        );
+      }
+    }
+
     const updated = await tx.join.update({
       where: { id: join.id },
       data: {

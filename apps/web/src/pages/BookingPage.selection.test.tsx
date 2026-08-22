@@ -17,7 +17,7 @@ vi.mock('../lib/financeApi.js', () => ({ createBookingSepayIntent: vi.fn(), payB
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date('2026-08-14T02:00:00.000Z'))
-  vi.mocked(getVenueDetail).mockResolvedValue({ id: 'v1', name: 'Nhà thi đấu Phú Nhuận', address: '123 Demo', lat: 0, lng: 0, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 120 } }] })
+  vi.mocked(getVenueDetail).mockResolvedValue({ id: 'v1', name: 'Nhà thi đấu Phú Nhuận', address: '123 Demo', lat: 0, lng: 0, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', images: ['https://cdn.test/court.webp'], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 120 } }] })
   vi.mocked(getCourtAvailability).mockResolvedValue({ closed: false, slots: [
     { startMinute: 360, endMinute: 390, available: true, price: '180000' },
     { startMinute: 390, endMinute: 420, available: true, price: '180000' },

@@ -272,6 +272,11 @@ export function BookingPage() {
                 </select>
               </label>
             </div>
+            {selectedCourt?.images?.length ? (
+              <div className="mt-4 flex snap-x gap-3 overflow-x-auto pb-2" aria-label={`Ảnh ${selectedCourtName}`}>
+                {selectedCourt.images.map((src, index) => <img key={src} src={src} alt={`${selectedCourtName} ${index + 1}`} className="h-36 w-56 shrink-0 snap-start rounded-xl object-cover" />)}
+              </div>
+            ) : null}
             {availabilityLoading ? (
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-20" />)}</div>
             ) : slots.length ? (

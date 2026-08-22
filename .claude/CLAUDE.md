@@ -77,17 +77,30 @@ Trước khi giao hoặc thực thi task, kiểm tra trạng thái Git để kh�
 
 ## Định nghĩa hoàn thành
 
-Một thay đổi chỉ được gọi là xong khi đủ các bước sau, theo thứ tự:
+**Kiểm chứng do PO điều khiển, không tự động chạy.** PO thấy việc auto build+test
+(nhất là chạy cả workspace) cho mọi sửa nhỏ là rườm rà, tốn thời gian và token.
+Luồng chuẩn khi làm xong phần chỉnh sửa:
 
-1. Test tập trung của workspace vừa sửa pass: `npm run test -w <workspace>`.
-2. Root `npm run build` pass (bắt buộc — xem hard rule Build ở trên).
-3. Chạm luồng người dùng chính hoặc milestone yêu cầu → chạy `npm run e2e`.
-4. Cập nhật test ledger / progress của giai đoạn trong `docs/product/` khi
-   milestone yêu cầu bằng chứng.
-5. Báo cáo cuối tách rõ: kết quả, bằng chứng (lệnh + output), rủi ro còn lại.
+1. Hoàn thành phần chỉnh sửa được yêu cầu.
+2. Báo rõ **"đã sửa nhưng CHƯA kiểm chứng"** — không tuyên bố "hoàn thành/xong".
+3. **Tự quét rủi ro ngầm** một lượt nhanh (codegraph_explore blast-radius, hoặc
+   suy luận: ai import/gọi/chia sẻ file vừa sửa; có chạm type dùng chung, ranh
+   giới service, hợp đồng API không) → chốt mức **thấp / trung bình / cao**.
+4. **Hỏi PO** muốn chạy gì, kèm khuyến nghị theo mức rủi ro: build/typecheck tập
+   trung · test tập trung · cả hai · không kiểm tra.
+5. Chỉ chạy khi PO đồng ý. KHÔNG tự chạy toàn bộ workspace nếu PO chỉ duyệt kiểm
+   tra tập trung.
+6. Báo cáo cuối tách rõ: kết quả, bằng chứng (lệnh + output nếu có chạy), rủi ro
+   còn lại. Thiếu bước kiểm chứng nào phải nói rõ là chưa chạy.
+
+**Ngoại lệ bắt buộc — khi thật sự ship lên prod** (commit/push/merge/deploy, tức
+chạy `/release`): root `npm run build` (tsc -b) là **bắt buộc, không hỏi**, vì đó
+là lúc lỗi type ẩn làm fail deploy Railway (lỗi `apps/web` fail cả backend — xem
+hard rule Build). Chạm luồng người dùng chính hoặc milestone yêu cầu bằng chứng →
+chạy `npm run e2e` và cập nhật test ledger / progress trong `docs/product/`.
 
 Không coi frontmatter `approved`, số lượng AC hoặc mô tả thủ công là bằng chứng
-code chạy đúng. Thiếu bước nào phải nói rõ là thiếu, không tuyên bố "hoàn thành".
+code chạy đúng.
 
 ## Khi nào dùng Skill
 

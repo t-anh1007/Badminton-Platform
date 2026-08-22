@@ -9,7 +9,7 @@ import { ManageVenuesPage } from './ManageVenuesPage.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(),
-  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
+  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
   savePricing: vi.fn(), saveBookingRule: vi.fn(),
   authorizeVenueImage: vi.fn(), uploadVenueImage: vi.fn(),
 }))
@@ -21,29 +21,51 @@ vi.mock('../../components/map/LocationPicker.js', () => ({
   ),
 }))
 
-const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [], closures: [], pricingRules: [], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
+const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, images: [{ objectKey: 'venue/images/court.webp', url: 'https://cdn.test/court.webp' }], configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [], closures: [], pricingRules: [], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
 afterEach(cleanup)
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(venueApi.getMyManagedVenues).mockResolvedValue([]); vi.mocked(venueApi.getMyManagedVenue).mockResolvedValue(venue) })
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(venueApi.getMyManagedVenues).mockResolvedValue([])
+  vi.mocked(venueApi.getMyManagedVenue).mockResolvedValue(venue)
+  vi.mocked(venueApi.updateManagedVenue).mockResolvedValue(venue as never)
+  vi.mocked(venueApi.addManagedCourt).mockResolvedValue(venue.courts[0] as never)
+  vi.mocked(venueApi.saveOperatingHours).mockResolvedValue({} as never)
+  vi.mocked(venueApi.savePricing).mockResolvedValue({} as never)
+  vi.mocked(venueApi.saveBookingRule).mockResolvedValue({} as never)
+  vi.mocked(venueApi.authorizeVenueImage).mockResolvedValue({ objectKey: 'venue/images/court.webp', uploadUrl: 'https://storage.test/put', headers: {}, expiresAt: 'x' })
+  vi.mocked(venueApi.uploadVenueImage).mockResolvedValue(undefined)
+  vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:court'), revokeObjectURL: vi.fn() })
+})
 
 it('exposes the empty CTA, maps every create field and prevents duplicate submit', async () => {
-  let resolve!: () => void
-  vi.mocked(venueApi.createManagedVenue).mockReturnValue(new Promise<void>((done) => { resolve = done }) as never)
+  let resolve!: (value: typeof venue) => void
+  vi.mocked(venueApi.createManagedVenue).mockReturnValue(new Promise<typeof venue>((done) => { resolve = done }) as never)
   render(<MemoryRouter><ManageVenuesPage /></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Thêm sân kinh doanh' }))
   fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } }); fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: '1 A' } }); fireEvent.click(screen.getByRole('button', { name: 'đặt vị trí' })); fireEvent.change(screen.getByLabelText('Tiện ích'), { target: { value: 'wifi, bãi xe' } })
-  const save = screen.getByRole('button', { name: 'Lưu cơ sở' }); fireEvent.click(save); fireEvent.click(save)
+  fireEvent.change(screen.getByLabelText('Tên sân con mới'), { target: { value: 'Sân 1' } }); fireEvent.click(screen.getByRole('button', { name: '+ Thêm sân' }))
+  fireEvent.change(screen.getByLabelText('Ảnh Sân 1 (bắt buộc 1–5 ảnh)'), { target: { files: [new File(['court'], 'court.webp', { type: 'image/webp' })] } })
+  await waitFor(() => expect(screen.getByText('Đã tải')).toBeInTheDocument())
+  expect(screen.getByLabelText('Giá mỗi giờ chung')).toHaveValue('100.000 VNĐ')
+  expect(screen.queryByLabelText('Bước thời gian chung')).not.toBeInTheDocument()
+  const save = screen.getByRole('button', { name: 'Lưu và hoàn tất cấu hình' }); fireEvent.click(save); fireEvent.click(save)
   expect(venueApi.createManagedVenue).toHaveBeenCalledTimes(1)
   expect(venueApi.createManagedVenue).toHaveBeenCalledWith({ name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: ['wifi', 'bãi xe'], images: [] })
-  expect(save).toBeDisabled(); resolve(); await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu cơ sở' })).not.toBeInTheDocument())
+  expect(save).toBeDisabled(); resolve(venue); await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu và hoàn tất cấu hình' })).not.toBeInTheDocument())
+  expect(venueApi.addManagedCourt).toHaveBeenCalledWith('v1', 'Sân 1', [{ objectKey: 'venue/images/court.webp' }])
+  expect(venueApi.saveOperatingHours).toHaveBeenCalledTimes(7)
+  expect(venueApi.savePricing).toHaveBeenCalled()
+  expect(venueApi.saveBookingRule).toHaveBeenCalledWith('c1', { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 840 })
 })
 
-it('adds a court and exposes backend conflicts when deactivation is rejected', async () => {
-  vi.mocked(venueApi.addManagedCourt).mockResolvedValue({} as never); vi.mocked(venueApi.deactivateManagedCourt).mockRejectedValue(new Error('Còn 2 booking xung đột')); vi.spyOn(window, 'confirm').mockReturnValue(true)
+it('keeps the edit form read-only until editing and confirms a change summary before saving', async () => {
   render(<MemoryRouter initialEntries={['/manage/venues/v1']}><Routes><Route path="/manage/venues/:venueId" element={<ManageVenueDetailPage />} /></Routes></MemoryRouter>)
-  fireEvent.change(await screen.findByLabelText('Tên sân con'), { target: { value: 'Sân 2' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm sân con' }))
-  await waitFor(() => expect(venueApi.addManagedCourt).toHaveBeenCalledWith('v1', 'Sân 2'))
-  fireEvent.click(screen.getByRole('button', { name: 'Ngưng hoạt động' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Còn 2 booking xung đột')
+  const name = await screen.findByLabelText('Tên cơ sở'); expect(name).toBeDisabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Sửa' })); expect(name).toBeEnabled()
+  fireEvent.change(name, { target: { value: 'Sân B' } }); fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+  expect(screen.getByRole('dialog', { name: 'Xác nhận thay đổi' })).toHaveTextContent('Tên cơ sở')
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }))
+  await waitFor(() => expect(venueApi.updateManagedVenue).toHaveBeenCalledWith('v1', expect.objectContaining({ name: 'Sân B' })))
 })
 
 it('stores minute-backed operating hours and a valid dd/MM/yyyy closure', async () => {

@@ -13,7 +13,21 @@ async function getOwnedCourtOrThrow(userId: string, courtId: string) {
 }
 
 /** VEN-04 — Thêm sân con (AC-VEN-04-1). */
-export async function addCourt(userId: string, venueId: string, name: string) {
+function validateCourtImages(images: unknown): Array<{ objectKey: string }> {
+  if (!Array.isArray(images) || images.length < 1 || images.length > 5) {
+    throw new AppError('COURT_IMAGES_REQUIRED', 'Mỗi sân con cần từ 1 đến 5 ảnh.', 400);
+  }
+  const normalized = images.map((image) => {
+    const objectKey = image && typeof image === 'object' && 'objectKey' in image
+      ? String((image as { objectKey: unknown }).objectKey).trim()
+      : '';
+    if (!objectKey) throw new AppError('INVALID_COURT_IMAGE', 'Ảnh sân con không hợp lệ.', 400);
+    return { objectKey };
+  });
+  return normalized;
+}
+
+export async function addCourt(userId: string, venueId: string, name: string, images: unknown) {
   const venue = await prisma.venue.findUniqueOrThrow({
     where: { id: venueId },
     include: { provider: true },
@@ -30,7 +44,20 @@ export async function addCourt(userId: string, venueId: string, name: string) {
   const dup = await prisma.court.findFirst({ where: { venueId, name: trimmed } });
   if (dup) throw new AppError('DUPLICATE_COURT_NAME', 'Tên sân đã tồn tại trong cơ sở này.', 409);
 
-  return prisma.court.create({ data: { venueId, name: trimmed, active: true } });
+  return prisma.court.create({ data: { venueId, name: trimmed, active: true, images: validateCourtImages(images) } });
+}
+
+export async function updateCourt(userId: string, courtId: string, input: { name?: string; images?: unknown }) {
+  const court = await getOwnedCourtOrThrow(userId, courtId);
+  const name = input.name?.trim();
+  if (input.name !== undefined && !name) throw new AppError('COURT_NAME_REQUIRED', 'Tên sân không được để trống.', 400);
+  return prisma.court.update({
+    where: { id: court.id },
+    data: {
+      ...(name !== undefined ? { name } : {}),
+      ...(input.images !== undefined ? { images: validateCourtImages(input.images) } : {}),
+    },
+  });
 }
 
 /** VEN-04 — Vô hiệu hóa sân con (AC-VEN-04-2, 03, 05). BR-VEN-05/05a: chặn nếu

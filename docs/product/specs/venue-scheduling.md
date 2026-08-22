@@ -36,6 +36,7 @@ approved: 2026-08-05
 | BR-VEN-09 | Sân con không bị xóa cứng. Bỏ sân con nghĩa là đặt `active=false`, giữ nguyên lịch sử booking. |
 | BR-VEN-10 | Thời lượng đặt phải là bội số của bước thời gian và nằm trong khoảng `[minDur, maxDur]` của sân đó. |
 | BR-VEN-11 | Nhà cung cấp chỉ thao tác được trên cơ sở và sân thuộc hồ sơ của chính mình. Mọi truy cập chéo bị từ chối ở tầng API, không chỉ ẩn ở giao diện. |
+| BR-VEN-12 | Mỗi sân con phải có từ 1 đến 5 ảnh riêng. Thiết lập chung sao chép lịch, giá và quy tắc vào từng sân; sau đó từng sân vẫn sửa độc lập được. **Quyết định D49.** |
 
 ## 3. Trạng thái
 
@@ -168,13 +169,13 @@ suspended ──(ACC-08 khôi phục)──> approved
 | User Story | Là nhà cung cấp sân, tôi muốn thêm và tạm ngừng từng sân con, để lịch phản ánh đúng năng lực phục vụ thật |
 | Điều kiện trước | Cơ sở đã tồn tại |
 | Sự kiện kích hoạt | Thêm sân, đổi tên sân, hoặc vô hiệu hóa sân |
-| Workflow chính | 1. Mở cơ sở → 2. Thêm sân con với tên gọi → 3. Lưu, sân ở trạng thái `active=true` → 4. Sân sẵn sàng nhận giờ hoạt động và biểu giá |
+| Workflow chính | 1. Mở cơ sở → 2. Thêm sân con với tên gọi và 1–5 ảnh → 3. Chọn thiết lập lịch, giá và quy tắc chung hoặc riêng → 4. Lưu, sân ở trạng thái `active=true` → 5. Có thể mở lại từng sân để sửa cấu hình và ảnh |
 | Luồng thay thế | Vô hiệu hóa sân: hệ thống kiểm tra booking `confirmed` trong tương lai **và `HOLD` chưa hết hạn**. Không có gì vướng → đặt `active=false`. Có → chặn theo BR-VEN-05 |
 | Luồng lỗi | Vô hiệu hóa sân còn booking tương lai → từ chối kèm danh sách booking vướng và hướng dẫn hủy qua BOK-10; Còn `HOLD` chưa hết hạn → từ chối kèm thời điểm hold hết hạn để chủ sân biết khi nào thao tác lại được; Tên sân trùng trong cùng cơ sở → từ chối |
-| Business Rules | BR-VEN-02, BR-VEN-05, BR-VEN-09, BR-VEN-11 |
+| Business Rules | BR-VEN-02, BR-VEN-05, BR-VEN-09, BR-VEN-11, BR-VEN-12 |
 | Trạng thái liên quan | `COURT.active: true ↔ false` |
 | Quyền hạn | Chỉ chủ sở hữu cơ sở |
-| Dữ liệu vào | Tên sân, trạng thái hoạt động |
+| Dữ liệu vào | Tên sân, trạng thái hoạt động, 1–5 ảnh, lịch, giá và quy tắc đặt sân |
 | Dữ liệu ra | Danh sách sân con |
 | Phụ thuộc | VEN-03 |
 | Trong phạm vi | Thêm, đổi tên, bật, tắt sân con |
@@ -188,6 +189,8 @@ suspended ──(ACC-08 khôi phục)──> approved
 - `AC-VEN-04-3` — **Given** một sân con còn 2 booking `confirmed` trong tương lai, **When** thử vô hiệu hóa, **Then** hệ thống từ chối và liệt kê đúng 2 booking đó.
 - `AC-VEN-04-4` — **Given** một sân con đã `active=false`, **When** truy vấn lịch sử booking của sân đó, **Then** các booking cũ vẫn còn nguyên.
 - `AC-VEN-04-5` — **Given** một sân con không có booking `confirmed` nào nhưng đang có một `HOLD` còn 4 phút nữa mới hết hạn, **When** thử vô hiệu hóa, **Then** hệ thống từ chối và cho biết thời điểm hold hết hạn.
+- `AC-VEN-04-6` — **Given** chủ sân tạo hoặc sửa sân con, **When** số ảnh ngoài khoảng 1–5, **Then** hệ thống từ chối; khi hợp lệ thì lưu đúng thứ tự ảnh.
+- `AC-VEN-04-7` — **Given** nhiều sân con, **When** chọn thiết lập chung, **Then** cấu hình được áp dụng vào từng sân; chuyển sang thiết lập riêng cho phép chỉnh từng sân độc lập.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 5 AC.
 

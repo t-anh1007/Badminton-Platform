@@ -548,6 +548,26 @@ describe('MMP-05 — organizer join review', () => {
     ).toBe(1);
   });
 
+  it('does not emit JoinApproved for a paid legacy match without MatchCreated', async () => {
+    const { match, join } = await pendingJoinFixture();
+    await prisma.outbox.deleteMany({
+      where: { aggregateId: match.id, eventType: 'MatchCreated' },
+    });
+
+    const response = await request(app)
+      .post(`/matches/${match.id}/joins/${join.id}/approve`)
+      .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
+      .expect(409);
+
+    expect(response.body.error.code).toBe('MATCH_FUNDING_NOT_INITIALIZED');
+    await expect(prisma.join.findUniqueOrThrow({ where: { id: join.id } })).resolves.toMatchObject({
+      status: 'pending', approvedAt: null,
+    });
+    expect(await prisma.outbox.count({
+      where: { aggregateId: join.id, eventType: 'JoinApproved' },
+    })).toBe(0);
+  });
+
   it('AC-MMP-05-2: a non-organizer cannot approve', async () => {
     const { match, join } = await pendingJoinFixture();
 

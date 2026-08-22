@@ -16,8 +16,16 @@ interface NominatimPlace {
   lon: string;
 }
 
+/** Bỏ quốc gia và mã bưu chính ở cuối để nhãn địa chỉ gọn trên giao diện. */
+export function formatLocationLabel(label: string): string {
+  const parts = label.split(',').map((part) => part.trim()).filter(Boolean);
+  if (/^(việt nam|viet nam)$/i.test(parts.at(-1) ?? '')) parts.pop();
+  if (/^\d{4,6}$/.test(parts.at(-1) ?? '')) parts.pop();
+  return parts.join(', ');
+}
+
 function toResult(place: NominatimPlace): GeoResult {
-  return { label: place.display_name, lat: Number(place.lat), lng: Number(place.lon) };
+  return { label: formatLocationLabel(place.display_name), lat: Number(place.lat), lng: Number(place.lon) };
 }
 
 /** Tìm địa chỉ → danh sách toạ độ (ưu tiên Việt Nam). */
@@ -41,6 +49,33 @@ export async function searchAddress(query: string, signal?: AbortSignal): Promis
   return data.map(toResult);
 }
 
+interface IpWhoIsPlace {
+  success?: boolean;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  region?: string;
+  country?: string;
+}
+
+/**
+ * Vị trí gần đúng theo IP — dùng làm fallback khi Geolocation trình duyệt bị
+ * chặn/treo (ví dụ máy bàn không có nguồn định vị wifi). Chỉ ở mức thành
+ * phố/quận, không thay thế GPS. Endpoint HTTPS, miễn phí, không cần key.
+ */
+export async function ipLocate(signal?: AbortSignal): Promise<GeoResult | null> {
+  try {
+    const res = await fetch('https://ipwho.is/', { signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as IpWhoIsPlace;
+    if (data.success === false || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null;
+    const label = formatLocationLabel([data.city, data.region, data.country].filter(Boolean).join(', ')) || 'Vị trí gần đúng';
+    return { label, lat: data.latitude, lng: data.longitude };
+  } catch {
+    return null;
+  }
+}
+
 /** Toạ độ → địa chỉ (điền địa chỉ khi người dùng click/kéo marker). */
 export async function reverseGeocode(lat: number, lng: number, signal?: AbortSignal): Promise<string | null> {
   const params = new URLSearchParams({
@@ -55,5 +90,5 @@ export async function reverseGeocode(lat: number, lng: number, signal?: AbortSig
   });
   if (!res.ok) return null;
   const data = (await res.json()) as Partial<NominatimPlace>;
-  return data.display_name ?? null;
+  return data.display_name ? formatLocationLabel(data.display_name) : null;
 }

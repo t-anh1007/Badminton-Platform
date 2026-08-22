@@ -90,6 +90,29 @@ export async function setOperatingHours(
   });
 }
 
+export async function replaceOperatingHours(
+  userId: string,
+  courtId: string,
+  hours: Array<{ weekday: number; openMinute: number; closeMinute: number }>,
+) {
+  await getOwnedCourtOrThrow(userId, courtId);
+  const weekdays = new Set<number>();
+  for (const item of hours) {
+    if (weekdays.has(item.weekday)) throw new AppError('DUPLICATE_WEEKDAY', 'Mỗi ngày chỉ được có một khung giờ hoạt động.', 400);
+    weekdays.add(item.weekday);
+    if (item.openMinute >= item.closeMinute) throw new AppError('INVALID_HOURS', 'Giờ đóng phải sau giờ mở.', 400);
+    await assertNoConflictForNarrowedWindow(courtId, item.weekday, item.openMinute, item.closeMinute);
+  }
+  const existing = await prisma.operatingHour.findMany({ where: { courtId } });
+  for (const item of existing.filter((current) => !weekdays.has(current.weekday))) {
+    await assertNoConflictForNarrowedWindow(courtId, item.weekday, 0, 0);
+  }
+  return prisma.$transaction([
+    prisma.operatingHour.deleteMany({ where: { courtId } }),
+    prisma.operatingHour.createMany({ data: hours.map((item) => ({ courtId, ...item })) }),
+  ]);
+}
+
 /** VEN-05 — Thêm ngày đóng cửa ngoại lệ (AC-VEN-05-2,3). */
 export async function addClosure(userId: string, courtId: string, date: Date, reason?: string) {
   await getOwnedCourtOrThrow(userId, courtId);
