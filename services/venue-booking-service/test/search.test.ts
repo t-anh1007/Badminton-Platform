@@ -24,6 +24,7 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
     const results = await searchVenues(CENTER.lat, CENTER.lng, 10);
     expect(results.find((r) => r.venueId === lockedVenue.id)).toBeUndefined();
     expect(results.length).toBeGreaterThanOrEqual(3);
+    expect(results.every((result) => result.courtCount >= 1)).toBe(true);
   }, 60000); // fixture dựng 4 cơ sở (mỗi cơ sở 14 lượt insert tuần tự) — cần dư địa khi toàn suite chạy song song
 
   it('AC-BOK-01-2: cơ sở không có sân con hoạt động -> không xuất hiện', async () => {
@@ -47,6 +48,15 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
   it('AC-BOK-01-4: không có cơ sở nào trong bán kính -> mảng rỗng, không lỗi', async () => {
     await expect(searchVenues(FAR_AWAY.lat, FAR_AWAY.lng, 1)).resolves.toEqual([]);
   });
+
+  it('không truyền bán kính -> trả tất cả cơ sở đủ điều kiện dù ở xa', async () => {
+    const provider = await createApprovedProvider();
+    const { venue } = await makeCourtSearchable(provider.id, FAR_AWAY);
+
+    const results = await searchVenues(CENTER.lat, CENTER.lng);
+
+    expect(results.find((result) => result.venueId === venue.id)).toBeTruthy();
+  }, 15000);
 });
 
 describe('BOK-02 — Lọc và sắp xếp sân', () => {

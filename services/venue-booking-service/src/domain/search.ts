@@ -1,7 +1,5 @@
 import { prisma } from '../lib/prisma.js';
 
-const DEFAULT_RADIUS_KM = 10; // A-BOK-04
-
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -22,6 +20,7 @@ export interface VenueSearchResult {
   images: unknown;
   distanceKm: number;
   lowestPrice: bigint | null;
+  courtCount: number;
 }
 
 function lowestPriceForVenue(
@@ -44,7 +43,7 @@ function lowestPriceForVenue(
 export async function searchVenues(
   lat: number,
   lng: number,
-  radiusKm: number = DEFAULT_RADIUS_KM,
+  radiusKm?: number,
 ): Promise<VenueSearchResult[]> {
   const now = new Date();
   const weekday = now.getUTCDay();
@@ -75,7 +74,7 @@ export async function searchVenues(
 
   for (const venue of venues) {
     const distanceKm = haversineKm(lat, lng, venue.lat, venue.lng);
-    if (distanceKm > radiusKm) continue;
+    if (radiusKm !== undefined && distanceKm > radiusKm) continue;
     // BR-BOK-01: chỉ cơ sở thỏa BR-VEN-03 (approved + sân active + giờ + giá).
 
     results.push({
@@ -88,6 +87,7 @@ export async function searchVenues(
       images: venue.images,
       distanceKm,
       lowestPrice: lowestPriceForVenue(venue.courts),
+      courtCount: venue.courts.length,
     });
   }
 

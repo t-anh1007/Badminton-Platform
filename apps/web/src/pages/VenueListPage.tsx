@@ -61,18 +61,18 @@ function minuteOfDay(value: string): number | null {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-export function VenueListPage() {
+export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { embedded?: boolean; initialViewMode?: ViewMode } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [origin, setOrigin] = useState<Origin>(() => initialOrigin(searchParams));
   const [currentLocation, setCurrentLocation] = useState<Origin | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Origin | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [radiusKm, setRadiusKm] = useState<number>(() => {
+  const [radiusKm, setRadiusKm] = useState<number | null>(() => {
     const value = Number(searchParams.get('radiusKm'));
-    return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
+    return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : null;
   });
   const [nameFilter, setNameFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('distance');
@@ -105,7 +105,7 @@ export function VenueListPage() {
       const result = await searchVenues({
         lat: origin.lat,
         lng: origin.lng,
-        radiusKm,
+        ...(viewMode === 'map' && radiusKm !== null ? { radiusKm } : {}),
         ...(minPrice ? { minPrice: Number(minPrice) } : {}),
         ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
         ...(sortOrder !== 'name' ? { sortBy: sortOrder } : {}),
@@ -120,20 +120,21 @@ export function VenueListPage() {
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }, [date, endTime, origin.lat, origin.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime]);
+  }, [date, endTime, origin.lat, origin.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime, viewMode]);
 
   useEffect(() => {
     void runSearch(false);
   }, [runSearch]);
 
   useEffect(() => {
+    if (embedded) return;
     const nextParams = new URLSearchParams({
       lat: String(origin.lat),
       lng: String(origin.lng),
-      radiusKm: String(radiusKm),
     });
+    if (radiusKm !== null) nextParams.set('radiusKm', String(radiusKm));
     setSearchParams(nextParams, { replace: true });
-  }, [origin.lat, origin.lng, radiusKm, setSearchParams]);
+  }, [embedded, origin.lat, origin.lng, radiusKm, setSearchParams]);
 
   const useMyLocation = () => {
     setLocating(true); setLocateError('');
@@ -216,7 +217,7 @@ export function VenueListPage() {
     setOrigin(DEFAULT_ORIGIN);
     setSelectedLocation(null);
     setLocateError('');
-    setRadiusKm(10);
+    setRadiusKm(null);
     setNameFilter('');
     setSortOrder('distance');
     setMinPrice('');
@@ -240,10 +241,13 @@ export function VenueListPage() {
     ));
   }, [nameFilter, sortOrder, venues]);
 
+  const Wrapper = embedded ? 'section' : 'main';
   return (
-    <main className="min-h-screen bg-canvas pb-12 pt-8 sm:pt-10">
+    <Wrapper className={embedded ? 'bg-canvas py-10 sm:py-14' : 'min-h-screen bg-canvas pb-12 pt-8 sm:pt-10'}>
       <div className="page-container">
-        <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />
+        {embedded
+          ? <div><p className="courtin-kicker">Đặt sân quanh bạn</p><h2 className="mt-1 text-h2">Khám phá sân trên bản đồ</h2><p className="mt-2 text-sm text-ink-500">Chọn một điểm trên bản đồ để xem ngay các sân phù hợp gần đó.</p></div>
+          : <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />}
 
         <div className="my-6">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -252,7 +256,7 @@ export function VenueListPage() {
             </Button>
             {!filterOpen && (
               <span className="text-xs text-ink-500">
-                {origin.label} · {radiusKm} km{minPrice || maxPrice ? ` · ${minPrice ? formatMoneyVnd(minPrice) : '0đ'}–${maxPrice ? formatMoneyVnd(maxPrice) : '∞'}` : ''}
+                {viewMode === 'map' ? origin.label : 'Toàn bộ sân'}{radiusKm !== null && viewMode === 'map' ? ` · ${radiusKm} km` : ''}{minPrice || maxPrice ? ` · ${minPrice ? formatMoneyVnd(minPrice) : '0đ'}–${maxPrice ? formatMoneyVnd(maxPrice) : '∞'}` : ''}
               </span>
             )}
           </div>
@@ -276,11 +280,15 @@ export function VenueListPage() {
               </div>
               <div>
                 <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
-                <TextInput id="venue-name" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+                <TextInput id="venue-name" list="venue-name-suggestions" autoComplete="off" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+                <datalist id="venue-name-suggestions">
+                  {venues.map((venue) => <option key={venue.venueId} value={venue.name}>{venue.address}</option>)}
+                </datalist>
               </div>
               <div>
                 <label htmlFor="venue-radius" className="mb-1.5 block text-caption">Bán kính</label>
-                <SelectInput id="venue-radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))}>
+                <SelectInput id="venue-radius" value={radiusKm ?? ''} onChange={(event) => setRadiusKm(event.target.value ? Number(event.target.value) : null)}>
+                  <option value="">Không giới hạn</option>
                   {RADIUS_OPTIONS.map((option) => <option key={option} value={option}>{option} km</option>)}
                 </SelectInput>
               </div>
@@ -356,10 +364,12 @@ export function VenueListPage() {
           <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
           <div className="flex items-center gap-3">
             {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
-            <div className="inline-flex overflow-hidden rounded-full border border-line" role="tablist" aria-label="Chế độ hiển thị">
-              <button type="button" role="tab" aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'list' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Danh sách</button>
-              <button type="button" role="tab" aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'map' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Bản đồ</button>
-            </div>
+            {!embedded && (
+              <div className="inline-flex overflow-hidden rounded-full border border-line" role="tablist" aria-label="Chế độ hiển thị">
+                <button type="button" role="tab" aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'list' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Danh sách</button>
+                <button type="button" role="tab" aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'map' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Bản đồ</button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -377,27 +387,26 @@ export function VenueListPage() {
             <VenuesMap
               searchOrigin={{ lat: origin.lat, lng: origin.lng }}
               currentLocation={currentLocation}
-              venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice }))}
+              venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice, coverImage: venue.coverImage, courtCount: venue.courtCount }))}
               onPickOrigin={pickOriginOnMap}
               onReturnCurrent={returnToCurrentLocation}
             />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-h3">Sân gần điểm đã chọn</h3>
-              <span className="text-sm text-ink-500">Trong bán kính {radiusKm} km</span>
+              <span className="text-sm text-ink-500">{radiusKm !== null ? `Trong bán kính ${radiusKm} km` : 'Sắp xếp theo khoảng cách'}</span>
             </div>
             {loading && <p className="rounded-xl bg-surface p-4 text-sm text-ink-500">Đang cập nhật danh sách sân gần điểm này…</p>}
             {loadError && <RouteState variant="error" title="Không thể tìm sân" description={loadError} onRetry={() => void runSearch(true)} />}
             {!loading && !loadError && visibleVenues.length === 0 && (
-              <EmptyState title="Không có sân gần điểm đã chọn" description={`Không tìm thấy sân trong bán kính ${radiusKm} km. Hãy chọn điểm khác hoặc tăng bán kính.`} />
+              <EmptyState title="Không có sân gần điểm đã chọn" description={radiusKm !== null ? `Không tìm thấy sân trong bán kính ${radiusKm} km. Hãy chọn điểm khác hoặc tăng bán kính.` : 'Không tìm thấy sân phù hợp với các bộ lọc hiện tại.'} />
             )}
           </div>
         )}
 
         {!loading && !loadError && viewMode === 'list' && visibleVenues.length === 0 && (
           <EmptyState
-            title={nameFilter.trim() ? 'Không tìm thấy sân theo tên này' : 'Không có sân trong bán kính này'}
-            description={nameFilter.trim() ? 'Thử bỏ bớt từ khóa hoặc chọn khu vực khác.' : 'Hãy thử mở rộng bán kính tìm kiếm.'}
-            action={radiusKm < 20 ? <Button tone="secondary" onClick={() => setRadiusKm(20)}>Mở rộng lên 20 km</Button> : undefined}
+            title={nameFilter.trim() ? 'Không tìm thấy sân theo tên này' : 'Không có sân phù hợp'}
+            description={nameFilter.trim() ? 'Thử bỏ bớt từ khóa.' : 'Hãy thử xóa bớt các bộ lọc đang chọn.'}
           />
         )}
 
@@ -434,6 +443,6 @@ export function VenueListPage() {
           </div>
         )}
       </div>
-    </main>
+    </Wrapper>
   );
 }

@@ -92,9 +92,10 @@ it('renders a safe top-up instruction with copy action and no intent UUID', asyn
   expect(createTopupIntent).toHaveBeenCalledWith('100000')
 })
 
-it('maps radius, price, sort and dd/MM/yyyy availability filters to venue search', async () => {
+it('ignores radius in list view and only applies it in map view', async () => {
   render(<MemoryRouter initialEntries={['/venues']}><VenueListPage /></MemoryRouter>)
-  await waitFor(() => expect(searchVenues).toHaveBeenCalled())
+  await waitFor(() => expect(searchVenues).toHaveBeenCalledWith(expect.not.objectContaining({ radiusKm: expect.anything() })))
+  fireEvent.click(screen.getByRole('button', { name: /hiện bộ lọc/i }))
   fireEvent.change(screen.getByLabelText('Bán kính'), { target: { value: '20' } })
   fireEvent.change(screen.getByLabelText('Giá tối thiểu (nhập tay)'), { target: { value: '100000' } })
   fireEvent.change(screen.getByLabelText('Giá tối đa (nhập tay)'), { target: { value: '250000' } })
@@ -103,7 +104,11 @@ it('maps radius, price, sort and dd/MM/yyyy availability filters to venue search
   fireEvent.change(screen.getByLabelText('Giờ bắt đầu'), { target: { value: '08:00' } })
   fireEvent.change(screen.getByLabelText('Giờ kết thúc'), { target: { value: '10:30' } })
   fireEvent.click(screen.getByRole('button', { name: 'Tìm sân' }))
-  await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20, minPrice: 100000, maxPrice: 250000, sortBy: 'price', date: '2026-08-15', startMinute: 480, endMinute: 630 })))
+  await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ minPrice: 100000, maxPrice: 250000, sortBy: 'price', date: '2026-08-15', startMinute: 480, endMinute: 630 })))
+  expect(searchVenues).toHaveBeenLastCalledWith(expect.not.objectContaining({ radiusKm: expect.anything() }))
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Bản đồ' }))
+  await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20 })))
 })
 
 it('creates a dispute from a business label without exposing booking UUID text', async () => {

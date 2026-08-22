@@ -12,6 +12,8 @@ export interface VenueMapPoint {
   lng: number;
   distanceKm: number;
   lowestPrice?: string | null;
+  coverImage?: string | null;
+  courtCount: number;
 }
 
 interface VenuesMapProps {
@@ -40,6 +42,23 @@ const searchOriginIcon = L.divIcon({
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
+
+function escapeAttribute(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function venueIcon(venue: VenueMapPoint) {
+  const content = venue.coverImage
+    ? `<img src="${escapeAttribute(venue.coverImage)}" alt="" style="display:block;width:44px;height:44px;object-fit:cover;border-radius:10px" />`
+    : '<span aria-hidden="true" style="display:grid;width:44px;height:44px;place-items:center;border-radius:10px;background:#fff;font-size:22px">🏸</span>';
+  return L.divIcon({
+    className: '',
+    html: `<span style="display:block;width:50px;height:50px;padding:3px;border-radius:13px;background:#f7df4b;border:2px solid #174f78;box-shadow:0 4px 12px rgba(23,79,120,.35)">${content}</span>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 50],
+    popupAnchor: [0, -46],
+  });
+}
 
 function FitBounds({ searchOrigin, currentLocation, venues }: { searchOrigin: { lat: number; lng: number }; currentLocation?: { lat: number; lng: number } | null; venues: VenueMapPoint[] }) {
   const map = useMap();
@@ -109,16 +128,28 @@ export function VenuesMap({ searchOrigin, currentLocation, venues, onPickOrigin,
         <Popup>Điểm bạn muốn tìm sân</Popup>
       </Marker>
       {venues.map((venue) => (
-        <Marker key={venue.venueId} position={[venue.lat, venue.lng]}>
-          <Popup>
-            <strong>{venue.name}</strong>
-            <br />
-            <span>{venue.address}</span>
-            <br />
-            <span>~{venue.distanceKm.toFixed(1)} km</span>
-            {venue.lowestPrice ? <span> · Từ {Number(venue.lowestPrice).toLocaleString('vi-VN')}₫</span> : null}
-            <br />
-            <Link to={`/venues/${encodeURIComponent(venue.venueId)}`}>Xem chi tiết →</Link>
+        <Marker key={venue.venueId} position={[venue.lat, venue.lng]} icon={venueIcon(venue)}>
+          <Popup className="courtin-venue-popup" minWidth={296} maxWidth={310}>
+            <div className="flex min-h-[292px] flex-col overflow-hidden rounded-xl bg-brand-navy text-surface shadow-xl">
+              <div className="relative h-24 shrink-0 overflow-hidden bg-brand-navy-raised">
+                {venue.coverImage
+                  ? <img src={venue.coverImage} alt={`Ảnh ${venue.name}`} className="h-full w-full object-cover" />
+                  : <div className="grid h-full place-items-center text-4xl" aria-hidden="true">🏸</div>}
+                <span className="absolute left-2 top-2 rounded-full bg-success px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white shadow">● Có thể đặt</span>
+                <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-brand-navy to-transparent" />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col p-3.5 pt-2">
+                <p className="text-[10px] font-bold uppercase tracking-[.14em] text-brand-yellow">COURTIN · Đặt sân trực tiếp</p>
+                <h3 className="mt-1 font-display text-base font-extrabold leading-tight text-white">{venue.name}</h3>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-surface/70">{venue.address}</p>
+                <div className="mt-2 grid grid-cols-3 gap-1 border-y border-white/15 py-2 text-center">
+                  <div><strong className="block text-sm text-brand-yellow">{venue.courtCount}</strong><span className="text-[10px] text-surface/65">Sân con</span></div>
+                  <div><strong className="block text-sm text-white">{venue.distanceKm.toFixed(1)}</strong><span className="text-[10px] text-surface/65">Km từ bạn</span></div>
+                  <div><strong className="block text-sm text-brand-yellow">{venue.lowestPrice ? `${Math.round(Number(venue.lowestPrice) / 1000)}K` : '—'}</strong><span className="text-[10px] text-surface/65">Giá từ</span></div>
+                </div>
+                <Link className="mt-auto flex min-h-9 items-center justify-center rounded-full bg-brand-yellow px-3 text-[11px] font-extrabold uppercase tracking-wide text-brand-navy transition hover:bg-brand-yellow-hover" to={`/venues/${encodeURIComponent(venue.venueId)}`}>Xem lịch và đặt sân <span className="ml-2" aria-hidden="true">→</span></Link>
+              </div>
+            </div>
           </Popup>
         </Marker>
       ))}

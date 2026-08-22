@@ -78,4 +78,12 @@
 .community-media-grid button { min-width: 0; }
 .media-lightbox { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 1rem; background: rgb(10 22 34 / 88%); }
 .media-lightbox button { cursor: zoom-out; }
+.courtin-venue-popup .leaflet-popup-content-wrapper { overflow: hidden; border: 1px solid rgb(245 230 99 / 65%); border-radius: 1rem; background: transparent; box-shadow: 0 18px 45px rgb(10 35 55 / 38%); }
+.courtin-venue-popup .leaflet-popup-content { width: 300px !important; margin: 0; }
+.courtin-venue-popup .leaflet-popup-tip { background: var(--color-brand-navy); }
+.courtin-venue-popup .leaflet-popup-close-button { z-index: 2; top: 0.35rem !important; right: 0.45rem !important; display: grid; width: 1.75rem !important; height: 1.75rem !important; place-items: center; border-radius: 999px; background: rgb(21 68 108 / 82%); color: white !important; font-size: 1.25rem !important; }
+@media (max-width: 520px) {
+  .courtin-venue-popup .leaflet-popup-content-wrapper { max-width: calc(100vw - 3rem); }
+  .courtin-venue-popup .leaflet-popup-content { width: min(300px, calc(100vw - 3rem)) !important; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
