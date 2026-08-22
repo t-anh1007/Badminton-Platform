@@ -2,11 +2,19 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 
 export interface CalendarEntry {
+  /** Chỉ có ở booking (để quản lý/xem chi tiết); hold không mang id. */
+  id?: string;
   courtId: string;
   kind: 'booking' | 'hold';
   source?: 'marketplace' | 'internal';
   startAt: Date;
   endAt: Date;
+  /** Nhãn khách: người chơi đã đăng nhập hoặc tên khách vãng lai (booking). */
+  customerLabel?: string;
+  /** Liên hệ khách — chỉ với booking nội bộ (nguồn internal). */
+  guestContact?: string | null;
+  /** Giá đã chốt (BigInt tuần tự hóa thành chuỗi để trả JSON). */
+  priceSnapshot?: string;
 }
 
 export interface CalendarResult {
@@ -46,11 +54,15 @@ export async function getUnifiedCalendar(userId: string, venueId: string, date: 
     ...bookings
       .filter((b) => b.status === 'confirmed')
       .map((b) => ({
+        id: b.id,
         courtId: b.courtId,
         kind: 'booking' as const,
         source: b.source,
         startAt: b.startAt,
         endAt: b.endAt,
+        customerLabel: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai'),
+        guestContact: b.source === 'internal' ? b.guestContact : null,
+        priceSnapshot: b.priceSnapshot.toString(),
       })),
     ...holds.map((h) => ({ courtId: h.courtId, kind: 'hold' as const, startAt: h.startAt, endAt: h.endAt })),
   ];
