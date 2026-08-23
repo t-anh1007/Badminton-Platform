@@ -52,7 +52,14 @@ docs/decisions/              ADR/quyết định lâu dài
 .agents/skills/              Skill cục bộ của dự án
 .claude/ .codex/             Cấu hình host agent
 src/                         Metadata orchestration tương thích cũ
+ai-notes/                    Vùng nháp cho agent — file tạm, đã gitignore
 ```
+
+**File tạm chỉ ghi vào `ai-notes/`.** Mọi file nháp (script dùng một lần, kết
+quả điều tra trung gian, log, báo cáo tạm) đặt trong `ai-notes/` — không rải ra
+`apps/`, `services/`, `packages/` hay gốc repo. Thư mục đã `.gitignore` (chỉ giữ
+`README.md`). Test thật nằm cạnh mã nguồn (`*.test.ts(x)`); tài liệu sản phẩm
+nằm trong `docs/` — không đặt hai loại này ở `ai-notes/`.
 
 ## Luồng công việc
 

@@ -75,6 +75,15 @@ cũ; không đặt mã ứng dụng mới ở đó. E2E ở `../e2e/`, script ti
 Trước khi giao hoặc thực thi task, kiểm tra trạng thái Git để không ghi đè thay
 đổi của người dùng/agent khác.
 
+**File tạm chỉ được ghi vào `ai-notes/`** (ở gốc repo). Mọi file nháp — script
+truy vấn dùng một lần, kết quả điều tra trung gian, log phân tích, báo cáo tạm —
+đặt trong `ai-notes/`, KHÔNG rải ra `apps/`, `services/`, `packages/` hay gốc
+repo. Thư mục này đã được `.gitignore` (chỉ giữ `README.md`) nên không lọt vào
+commit. Nếu môi trường có scratchpad riêng do harness cấp, vẫn được dùng; nhưng
+khi cần file tạm NẰM TRONG repo thì bắt buộc là `ai-notes/`. Test thật đặt cạnh
+mã nguồn (`*.test.ts(x)`), tài liệu sản phẩm đặt trong `docs/` — không để ở
+`ai-notes/`.
+
 ## Định nghĩa hoàn thành
 
 **Kiểm chứng do PO điều khiển, không tự động chạy.** PO thấy việc auto build+test

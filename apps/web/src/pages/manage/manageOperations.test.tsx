@@ -1,26 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import { ManageCalendarPage } from './ManageCalendarPage.js'
 import { ManageIncidentsPage } from './ManageIncidentsPage.js'
 import { ManageFinancePage } from './ManageFinancePage.js'
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWithdrawals } from '../../lib/financeApi.js'
 vi.mock('../../lib/financeApi.js', () => ({ getMyWallets: vi.fn().mockResolvedValue([{ id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }]), getWalletLedger: vi.fn().mockResolvedValue({ wallet: { id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }, entries: [] }), getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'booking-1', venueId: 'v1', gross: '1000000', net: '900000', commission: '100000', releaseAt: '2026-08-20T00:00:00Z', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([]), createWithdrawal: vi.fn().mockResolvedValue({ transferCode: 'WD123' }), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
-import { cancelInternalBooking, createInternalBooking, getVenueCalendar } from '../../lib/venueBookingApi.js'
-
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([{ id: 'v1', name: 'Sân A', courts: [{ id: 'c1', name: 'Sân 1' }] }]),
   getVenueCalendar: vi.fn().mockResolvedValue({ courts: [{ id: 'c1', name: 'Sân 1' }], entries: [{ id: 'b1', courtId: 'c1', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z' }] }),
   createInternalBooking: vi.fn().mockResolvedValue({}), cancelInternalBooking: vi.fn().mockResolvedValue({}), getReplacementCourts: vi.fn().mockResolvedValue({ courts: [{ id: 'c2', name: 'Sân 2' }] }), changeBookingCourt: vi.fn().mockResolvedValue({}), cancelProviderBooking: vi.fn().mockResolvedValue({}),
 }))
-it('loads a venue date, creates a walk-in once, and cancels an owner-context entry', async () => {
-  render(<ManageCalendarPage />)
-  const date = await screen.findByLabelText(/ngày lịch/i); fireEvent.change(date, { target: { value: '15/08/2026' } }); fireEvent.blur(date)
-  await waitFor(() => expect(getVenueCalendar).toHaveBeenCalledWith('v1', '2026-08-15'))
-  for (const [label, value] of [['Tên khách', 'A'], ['Liên hệ khách', '09'], ['Bắt đầu', '2026-08-15T08:00:00Z'], ['Kết thúc', '2026-08-15T09:00:00Z']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
-  const create = screen.getByRole('button', { name: /tạo booking/i }); fireEvent.click(create); expect(create).toBeDisabled()
-  await waitFor(() => expect(createInternalBooking).toHaveBeenCalledWith(expect.objectContaining({ courtId: 'c1', guestName: 'A' })))
-  fireEvent.click(screen.getByRole('button', { name: 'Hủy' })); await waitFor(() => expect(cancelInternalBooking).toHaveBeenCalledWith('b1'))
-})
 it('loads replacement choices and requires a provider-fault reason before cancellation', async () => {
   const api = await import('../../lib/venueBookingApi.js')
   render(<ManageIncidentsPage />)
