@@ -5,27 +5,28 @@ import type { AccountEligibilityClient } from '../clients/account.js';
 interface AuthorLike { authorUserId: string }
 interface PostLike extends AuthorLike { id?: string; comments?: AuthorLike[] }
 
-async function attachDisplayNames<T extends PostLike>(
+async function attachPublicIdentities<T extends PostLike>(
   client: AccountEligibilityClient,
   posts: T[],
-): Promise<Array<T & { authorDisplayName: string | null; comments?: Array<AuthorLike & { authorDisplayName: string | null }> }>> {
+): Promise<Array<T & { authorDisplayName: string | null; authorAvatarUrl: string | null; comments?: Array<AuthorLike & { authorDisplayName: string | null; authorAvatarUrl: string | null }> }>> {
   const ids = new Set<string>();
   for (const post of posts) {
     if (post.authorUserId) ids.add(post.authorUserId);
     for (const comment of post.comments ?? []) if (comment.authorUserId) ids.add(comment.authorUserId);
   }
   if (ids.size === 0) return posts as never;
-  let lookup = new Map<string, string | null>();
+  let lookup = new Map<string, { displayName: string | null; avatarUrl: string | null }>();
   try {
     const rows = await client.getPublicDisplayNames(Array.from(ids));
-    lookup = new Map(rows.map((row) => [row.userId, row.displayName]));
+    lookup = new Map(rows.map((row) => [row.userId, { displayName: row.displayName, avatarUrl: row.avatarUrl }]));
   } catch {
     // Bỏ qua lỗi lookup — vẫn trả về bài viết với displayName=null để UI dùng fallback.
   }
   return posts.map((post) => ({
     ...post,
-    authorDisplayName: lookup.get(post.authorUserId) ?? null,
-    comments: post.comments?.map((comment) => ({ ...comment, authorDisplayName: lookup.get(comment.authorUserId) ?? null })),
+    authorDisplayName: lookup.get(post.authorUserId)?.displayName ?? null,
+    authorAvatarUrl: lookup.get(post.authorUserId)?.avatarUrl ?? null,
+    comments: post.comments?.map((comment) => ({ ...comment, authorDisplayName: lookup.get(comment.authorUserId)?.displayName ?? null, authorAvatarUrl: lookup.get(comment.authorUserId)?.avatarUrl ?? null })),
   })) as never;
 }
 
@@ -115,7 +116,7 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     withErrorHandling(async (req, res) => {
       const { page, pageSize } = pagination.parse(req.query);
       const posts = await listPublishedPosts(page, pageSize);
-      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, posts)) });
+      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachPublicIdentities(accountEligibilityClient, posts)) });
     }),
   );
   router.get(
@@ -125,14 +126,14 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     withErrorHandling(async (req, res) => {
       const userId = (req as AuthenticatedRequest).user!.id;
       const posts = await listOwnPosts(userId);
-      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, posts)) });
+      res.status(200).json({ posts: await attachImageUrls(resolveObjectStorage, await attachPublicIdentities(accountEligibilityClient, posts)) });
     }),
   );
   router.get(
     '/posts/:postId',
     withErrorHandling(async (req, res) => {
       const post = await getPublishedPost(uuid.parse(req.params.postId));
-      const [enriched] = await attachImageUrls(resolveObjectStorage, await attachDisplayNames(accountEligibilityClient, [post]));
+      const [enriched] = await attachImageUrls(resolveObjectStorage, await attachPublicIdentities(accountEligibilityClient, [post]));
       res.status(200).json(enriched);
     }),
   );

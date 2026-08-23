@@ -5,7 +5,7 @@ import { presentLedgerEntry } from '../lib/presenters';
 import { DisputePanel } from '../components/DisputePanel';
 import { Avatar, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
 import { MetricCard } from '../components/courtin/MetricCard';
-import { changePassword, getMyProfile, updateMyProfile, type ProfileResult } from '../lib/accountApi';
+import { authorizeAvatarUpload, changePassword, commitAvatarUpload, getMyProfile, updateMyProfile, uploadAvatarFile, type ProfileResult } from '../lib/accountApi';
 import { createTopupIntent, getMyWallets, getWalletLedger, type SepayIntent, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
 import { SepayPayBox } from '../components/SepayPayBox.js';
 import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
@@ -37,8 +37,9 @@ export function ProfilePage() {
   const [topupIntent, setTopupIntent] = useState<SepayIntent | null>(null);
   const [topupBaseline, setTopupBaseline] = useState('0');
   const [topupState, setTopupState] = useState<'idle' | 'pending' | 'completed' | 'timeout'>('idle');
-  const [form, setForm] = useState({ displayName: '', avatarUrl: '', phone: '', visibility: 'public' as 'public' | 'private' });
+  const [form, setForm] = useState({ displayName: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const loadPage = useCallback(async () => {
     setPageLoading(true);
@@ -51,7 +52,6 @@ export function ProfilePage() {
         setPast(nextPast);
         setForm({
           displayName: nextProfile.playerProfile?.displayName ?? '',
-          avatarUrl: nextProfile.playerProfile?.avatarUrl ?? '',
           phone: nextProfile.phone ?? '',
           visibility: nextProfile.playerProfile?.visibility ?? 'public',
         });
@@ -70,11 +70,32 @@ export function ProfilePage() {
     try {
       await updateMyProfile(form);
       setProfile(await getMyProfile());
+      window.dispatchEvent(new Event('courtin:profile-change'));
       setEditOpen(false);
       setMessage('Đã cập nhật hồ sơ.');
     } catch (caught) {
       setMessage((caught as Error).message);
     }
+  };
+
+  const changeAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setMessage('Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP.'); return; }
+    if (file.size > 8 * 1024 * 1024) { setMessage('Ảnh đại diện không được vượt quá 8 MiB.'); return; }
+    setAvatarUploading(true);
+    try {
+      const mimeType = file.type as 'image/jpeg' | 'image/png' | 'image/webp';
+      const authorization = await authorizeAvatarUpload(mimeType);
+      await uploadAvatarFile(authorization, file);
+      const nextProfile = await commitAvatarUpload(authorization.objectKey, mimeType);
+      setProfile(nextProfile);
+      setMessage('Đã cập nhật ảnh đại diện.');
+      window.dispatchEvent(new Event('courtin:profile-change'));
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Không thể cập nhật ảnh đại diện.');
+    } finally { setAvatarUploading(false); }
   };
 
   const savePassword = async (event: React.FormEvent) => {
@@ -161,8 +182,15 @@ export function ProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <SurfaceCard>
-            {profile?.playerProfile?.avatarUrl ? <img src={profile.playerProfile.avatarUrl} alt="Ảnh đại diện tài khoản" className="h-16 w-16 rounded-full object-cover" /> : <Avatar label={profile?.playerProfile?.displayName ?? 'N'} className="h-16 w-16 text-xl" />}
+            <label className="group relative inline-grid cursor-pointer rounded-full focus-within:ring-2 focus-within:ring-brand-navy">
+              <Avatar label={profile?.playerProfile?.displayName ?? 'N'} src={profile?.playerProfile?.avatarUrl} alt="Ảnh đại diện tài khoản" className="h-20 w-20 text-xl" />
+              <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-brand-navy text-white shadow-sm" aria-hidden="true">
+                {avatarUploading ? '…' : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 4l1.5 2H20a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h4l1.5-2h5z"/><circle cx="12" cy="13" r="3"/></svg>}
+              </span>
+              <input aria-label="Đổi ảnh đại diện" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={avatarUploading} onChange={(event) => void changeAvatar(event)} />
+            </label>
             <h1 className="mt-4 text-h2">Hồ sơ của tôi</h1>
+            <p className="mt-1 font-semibold text-ink-900">{profile?.playerProfile?.displayName}</p>
             <p className="mt-1 text-sm text-ink-500">{profile?.email}</p>
             <div className="mt-3 flex flex-wrap gap-2" aria-label="Vai trò tài khoản">{profile?.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin').map((role) => <RoleBadge key={role} role={role} />)}</div>
             <div className="mt-5 space-y-3 border-y border-line py-4 text-sm">
@@ -206,7 +234,6 @@ export function ProfilePage() {
       <Modal open={editOpen} title="Cập nhật thông tin" onClose={() => setEditOpen(false)}>
         <form onSubmit={save} className="grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium">Tên hiển thị<TextInput required value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">URL ảnh đại diện<TextInput type="url" value={form.avatarUrl} onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })} placeholder="https://…" /></label>
           <label className="grid gap-1.5 text-sm font-medium">Số điện thoại<TextInput value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
           <label className="grid gap-1.5 text-sm font-medium">Hiển thị<SelectInput value={form.visibility} onChange={(event) => setForm({ ...form, visibility: event.target.value as 'public' | 'private' })}><option value="public">Công khai</option><option value="private">Riêng tư</option></SelectInput></label>
           <Button type="submit">Lưu thay đổi</Button>

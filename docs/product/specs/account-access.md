@@ -269,7 +269,7 @@ active ──(ACC-08 khóa)──> locked ──(ACC-08 khôi phục)──> act
 | User Story | Là người chơi, tôi muốn cập nhật tên hiển thị, ảnh đại diện và số liên hệ, để hồ sơ của tôi phản ánh đúng con người tôi |
 | Điều kiện trước | Đang đăng nhập |
 | Sự kiện kích hoạt | Lưu thay đổi hồ sơ |
-| Workflow chính | 1. Mở trang hồ sơ → 2. Sửa tên hiển thị, ảnh đại diện, SĐT, tùy chọn hiển thị → 3. Lưu → 4. Hệ thống cập nhật `PLAYER_PROFILE` |
+| Workflow chính | 1. Mở trang hồ sơ và thấy tên hiện tại → 2. Sửa tên, SĐT, tùy chọn hiển thị trong biểu mẫu; hoặc nhấn avatar/icon máy ảnh để chọn JPEG/PNG/WebP tối đa 8 MiB → 3. Ảnh được tải lên và áp dụng ngay, các trường còn lại áp dụng khi Lưu → 4. Hệ thống cập nhật `PLAYER_PROFILE` và đồng bộ Header |
 | Luồng thay thế | Người dùng có vai `provider`: trang hồ sơ cá nhân và hồ sơ cơ sở sân (VEN-03) là hai nơi tách biệt, không trộn lẫn |
 | Luồng lỗi | Ảnh vượt dung lượng cho phép → từ chối kèm giới hạn; Tên hiển thị rỗng → từ chối |
 | Business Rules | BR-ACC-01 (email không đổi được), BR-ACC-02 |

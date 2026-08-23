@@ -3,8 +3,8 @@ import { expect, it, vi } from 'vitest'
 import { ManageCalendarPage } from './ManageCalendarPage.js'
 import { ManageIncidentsPage } from './ManageIncidentsPage.js'
 import { ManageFinancePage } from './ManageFinancePage.js'
-import { cancelMyWithdrawal, createWithdrawal, getMyRevenue } from '../../lib/financeApi.js'
-vi.mock('../../lib/financeApi.js', () => ({ getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'b', venueId: 'v1', gross: '100', net: '90', commission: '10', releaseAt: '', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', amount: '50', status: 'pending' }]), createWithdrawal: vi.fn().mockResolvedValue({}), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
+import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWithdrawals } from '../../lib/financeApi.js'
+vi.mock('../../lib/financeApi.js', () => ({ getMyWallets: vi.fn().mockResolvedValue([{ id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }]), getWalletLedger: vi.fn().mockResolvedValue({ wallet: { id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }, entries: [] }), getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'booking-1', venueId: 'v1', gross: '1000000', net: '900000', commission: '100000', releaseAt: '2026-08-20T00:00:00Z', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([]), createWithdrawal: vi.fn().mockResolvedValue({ transferCode: 'WD123' }), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
 import { cancelInternalBooking, createInternalBooking, getVenueCalendar } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
@@ -30,9 +30,15 @@ it('loads replacement choices and requires a provider-fault reason before cancel
   fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
   fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
 })
-it('filters revenue and validates/cancels provider withdrawals', async () => {
-  render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ:/)
+it('filters revenue by venue and validates/creates a provider withdrawal', async () => {
+  render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ/)
   fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
-  for (const [label, value] of [['amount','100'],['bankCode','VCB'],['bankAccountNumber','123'],['bankAccountName','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } }); const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1)); fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
+  for (const [label, value] of [['Số tiền rút','100000'],['Mã ngân hàng','VCB'],['Số tài khoản nhận','123'],['Tên chủ tài khoản','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1))
+})
+it('cancels a pending provider withdrawal', async () => {
+  vi.mocked(getMyWithdrawals).mockResolvedValueOnce([{ id: 'w1', sellerUserId: 's', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'WD1', bankCode: 'VCB', bankAccountNumber: '123', bankAccountName: 'A' }])
+  render(<ManageFinancePage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
 })

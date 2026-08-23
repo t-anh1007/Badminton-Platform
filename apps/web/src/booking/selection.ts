@@ -17,15 +17,22 @@ export interface BookingRange {
   totalPrice: string
 }
 
+const VIETNAM_OFFSET_MINUTES = 7 * 60
+
+/** Converts a venue wall-clock minute on a Vietnam calendar date to UTC ISO. */
+export function toVietnameseSlotIso(date: string, minute: number) {
+  const instant = new Date(`${date}T00:00:00.000Z`)
+  instant.setUTCMinutes(minute - VIETNAM_OFFSET_MINUTES)
+  return instant.toISOString()
+}
+
 function startMinute(slot: SelectableSlot) {
-  const start = new Date(slot.startAt)
-  return start.getUTCHours() * 60 + start.getUTCMinutes()
+  const vietnamMidnight = new Date(toVietnameseSlotIso(slot.date, 0))
+  return (new Date(slot.startAt).getTime() - vietnamMidnight.getTime()) / 60_000
 }
 
 function endAt(slot: SelectableSlot) {
-  const end = new Date(slot.startAt)
-  end.setUTCHours(Math.floor(slot.endMinute / 60), slot.endMinute % 60, 0, 0)
-  return end.toISOString()
+  return toVietnameseSlotIso(slot.date, slot.endMinute)
 }
 
 export function toggleSlot(range: BookingRange | null, slot: SelectableSlot, allSlots: SelectableSlot[]): BookingRange | null {

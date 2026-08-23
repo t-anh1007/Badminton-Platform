@@ -10,8 +10,12 @@ import { moderateCommunityReport, restoreCommunityContent } from '../../lib/comm
 import { getAdminEvaluations, reviewAdminEvaluation } from '../../lib/matchApi.js'
 import { addSupportTicketMessage, getSupportTicket, listSupportTickets, setSupportTicketStatus } from '../../lib/communityApi.js'
 
+vi.mock('../../lib/accountApi.js', () => ({
+  getAdminAccountIdentities: vi.fn().mockResolvedValue([{ id: 'u1', email: 'owner@example.com', displayName: 'Chủ sân A' }, { id: 'u2', email: 'owner-2@example.com', displayName: 'Chủ sân B' }]),
+}))
+
 vi.mock('../../lib/financeApi.js', () => ({
-  getAdminWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', sellerUserId: 'u1', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'RUT-2026-001', bankCode: 'VCB', bankAccountNumber: '***1234', bankAccountName: 'NGUYEN VAN A' }, { id: 'w2', sellerUserId: 'u2', amount: '300000', paidAmount: '100000', status: 'partially_paid', transferCode: 'RUT-2026-002', bankCode: 'ACB', bankAccountNumber: '***5678', bankAccountName: 'TRAN VAN B' }]),
+  getAdminWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', sellerUserId: 'u1', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'RUT-2026-001', bankCode: 'VCB', bankAccountNumber: '***1234', bankAccountName: 'NGUYEN VAN A', createdAt: '2026-08-15T00:00:00Z', processedAt: null }, { id: 'w2', sellerUserId: 'u2', amount: '300000', paidAmount: '100000', status: 'partially_paid', transferCode: 'RUT-2026-002', bankCode: 'ACB', bankAccountNumber: '***5678', bankAccountName: 'TRAN VAN B', createdAt: '2026-08-16T00:00:00Z', processedAt: null }]),
   getReconciliationQueue: vi.fn().mockResolvedValue([{ id: 'rc1', direction: 'in', amount: '100000', rawRef: 'SEPAY-LONG-REFERENCE-001', receivedAt: '2026-08-15T00:00:00Z' }, { id: 'rc2', direction: 'out', amount: '90000', rawRef: 'BANK-LONG-REFERENCE-002', receivedAt: '2026-08-15T01:00:00Z' }]),
   rejectWithdrawal: vi.fn().mockResolvedValue({}), finalizePartialWithdrawal: vi.fn().mockResolvedValue({}),
   reconcileIncoming: vi.fn().mockResolvedValue({}), reconcileOutgoing: vi.fn().mockResolvedValue({}), markOutOfScope: vi.fn().mockResolvedValue({}),
@@ -47,6 +51,25 @@ it('requires a reason and confirmation before rejecting a withdrawal', async () 
   await waitFor(() => expect(rejectWithdrawal).toHaveBeenCalledWith('w1', 'Sai thông tin ngân hàng'))
 })
 
+it('filters and sorts the finance operation queues', async () => {
+  render(<AdminFinancePage />)
+  expect((await screen.findAllByText('RUT-2026-001')).length).toBeGreaterThan(0)
+  expect(screen.getByText('Chủ sân A')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Lọc trạng thái yêu cầu rút'), { target: { value: 'partially_paid' } })
+  expect(screen.queryByText('RUT-2026-001')).not.toBeInTheDocument()
+  expect(screen.getByText('RUT-2026-002')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Lọc trạng thái yêu cầu rút'), { target: { value: 'all' } })
+  fireEvent.change(screen.getByLabelText('Tìm yêu cầu rút'), { target: { value: '***1234' } })
+  expect(screen.getAllByText('RUT-2026-001').length).toBeGreaterThan(0)
+  expect(screen.queryByText('RUT-2026-002')).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Lọc hướng tiền'), { target: { value: 'out' } })
+  expect(screen.getByText('90.000đ')).toBeInTheDocument()
+  expect(screen.queryByText('100.000đ')).not.toBeInTheDocument()
+})
+
 it('finalizes a partial withdrawal and supports all reconciliation decisions', async () => {
   render(<AdminFinancePage />)
   fireEvent.change(await screen.findByLabelText('Lý do xử lý tiền'), { target: { value: 'Đối chiếu sao kê' } })
@@ -64,7 +87,8 @@ it('finalizes a partial withdrawal and supports all reconciliation decisions', a
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(reconcileOutgoing).toHaveBeenCalledWith('rc2', 'target-safe-reference', 'Khớp chứng từ'))
 
-  fireEvent.click(screen.getAllByRole('button', { name: 'Ngoài phạm vi' })[0]!)
+  const incomingEventCard = screen.getByRole('button', { name: 'Gán ví cá nhân' }).closest('article')!
+  fireEvent.click(within(incomingEventCard).getByRole('button', { name: 'Ngoài phạm vi' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(markOutOfScope).toHaveBeenCalledWith('rc1', 'Khớp chứng từ'))
 })

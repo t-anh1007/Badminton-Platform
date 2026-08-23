@@ -18,6 +18,7 @@ import { HttpVenueBookingClient } from '../clients/venueBooking.js';
 import { writeOutbox } from './outbox.js';
 import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
+import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
 
 const QUEUE_NAME = 'matchmaking.match-lifecycle';
 
@@ -107,6 +108,20 @@ export async function handleMatchFeePaymentCompleted(
   const context = await venueBookingClient.getMatchContext(payload.bookingId);
   if (!context) throw new Error('PaymentCompleted booking context unavailable');
 
+  // PLAN_MATCH-DEPOSIT: chủ kèo trả cọc trước -> gia hạn hold+booking tới hạn X
+  // và mở kèo. Gọi venue TRƯỚC transaction (idempotent). Nếu slot đã nhả trước
+  // khi cọc về (checkout hết hạn) -> đánh dấu để hủy kèo + finance hoàn cọc.
+  let depositTooLate = false;
+  if (payload.role === 'organizer' && matchSnapshot.status === 'awaiting_deposit') {
+    if (!matchSnapshot.deadlineAt) throw new Error('awaiting_deposit match missing deadlineAt');
+    try {
+      await venueBookingClient.activateMatchHold(payload.bookingId, payload.userId, matchSnapshot.deadlineAt);
+    } catch (err) {
+      if (err instanceof Error && /failed with 409/.test(err.message)) depositTooLate = true;
+      else throw err;
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.matchId}, 0))`;
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
@@ -124,7 +139,7 @@ export async function handleMatchFeePaymentCompleted(
         return;
       }
       const approvedDeadline = join.approvedAt
-        ? new Date(join.approvedAt.getTime() + 10 * 60_000)
+        ? new Date(join.approvedAt.getTime() + JOIN_HOLD_MINUTES * 60_000)
         : null;
       const confirmedCount = await tx.join.count({ where: { matchId: match.id, status: 'confirmed' } });
       const invalid = join.status !== 'approved'
@@ -164,12 +179,28 @@ export async function handleMatchFeePaymentCompleted(
       if (payload.userId !== match.organizerUserId || payload.joinId !== null) {
         throw new Error('Organizer contribution does not match Match');
       }
+      if (depositTooLate) {
+        // Slot đã nhả trước khi cọc về -> hủy kèo; finance hoàn cọc vào ví (DM8).
+        if (match.status !== 'cancelled' && match.status !== 'confirmed') {
+          await tx.match.update({ where: { id: match.id }, data: { status: 'cancelled' } });
+          await writeOutbox(tx, {
+            aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled',
+            payload: {
+              matchId: match.id, bookingId: match.bookingId, reason: 'cutoff', paidJoinIds: [],
+            } satisfies MatchCancelledPayload,
+          });
+        }
+        await tx.processedEvent.create({ data: { eventId } });
+        return;
+      }
       if (!match.organizerContributionPaidAt) {
         await tx.match.update({
           where: { id: match.id },
           data: {
             organizerContributionPaidAt: paidAt,
             organizerContributionId: payload.contributionId,
+            // awaiting_deposit -> open: cọc đã về, mở kèo cho đối join.
+            status: match.status === 'awaiting_deposit' ? 'open' : match.status,
           },
         });
       }

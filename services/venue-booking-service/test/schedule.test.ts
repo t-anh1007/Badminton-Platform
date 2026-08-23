@@ -2,16 +2,17 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../src/lib/prisma.js';
 import { setOperatingHours, addClosure } from '../src/domain/schedule.js';
 import { createApprovedProvider, createVenueWithCourt } from './helpers.js';
+import { vietnamMinuteToInstant, vietnamWeekday } from '../src/lib/vietnamTime.js';
 
 afterAll(async () => {
   await prisma.$disconnect();
 });
 
-function tomorrowAt(hourUTC: number) {
+function tomorrowAt(hourVietnam: number) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + 1);
-  d.setUTCHours(hourUTC, 0, 0, 0);
-  return d;
+  d.setUTCHours(0, 0, 0, 0);
+  return vietnamMinuteToInstant(d, hourVietnam * 60);
 }
 
 describe('VEN-05 — Giờ hoạt động và ngày đóng cửa', () => {
@@ -60,7 +61,7 @@ describe('VEN-05 — Giờ hoạt động và ngày đóng cửa', () => {
   it('AC-VEN-05-4: sân mở 6h-22h có booking lúc 21h -> thu hẹp giờ đóng về 20h -> từ chối', async () => {
     const provider = await createApprovedProvider();
     const { court } = await createVenueWithCourt(provider.id);
-    const weekday = tomorrowAt(0).getUTCDay();
+    const weekday = vietnamWeekday(tomorrowAt(0));
     await setOperatingHours(provider.userId, court.id, weekday, 6 * 60, 22 * 60);
     await prisma.booking.create({
       data: { courtId: court.id, startAt: tomorrowAt(21), endAt: tomorrowAt(22), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'A', guestContact: '0900' },
@@ -74,7 +75,7 @@ describe('VEN-05 — Giờ hoạt động và ngày đóng cửa', () => {
   it('AC-VEN-05-5: sân mở 8h-20h -> mở rộng thành 6h-22h -> thành công không cần kiểm tra gì thêm', async () => {
     const provider = await createApprovedProvider();
     const { court } = await createVenueWithCourt(provider.id);
-    const weekday = tomorrowAt(0).getUTCDay();
+    const weekday = vietnamWeekday(tomorrowAt(0));
     await setOperatingHours(provider.userId, court.id, weekday, 8 * 60, 20 * 60);
     await prisma.booking.create({
       data: { courtId: court.id, startAt: tomorrowAt(9), endAt: tomorrowAt(10), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'A', guestContact: '0900' },

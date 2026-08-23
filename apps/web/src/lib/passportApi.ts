@@ -25,6 +25,9 @@ export interface PublicPassport {
   userId: string;
   tier: SkillTier;
   matchesPlayed: number;
+  displayName?: string;
+  avatarUrl?: string | null;
+  identityVisibility?: 'public' | 'hidden';
 }
 export interface OwnPassport extends PublicPassport {
   declaredTier: SkillTier | null;

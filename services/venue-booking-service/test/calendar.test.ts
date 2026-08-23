@@ -31,16 +31,19 @@ describe('VEN-08 — Quản lý lịch sân hợp nhất', () => {
     const { venue, courts } = await createVenueWithNCourts(provider.id, 2);
     const day = new Date();
     await prisma.booking.create({
-      data: { courtId: courts[0]!.id, startAt: day, endAt: new Date(day.getTime() + 3600_000), source: 'marketplace', status: 'confirmed', priceSnapshot: 100000n, userId: 'player-1' },
+      data: { courtId: courts[0]!.id, startAt: day, endAt: new Date(day.getTime() + 3600_000), source: 'marketplace', status: 'confirmed', priceSnapshot: 100000n, userId: '11111111-1111-4111-8111-111111111111' },
     });
     await prisma.booking.create({
       data: { courtId: courts[1]!.id, startAt: day, endAt: new Date(day.getTime() + 3600_000), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Khach', guestContact: '0900' },
     });
 
-    const result = await getUnifiedCalendar(provider.userId, venue.id, day);
+    const result = await getUnifiedCalendar(provider.userId, venue.id, day, {
+      getPublicDisplayNames: async () => [{ userId: '11111111-1111-4111-8111-111111111111', displayName: 'Khách demo' }],
+    });
     const bookingEntries = result.entries.filter((e) => e.kind === 'booking');
     expect(bookingEntries).toHaveLength(2);
     expect(bookingEntries.map((e) => e.source).sort()).toEqual(['internal', 'marketplace']);
+    expect(bookingEntries.find((e) => e.source === 'marketplace')?.customerLabel).toBe('Khách demo');
   });
 
   it('AC-VEN-08-3: slot đang HOLD chưa hết hạn -> hiển thị đang giữ chỗ, khác đã xác nhận', async () => {
@@ -75,5 +78,20 @@ describe('VEN-08 — Quản lý lịch sân hợp nhất', () => {
     await expect(getUnifiedCalendar(providerA.userId, venueB.id, new Date())).rejects.toMatchObject({
       code: 'FORBIDDEN_NOT_OWNER',
     });
+  });
+
+  it('chỉ lấy booking thuộc trọn ngày Việt Nam được chọn', async () => {
+    const provider = await createApprovedProvider();
+    const { venue, courts } = await createVenueWithNCourts(provider.id, 1);
+    const date = new Date('2026-08-23T00:00:00.000Z');
+    const inside = await prisma.booking.create({
+      data: { courtId: courts[0]!.id, startAt: new Date('2026-08-22T18:00:00.000Z'), endAt: new Date('2026-08-22T19:00:00.000Z'), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Trong ngày', guestContact: '0900' },
+    });
+    await prisma.booking.create({
+      data: { courtId: courts[0]!.id, startAt: new Date('2026-08-23T18:00:00.000Z'), endAt: new Date('2026-08-23T19:00:00.000Z'), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Ngày sau', guestContact: '0900' },
+    });
+
+    const result = await getUnifiedCalendar(provider.userId, venue.id, date);
+    expect(result.entries.map((entry) => entry.id)).toEqual([inside.id]);
   });
 });

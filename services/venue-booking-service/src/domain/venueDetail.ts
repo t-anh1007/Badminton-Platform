@@ -31,6 +31,7 @@ export async function getVenueDetail(venueId: string) {
     courts: venue.courts.filter((c) => c.active).map((c) => ({
       id: c.id,
       name: c.name,
+      images: c.images,
       bookingRule: c.bookingRule
         ? {
             stepMinutes: c.bookingRule.stepMinutes,

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@khoaluantn/eventbus": "^0.1.0",
+    "@khoaluantn/object-storage": "^0.1.0",
     "@khoaluantn/shared": "^0.1.0",
     "@prisma/client": "^5.22.0",
     "amqplib": "^2.0.1",

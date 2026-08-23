@@ -8,7 +8,7 @@ import { getAdminAccounts, lockAdminAccount, unlockAdminAccount } from '../../li
 import { cancelAdminBooking, getAdminBookings, rejectProvider } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/accountApi.js', () => ({ getAdminAccounts: vi.fn().mockResolvedValue([{ id: 'u1', email: 'player@example.com', displayName: 'Người chơi A', status: 'active', roles: ['player'] }]), lockAdminAccount: vi.fn().mockResolvedValue({}), unlockAdminAccount: vi.fn().mockResolvedValue({}) }))
-vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue([{ id: 'b1', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', player: { label: 'Người chơi đã đăng nhập' }, court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu A' } } }]), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
+vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', userId: 'user-internal-id', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue([{ id: 'b1', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', player: { label: 'Người chơi đã đăng nhập' }, court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu A' } } }]), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
 vi.mock('../../lib/systemHealthApi.js', () => ({ getSystemHealth: vi.fn().mockResolvedValue([{ key: 'account', label: 'Tài khoản', state: 'available' }, { key: 'finance', label: 'Tài chính', state: 'degraded' }, { key: 'community', label: 'Cộng đồng', state: 'unreachable' }]) }))
 afterEach(cleanup)
 
@@ -33,6 +33,9 @@ it('unlocks a locked account only after an explicit reason', async () => {
 
 it('validates a provider rejection reason and reloads its queue', async () => {
   render(<AdminProvidersPage />)
+  expect(await screen.findByText('Nhà sân A')).toBeInTheDocument()
+  expect(screen.queryByText('User ID')).not.toBeInTheDocument()
+  expect(screen.queryByText('user-internal-id')).not.toBeInTheDocument()
   fireEvent.click(await screen.findByRole('button', { name: 'Từ chối' }))
   fireEvent.change(screen.getByLabelText('Lý do từ chối chủ sân'), { target: { value: 'Thiếu giấy tờ' } })
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận quyết định' }))

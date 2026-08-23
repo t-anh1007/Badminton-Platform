@@ -33,7 +33,17 @@ export interface CreateMatchInput {
   skillMax?: SkillTier;
 }
 
-const MATCH_CUTOFF_MINUTES = 60;
+// PLAN_MATCH-DEPOSIT (kèo đơn, cọc). Đặt thành config để chỉnh không rải rác.
+const HOUR_MS = 3_600_000;
+export const MIN_LEAD_HOURS = 24;      // DM3: chỉ tạo kèo khi slot còn >= 24h
+export const MAX_ACTIVE_MATCHES = 3;   // DM7: trần kèo đang giữ slot / chủ kèo
+
+/** DM5 — hạn tìm đối X theo thời gian dẫn L (giờ). */
+export function computeMatchDeadline(now: Date, startAt: Date): Date {
+  const leadHours = (startAt.getTime() - now.getTime()) / HOUR_MS;
+  const holdHours = leadHours < 48 ? 6 : leadHours < 72 ? 12 : leadHours < 120 ? 18 : 24;
+  return new Date(now.getTime() + holdHours * HOUR_MS);
+}
 
 export async function createMatch(
   venueBookingClient: VenueBookingClient,
@@ -42,7 +52,26 @@ export async function createMatch(
   input: CreateMatchInput,
   now = new Date(),
 ) {
-  const bookingId = input.bookingId ?? (await venueBookingClient.createBookingFromHold(input.holdId!, authorization));
+  // DM1/DM13: chỉ kèo đơn 2 người, chia đôi phí. DM2: tạo từ slot đang giữ (hold).
+  if (input.feeMode !== 'split') {
+    throw new AppError(422, 'MATCH_DEPOSIT_SPLIT_ONLY', 'Kèo cọc chỉ hỗ trợ chia đôi phí.');
+  }
+  if (input.capacity !== 2) {
+    throw new AppError(422, 'MATCH_SINGLES_ONLY', 'Hiện chỉ hỗ trợ kèo đơn 2 người.');
+  }
+  if (!input.holdId) {
+    throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ slot trước khi tạo kèo.');
+  }
+
+  // DM7: trần số kèo đang giữ slot đồng thời của chủ kèo.
+  const activeCount = await prisma.match.count({
+    where: { organizerUserId, status: { in: ['awaiting_deposit', 'open', 'filled'] } },
+  });
+  if (activeCount >= MAX_ACTIVE_MATCHES) {
+    throw new AppError(409, 'MATCH_ACTIVE_LIMIT', `Bạn đang giữ ${MAX_ACTIVE_MATCHES} kèo; hãy hoàn tất hoặc hủy bớt trước.`);
+  }
+
+  const bookingId = await venueBookingClient.createBookingFromHold(input.holdId, authorization);
   const context = await venueBookingClient.getMatchContext(bookingId);
   const heldByOrganizer =
     context?.status === 'held' &&
@@ -53,13 +82,17 @@ export async function createMatch(
     throw new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Slot sân không còn được organizer giữ hợp lệ.');
   }
 
-  const cutoffAt = new Date(new Date(context.startAt).getTime() - MATCH_CUTOFF_MINUTES * 60_000);
-  if (cutoffAt <= now) {
-    throw new AppError(422, 'MATCH_CUTOFF_PASSED', 'Slot đã qua hạn chốt kèo.');
+  const startAt = new Date(context.startAt);
+  // DM3: chỉ cho tạo kèo khi slot còn ít nhất 24h tới giờ đá.
+  if (startAt.getTime() - now.getTime() < MIN_LEAD_HOURS * HOUR_MS) {
+    throw new AppError(422, 'MATCH_LEAD_TOO_SHORT', 'Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.');
   }
+  const deadlineAt = computeMatchDeadline(now, startAt);
+  const depositExpiresAt = new Date(context.holdExpiresAt!); // cửa sổ checkout (~10 phút)
+
   const price = BigInt(context.priceSnapshot);
-  const feePerSlot = input.feeMode === 'free' ? 0n : price / BigInt(input.capacity);
-  const organizerContribution = input.feeMode === 'free' ? price : price - feePerSlot * BigInt(input.capacity - 1);
+  const feePerSlot = price / 2n;                 // đối trả 1/2 (kèo đơn)
+  const organizerContribution = price - feePerSlot; // cọc chủ kèo = phần còn lại (bảo toàn giá trị)
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
@@ -67,7 +100,7 @@ export async function createMatch(
     if (existing) {
       const sameRequest =
         existing.organizerUserId === organizerUserId &&
-        existing.capacity === input.capacity &&
+        existing.capacity === 2 &&
         existing.feePerSlot === feePerSlot &&
         existing.skillMin === (input.skillMin ?? null) &&
         existing.skillMax === (input.skillMax ?? null);
@@ -81,11 +114,13 @@ export async function createMatch(
       data: {
         organizerUserId,
         bookingId,
-        capacity: input.capacity,
+        capacity: 2,
         feePerSlot,
         skillMin: input.skillMin,
         skillMax: input.skillMax,
-        cutoffAt,
+        status: 'awaiting_deposit',
+        cutoffAt: deadlineAt,
+        deadlineAt,
       },
     });
     await writeOutbox(tx, {
@@ -96,11 +131,12 @@ export async function createMatch(
         matchId: match.id,
         organizerUserId,
         bookingId,
-        capacity: match.capacity,
-        feePerSlot: match.feePerSlot.toString(),
+        capacity: 2,
+        feePerSlot: feePerSlot.toString(),
         bookingPrice: price.toString(),
         organizerContribution: organizerContribution.toString(),
-        cutoffAt: match.cutoffAt.toISOString(),
+        cutoffAt: deadlineAt.toISOString(),
+        depositExpiresAt: depositExpiresAt.toISOString(),
       } satisfies MatchCreatedPayload,
     });
     return match;
@@ -129,10 +165,12 @@ export async function findPublicMatches(
   venueBookingClient: VenueBookingClient,
   filters: MatchSearchFilters,
   now = new Date(),
+  accountClient?: AccountClient,
 ) {
   const candidates = await prisma.match.findMany({
     where: {
       status: 'open',
+      skillConfiguredAt: { not: null },
       cutoffAt: { gt: now },
       ...(filters.feeMax === undefined ? {} : { feePerSlot: { lte: filters.feeMax } }),
     },
@@ -144,12 +182,14 @@ export async function findPublicMatches(
     },
   });
 
+  if (candidates.length === 0) return [];
+
   const contexts = venueBookingClient.getMatchContexts
     ? await venueBookingClient.getMatchContexts(candidates.map((match) => match.bookingId))
     : await Promise.all(candidates.map((match) => venueBookingClient.getMatchContext(match.bookingId)));
   const hydrated = candidates.map((match, index) => ({ match, context: contexts[index] ?? null }));
 
-  return hydrated
+  const rows = hydrated
     .flatMap(({ match, context }) => {
       const openSlots = match.capacity - 1 - match.joins.length;
       if (
@@ -178,6 +218,8 @@ export async function findPublicMatches(
       ];
     })
     .sort((left, right) => left.startAt.localeCompare(right.startAt));
+  if (!accountClient) return rows;
+  return Promise.all(rows.map(async (row) => ({ ...row, organizer: await accountClient.getPublicMatchProfile(row.organizerUserId) })));
 }
 
 export async function getPublicMatchDetail(
@@ -207,9 +249,10 @@ export async function getPublicMatchDetail(
 
   const ownJoin = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
   const isOrganizer = requester?.id === match.organizerUserId;
-  const isPubliclyOpen = match.status === 'open' && match.cutoffAt > now;
+  const isPubliclyOpen = match.status === 'open' && match.skillConfiguredAt !== null && match.cutoffAt > now;
   const canViewOwnLifecycle = Boolean(
-    requester && (isOrganizer || ownJoin) && ['open', 'filled', 'confirmed'].includes(match.status),
+    // PLAN_MATCH-DEPOSIT: chủ kèo phải xem được kèo awaiting_deposit để trả cọc.
+    requester && (isOrganizer || ownJoin) && ['awaiting_deposit', 'open', 'filled', 'confirmed'].includes(match.status),
   );
   if (!isPubliclyOpen && !canViewOwnLifecycle) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
@@ -234,6 +277,7 @@ export async function getPublicMatchDetail(
     feePerSlot: match.feePerSlot.toString(),
     skillMin: match.skillMin,
     skillMax: match.skillMax,
+    skillConfiguredAt: match.skillConfiguredAt,
     cutoffAt: match.cutoffAt,
     startAt: context.startAt,
     endAt: context.endAt,
@@ -241,6 +285,7 @@ export async function getPublicMatchDetail(
     venue: context.venue,
     organizer: {
       displayName: organizerProfile.displayName,
+      avatarUrl: organizerProfile.avatarUrl,
       identityVisibility: organizerProfile.identityVisibility,
       tier: organizerPassport
         ? describeRating({
@@ -255,6 +300,7 @@ export async function getPublicMatchDetail(
       canJoin: Boolean(
         requester?.roles.includes('player') &&
         match.status === 'open' &&
+        match.skillConfiguredAt !== null &&
         match.cutoffAt > now &&
         requester.id !== match.organizerUserId &&
         !ownJoin &&
@@ -262,7 +308,8 @@ export async function getPublicMatchDetail(
       ),
       isOrganizer,
       canPayOrganizerContribution: Boolean(
-        isOrganizer && match.status === 'filled' && match.feePerSlot > 0n && !match.organizerContributionPaidAt,
+        // PLAN_MATCH-DEPOSIT: chủ kèo trả cọc ở bước awaiting_deposit (trước, không phải sau filled).
+        isOrganizer && match.status === 'awaiting_deposit' && match.feePerSlot > 0n && !match.organizerContributionPaidAt,
       ),
       ownJoin: ownJoin
         ? {
@@ -280,7 +327,7 @@ export async function requestJoin(matchId: string, participantUserId: string, no
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
     const match = await tx.match.findUnique({ where: { id: matchId } });
     if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
-    if (match.status !== 'open' || match.cutoffAt <= now) {
+    if (match.status !== 'open' || match.skillConfiguredAt === null || match.cutoffAt <= now) {
       throw new AppError(409, 'MATCH_NOT_OPEN', 'Kèo không còn mở nhận người chơi.');
     }
     if (match.organizerUserId === participantUserId) {
@@ -303,5 +350,38 @@ export async function requestJoin(matchId: string, participantUserId: string, no
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
     return tx.join.create({ data: { matchId, participantUserId } });
+  });
+}
+
+export async function configureMatchSkillRange(
+  matchId: string,
+  organizerUserId: string,
+  input: { skillMin: SkillTier; skillMax: SkillTier },
+  now = new Date(),
+) {
+  if (TIER_ORDER[input.skillMin] > TIER_ORDER[input.skillMax]) {
+    throw new AppError(422, 'MATCH_SKILL_RANGE_INVALID', 'Bậc tối thiểu không được cao hơn bậc tối đa.');
+  }
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
+    const match = await tx.match.findUnique({ where: { id: matchId } });
+    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
+    if (match.organizerUserId !== organizerUserId) {
+      throw new AppError(403, 'MATCH_ORGANIZER_REQUIRED', 'Chỉ chủ kèo được thiết lập bậc trình độ.');
+    }
+    if (match.skillConfiguredAt) {
+      if (match.skillMin === input.skillMin && match.skillMax === input.skillMax) {
+        return { id: match.id, skillMin: match.skillMin, skillMax: match.skillMax, skillConfiguredAt: match.skillConfiguredAt };
+      }
+      throw new AppError(409, 'MATCH_SKILL_ALREADY_CONFIGURED', 'Bậc trình độ của kèo đã được thiết lập.');
+    }
+    if (match.status !== 'open' || !match.organizerContributionPaidAt) {
+      throw new AppError(409, 'MATCH_SKILL_SETUP_NOT_READY', 'Kèo phải được thanh toán cọc và đang mở trước khi thiết lập bậc.');
+    }
+    return tx.match.update({
+      where: { id: matchId },
+      data: { ...input, skillConfiguredAt: now },
+      select: { id: true, skillMin: true, skillMax: true, skillConfiguredAt: true },
+    });
   });
 }

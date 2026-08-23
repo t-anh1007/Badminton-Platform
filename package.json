@@ -16,7 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "e2e": "dotenv -e .env -- playwright test",
     "dev": "concurrently -n gateway,account,venue,finance,match,community -c blue,green,yellow,magenta,cyan,white \"npm:dev -w services/api-gateway\" \"npm:dev -w services/account-service\" \"npm:dev -w services/venue-booking-service\" \"npm:dev -w services/finance-service\" \"npm:dev -w services/matchmaking-service\" \"npm:dev -w services/community-service\"",
-  "infra:up": "docker compose -f docker-compose.infrastructure.yml up -d",
+    "infra:up": "docker compose -f docker-compose.infrastructure.yml up -d",
     "infra:down": "docker compose -f docker-compose.infrastructure.yml down",
     "prisma:migrate": "npm run prisma:migrate --workspaces --if-present",
     "ui:coverage": "node --experimental-strip-types scripts/verify-backend-ui-coverage.ts"

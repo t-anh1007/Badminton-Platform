@@ -130,7 +130,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 | User Story | Là người tìm sân, tôi muốn xem ảnh, địa chỉ, tiện ích và danh sách sân con của một cơ sở, để biết chỗ đó có phù hợp không |
 | Điều kiện trước | Cơ sở thỏa BR-BOK-01 |
 | Sự kiện kích hoạt | Mở một cơ sở từ kết quả tìm kiếm |
-| Workflow chính | 1. Hiển thị tên, ảnh, địa chỉ, vị trí bản đồ, tiện ích → 2. Liệt kê sân con đang hoạt động → 3. Hiển thị giờ hoạt động và khoảng giá → 4. Nút chuyển sang BOK-04 |
+| Workflow chính | 1. Hiển thị tên, ảnh, địa chỉ, vị trí bản đồ, tiện ích → 2. Liệt kê sân con đang hoạt động → 3. Khi chọn sân con, hiển thị 1–5 ảnh riêng cùng giờ hoạt động và khoảng giá → 4. Nút chuyển sang BOK-04 |
 | Luồng thay thế | Mở trực tiếp bằng đường dẫn mà không qua tìm kiếm |
 | Luồng lỗi | Cơ sở không còn thỏa BR-BOK-01 tại thời điểm mở → hiển thị thông báo không khả dụng thay vì lỗi kỹ thuật |
 | Business Rules | BR-BOK-01 |
@@ -147,6 +147,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 
 - `AC-BOK-03-1` — **Given** một cơ sở có 3 sân con trong đó 1 sân `active=false`, **When** xem chi tiết, **Then** chỉ 2 sân đang hoạt động được liệt kê.
 - `AC-BOK-03-2` — **Given** một cơ sở vừa bị ẩn do chủ tài khoản bị khóa, **When** mở đường dẫn trực tiếp tới cơ sở đó, **Then** hiển thị thông báo không khả dụng.
+- `AC-BOK-03-3` — **Given** người chơi chọn một sân con, **When** xem hoặc bắt đầu đặt sân, **Then** hiển thị bộ ảnh riêng của đúng sân con đó.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 2 AC.
 

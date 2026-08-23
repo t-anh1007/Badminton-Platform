@@ -29,11 +29,12 @@ export async function savePricingRules(
 ) {
   const court = await getOwnedCourtOrThrow(userId, courtId);
 
-  // Dung sai 60s cho "ngay bây giờ" — tránh việc gọi savePricingRules(new Date())
-  // rồi vài ms sau Date.now() đã lớn hơn effectiveFrom, khiến "hiện tại" bị
-  // hiểu nhầm thành "quá khứ".
-  const PAST_TOLERANCE_MS = 60_000;
-  if (effectiveFrom.getTime() < Date.now() - PAST_TOLERANCE_MS) {
+  // Trường effectiveFrom được nhập theo ngày, không phải một thời điểm trong ngày.
+  // Vì vậy 00:00 UTC của hôm nay vẫn hợp lệ dù người dùng lưu vào buổi chiều.
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const effectiveDayUtc = Date.UTC(effectiveFrom.getUTCFullYear(), effectiveFrom.getUTCMonth(), effectiveFrom.getUTCDate());
+  if (effectiveDayUtc < todayUtc) {
     throw new AppError('EFFECTIVE_FROM_IN_PAST', 'Thời điểm hiệu lực không được ở quá khứ.', 400);
   }
 
@@ -121,9 +122,13 @@ export async function getEffectivePricingWindows(courtId: string, weekday: numbe
 
 /** BR-VEN-07 — tổng tiền booking bắc cầu nhiều khung giá (AC-VEN-06-5). */
 export async function calculateBookingPrice(courtId: string, startAt: Date, endAt: Date): Promise<bigint> {
-  const weekday = startAt.getUTCDay();
-  const startMinute = startAt.getUTCHours() * 60 + startAt.getUTCMinutes();
-  const endMinute = endAt.getUTCHours() * 60 + endAt.getUTCMinutes();
+  // Court schedules and pricing windows are Vietnam wall-clock minutes, while
+  // booking instants are stored as UTC. Vietnam has a fixed UTC+7 offset.
+  const vietnamStart = new Date(startAt.getTime() + 7 * 60 * 60_000);
+  const vietnamEnd = new Date(endAt.getTime() + 7 * 60 * 60_000);
+  const weekday = vietnamStart.getUTCDay();
+  const startMinute = vietnamStart.getUTCHours() * 60 + vietnamStart.getUTCMinutes();
+  const endMinute = vietnamEnd.getUTCHours() * 60 + vietnamEnd.getUTCMinutes();
   const windows = await getEffectivePricingWindows(courtId, weekday, startAt);
 
   let total = 0n;

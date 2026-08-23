@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { setOperatingHours, addClosure } from '../domain/schedule.js';
+import { setOperatingHours, replaceOperatingHours, addClosure } from '../domain/schedule.js';
 import { savePricingRules } from '../domain/pricing.js';
 import { setBookingRule } from '../domain/bookingRule.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -17,6 +17,17 @@ scheduleRouter.post(
     const { weekday, openMinute, closeMinute } = hoursSchema.parse(req.body);
     const userId = (req as AuthenticatedRequest).user!.id;
     const result = await setOperatingHours(userId, req.params.courtId!, weekday, openMinute, closeMinute);
+    res.status(200).json(result);
+  }),
+);
+
+scheduleRouter.put(
+  '/courts/:courtId/operating-hours',
+  requireAuth,
+  h(async (req, res) => {
+    const { hours } = z.object({ hours: z.array(hoursSchema).min(1).max(7) }).strict().parse(req.body);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    const result = await replaceOperatingHours(userId, req.params.courtId!, hours);
     res.status(200).json(result);
   }),
 );

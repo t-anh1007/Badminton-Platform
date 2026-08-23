@@ -15,9 +15,12 @@ class FakeVenueBookingClient implements VenueBookingClient {
     return this.contexts.get(bookingId) ?? null;
   }
 
-  async createBookingFromHold(): Promise<string> {
-    throw new Error('not configured for this test');
+  async createBookingFromHold(holdId: string): Promise<string> {
+    // Test map context dưới cùng id với holdId để mô phỏng booking-từ-hold.
+    return holdId;
   }
+
+  async activateMatchHold(): Promise<void> {}
 
   async cancelConfirmedBooking(): Promise<{ refundPercent: number }> {
     return { refundPercent: 50 };
@@ -29,7 +32,7 @@ class FakeAccountClient implements AccountClient {
 
   async getPublicMatchProfile(userId: string) {
     const displayName = this.displayNames.get(userId);
-    return displayName ? { userId, displayName, identityVisibility: 'public' as const } : null;
+    return displayName ? { userId, displayName, avatarUrl: null, identityVisibility: 'public' as const } : null;
   }
 }
 
@@ -71,26 +74,40 @@ function context(bookingId: string, startAt: Date): VenueMatchContext {
 
 async function createMatch(input: {
   capacity?: number;
-  status?: 'open' | 'filled';
+  status?: 'awaiting_deposit' | 'open' | 'filled';
   cutoffAt?: Date;
   skillMin?: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
   skillMax?: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
+  skillConfiguredAt?: Date | null;
+  organizerContributionPaidAt?: Date | null;
 }) {
   const bookingId = randomUUID();
   bookingIds.push(bookingId);
   venueBookingClient.contexts.set(bookingId, context(bookingId, new Date(Date.now() + 3 * 60 * 60_000)));
-  return prisma.match.create({
+  const match = await prisma.match.create({
     data: {
       organizerUserId: randomUUID(),
       bookingId,
       capacity: input.capacity ?? 4,
       feePerSlot: 100000n,
       cutoffAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
+      deadlineAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
       status: input.status ?? 'open',
       skillMin: input.skillMin,
       skillMax: input.skillMax,
+      skillConfiguredAt: input.skillConfiguredAt === undefined ? new Date() : input.skillConfiguredAt,
+      organizerContributionPaidAt: input.organizerContributionPaidAt,
     },
   });
+  // approveJoin đòi MatchCreated đã ghi outbox cho kèo có phí (dữ liệu funding).
+  await prisma.outbox.create({
+    data: {
+      aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCreated',
+      payload: { matchId: match.id, bookingId, capacity: match.capacity, feePerSlot: '100000' },
+    },
+  });
+  createdMatchIds.push(match.id);
+  return match;
 }
 
 beforeEach(async () => {
@@ -192,31 +209,28 @@ describe('MMP-01 — public match search', () => {
 });
 
 describe('MMP-02 — create and publish a match', () => {
-  it('AC-MMP-02-1: creates a split-fee match from the organizer owned held booking', async () => {
+  it('AC-MMP-02-1: kèo đơn cọc — tạo từ hold tạo booking awaiting_deposit, cọc = 1/2', async () => {
     const organizerUserId = randomUUID();
-    const bookingId = randomUUID();
-    bookingIds.push(bookingId);
-    const slot = context(bookingId, new Date(Date.now() + 3 * 60 * 60_000));
-    venueBookingClient.contexts.set(bookingId, {
-      ...slot,
-      ownerUserId: organizerUserId,
-    });
+    const holdId = randomUUID(); // fake: createBookingFromHold trả chính holdId làm bookingId
+    bookingIds.push(holdId);
+    const slot = context(holdId, new Date(Date.now() + 48 * 60 * 60_000)); // >= 24h (DM3)
+    venueBookingClient.contexts.set(holdId, { ...slot, ownerUserId: organizerUserId });
 
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ bookingId, capacity: 4, feeMode: 'split' })
+      .send({ holdId, capacity: 2, feeMode: 'split' })
       .expect(201);
     createdMatchIds.push(response.body.id);
 
     expect(response.body).toMatchObject({
       organizerUserId,
-      bookingId,
-      capacity: 4,
-      feePerSlot: '100000',
-      status: 'open',
+      bookingId: holdId,
+      capacity: 2,
+      feePerSlot: '200000', // price 400000 / 2 (đối trả 1/2)
+      status: 'awaiting_deposit',
     });
-    expect(new Date(response.body.cutoffAt).getTime()).toBe(new Date(slot.startAt).getTime() - 60 * 60_000);
+    expect(new Date(response.body.cutoffAt).getTime()).toBeGreaterThan(Date.now());
     expect(
       await prisma.outbox.count({
         where: { aggregateId: response.body.id, eventType: 'MatchCreated' },
@@ -226,17 +240,33 @@ describe('MMP-02 — create and publish a match', () => {
 
   it('AC-MMP-02-2: rejects a booking not held by the organizer', async () => {
     const organizerUserId = randomUUID();
-    const bookingId = randomUUID();
-    bookingIds.push(bookingId);
-    venueBookingClient.contexts.set(bookingId, context(bookingId, new Date(Date.now() + 3 * 60 * 60_000)));
+    const holdId = randomUUID();
+    bookingIds.push(holdId);
+    venueBookingClient.contexts.set(holdId, context(holdId, new Date(Date.now() + 48 * 60 * 60_000)));
 
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ bookingId, capacity: 4, feeMode: 'split' })
+      .send({ holdId, capacity: 2, feeMode: 'split' })
       .expect(422);
 
     expect(response.body.error.code).toBe('MATCH_SLOT_NOT_HELD');
+  });
+
+  it('DM3: rejects a slot less than 24h away', async () => {
+    const organizerUserId = randomUUID();
+    const holdId = randomUUID();
+    bookingIds.push(holdId);
+    const slot = context(holdId, new Date(Date.now() + 3 * 60 * 60_000)); // chỉ 3h
+    venueBookingClient.contexts.set(holdId, { ...slot, ownerUserId: organizerUserId });
+
+    const response = await request(app)
+      .post('/matches')
+      .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
+      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .expect(422);
+
+    expect(response.body.error.code).toBe('MATCH_LEAD_TOO_SHORT');
   });
 
   it('AC-MMP-02-3: rejects capacity below two', async () => {
@@ -251,24 +281,20 @@ describe('MMP-02 — create and publish a match', () => {
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('AC-MMP-02-4: creates a free match with no participant fee', async () => {
+  it('AC-MMP-02-4: kèo miễn phí ngoài scope mô hình cọc -> từ chối', async () => {
     const organizerUserId = randomUUID();
-    const bookingId = randomUUID();
-    bookingIds.push(bookingId);
-    const slot = context(bookingId, new Date(Date.now() + 3 * 60 * 60_000));
-    venueBookingClient.contexts.set(bookingId, {
-      ...slot,
-      ownerUserId: organizerUserId,
-    });
+    const holdId = randomUUID();
+    bookingIds.push(holdId);
+    const slot = context(holdId, new Date(Date.now() + 48 * 60 * 60_000));
+    venueBookingClient.contexts.set(holdId, { ...slot, ownerUserId: organizerUserId });
 
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ bookingId, capacity: 4, feeMode: 'free' })
-      .expect(201);
-    createdMatchIds.push(response.body.id);
+      .send({ holdId, capacity: 2, feeMode: 'free' })
+      .expect(422);
 
-    expect(response.body.feePerSlot).toBe('0');
+    expect(response.body.error.code).toBe('MATCH_DEPOSIT_SPLIT_ONLY');
   });
 });
 
@@ -317,6 +343,7 @@ describe('MMP-03 — public match detail', () => {
       openSlots: 2,
       organizer: {
         displayName: 'Nguyễn Minh',
+        avatarUrl: null,
         identityVisibility: 'public',
         tier: 'intermediate_plus',
       },
@@ -548,6 +575,26 @@ describe('MMP-05 — organizer join review', () => {
     ).toBe(1);
   });
 
+  it('does not emit JoinApproved for a paid legacy match without MatchCreated', async () => {
+    const { match, join } = await pendingJoinFixture();
+    await prisma.outbox.deleteMany({
+      where: { aggregateId: match.id, eventType: 'MatchCreated' },
+    });
+
+    const response = await request(app)
+      .post(`/matches/${match.id}/joins/${join.id}/approve`)
+      .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
+      .expect(409);
+
+    expect(response.body.error.code).toBe('MATCH_FUNDING_NOT_INITIALIZED');
+    await expect(prisma.join.findUniqueOrThrow({ where: { id: join.id } })).resolves.toMatchObject({
+      status: 'pending', approvedAt: null,
+    });
+    expect(await prisma.outbox.count({
+      where: { aggregateId: join.id, eventType: 'JoinApproved' },
+    })).toBe(0);
+  });
+
   it('AC-MMP-05-2: a non-organizer cannot approve', async () => {
     const { match, join } = await pendingJoinFixture();
 
@@ -559,7 +606,7 @@ describe('MMP-05 — organizer join review', () => {
     expect(response.body.error.code).toBe('MATCH_ORGANIZER_ONLY');
   });
 
-  it('AC-MMP-05-3: an unpaid approval returns to pending after ten minutes', async () => {
+  it('AC-MMP-05-3: an unpaid approval returns to pending after the payment window (15 min)', async () => {
     const { join } = await pendingJoinFixture();
     await prisma.join.update({
       where: { id: join.id },
@@ -569,7 +616,7 @@ describe('MMP-05 — organizer join review', () => {
       },
     });
 
-    expect(await releaseExpiredApprovedJoins(new Date('2026-08-08T00:10:00.001Z'))).toBe(1);
+    expect(await releaseExpiredApprovedJoins(new Date('2026-08-08T00:15:00.001Z'))).toBe(1);
     await expect(prisma.join.findUniqueOrThrow({ where: { id: join.id } })).resolves.toMatchObject({
       status: 'pending',
       approvedAt: null,
@@ -657,5 +704,55 @@ describe('join expiry scheduler lifecycle', () => {
     releaseSweep();
     await stopping;
     expect(stopped).toBe(true);
+  });
+});
+
+describe('post-payment skill setup', () => {
+  it('hides an unconfigured match, then publishes it after organizer setup', async () => {
+    const match = await createMatch({
+      capacity: 2,
+      status: 'open',
+      skillConfiguredAt: null,
+      organizerContributionPaidAt: new Date(),
+    });
+    const token = playerToken(match.organizerUserId);
+
+    const before = await request(app).get('/matches').expect(200);
+    expect(before.body.matches).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: match.id })]));
+
+    const configured = await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'beginner', skillMax: 'intermediate_plus' })
+      .expect(200);
+    expect(configured.body).toMatchObject({ id: match.id, skillMin: 'beginner', skillMax: 'intermediate_plus' });
+
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'beginner', skillMax: 'intermediate_plus' })
+      .expect(200);
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'newcomer', skillMax: 'advanced' })
+      .expect(409);
+
+    const after = await request(app).get('/matches').expect(200);
+    expect(after.body.matches).toEqual(expect.arrayContaining([expect.objectContaining({ id: match.id })]));
+  });
+
+  it('rejects an invalid range and a non-organizer', async () => {
+    const match = await createMatch({ status: 'open', skillConfiguredAt: null, organizerContributionPaidAt: new Date() });
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
+      .send({ skillMin: 'advanced', skillMax: 'beginner' })
+      .expect(422);
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
+      .send({ skillMin: 'beginner', skillMax: 'advanced' })
+      .expect(403);
   });
 });

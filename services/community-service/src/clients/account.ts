@@ -1,15 +1,15 @@
 import { z } from 'zod';
 
-export interface DisplayNameEntry { userId: string; displayName: string | null }
+export interface PublicIdentityEntry { userId: string; displayName: string | null; avatarUrl: string | null }
 
 export interface AccountEligibilityClient {
   isVerifiedPlayer(userId: string): Promise<boolean>;
-  getPublicDisplayNames(userIds: string[]): Promise<DisplayNameEntry[]>;
+  getPublicDisplayNames(userIds: string[]): Promise<PublicIdentityEntry[]>;
 }
 
 const publicMatchProfile = z.object({ userId: z.string().uuid() }).passthrough();
 const displayNamesResponse = z.object({
-  profiles: z.array(z.object({ userId: z.string().uuid(), displayName: z.string().nullable() })),
+  profiles: z.array(z.object({ userId: z.string().uuid(), displayName: z.string().nullable(), avatarUrl: z.string().nullable() })),
 });
 
 /** Uses Account's existing internal eligibility projection; no cross-schema read. */
@@ -25,7 +25,7 @@ export class HttpAccountEligibilityClient implements AccountEligibilityClient {
     return publicMatchProfile.parse(await response.json()).userId === userId;
   }
 
-  async getPublicDisplayNames(userIds: string[]): Promise<DisplayNameEntry[]> {
+  async getPublicDisplayNames(userIds: string[]): Promise<PublicIdentityEntry[]> {
     const unique = Array.from(new Set(userIds));
     if (unique.length === 0) return [];
     const response = await fetch(`${this.baseUrl}/internal/players/public-display-names`, {

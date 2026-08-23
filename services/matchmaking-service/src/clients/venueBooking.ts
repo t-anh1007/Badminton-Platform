@@ -13,6 +13,8 @@ export interface VenueBookingClient {
   getMatchContext(bookingId: string): Promise<VenueMatchContext | null>;
   getMatchContexts?(bookingIds: string[]): Promise<Array<VenueMatchContext | null>>;
   createBookingFromHold(holdId: string, authorization: string): Promise<string>;
+  /** PLAN_MATCH-DEPOSIT: gia hạn hold+booking kèo tới hạn X sau khi trả cọc. */
+  activateMatchHold(bookingId: string, userId: string, deadlineAt: Date): Promise<void>;
   cancelConfirmedBooking(bookingId: string, authorization: string): Promise<{ refundPercent: number }>;
   resolveMatchBooking(input: {
     commandId: string;
@@ -45,6 +47,18 @@ export class HttpVenueBookingClient implements VenueBookingClient {
     });
     if (!response.ok) throw new Error(`venue-booking batch match context failed with ${response.status}`);
     return z.object({ contexts: z.array(venueMatchContextSchema.nullable()) }).parse(await response.json()).contexts;
+  }
+
+  async activateMatchHold(bookingId: string, userId: string, deadlineAt: Date): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}/internal/bookings/${encodeURIComponent(bookingId)}/activate-match-hold`,
+      {
+        method: 'POST',
+        headers: internalServiceHeaders(),
+        body: JSON.stringify({ userId, deadlineAt: deadlineAt.toISOString() }),
+      },
+    );
+    if (!response.ok) throw new Error(`venue-booking activate match hold failed with ${response.status}`);
   }
 
   async createBookingFromHold(holdId: string, authorization: string): Promise<string> {

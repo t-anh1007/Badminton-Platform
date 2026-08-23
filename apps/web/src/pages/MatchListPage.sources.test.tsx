@@ -26,6 +26,6 @@ it('creates from an eligible source without exposing its raw id', async () => {
   fireEvent.click(await screen.findByRole('button', { name: /Tạo kèo từ slot/i }))
   expect(await screen.findByRole('option', { name: /Nhà thi đấu A · Sân 1/ })).toBeInTheDocument()
   expect(screen.queryByText('h1')).not.toBeInTheDocument()
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Tạo kèo' }))
-  await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ holdId: 'h1', capacity: 4, feeMode: 'split' }))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Tạo kèo & đặt cọc' }))
+  await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ holdId: 'h1', capacity: 2, feeMode: 'split' }))
 })

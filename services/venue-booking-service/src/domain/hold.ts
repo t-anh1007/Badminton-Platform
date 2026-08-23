@@ -61,9 +61,11 @@ export async function createHold(userId: string, input: CreateHoldInput) {
       // đều là hold hiệu lực.
       await tx.hold.deleteMany({ where: { courtId: input.courtId, expiresAt: { lte: now } } });
 
-      // A-BOK-01: một người chơi tối đa MỘT hold đang hoạt động — giải
-      // phóng hold cũ (bất kỳ sân nào) TRONG CÙNG giao dịch (AC-BOK-06-4).
-      await tx.hold.deleteMany({ where: { userId } });
+      // A-BOK-01: một người chơi tối đa MỘT hold checkout đang hoạt động — giải
+      // phóng hold checkout cũ (bất kỳ sân nào) TRONG CÙNG giao dịch (AC-BOK-06-4).
+      // PLAN_MATCH-DEPOSIT: match-hold KHÔNG bị dọn ở đây (chủ kèo được giữ nhiều
+      // slot-kèo; trần ≤3 enforce ở matchmaking).
+      await tx.hold.deleteMany({ where: { userId, purpose: 'checkout' } });
 
       // AC-BOK-06-5: đã có booking confirmed trùng slot -> từ chối. EXCLUDE
       // constraint của bảng booking không chặn được Hold (khác bảng), nên
@@ -96,6 +98,30 @@ export async function createHold(userId: string, input: CreateHoldInput) {
     }
     throw err;
   }
+}
+
+/** PLAN_MATCH-DEPOSIT phase-2 — sau khi chủ kèo trả cọc, chuyển hold checkout
+ * (10 phút) thành match-hold giữ slot tới deadline X. Idempotent: gọi lại với
+ * cùng X trả về hold hiện tại. Giữ EXCLUDE constraint (không đổi khoảng giờ). */
+export async function promoteHoldToMatch(userId: string, holdId: string, deadlineAt: Date) {
+  if (deadlineAt.getTime() <= Date.now()) {
+    throw new AppError('INVALID_RANGE', 'Hạn giữ kèo phải ở tương lai.', 400);
+  }
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${holdId}, 0))`;
+    const hold = await tx.hold.findUnique({ where: { id: holdId } });
+    if (!hold || hold.userId !== userId) {
+      throw new AppError('HOLD_NOT_FOUND', 'Không tìm thấy lượt giữ chỗ của bạn.', 404);
+    }
+    if (hold.purpose === 'match') return hold;
+    if (hold.expiresAt.getTime() <= Date.now()) {
+      throw new AppError('HOLD_EXPIRED', 'Lượt giữ chỗ đã hết hạn.', 409);
+    }
+    return tx.hold.update({
+      where: { id: holdId },
+      data: { purpose: 'match', expiresAt: deadlineAt },
+    });
+  });
 }
 
 /** Dọn hold hết hạn — dùng cho tác vụ nền định kỳ (AC-BOK-06-3) và cho các

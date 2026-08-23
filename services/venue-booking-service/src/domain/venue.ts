@@ -139,10 +139,11 @@ async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorage
     lng: venue.lng,
     amenities: venue.amenities,
     images: await resolveImageEntries(venue.images, storage),
-    courts: venue.courts.map((court) => ({
+    courts: await Promise.all(venue.courts.map(async (court) => ({
       id: court.id,
       name: court.name,
       active: court.active,
+      images: await resolveImageEntries(court.images, storage),
       configuration: {
         operatingHours: court.operatingHours.length,
         pricingRules: court.pricingRules.length,
@@ -152,7 +153,7 @@ async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorage
       closures: court.closures.map(({ id, date, reason }) => ({ id, date, reason })),
       pricingRules: court.pricingRules.map(({ id, weekday, startMinute, endMinute, price, version, effectiveFrom }) => ({ id, weekday, startMinute, endMinute, price: price.toString(), version, effectiveFrom })),
       bookingRule: court.bookingRule && { stepMinutes: court.bookingRule.stepMinutes, minDurationMinutes: court.bookingRule.minDurationMinutes, maxDurationMinutes: court.bookingRule.maxDurationMinutes },
-    })),
+    }))),
   };
 }
 

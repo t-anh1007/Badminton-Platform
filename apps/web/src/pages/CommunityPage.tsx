@@ -80,7 +80,7 @@ function PostCard({
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar label={avatarLabel(post.authorDisplayName)} />
+            <Avatar label={avatarLabel(post.authorDisplayName)} src={post.authorAvatarUrl} alt={`Ảnh đại diện ${authorLabel(post.authorDisplayName)}`} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink-900">{authorLabel(post.authorDisplayName)}</p>
               <p className="text-caption">

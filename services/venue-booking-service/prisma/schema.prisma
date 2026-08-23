@@ -45,6 +45,14 @@ enum BookingSource {
   internal
 }
 
+/// PLAN_MATCH-DEPOSIT: phân biệt hold checkout (BOK-06, 10 phút, tối đa 1/user)
+/// với match-hold (giữ slot tìm đối, hết hạn theo deadline X, nhiều/user). Quy
+/// tắc 1-hold/user (A-BOK-01) chỉ áp cho `checkout`.
+enum HoldPurpose {
+  checkout
+  match
+}
+
 enum BookingStatus {
   held
   confirmed
@@ -127,6 +135,7 @@ model Court {
   venue   Venue   @relation(fields: [venueId], references: [id])
   name    String
   active  Boolean @default(true)
+  images  Json?
 
   operatingHours OperatingHour[]
   closures       Closure[]
@@ -205,6 +214,8 @@ model Hold {
   endAt     DateTime @db.Timestamptz(3)
   userId    String
   expiresAt DateTime @db.Timestamptz(3)
+  /// PLAN_MATCH-DEPOSIT: mặc định checkout để tương thích ngược mọi hold cũ.
+  purpose   HoldPurpose @default(checkout)
 
   @@map("holds")
 }

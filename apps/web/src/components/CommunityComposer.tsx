@@ -45,11 +45,13 @@ function imageDimensions(previewUrl: string): Promise<{ width: number; height: n
 export function ImageUploadPicker({ label, maxFiles = 4, authorize, upload, onUploadedChange }: ImageUploadPickerProps) {
   const [items, setItems] = useState<UploadImageState[]>([]);
   const itemsRef = useRef<UploadImageState[]>([]);
-  const commit = (next: UploadImageState[]) => { itemsRef.current = next; onUploadedChange(next); return next; };
-  useEffect(() => { onUploadedChange(itemsRef.current); }, [onUploadedChange]);
+  const onUploadedChangeRef = useRef(onUploadedChange);
+  useEffect(() => { onUploadedChangeRef.current = onUploadedChange; }, [onUploadedChange]);
+  const commit = (next: UploadImageState[]) => { itemsRef.current = next; setItems(next); onUploadedChangeRef.current(next); };
+  useEffect(() => { onUploadedChangeRef.current(itemsRef.current); }, []);
   useEffect(() => () => { itemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl)); }, []);
 
-  const update = (id: string, patch: Partial<UploadImageState>) => setItems((current) => commit(current.map((item) => item.id === id ? { ...item, ...patch } : item)));
+  const update = (id: string, patch: Partial<UploadImageState>) => commit(itemsRef.current.map((item) => item.id === id ? { ...item, ...patch } : item));
   const startUpload = async (item: UploadImageState) => {
     update(item.id, { status: 'uploading', error: undefined, progress: 0 });
     try {
@@ -65,18 +67,18 @@ export function ImageUploadPicker({ label, maxFiles = 4, authorize, upload, onUp
     const invalid = Array.from(files).length - next.length;
     const records = next.map((file) => ({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file), status: 'uploading' as const, progress: 0, width: 1, height: 1 }));
     if (invalid > 0) window.alert(`Chỉ chọn tối đa ${maxFiles} ảnh JPEG, PNG hoặc WebP.`);
-    setItems((current) => commit([...current, ...records]));
+    commit([...itemsRef.current, ...records]);
     records.forEach(async (record) => {
       void startUpload(record);
       const dimensions = await imageDimensions(record.previewUrl);
       update(record.id, dimensions);
     });
   };
-  const remove = (id: string) => setItems((current) => {
-    const item = current.find((candidate) => candidate.id === id);
+  const remove = (id: string) => {
+    const item = itemsRef.current.find((candidate) => candidate.id === id);
     if (item) URL.revokeObjectURL(item.previewUrl);
-    return commit(current.filter((candidate) => candidate.id !== id));
-  });
+    commit(itemsRef.current.filter((candidate) => candidate.id !== id));
+  };
 
   return <section className="media-picker" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles(event.dataTransfer.files); }}>
     <label className="block rounded-xl border border-dashed border-line bg-canvas p-4 text-center text-sm font-medium text-ink-500">

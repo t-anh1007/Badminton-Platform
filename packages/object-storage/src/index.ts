@@ -13,7 +13,7 @@ export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const PRESIGN_EXPIRY_SECONDS = 10 * 60;
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number];
-export type ObjectNamespace = 'community/posts' | 'venue/images';
+export type ObjectNamespace = 'community/posts' | 'venue/images' | 'profile/avatars';
 
 export class ObjectStorageError extends Error {
   constructor(public readonly code: string, message: string) {

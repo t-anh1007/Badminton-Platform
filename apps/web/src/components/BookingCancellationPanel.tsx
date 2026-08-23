@@ -13,9 +13,9 @@ export function BookingCancellationPanel({ bookings, cancellable, onChanged }: {
     finally { setBusyId(null) }
   }
   const confirm = async (booking: BookingSummary) => {
-    if (pending?.bookingId !== booking.id) return
+    if (booking.status !== 'held' && pending?.bookingId !== booking.id) return
     setBusyId(booking.id); setMessage('')
-    try { const result = await cancelMyBooking(booking.id); setPending(null); await onChanged(); setMessage(`Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`) }
+    try { const result = await cancelMyBooking(booking.id); setPending(null); await onChanged(); setMessage(booking.status === 'held' ? 'Đã hủy giữ chỗ và giải phóng khung giờ.' : `Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`) }
     catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể hủy booking.') }
     finally { setBusyId(null) }
   }

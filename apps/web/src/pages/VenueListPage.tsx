@@ -6,7 +6,7 @@ import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
 import { formatMoneyVnd } from '../lib/formatters.js';
 import { VenuesMap } from '../components/map/VenuesMap';
-import { reverseGeocode } from '../lib/geocoding';
+import { ipLocate, reverseGeocode } from '../lib/geocoding';
 
 type Origin = { label: string; lat: number; lng: number };
 type SortOrder = 'distance' | 'price' | 'name';
@@ -61,16 +61,18 @@ function minuteOfDay(value: string): number | null {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-export function VenueListPage() {
+export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { embedded?: boolean; initialViewMode?: ViewMode } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [origin, setOrigin] = useState<Origin>(() => initialOrigin(searchParams));
+  const [currentLocation, setCurrentLocation] = useState<Origin | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<Origin | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [radiusKm, setRadiusKm] = useState<number>(() => {
+  const [radiusKm, setRadiusKm] = useState<number | null>(() => {
     const value = Number(searchParams.get('radiusKm'));
-    return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : 10;
+    return RADIUS_OPTIONS.includes(value as (typeof RADIUS_OPTIONS)[number]) ? value : null;
   });
   const [nameFilter, setNameFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('distance');
@@ -103,7 +105,7 @@ export function VenueListPage() {
       const result = await searchVenues({
         lat: origin.lat,
         lng: origin.lng,
-        radiusKm,
+        ...(viewMode === 'map' && radiusKm !== null ? { radiusKm } : {}),
         ...(minPrice ? { minPrice: Number(minPrice) } : {}),
         ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
         ...(sortOrder !== 'name' ? { sortBy: sortOrder } : {}),
@@ -118,66 +120,111 @@ export function VenueListPage() {
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }, [date, endTime, origin.lat, origin.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime]);
+  }, [date, endTime, origin.lat, origin.lng, maxPrice, minPrice, radiusKm, sortOrder, startTime, viewMode]);
 
   useEffect(() => {
     void runSearch(false);
   }, [runSearch]);
 
   useEffect(() => {
+    if (embedded) return;
     const nextParams = new URLSearchParams({
       lat: String(origin.lat),
       lng: String(origin.lng),
-      radiusKm: String(radiusKm),
     });
+    if (radiusKm !== null) nextParams.set('radiusKm', String(radiusKm));
     setSearchParams(nextParams, { replace: true });
-  }, [origin.lat, origin.lng, radiusKm, setSearchParams]);
+  }, [embedded, origin.lat, origin.lng, radiusKm, setSearchParams]);
 
   const useMyLocation = () => {
-    if (!('geolocation' in navigator)) { setLocateError('Trình duyệt không hỗ trợ định vị.'); return; }
     setLocating(true); setLocateError('');
+    // `gpsWon` chốt ngay khi GPS thành công (đồng bộ) để IP fallback đang chạy dở
+    // không ghi đè; `settled` chặn nhiều nhánh cùng kết thúc.
+    let gpsWon = false;
     let settled = false;
     const finish = () => { if (!settled) { settled = true; setLocating(false); } };
-    // Safety net: một số trình duyệt (Edge/Chrome khi user chưa bấm cho phép) không
-    // gọi callback đúng hạn timeout gốc → tự thoát trạng thái "Đang định vị…"
-    // sau 12s để nút không kẹt.
-    const safety = window.setTimeout(() => {
-      if (!settled) {
-        setLocateError('Không nhận được vị trí trong 12s. Hãy kiểm tra quyền vị trí của trình duyệt hoặc click trên bản đồ.');
+    // Fallback định vị theo IP khi Geolocation trình duyệt bị chặn/treo (máy bàn
+    // không có nguồn định vị wifi, hoặc user chặn quyền). Cho vị trí thật ở mức
+    // thành phố/quận thay vì đứng ở điểm mặc định. `hint` = thông báo hiển thị
+    // nếu IP cũng thất bại.
+    const applyIpFallback = (hint: string) => {
+      void ipLocate().then((place) => {
+        if (gpsWon || settled) return; // GPS đã thắng trong lúc chờ IP → bỏ qua
+        if (place) {
+          const nextLocation = { label: `${place.label} (gần đúng theo IP)`, lat: place.lat, lng: place.lng };
+          setCurrentLocation(nextLocation);
+          setSelectedLocation(null);
+          setOrigin(nextLocation);
+          setLocateError('Không lấy được GPS chính xác nên đang dùng vị trí gần đúng theo IP. Click trên bản đồ nếu muốn chỉnh lại điểm.');
+        } else {
+          setLocateError(hint);
+        }
         finish();
-      }
+      });
+    };
+    if (!('geolocation' in navigator)) { applyIpFallback('Trình duyệt không hỗ trợ định vị.'); return; }
+    // Safety net: một số trình duyệt (Edge/Chrome trên máy bàn) treo hẳn, không
+    // gọi callback nào đúng hạn → sau 12s tự chuyển sang fallback IP.
+    const safety = window.setTimeout(() => {
+      if (!gpsWon && !settled) applyIpFallback('Không nhận được vị trí. Hãy click trên bản đồ để chọn điểm.');
     }, 12000);
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        gpsWon = true;
         window.clearTimeout(safety);
         const { latitude, longitude } = position.coords;
-        setOrigin({ label: 'Vị trí của bạn', lat: latitude, lng: longitude });
-        finish();
+        const nextLocation = { label: 'Vị trí của bạn', lat: latitude, lng: longitude };
+        setCurrentLocation(nextLocation);
+        setSelectedLocation(null);
+        setOrigin(nextLocation);
+        setLocateError(''); // xoá mọi thông báo IP fallback có thể đã hiện khi GPS chậm
+        settled = true; setLocating(false);
         void reverseGeocode(latitude, longitude).then((addr) => {
-          if (addr) setOrigin((current) => (current.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
+          if (!addr) return;
+          setCurrentLocation((current) => (current?.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
+          setOrigin((current) => (current.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
         });
       },
-      (error) => {
+      () => {
         window.clearTimeout(safety);
-        setLocateError(
-          error.code === error.PERMISSION_DENIED
-            ? 'Bạn đã từ chối quyền vị trí. Hãy click trên bản đồ để chọn điểm.'
-            : error.code === error.TIMEOUT
-              ? 'Định vị quá lâu. Hãy thử lại hoặc click trên bản đồ.'
-              : 'Không lấy được vị trí. Hãy click trên bản đồ để chọn điểm.',
-        );
-        finish();
+        // Mọi lỗi (từ chối quyền, timeout, không có nguồn định vị) → thử IP.
+        if (!gpsWon && !settled) applyIpFallback('Trình duyệt đang chặn quyền vị trí. Bấm biểu tượng khoá cạnh URL → Quyền → Vị trí → Cho phép rồi thử lại, hoặc click trên bản đồ.');
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
 
   const pickOriginOnMap = (lat: number, lng: number) => {
-    setOrigin({ label: 'Điểm đã chọn trên bản đồ', lat, lng });
+    const nextLocation = { label: 'Điểm đã chọn trên bản đồ', lat, lng };
+    setSelectedLocation(nextLocation);
+    setOrigin(nextLocation);
     setLocateError('');
     void reverseGeocode(lat, lng).then((addr) => {
-      if (addr) setOrigin((current) => (current.lat === lat && current.lng === lng ? { ...current, label: addr } : current));
+      if (!addr) return;
+      setSelectedLocation((current) => (current?.lat === lat && current.lng === lng ? { ...current, label: addr } : current));
+      setOrigin((current) => (current.lat === lat && current.lng === lng ? { ...current, label: addr } : current));
     });
+  };
+
+  const returnToCurrentLocation = () => {
+    if (!currentLocation) return;
+    setSelectedLocation(null);
+    setOrigin(currentLocation);
+    setLocateError('');
+  };
+
+  const clearFilters = () => {
+    setOrigin(DEFAULT_ORIGIN);
+    setSelectedLocation(null);
+    setLocateError('');
+    setRadiusKm(null);
+    setNameFilter('');
+    setSortOrder('distance');
+    setMinPrice('');
+    setMaxPrice('');
+    setDate('');
+    setStartTime('');
+    setEndTime('');
   };
 
   const visibleVenues = useMemo(() => {
@@ -194,19 +241,22 @@ export function VenueListPage() {
     ));
   }, [nameFilter, sortOrder, venues]);
 
+  const Wrapper = embedded ? 'section' : 'main';
   return (
-    <main className="min-h-screen bg-canvas pb-12 pt-8 sm:pt-10">
+    <Wrapper className={embedded ? 'bg-canvas py-10 sm:py-14' : 'min-h-screen bg-canvas pb-12 pt-8 sm:pt-10'}>
       <div className="page-container">
-        <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />
+        {embedded
+          ? <div><p className="courtin-kicker">Đặt sân quanh bạn</p><h2 className="mt-1 text-h2">Khám phá sân trên bản đồ</h2><p className="mt-2 text-sm text-ink-500">Chọn một điểm trên bản đồ để xem ngay các sân phù hợp gần đó.</p></div>
+          : <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />}
 
-        <div className="sticky top-[76px] z-10 my-6">
+        <div className="my-6">
           <div className="mb-2 flex items-center justify-between gap-2">
             <Button type="button" tone="secondary" size="sm" onClick={() => setFilterOpen((prev) => !prev)} aria-expanded={filterOpen} aria-controls="venue-filter-panel">
               {filterOpen ? '▲ Ẩn bộ lọc' : '▼ Hiện bộ lọc'}
             </Button>
             {!filterOpen && (
               <span className="text-xs text-ink-500">
-                {origin.label} · {radiusKm} km{minPrice || maxPrice ? ` · ${minPrice ? formatMoneyVnd(minPrice) : '0đ'}–${maxPrice ? formatMoneyVnd(maxPrice) : '∞'}` : ''}
+                {viewMode === 'map' ? origin.label : 'Toàn bộ sân'}{radiusKm !== null && viewMode === 'map' ? ` · ${radiusKm} km` : ''}{minPrice || maxPrice ? ` · ${minPrice ? formatMoneyVnd(minPrice) : '0đ'}–${maxPrice ? formatMoneyVnd(maxPrice) : '∞'}` : ''}
               </span>
             )}
           </div>
@@ -216,21 +266,29 @@ export function VenueListPage() {
               className="surface-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4"
               onSubmit={(event) => { event.preventDefault(); void runSearch(true); }}
             >
-              <div className="sm:col-span-2">
-                <span className="mb-1.5 block text-caption">Vị trí tìm kiếm</span>
+              <div className="grid gap-2 sm:col-span-2">
+                <span className="block text-caption">Vị trí hiện tại</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" tone="secondary" size="sm" onClick={useMyLocation} disabled={locating}>{locating ? 'Đang định vị…' : '📍 Dùng vị trí của tôi'}</Button>
-                  <span className="truncate text-sm text-ink-600" title={origin.label}>{origin.label}</span>
+                  <span className="truncate text-sm text-ink-600" title={currentLocation?.label}>{currentLocation?.label ?? 'Chưa xác định vị trí hiện tại'}</span>
                 </div>
                 {locateError && <p className="mt-1 text-xs text-danger">{locateError}</p>}
+                <div>
+                  <span className="block text-caption">Vị trí đã chọn</span>
+                  <span className="mt-1 block truncate text-sm text-ink-600" title={selectedLocation?.label}>{selectedLocation?.label ?? 'Chưa chọn vị trí trên bản đồ'}</span>
+                </div>
               </div>
               <div>
                 <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
-                <TextInput id="venue-name" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+                <TextInput id="venue-name" list="venue-name-suggestions" autoComplete="off" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+                <datalist id="venue-name-suggestions">
+                  {venues.map((venue) => <option key={venue.venueId} value={venue.name}>{venue.address}</option>)}
+                </datalist>
               </div>
               <div>
                 <label htmlFor="venue-radius" className="mb-1.5 block text-caption">Bán kính</label>
-                <SelectInput id="venue-radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))}>
+                <SelectInput id="venue-radius" value={radiusKm ?? ''} onChange={(event) => setRadiusKm(event.target.value ? Number(event.target.value) : null)}>
+                  <option value="">Không giới hạn</option>
                   {RADIUS_OPTIONS.map((option) => <option key={option} value={option}>{option} km</option>)}
                 </SelectInput>
               </div>
@@ -294,7 +352,10 @@ export function VenueListPage() {
                 <TextInput id="venue-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-2"><label className="grid gap-1.5 text-caption">Từ giờ<TextInput aria-label="Giờ bắt đầu" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="grid gap-1.5 text-caption">Đến giờ<TextInput aria-label="Giờ kết thúc" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>
-              <Button type="submit" className="self-end lg:col-span-4 lg:justify-self-end" disabled={loading}>Tìm sân</Button>
+              <div className="flex flex-wrap justify-end gap-2 self-end sm:col-span-2 lg:col-span-4">
+                <Button type="button" tone="secondary" onClick={clearFilters}>Xóa bộ lọc</Button>
+                <Button type="submit" disabled={loading}>Tìm sân</Button>
+              </div>
             </form>
           )}
         </div>
@@ -303,41 +364,53 @@ export function VenueListPage() {
           <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
           <div className="flex items-center gap-3">
             {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
-            <div className="inline-flex overflow-hidden rounded-full border border-line" role="tablist" aria-label="Chế độ hiển thị">
-              <button type="button" role="tab" aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'list' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Danh sách</button>
-              <button type="button" role="tab" aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'map' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Bản đồ</button>
-            </div>
+            {!embedded && (
+              <div className="inline-flex overflow-hidden rounded-full border border-line" role="tablist" aria-label="Chế độ hiển thị">
+                <button type="button" role="tab" aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'list' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Danh sách</button>
+                <button type="button" role="tab" aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')} className={`px-4 py-1.5 text-sm font-semibold ${viewMode === 'map' ? 'bg-brand-navy text-surface' : 'text-ink-600'}`}>Bản đồ</button>
+              </div>
+            )}
           </div>
         </div>
 
-        {loadError && (
+        {loadError && viewMode === 'list' && (
           <RouteState variant="error" title="Không thể tìm sân" description={loadError} onRetry={() => void runSearch(true)} />
         )}
 
-        {loading && (
+        {loading && viewMode === 'list' && (
           <RouteState variant="loading" title="Đang tìm sân phù hợp" />
         )}
 
-        {!loading && !loadError && viewMode === 'map' && (
+        {viewMode === 'map' && (
           <div className="grid gap-2">
-            <p className="text-sm text-ink-500">Click lên bản đồ để đổi điểm tìm kiếm. Marker xanh là vị trí của bạn.</p>
+            <p className="text-sm text-ink-500">Click lên bản đồ để chọn điểm muốn tìm sân. Marker xanh là vị trí hiện tại; marker vàng là điểm tìm kiếm.</p>
             <VenuesMap
-              origin={{ lat: origin.lat, lng: origin.lng }}
-              venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice }))}
+              searchOrigin={{ lat: origin.lat, lng: origin.lng }}
+              currentLocation={currentLocation}
+              venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice, coverImage: venue.coverImage, courtCount: venue.courtCount }))}
               onPickOrigin={pickOriginOnMap}
+              onReturnCurrent={returnToCurrentLocation}
             />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-h3">Sân gần điểm đã chọn</h3>
+              <span className="text-sm text-ink-500">{radiusKm !== null ? `Trong bán kính ${radiusKm} km` : 'Sắp xếp theo khoảng cách'}</span>
+            </div>
+            {loading && <p className="rounded-xl bg-surface p-4 text-sm text-ink-500">Đang cập nhật danh sách sân gần điểm này…</p>}
+            {loadError && <RouteState variant="error" title="Không thể tìm sân" description={loadError} onRetry={() => void runSearch(true)} />}
+            {!loading && !loadError && visibleVenues.length === 0 && (
+              <EmptyState title="Không có sân gần điểm đã chọn" description={radiusKm !== null ? `Không tìm thấy sân trong bán kính ${radiusKm} km. Hãy chọn điểm khác hoặc tăng bán kính.` : 'Không tìm thấy sân phù hợp với các bộ lọc hiện tại.'} />
+            )}
           </div>
         )}
 
         {!loading && !loadError && viewMode === 'list' && visibleVenues.length === 0 && (
           <EmptyState
-            title={nameFilter.trim() ? 'Không tìm thấy sân theo tên này' : 'Không có sân trong bán kính này'}
-            description={nameFilter.trim() ? 'Thử bỏ bớt từ khóa hoặc chọn khu vực khác.' : 'Hãy thử mở rộng bán kính tìm kiếm.'}
-            action={radiusKm < 20 ? <Button tone="secondary" onClick={() => setRadiusKm(20)}>Mở rộng lên 20 km</Button> : undefined}
+            title={nameFilter.trim() ? 'Không tìm thấy sân theo tên này' : 'Không có sân phù hợp'}
+            description={nameFilter.trim() ? 'Thử bỏ bớt từ khóa.' : 'Hãy thử xóa bớt các bộ lọc đang chọn.'}
           />
         )}
 
-        {!loading && !loadError && viewMode === 'list' && visibleVenues.length > 0 && (
+        {!loading && !loadError && visibleVenues.length > 0 && (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {visibleVenues.map((venue) => {
               const lowestPrice = formatLowestPrice(venue.lowestPrice);
@@ -370,6 +443,6 @@ export function VenueListPage() {
           </div>
         )}
       </div>
-    </main>
+    </Wrapper>
   );
 }

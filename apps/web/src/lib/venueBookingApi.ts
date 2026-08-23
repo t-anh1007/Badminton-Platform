@@ -41,6 +41,7 @@ export interface VenueSearchRow {
   coverImage: string | null;
   distanceKm: number;
   lowestPrice: string | null;
+  courtCount: number;
 }
 
 export interface VenueDetail {
@@ -51,7 +52,7 @@ export interface VenueDetail {
   lng: number;
   amenities: unknown;
   images: unknown;
-  courts: Array<{ id: string; name: string; bookingRule: CourtBookingRule | null }>;
+  courts: Array<{ id: string; name: string; images: string[]; bookingRule: CourtBookingRule | null }>;
 }
 
 export interface CourtBookingRule {
@@ -104,13 +105,16 @@ export interface MatchBookingSource {
 }
 export interface ProviderRow { id: string; orgName: string; status: string; userId?: string; contact?: { contact?: string; email?: string; phone?: string } | null; }
 export interface ProviderSelf { id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
-export interface ManagedCourt { id: string; name: string; active: boolean; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
+export interface ManagedCourt { id: string; name: string; active: boolean; images: Array<{ objectKey: string; url: string }>; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue { id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
 export interface VenueUploadAuthorization { objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string }
 export interface AdminBookingRow { id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; player: { label: string }; court: { name: string; venue: { name: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number; minPrice?: number; maxPrice?: number; sortBy?: 'distance' | 'price'; date?: string; startMinute?: number; endMinute?: number }) {
-  const query = new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]));
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) query.set(key, String(value));
+  });
   return api<VenueSearchRow[]>(`/search?${query}`);
 }
 
@@ -132,13 +136,18 @@ export const authorizeVenueImage = (mimeType: 'image/jpeg' | 'image/png' | 'imag
 export async function uploadVenueImage(authorization: VenueUploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> { onProgress?.(0); const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file }); if (!response.ok) throw new Error('Không thể tải ảnh cơ sở lên.'); onProgress?.(100) }
 export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
 export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
-export const addManagedCourt = (venueId: string, name: string) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name }) });
+export const deactivateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/deactivate`, { method: 'POST' });
+export const activateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/activate`, { method: 'POST' });
+export const addManagedCourt = (venueId: string, name: string, images: Array<{ objectKey: string }>) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name, images }) });
+export const updateManagedCourt = (courtId: string, body: Partial<{ name: string; images: Array<{ objectKey: string }> }>) => api<ManagedCourt>(`/venues/courts/${courtId}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const deactivateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/deactivate`, { method: 'POST' });
+export const activateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/activate`, { method: 'POST' });
 export const saveOperatingHours = (id: string, body: { weekday: number; openMinute: number; closeMinute: number }) => api(`/courts/${id}/operating-hours`, { method: 'POST', body: JSON.stringify(body) });
+export const replaceOperatingHours = (id: string, hours: Array<{ weekday: number; openMinute: number; closeMinute: number }>) => api(`/courts/${id}/operating-hours`, { method: 'PUT', body: JSON.stringify({ hours }) });
 export const addClosure = (id: string, body: { date: string; reason?: string }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });
 export const savePricing = (id: string, body: { rules: Array<{ weekday: number; startMinute: number; endMinute: number; price: number }>; effectiveFrom: string }) => api(`/courts/${id}/pricing`, { method: 'POST', body: JSON.stringify(body) });
 export const saveBookingRule = (id: string, body: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number }) => api(`/courts/${id}/booking-rule`, { method: 'POST', body: JSON.stringify(body) });
-export const getVenueCalendar = (venueId: string, date: string) => api<{ courts: Array<{ id: string; name: string }>; entries: Array<{ id: string; courtId: string; kind: 'booking' | 'hold'; startAt: string; endAt: string }> }>(`/venues/${venueId}/calendar?date=${encodeURIComponent(date)}`);
+export const getVenueCalendar = (venueId: string, date: string) => api<{ courts: Array<{ courtId: string; courtName: string; closedAllDay: boolean }>; entries: Array<{ id?: string; courtId: string; kind: 'booking' | 'hold'; source?: 'marketplace' | 'internal'; startAt: string; endAt: string; customerLabel?: string; guestContact?: string | null; priceSnapshot?: string }> }>(`/venues/${venueId}/calendar?date=${encodeURIComponent(date)}`);
 export const createInternalBooking = (body: { courtId: string; startAt: string; endAt: string; guestName: string; guestContact: string }) => api('/internal-bookings', { method: 'POST', body: JSON.stringify(body) });
 export const cancelInternalBooking = (id: string) => api(`/internal-bookings/${id}/cancel`, { method: 'POST' });
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });

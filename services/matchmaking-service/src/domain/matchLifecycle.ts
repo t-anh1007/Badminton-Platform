@@ -270,9 +270,49 @@ export async function cancelMatchesAtCutoff(
   return cancelled;
 }
 
+/** PLAN_MATCH-DEPOSIT — hủy kèo `awaiting_deposit` mà chủ kèo không trả cọc kịp
+ * cửa sổ checkout. Slot/booking do venue tự nhả (hold hết hạn); ở đây chỉ dọn
+ * state matchmaking + báo finance đóng funding. Không đi qua saga venue vì
+ * booking held có thể đã bị reap. */
+const DEPOSIT_WINDOW_MINUTES = 12;
+export async function cancelExpiredDepositMatches(now = new Date()): Promise<number> {
+  const threshold = new Date(now.getTime() - DEPOSIT_WINDOW_MINUTES * 60_000);
+  const stale = await prisma.match.findMany({
+    where: { status: 'awaiting_deposit', createdAt: { lte: threshold } },
+    select: { id: true, bookingId: true },
+  });
+  let cancelled = 0;
+  for (const stub of stale) {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${stub.id}, 0))`;
+      const fresh = await tx.match.findUnique({ where: { id: stub.id } });
+      if (!fresh || fresh.status !== 'awaiting_deposit') return;
+      await tx.match.update({ where: { id: stub.id }, data: { status: 'cancelled' } });
+      await writeOutbox(tx, {
+        aggregateType: 'Match', aggregateId: stub.id, eventType: 'MatchCancelled',
+        payload: {
+          matchId: stub.id, bookingId: stub.bookingId, reason: 'cutoff', paidJoinIds: [],
+        } satisfies MatchCancelledPayload,
+      });
+      cancelled += 1;
+    });
+  }
+  return cancelled;
+}
+
+/** Sweep mặc định của scheduler: hủy kèo quá hạn tìm đối X (open/filled) VÀ kèo
+ * chưa trả cọc quá cửa sổ checkout. */
+async function sweepMatchDeadlines(): Promise<number> {
+  const [atCutoff, unpaidDeposit] = await Promise.all([
+    cancelMatchesAtCutoff(),
+    cancelExpiredDepositMatches(),
+  ]);
+  return atCutoff + unpaidDeposit;
+}
+
 export function startMatchCutoffScheduler(
   intervalMs = 30_000,
-  sweep: () => Promise<number> = cancelMatchesAtCutoff,
+  sweep: () => Promise<number> = sweepMatchDeadlines,
 ): () => Promise<void> {
   let inFlight: Promise<void> | undefined;
   const timer = setInterval(() => {

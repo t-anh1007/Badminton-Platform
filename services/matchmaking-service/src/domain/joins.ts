@@ -5,7 +5,8 @@ import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating, INITIAL_RD, TIER_CENTERS } from './rating.js';
 
-export const JOIN_HOLD_MINUTES = 10;
+// PLAN_MATCH-DEPOSIT DM6: cửa sổ để đối trả 1/2 sau khi được duyệt.
+export const JOIN_HOLD_MINUTES = 15;
 
 async function assertOrganizer(matchId: string, organizerUserId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
@@ -106,6 +107,23 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
     }
     if (reservedCount + 1 >= match.capacity) {
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
+    }
+
+    // Kèo có phí chỉ được mở khoản chờ sau khi MatchCreated đã được ghi bền
+    // vững vào outbox. Dữ liệu legacy từng thiếu event này nhưng vẫn phát
+    // JoinApproved, khiến finance không thể dựng MatchFunding.
+    if (match.feePerSlot > 0n) {
+      const fundingEvent = await tx.outbox.findFirst({
+        where: { aggregateId: match.id, eventType: 'MatchCreated' },
+        select: { id: true },
+      });
+      if (!fundingEvent) {
+        throw new AppError(
+          409,
+          'MATCH_FUNDING_NOT_INITIALIZED',
+          'Kèo chưa khởi tạo dữ liệu chia phí. Vui lòng tạo kèo mới.',
+        );
+      }
     }
 
     const updated = await tx.join.update({

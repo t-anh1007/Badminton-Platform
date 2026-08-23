@@ -6,6 +6,7 @@ import { venueMatchContextSchema } from '@khoaluantn/shared';
 import type { MatchBookingResolutionPayload, MatchCancelledPayload } from '@khoaluantn/shared';
 import { writeOutbox } from '../lib/outbox.js';
 import type { BookingStatus } from '@prisma/client';
+import { vietnamDateEndExclusiveInstant, vietnamDateStartInstant } from '../lib/vietnamTime.js';
 
 /** BOK-07 bước 1 — Tạo `BOOKING(status=held)` gắn với một hold hợp lệ, chốt
  * `priceSnapshot` + `policySnapshot` (BR-BOK-06), rồi xóa hold. Phương thức
@@ -154,6 +155,39 @@ export async function getMatchContexts(bookingIds: string[]) {
     },
   })]));
   return bookingIds.map((bookingId) => byId.get(bookingId) ?? null);
+}
+
+/** PLAN_MATCH-DEPOSIT — sau khi chủ kèo trả cọc, gia hạn hold + booking `held`
+ * của kèo tới hạn tìm đối X (thay cửa sổ checkout 10 phút). Idempotent: gọi lại
+ * với cùng X trả về nguyên trạng. Nếu hold checkout đã hết hạn/bị reap trước khi
+ * cọc kịp về -> MATCH_DEPOSIT_TOO_LATE (slot đã nhả). */
+export async function activateMatchHold(userId: string, bookingId: string, deadlineAt: Date) {
+  if (deadlineAt.getTime() <= Date.now()) {
+    throw new AppError('INVALID_RANGE', 'Hạn giữ kèo phải ở tương lai.', 400);
+  }
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
+    const booking = await tx.booking.findUnique({ where: { id: bookingId } });
+    if (!booking || booking.source !== 'marketplace' || booking.userId !== userId) {
+      throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking kèo.', 404);
+    }
+    if (booking.status !== 'held') {
+      throw new AppError('BOOKING_NOT_HELD', 'Booking kèo không còn ở trạng thái giữ.', 409);
+    }
+    // Idempotent: đã gia hạn tới đúng deadline này rồi.
+    if (booking.holdExpiresAt && booking.holdExpiresAt.getTime() === deadlineAt.getTime()) {
+      return booking;
+    }
+    if (!booking.holdId) {
+      throw new AppError('BOOKING_NOT_HELD', 'Booking kèo không gắn với lượt giữ chỗ.', 409);
+    }
+    const hold = await tx.hold.findUnique({ where: { id: booking.holdId } });
+    if (!hold || hold.expiresAt.getTime() <= Date.now()) {
+      throw new AppError('MATCH_DEPOSIT_TOO_LATE', 'Cửa sổ giữ chỗ đã hết trước khi cọc về; slot đã nhả.', 409);
+    }
+    await tx.hold.update({ where: { id: hold.id }, data: { purpose: 'match', expiresAt: deadlineAt } });
+    return tx.booking.update({ where: { id: bookingId }, data: { holdExpiresAt: deadlineAt } });
+  });
 }
 
 /** AC-BOK-07-5 — tác vụ nền quét booking `held` quá hạn hold -> `cancelled`,
@@ -375,10 +409,18 @@ export async function listMyBookings(userId: string) {
     orderBy: { startAt: 'desc' },
     include: { court: { include: { venue: true } } },
   });
+  // Booking bị hủy khi còn là hold chưa thanh toán không phải lịch sử giao dịch
+  // của người chơi. Vẫn giữ bản ghi hết hạn tự động ở DB để đối soát kỹ thuật,
+  // nhưng không đưa vào bất kỳ tab lịch sử nào.
+  const visibleBookings = bookings.filter((booking) => !(
+    booking.status === 'cancelled'
+    && booking.holdExpiresAt !== null
+    && booking.cancellationReason === null
+  ));
   const now = Date.now();
   return {
-    upcoming: bookings.filter((b) => b.startAt.getTime() >= now),
-    past: bookings.filter((b) => b.startAt.getTime() < now),
+    upcoming: visibleBookings.filter((b) => b.startAt.getTime() >= now),
+    past: visibleBookings.filter((b) => b.startAt.getTime() < now),
   };
 }
 
@@ -393,7 +435,7 @@ export async function listMyMatchSources(userId: string) {
 
 export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date }) {
   const query = input.query?.trim();
-  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
+  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: vietnamDateStartInstant(input.from) } : {}), ...(input.to ? { lt: vietnamDateEndExclusiveInstant(input.to) } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
   return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
 }
 

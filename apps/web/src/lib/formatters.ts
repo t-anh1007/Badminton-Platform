@@ -31,6 +31,20 @@ export function formatDateTimeVi(value: Date | string) {
   return `${dateFormatter.format(date)} ${timeFormatter.format(date)}`
 }
 
+export function formatTimeVi(value: Date | string) {
+  return timeFormatter.format(asDate(value))
+}
+
+export function vietnamMinuteOfDay(value: Date | string) {
+  const parts = Object.fromEntries(timeFormatter.formatToParts(asDate(value)).map((part) => [part.type, part.value]))
+  return Number(parts.hour) * 60 + Number(parts.minute)
+}
+
+export function vietnamDateInput(value: Date | string) {
+  const parts = Object.fromEntries(dateFormatter.formatToParts(asDate(value)).map((part) => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 /** Định dạng tiền VND thống nhất toàn app: "180.000đ" — số theo dấu chấm phân
  * cách nghìn kiểu vi-VN, hậu tố "đ" liền số (quy ước phổ biến trong UI Việt,
  * không dùng ký hiệu "₫" của Intl để tránh hiển thị lẫn lộn hai kiểu). */

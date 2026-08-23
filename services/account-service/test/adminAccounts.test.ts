@@ -31,6 +31,7 @@ async function createVerifiedUser(roles: string[] = ['player']) {
 
 describe('ACC-08 — Quản lý quyền truy cập tài khoản (khóa / khôi phục)', () => {
   it('returns only safe account summaries to an admin', async () => { const admin=await createVerifiedUser(['admin']); const target=await createVerifiedUser(); const token=(await login(admin.email, VALID_PASSWORD)).accessToken; const res=await request(app).get('/admin/users?query='+encodeURIComponent(target.email)).set('Authorization', `Bearer ${token}`); expect(res.status).toBe(200); expect(res.body[0]).toMatchObject({ email: target.email, roles: ['player'] }); expect(res.body[0]).not.toHaveProperty('passwordHash') });
+  it('returns requested account identities to an admin', async () => { const admin=await createVerifiedUser(['admin']); const target=await createVerifiedUser(); const token=(await login(admin.email, VALID_PASSWORD)).accessToken; const res=await request(app).post('/admin/users/identities').set('Authorization', `Bearer ${token}`).send({ userIds: [target.userId] }); expect(res.status).toBe(200); expect(res.body).toEqual([{ id: target.userId, email: target.email, displayName: 'A' }]); });
   it('AC-ACC-08-1: Admin nhập lý do -> status=locked, thu hồi hết refresh token, ghi ACCOUNT_AUDIT đúng lý do', async () => {
     const admin = await createVerifiedUser(['admin']);
     const target = await createVerifiedUser();

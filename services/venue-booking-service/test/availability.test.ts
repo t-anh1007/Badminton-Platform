@@ -13,6 +13,10 @@ function tomorrowDayStart(): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+function vietnamMinute(day: Date, minute: number): Date {
+  return new Date(day.getTime() + (minute - 7 * 60) * 60_000);
+}
+
 async function setup6to22(providerId: string) {
   const { court } = await createVenueWithCourt(providerId);
   const day = tomorrowDayStart();
@@ -40,7 +44,7 @@ describe('BOK-04 — Xem lịch trống và giá hiện hành', () => {
   it('AC-BOK-04-2: khung 19h có booking confirmed -> hiển thị không khả dụng', async () => {
     const provider = await createApprovedProvider();
     const { court, day } = await setup6to22(provider.id);
-    const start19 = new Date(day.getTime() + 19 * 60 * 60_000);
+    const start19 = vietnamMinute(day, 19 * 60);
     await prisma.booking.create({
       data: { courtId: court.id, startAt: start19, endAt: new Date(start19.getTime() + 3600_000), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'A', guestContact: '0900' },
     });
@@ -48,12 +52,13 @@ describe('BOK-04 — Xem lịch trống và giá hiện hành', () => {
     const schedule = await getAvailabilitySchedule(court.id, day);
     const slot19 = schedule.slots.find((s) => s.startMinute === 19 * 60);
     expect(slot19!.available).toBe(false);
+    expect(schedule.slots.find((s) => s.startMinute === 12 * 60)!.available).toBe(true);
   });
 
   it('AC-BOK-04-3: khung 20h đang có HOLD của người khác chưa hết hạn -> không khả dụng', async () => {
     const provider = await createApprovedProvider();
     const { court, day } = await setup6to22(provider.id);
-    const start20 = new Date(day.getTime() + 20 * 60 * 60_000);
+    const start20 = vietnamMinute(day, 20 * 60);
     await prisma.hold.create({
       data: { courtId: court.id, startAt: start20, endAt: new Date(start20.getTime() + 3600_000), userId: 'other', expiresAt: new Date(Date.now() + 5 * 60_000) },
     });
@@ -66,7 +71,7 @@ describe('BOK-04 — Xem lịch trống và giá hiện hành', () => {
   it('AC-BOK-04-4: cùng khung 20h, hold vừa hết hạn -> tải lại lịch, khung trở lại khả dụng', async () => {
     const provider = await createApprovedProvider();
     const { court, day } = await setup6to22(provider.id);
-    const start20 = new Date(day.getTime() + 20 * 60 * 60_000);
+    const start20 = vietnamMinute(day, 20 * 60);
     const hold = await prisma.hold.create({
       data: { courtId: court.id, startAt: start20, endAt: new Date(start20.getTime() + 3600_000), userId: 'other', expiresAt: new Date(Date.now() + 5 * 60_000) },
     });
@@ -84,7 +89,7 @@ describe('BOK-04 — Xem lịch trống và giá hiện hành', () => {
   it('AC-BOK-04-5: booking nội bộ do chủ sân ghi tại quầy lúc 18h -> khung 18h không khả dụng', async () => {
     const provider = await createApprovedProvider();
     const { court, day } = await setup6to22(provider.id);
-    const start18 = new Date(day.getTime() + 18 * 60 * 60_000);
+    const start18 = vietnamMinute(day, 18 * 60);
     await prisma.booking.create({
       data: { courtId: court.id, startAt: start18, endAt: new Date(start18.getTime() + 3600_000), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Khach quay', guestContact: '0900' },
     });
