@@ -122,7 +122,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
           include: { funding: true },
         });
         if (!freshContribution) throw new Error('PaymentIntent matchFee contribution no longer exists');
-        if (await isMatchContributionNoLongerPayable(tx, freshContribution, new Date())) {
+        if (await isMatchContributionNoLongerPayable(freshContribution, new Date())) {
           await creditLateMatchFee(tx, transfer, intent, freshContribution.id);
           return;
         }
@@ -160,7 +160,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
         include: { funding: true },
       });
       if (!freshContribution) throw new Error('PaymentIntent matchFee contribution no longer exists');
-      if (await isMatchContributionNoLongerPayable(tx, freshContribution, new Date())) {
+      if (await isMatchContributionNoLongerPayable(freshContribution, new Date())) {
         await creditLateMatchFee(tx, transfer, intent, freshContribution.id);
         return;
       }
@@ -234,26 +234,23 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
   });
 }
 
-async function isMatchContributionNoLongerPayable(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+// PLAN_MATCH-DEPOSIT: mô hình cọc đảo thứ tự — chủ kèo trả cọc TRƯỚC (chưa ai
+// join), đối trả sau. Khả năng thanh toán chỉ phụ thuộc trạng thái + cửa sổ
+// thời gian, KHÔNG còn ràng buộc "organizer chỉ trả sau đủ participant" (đồng
+// bộ với assertContributionPayable ở matchFee.ts). Guard cũ khiến cọc organizer
+// trả bằng SePay luôn bị coi là hết hạn -> không bao giờ reserve được.
+function isMatchContributionNoLongerPayable(
   contribution: {
     status: string;
-    role: string;
-    matchId: string;
     expiresAt: Date | null;
-    funding: { status: string; cutoffAt: Date; capacity: number };
+    funding: { status: string; cutoffAt: Date };
   },
   now: Date,
 ) {
-  const noLongerPayable = contribution.status !== 'pending'
+  return contribution.status !== 'pending'
     || contribution.funding.status !== 'collecting'
     || contribution.funding.cutoffAt <= now
     || (contribution.expiresAt !== null && contribution.expiresAt <= now);
-  if (noLongerPayable || contribution.role !== 'organizer') return noLongerPayable;
-  const paidParticipants = await tx.matchContribution.count({
-    where: { matchId: contribution.matchId, role: 'participant', status: 'paid' },
-  });
-  return paidParticipants !== contribution.funding.capacity - 1;
 }
 
 async function creditLateMatchFee(

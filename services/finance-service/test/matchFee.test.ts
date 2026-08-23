@@ -150,6 +150,26 @@ describe('FIN-05 — match contribution ledger', () => {
       .toMatchObject({ status: 'paid' });
   });
 
+  it('PLAN_MATCH-DEPOSIT: organizer SePay deposit before any participant reserves the contribution', async () => {
+    const fixture = await setupFunding();
+    const platform = await ensurePlatformWallet();
+    const before = platform.reserved;
+    const organizer = await getOrganizerContribution(fixture.matchId);
+    const intent = await createMatchContributionSepayIntent(fixture.organizerUserId, organizer.id);
+    const externalRef = randomUUID();
+    sepayExternalRefs.push(externalRef);
+
+    await handleIncomingTransfer({ externalRef, amount: fixture.organizerContribution, rawRef: intent.matchCode });
+
+    expect(await prisma.matchContribution.findUniqueOrThrow({ where: { id: organizer.id } }))
+      .toMatchObject({ status: 'paid', paymentMethod: 'sepay' });
+    expect((await prisma.wallet.findUniqueOrThrow({ where: { id: platform.id } })).reserved)
+      .toBe(before + fixture.organizerContribution);
+    expect(await prisma.ledgerEntry.count({
+      where: { walletId: platform.id, type: 'reserve', refType: 'matchFee', refId: organizer.id },
+    })).toBe(1);
+  });
+
   it('AC-FIN-05-2: organizer shortfall plus participant reserves settle the exact booking price', async () => {
     const fixture = await setupFunding();
     const platform = await ensurePlatformWallet();
