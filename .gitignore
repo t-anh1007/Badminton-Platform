@@ -49,3 +49,7 @@ dev-services.log
 
 # Log runtime cục bộ (npm run dev ghi ra), không đưa vào git
 .runtime-logs/
+
+# Vùng nháp cho AI agent — chỉ giữ README, mọi file tạm khác không track
+ai-notes/*
+!ai-notes/README.md
