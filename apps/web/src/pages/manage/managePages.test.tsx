@@ -21,7 +21,7 @@ vi.mock('../../components/map/LocationPicker.js', () => ({
   ),
 }))
 
-const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, images: [{ objectKey: 'venue/images/court.webp', url: 'https://cdn.test/court.webp' }], configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, openMinute: 480, closeMinute: 1320 })), closures: [], pricingRules: [{ version: 1, effectiveFrom: '2026-01-01T00:00:00.000Z', price: '100000' }], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
+const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, images: [{ objectKey: 'venue/images/court.webp', url: 'https://cdn.test/court.webp' }], configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ id: `oh-${weekday}`, weekday, openMinute: 480, closeMinute: 1320 })), closures: [], pricingRules: [{ id: 'pr1', weekday: 0, startMinute: 480, endMinute: 1320, price: '100000', version: 1, effectiveFrom: '2026-01-01T00:00:00.000Z' }], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
 afterEach(cleanup)
 beforeEach(() => {
   vi.clearAllMocks()
