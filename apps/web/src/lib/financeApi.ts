@@ -41,6 +41,9 @@ export interface WithdrawalRow {
   bankCode: string;
   bankAccountNumber: string;
   bankAccountName: string;
+  rejectionReason?: string | null;
+  createdAt?: string;
+  processedAt?: string | null;
 }
 export interface ReconciliationRow {
   id: string;
