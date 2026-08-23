@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { publicMatchProfileSchema } from '@khoaluantn/shared';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
 export interface UpdateProfileInput {
   displayName?: string;
@@ -9,10 +10,17 @@ export interface UpdateProfileInput {
   visibility?: 'public' | 'private';
 }
 
-/** Trả về `displayName` + trạng thái hiển thị cho danh sách userId — dùng để enrich
+/** Trả về danh tính công khai (tên + avatar) cho danh sách userId — dùng để enrich
  * feed cộng đồng, gợi ý kèo, v.v. Không trả lỗi khi thiếu — user không tìm thấy
  * hoặc riêng tư sẽ có `displayName: null`, caller tự hiển thị fallback. */
-export async function getPublicDisplayNames(userIds: string[]) {
+type StorageResolver = () => ObjectStorageClient;
+
+async function browserAvatarUrl(value: string | null, resolveStorage?: StorageResolver) {
+  if (!value || !value.startsWith('profile/avatars/') || !resolveStorage) return value;
+  return resolveStorage().getReadUrl(value);
+}
+
+export async function getPublicDisplayNames(userIds: string[], resolveStorage?: StorageResolver) {
   if (userIds.length === 0) return [];
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
@@ -21,20 +29,24 @@ export async function getPublicDisplayNames(userIds: string[]) {
       verified: true,
       status: true,
       roles: true,
-      playerProfile: { select: { displayName: true, visibility: true } },
+      playerProfile: { select: { displayName: true, avatarUrl: true, visibility: true } },
     },
   });
-  return userIds.map((userId) => {
+  return Promise.all(userIds.map(async (userId) => {
     const user = users.find((current) => current.id === userId);
     if (!user || !user.verified || user.status !== 'active' || !user.playerProfile) {
-      return { userId, displayName: null };
+      return { userId, displayName: null, avatarUrl: null };
     }
     const isPublic = user.playerProfile.visibility === 'public';
-    return { userId, displayName: isPublic ? user.playerProfile.displayName : null };
-  });
+    return {
+      userId,
+      displayName: isPublic ? user.playerProfile.displayName : null,
+      avatarUrl: isPublic ? await browserAvatarUrl(user.playerProfile.avatarUrl, resolveStorage) : null,
+    };
+  }));
 }
 
-export async function getPublicMatchProfile(userId: string) {
+export async function getPublicMatchProfile(userId: string, resolveStorage?: StorageResolver) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -42,7 +54,7 @@ export async function getPublicMatchProfile(userId: string) {
       verified: true,
       status: true,
       roles: true,
-      playerProfile: { select: { displayName: true, visibility: true } },
+      playerProfile: { select: { displayName: true, avatarUrl: true, visibility: true } },
     },
   });
   if (
@@ -58,6 +70,7 @@ export async function getPublicMatchProfile(userId: string) {
   return publicMatchProfileSchema.parse({
     userId: user.id,
     displayName: identityVisibility === 'public' ? user.playerProfile.displayName : 'Người tổ chức',
+    avatarUrl: identityVisibility === 'public' ? await browserAvatarUrl(user.playerProfile.avatarUrl, resolveStorage) : null,
     identityVisibility,
   });
 }
@@ -90,7 +103,7 @@ export async function updateOwnProfile(userId: string, input: UpdateProfileInput
   return profile;
 }
 
-export async function getOwnProfile(userId: string) {
+export async function getOwnProfile(userId: string, resolveStorage?: StorageResolver) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     // Chỉ chọn các field là contract của UI. Không trả nguyên Prisma User vì
@@ -106,5 +119,7 @@ export async function getOwnProfile(userId: string) {
       playerProfile: true,
     },
   });
-  return user;
+  return user.playerProfile
+    ? { ...user, playerProfile: { ...user.playerProfile, avatarUrl: await browserAvatarUrl(user.playerProfile.avatarUrl, resolveStorage) } }
+    : user;
 }

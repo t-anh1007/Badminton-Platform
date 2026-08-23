@@ -86,7 +86,15 @@ async function createOneSlotMatch() {
       capacity: 2,
       feePerSlot: 100000n,
       cutoffAt: new Date(Date.now() + 2 * 60 * 60_000),
+      deadlineAt: new Date(Date.now() + 2 * 60 * 60_000),
       status: 'open',
+    },
+  });
+  // approveJoin đòi MatchCreated đã ghi outbox cho kèo có phí.
+  await prisma.outbox.create({
+    data: {
+      aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCreated',
+      payload: { matchId: match.id, bookingId, capacity: 2, feePerSlot: '100000' },
     },
   });
   createdMatchIds.push(match.id);
@@ -165,7 +173,7 @@ describe('F-03 — live quick match', () => {
       where: { aggregateId: join.id, eventType: 'JoinApproved' },
     });
     expect((approvalEvent.payload as { expiresAt: string }).expiresAt)
-      .toBe(new Date(new Date(approvedJoin.approvedAt).getTime() + 10 * 60_000).toISOString());
+      .toBe(new Date(new Date(approvedJoin.approvedAt).getTime() + 15 * 60_000).toISOString());
   });
 
   it('AC-F03-3: two WS candidates for the final slot leave only one 10-minute payment hold', async () => {

@@ -16,6 +16,9 @@ datasource db {
 }
 
 enum MatchStatus {
+  /// PLAN_MATCH-DEPOSIT: đã tạo kèo, chờ chủ kèo trả cọc — chưa list công khai,
+  /// chưa cho đối join. Trả cọc xong -> open.
+  awaiting_deposit
   open
   filled
   confirmed
@@ -69,6 +72,9 @@ model Match {
   skillMax        SkillTier?
   status          MatchStatus @default(open)
   cutoffAt        DateTime    @db.Timestamptz(3)
+  /// PLAN_MATCH-DEPOSIT: hạn tìm đối X (find-opponent deadline). Scheduler tự
+  /// hủy kèo chưa confirmed khi quá hạn này. Nullable cho bản ghi legacy.
+  deadlineAt      DateTime?   @db.Timestamptz(3)
   organizerContributionPaidAt DateTime? @db.Timestamptz(3)
   organizerContributionId     String?   @unique
   fundingRequestedAt          DateTime? @db.Timestamptz(3)

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { toggleSlot, type BookingRange } from '../booking/selection.js'
+import { toVietnameseSlotIso, toggleSlot, type BookingRange } from '../booking/selection.js'
 import { AuthForm } from '../components/AuthForm'
 import { BookingSummary as BookingSelectionSummary } from '../components/BookingSummary.js'
 import { SlotGrid, type Slot, type SlotStatus } from '../components/SlotGrid'
 import { PageHeader } from '../components/courtin/PageHeader'
 import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/ui'
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
+import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
+import { createMatch } from '../lib/matchApi.js'
 import {
   createBooking,
   createHold,
@@ -87,6 +89,7 @@ export function BookingPage() {
   const [selection, setSelection] = useState<BookingRange | null>(null)
   const [hold, setHold] = useState<HoldResult | null>(null)
   const [booking, setBooking] = useState<BookingSummary | null>(null)
+  const [matchCheckout, setMatchCheckout] = useState<{ matchId: string; holdExpiresAt: string } | null>(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
@@ -94,10 +97,12 @@ export function BookingPage() {
   const [authOpen, setAuthOpen] = useState(false)
   const retryAfterAuth = useRef<(() => void) | null>(null)
   const availabilityRequestId = useRef(0)
+  const findOpponentInFlight = useRef(false)
+  const pendingMatchHold = useRef<HoldResult | null>(null)
   const [date, setDate] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10))
   const [dateField, setDateField] = useState(() => formatDateField(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)))
 
-  const step = booking ? 3 : hold ? 2 : 1
+  const step = booking || matchCheckout ? 3 : hold ? 2 : 1
   const selectedCourt = detail?.courts.find((court) => court.id === courtId)
   const selectedCourtName = selectedCourt?.name ?? 'Sân'
   const bookingRule = selectedCourt?.bookingRule ?? null
@@ -107,6 +112,9 @@ export function BookingPage() {
     setSelection(null)
     setHold(null)
     setBooking(null)
+    setMatchCheckout(null)
+    pendingMatchHold.current = null
+    findOpponentInFlight.current = false
   }
 
   const loadAvailability = async (nextCourtId: string, nextDate: string) => {
@@ -118,8 +126,6 @@ export function BookingPage() {
       const schedule = await getCourtAvailability(nextCourtId, nextDate)
       if (requestId !== availabilityRequestId.current) return
       setSlots(schedule.slots.map((slot) => {
-        const start = new Date(`${nextDate}T00:00:00.000Z`)
-        start.setUTCMinutes(slot.startMinute)
         const past = isPastSlot(nextDate, slot.startMinute)
         return {
           time: `${Math.floor(slot.startMinute / 60).toString().padStart(2, '0')}:${(slot.startMinute % 60).toString().padStart(2, '0')}`,
@@ -129,7 +135,7 @@ export function BookingPage() {
           selection: {
             courtId: nextCourtId,
             date: nextDate,
-            startAt: start.toISOString(),
+            startAt: toVietnameseSlotIso(nextDate, slot.startMinute),
             endMinute: slot.endMinute,
             available: slot.available && !past,
             price: slot.price ?? '0',
@@ -240,6 +246,28 @@ export function BookingPage() {
     setMessage('Hoàn tất thanh toán trước khi lượt giữ chỗ hết hạn.')
   })
 
+  const findOpponent = () => {
+    if (!selection || matchCheckout || findOpponentInFlight.current) return
+    findOpponentInFlight.current = true
+    void run(async () => {
+      try {
+        let nextHold = pendingMatchHold.current
+        if (!nextHold) {
+          nextHold = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
+          pendingMatchHold.current = nextHold
+          setHold(nextHold)
+          updateSelectedSlots('held')
+        }
+        const match = await createMatch({ holdId: nextHold.id, capacity: 2, feeMode: 'split' })
+        pendingMatchHold.current = null
+        setMatchCheckout({ matchId: match.id, holdExpiresAt: nextHold.expiresAt })
+        setMessage('Hoàn tất đặt cọc trước khi lượt giữ chỗ hết hạn.')
+      } finally {
+        findOpponentInFlight.current = false
+      }
+    })
+  }
+
   const expireHold = () => {
     if (!hold) return
     clearFlow()
@@ -251,7 +279,7 @@ export function BookingPage() {
     <main className="page-container py-8 sm:py-12">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <PageHeader eyebrow="Đặt sân" title={detail?.name ?? 'Đang tải cơ sở…'} description={detail?.address} />
-        <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />
+        {!matchCheckout && <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />}
       </div>
       <div className="mb-6 flex flex-wrap gap-2">
         {['Chọn slot', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
@@ -277,7 +305,7 @@ export function BookingPage() {
                       if (nextDate && nextDate !== date) changeDate(nextDate)
                     }}
                     onBlur={() => { if (!parseDateField(dateField)) { setDateField(formatDateField(date)); setError('Ngày phải theo định dạng dd/mm/yyyy.') } }}
-                    disabled={Boolean(booking)}
+                    disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)}
                     className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 pr-11"
                   />
                   <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-ink-500">
@@ -288,7 +316,7 @@ export function BookingPage() {
                     aria-label="Chọn ngày từ lịch"
                     value={date}
                     min={getVietnamClock().date}
-                    disabled={Boolean(booking)}
+                    disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)}
                     onChange={(event) => { if (event.target.value && event.target.value !== date) changeDate(event.target.value) }}
                     className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0 disabled:cursor-not-allowed"
                   />
@@ -296,7 +324,7 @@ export function BookingPage() {
               </label>
               <label className="grid gap-1.5 text-sm font-medium">
                 Sân con
-                <select disabled={Boolean(booking)} value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
+                <select disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)} value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
                   {detail?.courts.map((court) => <option key={court.id} value={court.id}>{court.name}</option>)}
                 </select>
               </label>
@@ -309,7 +337,7 @@ export function BookingPage() {
             {availabilityLoading ? (
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-20" />)}</div>
             ) : slots.length ? (
-              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking ? undefined : choose} /></div>
+              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking || matchCheckout || pendingMatchHold.current ? undefined : choose} /></div>
             ) : (
               <div className="mt-5"><EmptyState title="Không còn slot trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
             )}
@@ -319,10 +347,11 @@ export function BookingPage() {
           <SurfaceCard>
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
-            {selection && !booking && (meetsMinDuration
-              ? <Button className="mt-5 w-full" disabled={loading} onClick={() => void confirm()}>XÁC NHẬN</Button>
+            {selection && !booking && !matchCheckout && (meetsMinDuration
+              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => void confirm()}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading} onClick={() => void findOpponent()}>TÌM ĐỐI THỦ</Button></div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
+            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => navigate(`/matches?created=${encodeURIComponent(matchId)}`, { replace: true })} onExpired={expireHold} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>

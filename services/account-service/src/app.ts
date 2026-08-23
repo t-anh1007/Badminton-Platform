@@ -1,13 +1,15 @@
 import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
+import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 import { authRouter } from './routes/auth.js';
-import { profileRouter } from './routes/profile.js';
+import { createProfileRouter } from './routes/profile.js';
 import { adminRouter } from './routes/admin.js';
-import { internalRouter } from './routes/internal.js';
+import { createInternalRouter } from './routes/internal.js';
 
 const SERVICE_NAME = 'account-service';
 
-export function createApp() {
+export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }) {
+  const resolveStorage = () => dependencies?.objectStorage ?? createObjectStorageClientFromEnv();
   const app = express();
   // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
   app.use((_req, _res, next) => { markActivity(); next(); });
@@ -18,9 +20,9 @@ export function createApp() {
   });
 
   app.use('/auth', authRouter);
-  app.use('/profile', profileRouter);
+  app.use('/profile', createProfileRouter(resolveStorage));
   app.use('/admin', adminRouter);
-  app.use('/internal', internalRouter);
+  app.use('/internal', createInternalRouter(resolveStorage));
 
   return app;
 }

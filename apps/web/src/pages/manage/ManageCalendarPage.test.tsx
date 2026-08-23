@@ -7,10 +7,10 @@ import { getVenueCalendar } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([{ id: 'v', name: 'Sân A', courts: [{ id: 'c' }, { id: 'c2' }] }]),
-  getVenueCalendar: vi.fn().mockResolvedValue({
-    courts: [{ id: 'c', name: 'Sân 1' }, { id: 'c2', name: 'Sân 2' }],
-    entries: [{ id: 'b', courtId: 'c', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z' }],
-  }),
+  getVenueCalendar: vi.fn().mockImplementation((_venueId: string, date: string) => Promise.resolve({
+    courts: [{ courtId: 'c', courtName: 'Sân 1', closedAllDay: false }, { courtId: 'c2', courtName: 'Sân 2', closedAllDay: false }],
+    entries: [{ id: `b-${date}`, courtId: 'c', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', customerLabel: 'Khách demo' }],
+  })),
 }))
 
 it('hiển thị lịch xem-only theo sân con, không còn form tạo booking vãng lai', async () => {
@@ -18,16 +18,18 @@ it('hiển thị lịch xem-only theo sân con, không còn form tạo booking v
   await waitFor(() => expect(getVenueCalendar).toHaveBeenCalledWith('v', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)))
   expect((await screen.findAllByText('Sân 1')).length).toBeGreaterThan(0)
   expect(screen.getAllByText('Sân 2').length).toBeGreaterThan(0)
-  expect(screen.getByText('Đã đặt')).toBeInTheDocument()
+  expect(screen.getAllByText('Khách demo').length).toBeGreaterThan(0)
   expect(screen.queryByLabelText('Tên khách')).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /tạo booking/i })).not.toBeInTheDocument()
 })
 
 it('click block mở drawer chi tiết booking', async () => {
   render(<ManageCalendarPage />)
-  const block = await screen.findByText('Đã đặt')
+  const block = await screen.findByRole('button', { name: /Khách demo/i })
   fireEvent.click(block)
   expect(await screen.findByRole('dialog', { name: /chi tiết booking/i })).toBeInTheDocument()
+  expect(screen.getAllByText('Khách demo').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Sân 1').length).toBeGreaterThan(0)
 })
 
 it('chuyển sang chế độ Tuần sẽ tải 7 ngày', async () => {

@@ -57,7 +57,7 @@ vi.mock('../lib/communityApi.js', () => ({
 }))
 
 const detail = (actions: Record<string, unknown>) => ({
-  id: 'match-1', capacity: 4, openSlots: 2, feePerSlot: '45000', skillMin: 'beginner', skillMax: 'advanced', cutoffAt: '2026-08-15T08:00:00Z', startAt: '2026-08-15T09:00:00Z', endAt: '2026-08-15T10:00:00Z', court: { id: 'c1', name: 'Sân 1' }, venue: { id: 'v1', name: 'Nhà thi đấu A', address: 'Quận 1', lat: 10.8, lng: 106.6 }, status: 'open', organizer: { displayName: 'Organizer A', identityVisibility: 'public', tier: 'intermediate' }, confirmedParticipants: 0, actions,
+  id: 'match-1', capacity: 4, openSlots: 2, feePerSlot: '45000', skillMin: 'beginner', skillMax: 'advanced', cutoffAt: '2026-08-15T08:00:00Z', startAt: '2026-08-15T09:00:00Z', endAt: '2026-08-15T10:00:00Z', court: { id: 'c1', name: 'Sân 1' }, venue: { id: 'v1', name: 'Nhà thi đấu A', address: 'Quận 1', lat: 10.8, lng: 106.6 }, status: 'open', organizer: { displayName: 'Organizer A', avatarUrl: null, identityVisibility: 'public', tier: 'intermediate' }, confirmedParticipants: 0, actions,
 })
 
 beforeEach(() => {
@@ -75,10 +75,10 @@ it('derives organizer join, payment and cancel controls from MatchDetail.actions
   await waitFor(() => expect(approveMatchJoin).toHaveBeenCalledWith('match-1', 'join-internal'))
   fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
   await waitFor(() => expect(rejectMatchJoin).toHaveBeenCalledWith('match-1', 'join-internal'))
-  fireEvent.click(screen.getByRole('button', { name: 'Trả phần organizer' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
   await waitFor(() => expect(payMatchOrganizerContributionBalance).toHaveBeenCalledWith('match-1'))
   fireEvent.change(screen.getByLabelText('Cách thanh toán phần organizer'), { target: { value: 'sepay' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Trả phần organizer' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
   expect(await screen.findByText('KLTORG01')).toBeInTheDocument()
   expect(screen.queryByText('organizer-intent-hidden')).not.toBeInTheDocument()
   const organizerDialog = screen.getByText('KLTORG01').closest('[role="dialog"]') as HTMLElement
@@ -89,6 +89,21 @@ it('derives organizer join, payment and cancel controls from MatchDetail.actions
   fireEvent.click(screen.getByRole('button', { name: 'Hủy kèo' }))
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Xác nhận hủy kèo' })).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(cancelMatch).toHaveBeenCalledWith('match-1'))
+})
+
+it('redirects to the match list after organizer cancellation', async () => {
+  vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: false, isOrganizer: true, canPayOrganizerContribution: true, ownJoin: null }) as never)
+  render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /><Route path="/matches" element={<h1>Danh sách sau hủy</h1>} /></Routes></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Hủy kèo' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Xác nhận hủy kèo' })).getByRole('button', { name: 'Xác nhận' }))
+  expect(await screen.findByRole('heading', { name: 'Danh sách sau hủy' })).toBeInTheDocument()
+})
+
+it('describes awaiting-deposit participants without claiming they are confirmed', async () => {
+  vi.mocked(getMatchDetail).mockResolvedValue({ ...detail({ canJoin: false, isOrganizer: true, canPayOrganizerContribution: true, ownJoin: null }), status: 'awaiting_deposit' } as never)
+  render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
+  expect(await screen.findByText('Chủ kèo đang chờ đặt cọc để mở kèo tìm đối.')).toBeInTheDocument()
+  expect(screen.queryByText('Organizer và người chơi đã xác nhận. Danh tính người tham gia được giữ riêng tư.')).not.toBeInTheDocument()
 })
 
 it('requests a match join only when MatchDetail.actions allows it', async () => {

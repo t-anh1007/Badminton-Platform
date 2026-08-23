@@ -114,10 +114,10 @@ export function PassportPage() {
           <SurfaceCard className="mt-6">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
-                <Avatar label={passport.userId.slice(0, 1)} className="h-16 w-16 text-xl" />
+                <Avatar label={passport.displayName ?? passport.userId.slice(0, 1)} src={!isOwner ? passport.avatarUrl : undefined} alt={`Ảnh đại diện ${passport.displayName ?? 'người chơi'}`} className="h-16 w-16 text-xl" />
                 <div>
                   <h2 className="text-h2">
-                    {isOwner ? 'Hồ sơ trình độ của tôi' : `Người chơi ${passport.userId.slice(0, 8)}`}
+                    {isOwner ? 'Hồ sơ trình độ của tôi' : (passport.displayName ?? `Người chơi ${passport.userId.slice(0, 8)}`)}
                   </h2>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge tone="success">{tierLabels[passport.tier]}</Badge>

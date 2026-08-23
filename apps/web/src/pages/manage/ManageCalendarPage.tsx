@@ -6,7 +6,7 @@ import { formatMoneyVnd } from '../../lib/formatters'
 // tạm ẩn khỏi trang này — tab Lịch sân hiện chỉ để XEM/quản lý. Logic API vẫn giữ
 // nguyên trong venueBookingApi.ts và route backend để bật lại sau.
 
-type Court = { id: string; name: string }
+type Court = { courtId: string; courtName: string; closedAllDay: boolean }
 type CalendarEntry = {
   id?: string
   courtId: string
@@ -176,7 +176,7 @@ export function ManageCalendarPage() {
   const weekStart = startOfWeek(day)
   const weekEnd = addDays(weekStart, 6)
   const navLabel = view === 'day' ? fmtDayLabel(day) : `${fmtDate(weekStart)} – ${fmtDate(weekEnd)}`
-  const courtName = (id: string) => (view === 'day' ? dayData?.courts : weekData[0]?.courts)?.find((c) => c.id === id)?.name ?? ''
+  const courtName = (id: string) => (view === 'day' ? dayData?.courts : weekData[0]?.courts)?.find((c) => c.courtId === id)?.courtName ?? ''
 
   // Danh sách booking (đã thanh toán) cho bảng dưới lịch, kèm ngày để phân biệt ở chế độ Tuần.
   const bookingRows = useMemo<BookingRow[]>(() => {
@@ -281,12 +281,12 @@ export function ManageCalendarPage() {
           <div className="flex min-w-[560px]">
             {timeAxis}
             {(dayData?.courts ?? []).map((court) => {
-              const courtEntries = (dayData?.entries ?? []).filter((e) => e.courtId === court.id && e.kind === 'booking')
+              const courtEntries = (dayData?.entries ?? []).filter((e) => e.courtId === court.courtId && e.kind === 'booking')
               const count = courtEntries.length
               return (
-                <div key={court.id} className="min-w-0 flex-1 border-r border-line last:border-r-0">
+                <div key={court.courtId} className="min-w-0 flex-1 border-r border-line last:border-r-0">
                   <div className="sticky top-0 z-10 flex h-14 flex-col items-center justify-center gap-0.5 border-b border-line bg-surface px-2">
-                    <span className="truncate text-sm font-bold text-ink-800">{court.name}</span>
+                    <span className="truncate text-sm font-bold text-ink-800">{court.courtName}</span>
                     <span className="text-[11px] text-ink-400">{count} booking</span>
                   </div>
                   <div className="relative" style={{ height: bodyHeight }}>{gridLines}{renderBlocks(courtEntries, false, day)}</div>

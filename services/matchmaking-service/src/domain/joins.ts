@@ -5,7 +5,8 @@ import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating, INITIAL_RD, TIER_CENTERS } from './rating.js';
 
-export const JOIN_HOLD_MINUTES = 10;
+// PLAN_MATCH-DEPOSIT DM6: cửa sổ để đối trả 1/2 sau khi được duyệt.
+export const JOIN_HOLD_MINUTES = 15;
 
 async function assertOrganizer(matchId: string, organizerUserId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });

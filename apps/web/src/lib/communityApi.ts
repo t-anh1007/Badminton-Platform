@@ -9,6 +9,7 @@ export interface CommunityPost {
   id: string;
   authorUserId: string;
   authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
   body: string;
   status: ContentStatus;
   createdAt: string;
@@ -38,6 +39,7 @@ export interface CommunityComment {
   postId: string;
   authorUserId: string;
   authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
   body: string;
   status: ContentStatus;
   createdAt: string;

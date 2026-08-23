@@ -1,15 +1,9 @@
 import { Button } from './ui.js'
-import { formatMoneyVnd } from '../lib/formatters.js'
+import { formatDateVi, formatMoneyVnd, formatTimeVi } from '../lib/formatters.js'
 import type { BookingSummary } from '../lib/venueBookingApi.js'
 
 function formatBookingRange(startAt: string, endAt: string) {
-  const start = new Date(startAt)
-  const end = new Date(endAt)
-  const date = [start.getUTCDate(), start.getUTCMonth() + 1, start.getUTCFullYear()]
-    .map((part, index) => index < 2 ? String(part).padStart(2, '0') : String(part))
-    .join('/')
-  const time = (value: Date) => `${String(value.getUTCHours()).padStart(2, '0')}:${String(value.getUTCMinutes()).padStart(2, '0')}`
-  return `${date} · ${time(start)}–${time(end)}`
+  return `${formatDateVi(startAt)} · ${formatTimeVi(startAt)}–${formatTimeVi(endAt)}`
 }
 
 export function BookingCard({ booking, preview, busy = false, cancellable = true, onPreview, onConfirm, onDismiss }: { booking: BookingSummary; preview: number | null; busy?: boolean; cancellable?: boolean; onPreview: () => void; onConfirm: () => void; onDismiss: () => void }) {

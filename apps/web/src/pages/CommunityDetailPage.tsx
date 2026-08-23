@@ -219,7 +219,7 @@ export function CommunityDetailPage() {
           <div className="p-5 sm:p-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar label={avatarLabel(post.authorDisplayName)} className="h-11 w-11" />
+                <Avatar label={avatarLabel(post.authorDisplayName)} src={post.authorAvatarUrl} alt={`Ảnh đại diện ${userLabel(post.authorDisplayName)}`} className="h-11 w-11" />
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorDisplayName)}</p>
                   <p className="text-caption">
@@ -309,7 +309,7 @@ export function CommunityDetailPage() {
                 const commentOwner = session?.userId === comment.authorUserId;
                 return (
                   <article key={comment.id} className="flex gap-3 py-5 first:pt-0 last:pb-0">
-                    <Avatar label={avatarLabel(comment.authorDisplayName)} className="shrink-0" />
+                    <Avatar label={avatarLabel(comment.authorDisplayName)} src={comment.authorAvatarUrl} alt={`Ảnh đại diện ${userLabel(comment.authorDisplayName)}`} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <p className="text-sm font-semibold">{commentOwner ? 'Bạn' : userLabel(comment.authorDisplayName)}</p>

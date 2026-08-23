@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../src/lib/prisma.js';
-import { createHold, reapExpiredHolds } from '../src/domain/hold.js';
+import { createHold, promoteHoldToMatch, reapExpiredHolds } from '../src/domain/hold.js';
 import { isRangeFree } from '../src/domain/slotAvailability.js';
 import { createApprovedProvider, createVenueWithCourt, fakeUserId } from './helpers.js';
 
@@ -109,5 +109,79 @@ describe('BOK-06 — Giữ slot trong 10 phút', () => {
     await expect(createHold(fakeUserId(), { courtId: court.id, startAt: start, endAt: end })).rejects.toMatchObject({
       code: 'SLOT_ALREADY_BOOKED',
     });
+  });
+});
+
+describe('PLAN_MATCH-DEPOSIT — match-hold giữ slot tới deadline X', () => {
+  function daysFromNowAt(days: number, hour: number) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + days);
+    d.setUTCHours(hour, 0, 0, 0);
+    return d;
+  }
+
+  it('promoteHoldToMatch: chuyển hold checkout -> match, gia hạn expiresAt tới deadline, slot vẫn bị giữ', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const userId = fakeUserId();
+    const start = daysFromNowAt(2, 9);
+    const end = daysFromNowAt(2, 10);
+    const deadline = new Date(Date.now() + 12 * 3_600_000);
+
+    const hold = await createHold(userId, { courtId: court.id, startAt: start, endAt: end });
+    expect(hold.purpose).toBe('checkout');
+
+    const promoted = await promoteHoldToMatch(userId, hold.id, deadline);
+    expect(promoted.purpose).toBe('match');
+    expect(promoted.expiresAt.getTime()).toBe(deadline.getTime());
+    expect(await isRangeFree(court.id, start, end)).toBe(false); // vẫn giữ slot tới X
+  });
+
+  it('createHold checkout KHÔNG dọn match-hold của cùng user (chủ kèo giữ nhiều slot-kèo)', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const userId = fakeUserId();
+    const slotA = { start: daysFromNowAt(2, 9), end: daysFromNowAt(2, 10) };
+    const slotB = { start: daysFromNowAt(2, 13), end: daysFromNowAt(2, 14) };
+    const deadline = new Date(Date.now() + 12 * 3_600_000);
+
+    const holdA = await createHold(userId, { courtId: court.id, startAt: slotA.start, endAt: slotA.end });
+    await promoteHoldToMatch(userId, holdA.id, deadline);
+
+    // Tạo hold checkout mới ở slot B -> chỉ dọn checkout cũ, match-hold A phải còn.
+    await createHold(userId, { courtId: court.id, startAt: slotB.start, endAt: slotB.end });
+
+    expect(await isRangeFree(court.id, slotA.start, slotA.end)).toBe(false); // A vẫn giữ
+    const userHolds = await prisma.hold.findMany({ where: { userId } });
+    expect(userHolds).toHaveLength(2);
+    expect(userHolds.filter((h) => h.purpose === 'match')).toHaveLength(1);
+  });
+
+  it('promoteHoldToMatch idempotent: gọi lại trên match-hold trả về nguyên trạng', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const userId = fakeUserId();
+    const start = daysFromNowAt(3, 9);
+    const end = daysFromNowAt(3, 10);
+    const deadline = new Date(Date.now() + 12 * 3_600_000);
+
+    const hold = await createHold(userId, { courtId: court.id, startAt: start, endAt: end });
+    await promoteHoldToMatch(userId, hold.id, deadline);
+    const again = await promoteHoldToMatch(userId, hold.id, new Date(Date.now() + 24 * 3_600_000));
+    expect(again.purpose).toBe('match');
+    expect(again.expiresAt.getTime()).toBe(deadline.getTime()); // giữ deadline lần đầu
+  });
+
+  it('promoteHoldToMatch: hold đã hết hạn -> HOLD_EXPIRED', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const userId = fakeUserId();
+    const start = daysFromNowAt(2, 9);
+    const end = daysFromNowAt(2, 10);
+    const expired = await prisma.hold.create({
+      data: { courtId: court.id, startAt: start, endAt: end, userId, expiresAt: new Date(Date.now() - 1000) },
+    });
+    await expect(promoteHoldToMatch(userId, expired.id, new Date(Date.now() + 12 * 3_600_000)))
+      .rejects.toMatchObject({ code: 'HOLD_EXPIRED' });
   });
 });

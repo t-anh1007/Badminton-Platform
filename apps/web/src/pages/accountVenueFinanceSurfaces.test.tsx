@@ -8,12 +8,15 @@ import { AuthForm } from '../components/AuthForm.js'
 import { ResetPasswordPage } from './ResetPasswordPage.js'
 import { SessionProvider } from '../session/SessionProvider.js'
 import { createTopupIntent, createDispute } from '../lib/financeApi.js'
-import { changePassword, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, verifyEmail } from '../lib/accountApi.js'
+import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail } from '../lib/accountApi.js'
 import { searchVenues } from '../lib/venueBookingApi.js'
 
 vi.mock('../lib/accountApi.js', () => ({
   getMyProfile: vi.fn().mockResolvedValue({ id: 'u1', email: 'player@example.com', phone: '0900000000', roles: ['player', 'provider'], playerProfile: { displayName: 'Người chơi A', avatarUrl: 'https://cdn.example/avatar.webp', visibility: 'public' } }),
   updateMyProfile: vi.fn().mockResolvedValue({}), changePassword: vi.fn().mockResolvedValue({}),
+  authorizeAvatarUpload: vi.fn().mockResolvedValue({ objectKey: 'profile/avatars/u1/new.webp', uploadUrl: 'https://storage.test/put', headers: {}, expiresAt: 'x' }),
+  uploadAvatarFile: vi.fn().mockResolvedValue(undefined),
+  commitAvatarUpload: vi.fn().mockResolvedValue({ id: 'u1', email: 'player@example.com', phone: '0900000000', roles: ['player', 'provider'], playerProfile: { displayName: 'Người chơi A', avatarUrl: 'https://cdn.example/new.webp', visibility: 'public' } }),
   register: vi.fn().mockResolvedValue({ message: 'Đã gửi mã' }), verifyEmail: vi.fn().mockResolvedValue({ message: 'Đã xác minh' }), resendVerificationEmail: vi.fn().mockResolvedValue({ message: 'Đã gửi lại' }),
   login: vi.fn(), refreshSession: vi.fn(), logout: vi.fn(), requestPasswordReset: vi.fn().mockResolvedValue({ message: 'Đã gửi liên kết' }), resetPassword: vi.fn().mockResolvedValue({ message: 'Đã đổi mật khẩu' }),
 }))
@@ -39,13 +42,16 @@ it('shows account roles/avatar and updates all editable profile fields', async (
   expect(await screen.findByAltText('Ảnh đại diện tài khoản')).toHaveAttribute('src', 'https://cdn.example/avatar.webp')
   expect(screen.getByText('Người chơi')).toBeInTheDocument()
   expect(screen.getByText('Chủ sân')).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Đổi ảnh đại diện'), { target: { files: [new File(['avatar'], 'avatar.webp', { type: 'image/webp' })] } })
+  await waitFor(() => expect(authorizeAvatarUpload).toHaveBeenCalledWith('image/webp'))
+  expect(uploadAvatarFile).toHaveBeenCalled()
+  await waitFor(() => expect(commitAvatarUpload).toHaveBeenCalledWith('profile/avatars/u1/new.webp', 'image/webp'))
   fireEvent.click(screen.getByRole('button', { name: 'Cập nhật thông tin' }))
   fireEvent.change(screen.getByLabelText('Tên hiển thị'), { target: { value: 'Tên mới' } })
-  fireEvent.change(screen.getByLabelText('URL ảnh đại diện'), { target: { value: 'https://cdn.example/new.webp' } })
   fireEvent.change(screen.getByLabelText('Số điện thoại'), { target: { value: '0911111111' } })
   fireEvent.change(screen.getByLabelText('Hiển thị'), { target: { value: 'private' } })
   fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-  await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ displayName: 'Tên mới', avatarUrl: 'https://cdn.example/new.webp', phone: '0911111111', visibility: 'private' }))
+  await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ displayName: 'Tên mới', phone: '0911111111', visibility: 'private' }))
   fireEvent.click(screen.getByRole('button', { name: 'Đổi mật khẩu' }))
   fireEvent.change(screen.getByLabelText('Mật khẩu hiện tại'), { target: { value: 'OldPassword1' } })
   fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'NewPassword1' } })

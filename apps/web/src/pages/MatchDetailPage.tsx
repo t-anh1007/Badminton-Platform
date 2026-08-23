@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
+import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
 import {
@@ -80,7 +80,7 @@ export function MatchDetailPage() {
   const remaining = useMemo(
     () =>
       detail?.actions.ownJoin?.status === 'approved' && detail.actions.ownJoin.approvedAt
-        ? Math.max(0, new Date(detail.actions.ownJoin.approvedAt).getTime() + 10 * 60_000 - now)
+        ? Math.max(0, new Date(detail.actions.ownJoin.approvedAt).getTime() + 15 * 60_000 - now)
         : 0,
     [detail, now],
   );
@@ -128,11 +128,15 @@ export function MatchDetailPage() {
   }, [id, sepay]);
 
 
-  const mutate = async (operation: () => Promise<unknown>, success: string) => {
+  const mutate = async (operation: () => Promise<unknown>, success: string, afterSuccess?: () => void) => {
     try {
       await operation();
       setNotice(success);
       setConfirmAction(null);
+      if (afterSuccess) {
+        afterSuccess();
+        return;
+      }
       await load();
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Không thể hoàn tất thao tác.');
@@ -187,7 +191,7 @@ export function MatchDetailPage() {
       navigate('/auth');
       return;
     }
-    void mutate(() => requestMatchJoin(detail.id), 'Đã gửi yêu cầu; organizer sẽ duyệt trước khi mở giữ chỗ 10 phút.');
+    void mutate(() => requestMatchJoin(detail.id), 'Đã gửi yêu cầu; organizer sẽ duyệt trước khi mở giữ chỗ 15 phút.');
   };
 
   return (
@@ -206,7 +210,9 @@ export function MatchDetailPage() {
                   {detail.venue.name} · {detail.court.name}
                 </h1>
               </div>
-              <Badge tone={isFull ? 'warning' : 'success'}>{isFull ? 'Đã đầy' : `Còn ${detail.openSlots} chỗ`}</Badge>
+              <Badge tone={detail.status === 'awaiting_deposit' ? 'warning' : isFull ? 'warning' : 'success'}>
+                {detail.status === 'awaiting_deposit' ? 'Chờ đặt cọc' : isFull ? 'Đã đầy' : `Còn ${detail.openSlots} chỗ`}
+              </Badge>
             </div>
             <div className="mt-6 grid gap-4 border-y border-line py-5 sm:grid-cols-2">
               <div>
@@ -303,12 +309,14 @@ export function MatchDetailPage() {
               {detail.confirmedParticipants + 1}/{detail.capacity}
             </p>
             <p className="mt-1 text-sm text-ink-500">
-              Organizer và người chơi đã xác nhận. Danh tính người tham gia được giữ riêng tư.
+              {detail.status === 'awaiting_deposit'
+                ? 'Chủ kèo đang chờ đặt cọc để mở kèo tìm đối.'
+                : detail.confirmedParticipants === 0
+                  ? 'Chủ kèo đang chờ người chơi phù hợp tham gia.'
+                  : 'Organizer và người chơi đã xác nhận. Danh tính người tham gia được giữ riêng tư.'}
             </p>
             <div className="mt-4 flex -space-x-2">
-              <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-brand-navy font-bold text-white">
-                {detail.organizer.displayName.slice(0, 1)}
-              </span>
+              <Avatar label={detail.organizer.displayName} src={detail.organizer.avatarUrl} alt={`Ảnh đại diện ${detail.organizer.displayName}`} className="h-10 w-10 border-2 border-surface" />
               {Array.from({ length: detail.confirmedParticipants }, (_, index) => (
                 <span
                   key={index}
@@ -336,10 +344,12 @@ export function MatchDetailPage() {
                 <p className="font-semibold">Bạn là organizer</p>
                 <p className="text-sm text-ink-500">
                   {detail.actions.canPayOrganizerContribution
-                    ? 'Người chơi đã đóng đủ; thanh toán phần organizer để xác nhận sân.'
-                    : detail.status === 'filled'
-                      ? 'Đang đối soát phần organizer trước khi xác nhận sân.'
-                      : 'Duyệt yêu cầu hoặc hủy kèo theo quy tắc hiện hành.'}
+                    ? 'Đặt cọc (1/2 giá sân) để chốt sân và mở kèo tìm đối. Cọc hoàn vào ví nếu không tìm được đối.'
+                    : detail.status === 'awaiting_deposit'
+                      ? 'Đang chờ xác nhận cọc; kèo sẽ mở tìm đối ngay sau khi cọc về.'
+                      : detail.status === 'filled'
+                        ? 'Đối đã đóng đủ; đang đối soát để xác nhận sân.'
+                        : 'Duyệt yêu cầu hoặc hủy kèo theo quy tắc hiện hành.'}
                 </p>
               </>
             ) : join?.status === 'pending' ? (
@@ -366,7 +376,7 @@ export function MatchDetailPage() {
             ) : (
               <>
                 <p className="font-semibold">{isFull ? 'Kèo đã đủ người' : 'Gửi yêu cầu tham gia'}</p>
-                <p className="text-sm text-ink-500">Organizer duyệt trước, sau đó mới mở hold 10 phút.</p>
+                <p className="text-sm text-ink-500">Organizer duyệt trước, sau đó mới mở cửa sổ thanh toán 15 phút.</p>
               </>
             )}
           </div>
@@ -384,7 +394,7 @@ export function MatchDetailPage() {
                       <option value="balance">Số dư</option>
                       <option value="sepay">SePay</option>
                     </SelectInput>
-                    <Button onClick={() => void payOrganizer()}>Trả phần organizer</Button>
+                    <Button onClick={() => void payOrganizer()}>Đặt cọc chốt sân</Button>
                   </>
                 )}
                 <Button tone="danger" onClick={() => setConfirmAction('cancel')}>
@@ -439,6 +449,7 @@ export function MatchDetailPage() {
               void mutate(
                 () => (confirmAction === 'cancel' ? cancelMatch(detail.id) : withdrawMatchJoin(detail.id, join!.id)),
                 confirmAction === 'cancel' ? 'Đã hủy kèo.' : 'Đã rút khỏi kèo.',
+                confirmAction === 'cancel' ? () => navigate('/matches', { replace: true }) : undefined,
               )
             }
           >

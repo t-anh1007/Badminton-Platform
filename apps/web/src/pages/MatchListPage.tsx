@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { QuickMatchPanel } from '../components/QuickMatchPanel';
 import { PageHeader } from '../components/courtin/PageHeader';
 import {
   Badge,
+  Avatar,
   Button,
   EmptyState,
   Modal,
@@ -25,9 +26,7 @@ const tierLabels: Record<SkillTier, string> = {
   advanced: 'Bán chuyên',
 };
 const tierOptions = Object.entries(tierLabels) as Array<[SkillTier, string]>;
-type HydratedMatch = MatchRow & {
-  organizer?: { displayName: string; tier: SkillTier | null };
-};
+type HydratedMatch = MatchRow;
 type MatchSource = ({ kind: 'booking' } & MatchBookingSource) | ({ kind: 'hold' } & MatchHoldSource);
 const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : formatMoneyVnd(value));
 const skillRange = (row: MatchRow) =>
@@ -83,6 +82,10 @@ function toDateInputValue(value: Date): string {
 }
 
 export function MatchListPage() {
+  const [searchParams] = useSearchParams();
+  const createdMatchId = searchParams.get('created');
+  const createdCardRef = useRef<HTMLAnchorElement>(null);
+  const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(createdMatchId);
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,8 +98,6 @@ export function MatchListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [matchSources, setMatchSources] = useState<MatchSource[]>([]);
   const [sourceKey, setSourceKey] = useState('');
-  const [capacity, setCapacity] = useState(4);
-  const [feeMode, setFeeMode] = useState<'free' | 'split'>('split');
   const [notice, setNotice] = useState('');
   const navigate = useNavigate();
 
@@ -143,6 +144,15 @@ export function MatchListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [area, skill, priceMin, priceMax, datePreset, customDate]);
 
+  useEffect(() => {
+    if (loading || !createdMatchId || !matches.some((match) => match.id === createdMatchId)) return;
+    setHighlightedMatchId(createdMatchId);
+    createdCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    createdCardRef.current?.focus({ preventScroll: true });
+    const timer = window.setTimeout(() => setHighlightedMatchId(null), 4_000);
+    return () => window.clearTimeout(timer);
+  }, [createdMatchId, loading, matches]);
+
   const hasActiveFilters = Boolean(area.trim() || skill || priceMin || priceMax || datePreset !== 'all');
   const resetFilters = () => {
     setArea('');
@@ -166,10 +176,8 @@ export function MatchListPage() {
     setNotice('');
     try {
       const result = await getMyMatchSources();
-      const sources: MatchSource[] = [
-        ...result.holds.map((hold) => ({ ...hold, kind: 'hold' as const })),
-        ...result.bookings.map((booking) => ({ ...booking, kind: 'booking' as const })),
-      ];
+      // Kèo cọc chỉ tạo từ slot đang GIỮ (hold) — organizer đặt cọc để chốt.
+      const sources: MatchSource[] = result.holds.map((hold) => ({ ...hold, kind: 'hold' as const }));
       setMatchSources(sources);
       setSourceKey(sources[0] ? `${sources[0].kind}:${sources[0].id}` : '');
     } catch (cause) {
@@ -179,8 +187,9 @@ export function MatchListPage() {
   const submitCreate = async () => {
     if (!sourceKey) return;
     try {
-      const [kind, id] = sourceKey.split(':') as ['booking' | 'hold', string];
-      const match = await createMatch({ ...(kind === 'booking' ? { bookingId: id } : { holdId: id }), capacity, feeMode });
+      const [, id] = sourceKey.split(':') as ['hold', string];
+      // Kèo đơn cọc: 2 người, chia đôi phí. Sau khi tạo -> trang chi tiết đặt cọc.
+      const match = await createMatch({ holdId: id, capacity: 2, feeMode: 'split' });
       setCreateOpen(false);
       navigate(`/matches/${match.id}`);
     } catch (cause) {
@@ -192,6 +201,7 @@ export function MatchListPage() {
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.includes('thành công') ? 'success' : 'error'} />}
       <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={() => void openCreate()}>Tạo kèo từ slot đang giữ</Button>} />
+      {createdMatchId && <div role="status" className="mt-5 rounded-xl border border-success bg-success-bg p-4 text-sm text-success">Kèo đã được tạo và đang tìm đối thủ.{!loading && !matches.some((match) => match.id === createdMatchId) && <> <Link className="font-bold underline" to={`/matches/${encodeURIComponent(createdMatchId)}`}>Xem kèo vừa tạo</Link></>}</div>}
       <div className="mt-6">
         <QuickMatchPanel />
       </div>
@@ -342,7 +352,9 @@ export function MatchListPage() {
             <Link
               key={match.id}
               to={`/matches/${match.id}`}
-              className="surface-card group block p-5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)]"
+              ref={match.id === createdMatchId ? createdCardRef : undefined}
+              data-testid={`match-card-${match.id}`}
+              className={`surface-card group block p-5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)] ${match.id === highlightedMatchId ? 'ring-2 ring-brand-yellow' : ''}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -354,9 +366,7 @@ export function MatchListPage() {
                 <Badge tone={match.openSlots <= 1 ? 'warning' : 'success'}>Còn {match.openSlots} chỗ</Badge>
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-yellow font-bold text-brand-navy">
-                  {match.organizer?.displayName?.slice(0, 1) ?? 'T'}
-                </span>
+                <Avatar label={match.organizer?.displayName ?? 'T'} src={match.organizer?.avatarUrl} alt={`Ảnh đại diện ${match.organizer?.displayName ?? 'Người tổ chức'}`} />
                 <div>
                   <p className="text-sm font-medium">{match.organizer?.displayName ?? 'Organizer'}</p>
                   <p className="text-caption">
@@ -385,11 +395,11 @@ export function MatchListPage() {
           ))}
         </div>
       )}
-      <Modal open={createOpen} title="Tạo kèo từ booking đang giữ" onClose={() => setCreateOpen(false)}>
+      <Modal open={createOpen} title="Tạo kèo đơn từ slot đang giữ" onClose={() => setCreateOpen(false)}>
         {matchSources.length === 0 ? (
           <EmptyState
-            title="Chưa có nguồn tạo kèo hợp lệ"
-            description="Hãy giữ một khung giờ hoặc tạo booking đang chờ thanh toán trước khi mở kèo."
+            title="Chưa có slot đang giữ"
+            description="Hãy giữ một khung giờ (cách giờ đá ít nhất 24 giờ) trước khi mở kèo đơn."
             action={<Button onClick={() => navigate('/venues')}>Chọn sân</Button>}
           />
         ) : (
@@ -399,37 +409,24 @@ export function MatchListPage() {
               <SelectInput aria-label="Nguồn tạo kèo" className="mt-1" value={sourceKey} onChange={(event) => setSourceKey(event.target.value)}>
                 {matchSources.map((source) => (
                   <option key={`${source.kind}:${source.id}`} value={`${source.kind}:${source.id}`}>
-                    {source.court.venue.name} · {source.court.name} · {formatDateTimeVi(source.startAt)} · {source.kind === 'hold' ? 'Đang giữ' : 'Chờ thanh toán'}
+                    {source.court.venue.name} · {source.court.name} · {formatDateTimeVi(source.startAt)} · Đang giữ
                   </option>
                 ))}
               </SelectInput>
             </label>
-            <label className="block text-sm font-medium">
-              Số người
-              <TextInput
-                className="mt-1"
-                type="number"
-                min={2}
-                value={capacity}
-                onChange={(event) => setCapacity(Number(event.target.value))}
-              />
-            </label>
-            <label className="block text-sm font-medium">
-              Chia phí
-              <SelectInput
-                className="mt-1"
-                value={feeMode}
-                onChange={(event) => setFeeMode(event.target.value as 'free' | 'split')}
-              >
-                <option value="split">Chia đều phí sân</option>
-                <option value="free">Organizer trả toàn bộ</option>
-              </SelectInput>
-            </label>
+            <div className="rounded-xl bg-canvas p-3 text-sm text-ink-600">
+              <p className="font-semibold text-ink-900">Kèo đơn 2 người · chia đôi phí</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                <li>Bạn <b>đặt cọc = 1/2 giá sân</b> để chốt sân và mở kèo tìm đối.</li>
+                <li>Đối tham gia trả 1/2 còn lại; đủ tiền là kèo được xác nhận.</li>
+                <li>Không tìm được đối trước hạn → kèo tự hủy, <b>hoàn cọc vào ví</b>.</li>
+              </ul>
+            </div>
             <div className="flex justify-end gap-2">
               <Button tone="secondary" onClick={() => setCreateOpen(false)}>
                 Đóng
               </Button>
-              <Button onClick={() => void submitCreate()}>Tạo kèo</Button>
+              <Button onClick={() => void submitCreate()}>Tạo kèo & đặt cọc</Button>
             </div>
           </div>
         )}

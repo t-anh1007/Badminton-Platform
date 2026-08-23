@@ -132,8 +132,9 @@ describe('VEN-06 — Thiết lập biểu giá theo lịch', () => {
     const base = new Date();
     const diff = (WEEKDAY - base.getUTCDay() + 7) % 7 || 7;
     base.setUTCDate(base.getUTCDate() + diff);
-    const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 18, 0, 0));
-    const end = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 20, 0, 0));
+    // 18:00-20:00 giờ Việt Nam được lưu thành 11:00-13:00 UTC.
+    const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 11, 0, 0));
+    const end = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 13, 0, 0));
 
     const total = await calculateBookingPrice(court.id, start, end);
     expect(total).toBe(250000n);

@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { declareTier, getOwnPassport, getPublicPassport } from '../domain/passport.js';
 import { requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
+import type { AccountClient } from '../clients/account.js';
 
-export const passportRouter = Router();
+export function createPassportRouter(accountClient: AccountClient) {
+const passportRouter = Router();
 
 const declarationSchema = z.object({
   tier: z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']),
@@ -36,6 +38,18 @@ passportRouter.get(
   '/:userId',
   withErrorHandling(async (req, res) => {
     const userId = z.string().uuid().parse(req.params.userId);
-    res.status(200).json(await getPublicPassport(userId));
+    const [passport, identity] = await Promise.all([
+      getPublicPassport(userId),
+      accountClient.getPublicMatchProfile(userId).catch(() => null),
+    ]);
+    res.status(200).json({
+      ...passport,
+      displayName: identity?.identityVisibility === 'public' ? identity.displayName : 'Người chơi',
+      avatarUrl: identity?.identityVisibility === 'public' ? identity.avatarUrl : null,
+      identityVisibility: identity?.identityVisibility ?? 'hidden',
+    });
   }),
 );
+
+return passportRouter;
+}

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { HttpAccountDisplayNameClient, type AccountDisplayNameClient } from '../clients/account.js';
 
 export interface CalendarEntry {
   /** Chỉ có ở booking (để quản lý/xem chi tiết); hold không mang id. */
@@ -24,7 +25,12 @@ export interface CalendarResult {
 
 /** VEN-08 — Lịch sân hợp nhất cho một ngày (AC-VEN-08-1..5). Chỉ chủ sở hữu
  * cơ sở mới xem được (BR-VEN-11). */
-export async function getUnifiedCalendar(userId: string, venueId: string, date: Date): Promise<CalendarResult> {
+export async function getUnifiedCalendar(
+  userId: string,
+  venueId: string,
+  date: Date,
+  accountClient: AccountDisplayNameClient = new HttpAccountDisplayNameClient(),
+): Promise<CalendarResult> {
   const venue = await prisma.venue.findUniqueOrThrow({
     where: { id: venueId },
     include: { provider: true, courts: true },
@@ -49,6 +55,14 @@ export async function getUnifiedCalendar(userId: string, venueId: string, date: 
   ]);
 
   const closedCourtIds = new Set(closures.map((c) => c.courtId));
+  const marketplaceUserIds = bookings.flatMap((booking) => booking.userId ? [booking.userId] : []);
+  let displayNames = new Map<string, string>();
+  try {
+    const profiles = await accountClient.getPublicDisplayNames(marketplaceUserIds);
+    displayNames = new Map(profiles.flatMap((profile) => profile.displayName ? [[profile.userId, profile.displayName]] : []));
+  } catch {
+    // Tên là dữ liệu enrich; lịch vẫn dùng được nếu account-service tạm thời không phản hồi.
+  }
 
   const entries: CalendarEntry[] = [
     ...bookings
@@ -60,7 +74,7 @@ export async function getUnifiedCalendar(userId: string, venueId: string, date: 
         source: b.source,
         startAt: b.startAt,
         endAt: b.endAt,
-        customerLabel: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai'),
+        customerLabel: b.userId ? (displayNames.get(b.userId) ?? 'Người chơi') : (b.guestName ?? 'Khách vãng lai'),
         guestContact: b.source === 'internal' ? b.guestContact : null,
         priceSnapshot: b.priceSnapshot.toString(),
       })),

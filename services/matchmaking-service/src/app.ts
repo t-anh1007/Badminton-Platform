@@ -3,7 +3,7 @@ import express from 'express';
 import { GeminiMatchmakerClient, type MatchmakerExplanationClient } from '@khoaluantn/ai';
 import { HttpAccountClient, type AccountClient } from './clients/account.js';
 import { HttpVenueBookingClient, type VenueBookingClient } from './clients/venueBooking.js';
-import { passportRouter } from './routes/passports.js';
+import { createPassportRouter } from './routes/passports.js';
 import { createMatchRouter } from './routes/matches.js';
 
 const SERVICE_NAME = 'matchmaking-service';
@@ -24,7 +24,7 @@ export function createApp(dependencies?: {
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });
   });
   app.use('/matches', createMatchRouter(venueBookingClient, accountClient, matchmakerClient));
-  app.use('/passports', passportRouter);
+  app.use('/passports', createPassportRouter(accountClient));
   return app;
 }
 

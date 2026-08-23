@@ -4,6 +4,7 @@ import { useSession } from '../session/SessionProvider.js'
 import { roleLabel } from './RoleBadge.js'
 import { Avatar } from './ui'
 import type { UserRole } from '../session/session.js'
+import { getMyProfile, type ProfileResult } from '../lib/accountApi.js'
 
 const homes = { player: '/', provider: '/manage', admin: '/admin' } as const
 
@@ -17,6 +18,7 @@ export function UserMenu() {
   const { session, setActiveRole, logout } = useSession()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [profile, setProfile] = useState<ProfileResult | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -26,6 +28,13 @@ export function UserMenu() {
     document.addEventListener('mousedown', onClick); document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
   }, [open])
+
+  useEffect(() => {
+    const load = () => { void getMyProfile().then(setProfile).catch(() => setProfile(null)) }
+    load()
+    window.addEventListener('courtin:profile-change', load)
+    return () => window.removeEventListener('courtin:profile-change', load)
+  }, [session?.userId])
 
   if (!session) return null
   const links = accountLinks[session.activeRole]
@@ -40,12 +49,13 @@ export function UserMenu() {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow"
       >
-        <Avatar />
+        <Avatar label={profile?.playerProfile?.displayName ?? 'T'} src={profile?.playerProfile?.avatarUrl} alt="Ảnh đại diện tài khoản" />
         <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-4 w-4 text-surface/75 transition-transform ${open ? 'rotate-180' : ''}`} fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
       </button>
       {open && (
         <div role="menu" className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-black/5 bg-surface text-brand-navy shadow-xl">
           <div className="border-b border-black/5 px-4 py-3">
+            <p className="truncate text-sm font-extrabold">{profile?.playerProfile?.displayName ?? 'Tài khoản của tôi'}</p>
             <p className="text-xs font-bold uppercase tracking-wide text-brand-navy/50">Đang ở vai trò</p>
             <p className="text-sm font-extrabold">{roleLabel(session.activeRole)}</p>
           </div>

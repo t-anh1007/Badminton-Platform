@@ -32,6 +32,8 @@ const matchCreatedSchema = z.object({
   bookingPrice: positiveMoney,
   organizerContribution: positiveMoney,
   cutoffAt: z.string().datetime(),
+  // PLAN_MATCH-DEPOSIT: hạn chủ kèo trả cọc (checkout ~10'); khác cutoffAt (=X).
+  depositExpiresAt: z.string().datetime().optional(),
 }).strict();
 
 const joinApprovedSchema = z.object({
@@ -104,7 +106,8 @@ export async function handleMatchCreated(eventId: string, raw: MatchCreatedPaylo
               userId: payload.organizerUserId,
               role: 'organizer',
               amount: organizerContribution,
-              expiresAt: new Date(payload.cutoffAt),
+              // Cọc phải trả trong cửa sổ checkout, không phải tới hạn tìm đối X.
+              expiresAt: new Date(payload.depositExpiresAt ?? payload.cutoffAt),
             },
           },
         },
@@ -153,19 +156,8 @@ function assertContributionPayable(
   }
 }
 
-async function assertOrganizerCanFund(
-  tx: Prisma.TransactionClient,
-  contribution: { role: string; matchId: string },
-  capacity: number,
-) {
-  if (contribution.role !== 'organizer') return;
-  const paidParticipants = await tx.matchContribution.count({
-    where: { matchId: contribution.matchId, role: 'participant', status: 'paid' },
-  });
-  if (paidParticipants !== capacity - 1) {
-    throw new AppError('MATCH_NOT_FILLED', 'Chỉ thanh toán phần organizer sau khi đủ participant.', 409);
-  }
-}
+// PLAN_MATCH-DEPOSIT: mô hình cọc đảo thứ tự — chủ kèo trả cọc TRƯỚC (ngay khi
+// tạo kèo), đối trả sau khi tham gia. Bỏ guard "organizer chỉ trả sau participant".
 
 async function reserveContribution(
   tx: Prisma.TransactionClient,
@@ -181,7 +173,6 @@ async function reserveContribution(
   });
   if (!contribution) throw new AppError('MATCH_CONTRIBUTION_NOT_FOUND', 'Không tìm thấy khoản góp.', 404);
   assertContributionPayable(contribution, contribution.funding, now);
-  await assertOrganizerCanFund(tx, contribution, contribution.funding.capacity);
   const platform = await tx.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } });
   await postLedgerEntry(tx, {
     walletId: platform.id,
@@ -273,7 +264,6 @@ export async function createMatchContributionSepayIntent(userId: string, contrib
     throw new AppError('MATCH_CONTRIBUTION_NOT_FOUND', 'Không tìm thấy khoản góp của bạn.', 404);
   }
   assertContributionPayable(contribution, contribution.funding, now);
-  await assertOrganizerCanFund(prisma, contribution, contribution.funding.capacity);
   const existing = await prisma.paymentIntent.findFirst({
     where: { userId, refType: 'matchFee', refId: contribution.id, status: 'pending' },
   });

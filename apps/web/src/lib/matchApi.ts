@@ -47,6 +47,7 @@ export interface MatchRow {
   endAt: string;
   court: MatchCourt;
   venue: MatchVenue;
+  organizer?: { displayName: string; avatarUrl: string | null; identityVisibility: 'public' | 'hidden'; tier?: SkillTier | null } | null;
 }
 export interface OwnJoin {
   id: string;
@@ -54,10 +55,11 @@ export interface OwnJoin {
   approvedAt: string | null;
 }
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId'> {
-  status: 'open' | 'filled' | 'confirmed';
+  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed';
   organizer: {
     displayName: string;
-    identityVisibility: string;
+    avatarUrl: string | null;
+    identityVisibility: 'public' | 'hidden';
     tier: SkillTier | null;
   };
   confirmedParticipants: number;
@@ -99,6 +101,17 @@ export function listMatches(
   return api<{ matches: MatchRow[] }>(`/matches${query.size ? `?${query}` : ''}`);
 }
 export const getMatchDetail = (id: string) => api<MatchDetail>(`/matches/${id}`);
+export async function waitForMatchOpen(id: string, options: { attempts?: number; intervalMs?: number } = {}) {
+  const attempts = options.attempts ?? 20;
+  const intervalMs = options.intervalMs ?? 1_000;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const detail = await getMatchDetail(id);
+    if (detail.status === 'open' || detail.status === 'filled' || detail.status === 'confirmed') return detail;
+    if (detail.status !== 'awaiting_deposit') throw new Error('Kèo không còn ở trạng thái có thể hoàn tất đặt cọc.');
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error('Khoản cọc đang được xác nhận. Vui lòng chờ thêm hoặc thử kiểm tra lại.');
+}
 export const requestMatchJoin = (id: string) =>
   api<OwnJoin & { matchId: string }>(`/matches/${id}/joins`, {
     method: 'POST',

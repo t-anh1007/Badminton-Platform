@@ -26,6 +26,7 @@ export const DEMO_EMAIL = 'demo@courtin.local';
 export const publicMatchProfileSchema = z.object({
   userId: z.string().uuid(),
   displayName: z.string().min(1),
+  avatarUrl: z.string().nullable(),
   identityVisibility: z.enum(['public', 'hidden']),
 }).strict();
 
@@ -60,7 +61,13 @@ export interface MatchCreatedPayload {
   feePerSlot: string;
   bookingPrice: string;
   organizerContribution: string;
+  /** Hạn tìm đối X (find-opponent deadline) — dùng cho funding.cutoffAt và hạn
+   * thanh toán của participant. PLAN_MATCH-DEPOSIT. */
   cutoffAt: string;
+  /** PLAN_MATCH-DEPOSIT: hạn chủ kèo trả cọc (checkout ~10 phút). Finance dùng
+   * cho organizer contribution.expiresAt; khác với cutoffAt (=X). Optional để
+   * tương thích ngược event legacy (thiếu ⇒ finance dùng cutoffAt như cũ). */
+  depositExpiresAt?: string;
 }
 
 export interface JoinApprovedPayload {

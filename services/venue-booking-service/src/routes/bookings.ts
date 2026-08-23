@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { createBookingFromHold, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { activateMatchHold, createBookingFromHold, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
@@ -78,6 +78,21 @@ const matchResolutionSchema = z.object({
   action: z.enum(['settle', 'withdraw', 'cancel']),
   venueRevision: z.number().int().nonnegative(),
 }).strict();
+
+// PLAN_MATCH-DEPOSIT — nội bộ: matchmaking gọi sau khi chủ kèo trả cọc để gia
+// hạn hold + booking held tới hạn tìm đối X.
+bookingRouter.post(
+  '/internal/bookings/:id/activate-match-hold',
+  requireInternalService,
+  h(async (req, res) => {
+    const { userId, deadlineAt } = z.object({
+      userId: z.string().uuid(),
+      deadlineAt: z.coerce.date(),
+    }).strict().parse(req.body);
+    const booking = await activateMatchHold(userId, z.string().uuid().parse(req.params.id), deadlineAt);
+    res.status(200).json(serializeBooking(booking));
+  }),
+);
 
 bookingRouter.post(
   '/internal/bookings/:id/match-resolution',

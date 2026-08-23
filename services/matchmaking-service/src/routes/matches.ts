@@ -99,7 +99,7 @@ export function createMatchRouter(
   }));
   router.get('/', withErrorHandling(async (req, res) => {
     const filters = searchSchema.parse(req.query);
-    res.status(200).json({ matches: await findPublicMatches(venueBookingClient, filters) });
+    res.status(200).json({ matches: await findPublicMatches(venueBookingClient, filters, new Date(), accountClient) });
   }));
   router.get('/suggestions/ai', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const { skill: _ignoredSkill, ...filters } = searchSchema.parse(req.query);

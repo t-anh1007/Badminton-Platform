@@ -139,8 +139,10 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - **Workflow**: xem thông tin kèo: sân/giờ/địa điểm, tổ chức (tên hiển thị thật khi hồ sơ
   `public`; nhãn cố định “Người tổ chức” khi hồ sơ `private`, theo D31) + bậc trình độ, danh
   sách người đã `confirmed` (ẩn danh tính nhạy cảm), số chỗ trống, phí, hạn chốt.
-- **BR-D31**: API account trả thêm `identityVisibility=public|hidden`; không được truyền tên thật
-  của hồ sơ `private` qua ranh giới service. Bậc trình độ và dữ liệu kèo không bị ẩn.
+- **BR-D31**: API account trả `displayName`, `avatarUrl` và `identityVisibility=public|hidden`;
+  không được truyền tên thật hoặc URL avatar của hồ sơ `private` qua ranh giới service.
+  Tìm kèo và Hộ chiếu công khai dùng danh tính thật khi `public`, dùng nhãn/avatar trung tính
+  khi `private`. Bậc trình độ và dữ liệu kèo không bị ẩn.
 - **Ngoài phạm vi**: chat trong kèo (không có realtime chat ở GĐ2 ngoài F-03 signalling).
 
 **AC**

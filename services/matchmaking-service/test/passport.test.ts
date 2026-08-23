@@ -297,6 +297,9 @@ describe('MMP-11 — Player Passport views', () => {
       userId: user.userId,
       tier: 'advanced',
       matchesPlayed: 12,
+      displayName: 'Người chơi',
+      avatarUrl: null,
+      identityVisibility: 'hidden',
     });
     expect(response.body).not.toHaveProperty('rating');
     expect(response.body).not.toHaveProperty('rd');
