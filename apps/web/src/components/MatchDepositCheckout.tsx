@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createMatchOrganizerContributionSepayIntent, payMatchOrganizerContributionBalance, type SepayIntent } from '../lib/financeApi.js'
+import { createMatchOrganizerContributionSepayIntent, getMyWallets, payMatchOrganizerContributionBalance, type SepayIntent } from '../lib/financeApi.js'
 import { formatMoneyVnd } from '../lib/formatters.js'
 import { waitForMatchOpen } from '../lib/matchApi.js'
 import { SepayPayBox } from './SepayPayBox.js'
@@ -13,6 +13,8 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
   const [remaining, setRemaining] = useState(() => Math.max(0, new Date(holdExpiresAt).getTime() - Date.now()))
   const [error, setError] = useState('')
   const [sepay, setSepay] = useState<SepayIntent | null>(null)
+  const [walletBalance, setWalletBalance] = useState<string | null>(null)
+  const [walletBalanceUnavailable, setWalletBalanceUnavailable] = useState(false)
   const expired = useRef(false)
   const mounted = useRef(true)
   const phaseRef = useRef<Phase>('selecting')
@@ -20,7 +22,35 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
 
   const updatePhase = (next: Phase) => { phaseRef.current = next; setPhase(next) }
 
-  useEffect(() => () => { mounted.current = false }, [])
+  useEffect(() => {
+    // React StrictMode runs setup -> cleanup -> setup once in development.
+    // Restore the flag in setup so a successful payment is not mistaken for
+    // an update on an unmounted checkout.
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void getMyWallets()
+      .then((wallets) => {
+        if (!active) return
+        const personalWallet = wallets.find((wallet) => wallet.walletType === 'personal')
+        if (personalWallet) setWalletBalance(personalWallet.available)
+        else setWalletBalanceUnavailable(true)
+      })
+      .catch(() => { if (active) setWalletBalanceUnavailable(true) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    // Recover when payment completed while the UI was remounting or waiting
+    // for the event-driven transition. This is read-only and never charges
+    // the contribution a second time.
+    void waitForMatchOpen(matchId, { attempts: 1, intervalMs: 0 })
+      .then(() => { if (mounted.current && !expired.current) onPaid(matchId) })
+      .catch(() => undefined)
+  }, [matchId, onPaid])
 
   useEffect(() => {
     const tick = () => {
@@ -68,7 +98,7 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
       <p className="mt-1">Nếu không tìm được đối trước hạn, tiền cọc được hoàn vào ví của bạn.</p>
     </div>
     <p className="text-sm text-ink-500">Thời gian thanh toán còn {Math.floor(remaining / 60_000).toString().padStart(2, '0')}:{Math.floor((remaining % 60_000) / 1_000).toString().padStart(2, '0')}</p>
-    <label className="block text-sm font-medium">Phương thức thanh toán cọc<SelectInput className="mt-1" value={method} disabled={disabled} onChange={(event) => setMethod(event.target.value as 'balance' | 'sepay')}><option value="balance">Số dư</option><option value="sepay">SePay</option></SelectInput></label>
+    <label className="block text-sm font-medium">Phương thức thanh toán cọc<SelectInput className="mt-1" value={method} disabled={disabled} onChange={(event) => setMethod(event.target.value as 'balance' | 'sepay')}><option value="balance">Số dư — {walletBalance !== null ? formatMoneyVnd(walletBalance) : walletBalanceUnavailable ? 'Không khả dụng' : 'Đang tải…'}</option><option value="sepay">SePay</option></SelectInput></label>
     <Button className="w-full" disabled={disabled} onClick={() => void pay()}>{phase === 'confirming' ? 'Đang xác nhận…' : method === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>
     {sepay && <div className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={sepay.payment} /></div>}
     {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}

@@ -78,6 +78,8 @@ async function createMatch(input: {
   cutoffAt?: Date;
   skillMin?: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
   skillMax?: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
+  skillConfiguredAt?: Date | null;
+  organizerContributionPaidAt?: Date | null;
 }) {
   const bookingId = randomUUID();
   bookingIds.push(bookingId);
@@ -93,6 +95,8 @@ async function createMatch(input: {
       status: input.status ?? 'open',
       skillMin: input.skillMin,
       skillMax: input.skillMax,
+      skillConfiguredAt: input.skillConfiguredAt === undefined ? new Date() : input.skillConfiguredAt,
+      organizerContributionPaidAt: input.organizerContributionPaidAt,
     },
   });
   // approveJoin đòi MatchCreated đã ghi outbox cho kèo có phí (dữ liệu funding).
@@ -700,5 +704,55 @@ describe('join expiry scheduler lifecycle', () => {
     releaseSweep();
     await stopping;
     expect(stopped).toBe(true);
+  });
+});
+
+describe('post-payment skill setup', () => {
+  it('hides an unconfigured match, then publishes it after organizer setup', async () => {
+    const match = await createMatch({
+      capacity: 2,
+      status: 'open',
+      skillConfiguredAt: null,
+      organizerContributionPaidAt: new Date(),
+    });
+    const token = playerToken(match.organizerUserId);
+
+    const before = await request(app).get('/matches').expect(200);
+    expect(before.body.matches).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: match.id })]));
+
+    const configured = await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'beginner', skillMax: 'intermediate_plus' })
+      .expect(200);
+    expect(configured.body).toMatchObject({ id: match.id, skillMin: 'beginner', skillMax: 'intermediate_plus' });
+
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'beginner', skillMax: 'intermediate_plus' })
+      .expect(200);
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ skillMin: 'newcomer', skillMax: 'advanced' })
+      .expect(409);
+
+    const after = await request(app).get('/matches').expect(200);
+    expect(after.body.matches).toEqual(expect.arrayContaining([expect.objectContaining({ id: match.id })]));
+  });
+
+  it('rejects an invalid range and a non-organizer', async () => {
+    const match = await createMatch({ status: 'open', skillConfiguredAt: null, organizerContributionPaidAt: new Date() });
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
+      .send({ skillMin: 'advanced', skillMax: 'beginner' })
+      .expect(422);
+    await request(app)
+      .patch(`/matches/${match.id}/skill-range`)
+      .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
+      .send({ skillMin: 'beginner', skillMax: 'advanced' })
+      .expect(403);
   });
 });

@@ -56,6 +56,7 @@ export interface OwnJoin {
 }
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId'> {
   status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed';
+  skillConfiguredAt: string | null;
   organizer: {
     displayName: string;
     avatarUrl: string | null;
@@ -101,6 +102,11 @@ export function listMatches(
   return api<{ matches: MatchRow[] }>(`/matches${query.size ? `?${query}` : ''}`);
 }
 export const getMatchDetail = (id: string) => api<MatchDetail>(`/matches/${id}`);
+export const configureMatchSkillRange = (id: string, input: { skillMin: SkillTier; skillMax: SkillTier }) =>
+  api<{ id: string; skillMin: SkillTier; skillMax: SkillTier; skillConfiguredAt: string }>(`/matches/${id}/skill-range`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 export async function waitForMatchOpen(id: string, options: { attempts?: number; intervalMs?: number } = {}) {
   const attempts = options.attempts ?? 20;
   const intervalMs = options.intervalMs ?? 1_000;

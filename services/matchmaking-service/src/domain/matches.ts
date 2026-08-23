@@ -170,6 +170,7 @@ export async function findPublicMatches(
   const candidates = await prisma.match.findMany({
     where: {
       status: 'open',
+      skillConfiguredAt: { not: null },
       cutoffAt: { gt: now },
       ...(filters.feeMax === undefined ? {} : { feePerSlot: { lte: filters.feeMax } }),
     },
@@ -248,7 +249,7 @@ export async function getPublicMatchDetail(
 
   const ownJoin = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
   const isOrganizer = requester?.id === match.organizerUserId;
-  const isPubliclyOpen = match.status === 'open' && match.cutoffAt > now;
+  const isPubliclyOpen = match.status === 'open' && match.skillConfiguredAt !== null && match.cutoffAt > now;
   const canViewOwnLifecycle = Boolean(
     // PLAN_MATCH-DEPOSIT: chủ kèo phải xem được kèo awaiting_deposit để trả cọc.
     requester && (isOrganizer || ownJoin) && ['awaiting_deposit', 'open', 'filled', 'confirmed'].includes(match.status),
@@ -276,6 +277,7 @@ export async function getPublicMatchDetail(
     feePerSlot: match.feePerSlot.toString(),
     skillMin: match.skillMin,
     skillMax: match.skillMax,
+    skillConfiguredAt: match.skillConfiguredAt,
     cutoffAt: match.cutoffAt,
     startAt: context.startAt,
     endAt: context.endAt,
@@ -298,6 +300,7 @@ export async function getPublicMatchDetail(
       canJoin: Boolean(
         requester?.roles.includes('player') &&
         match.status === 'open' &&
+        match.skillConfiguredAt !== null &&
         match.cutoffAt > now &&
         requester.id !== match.organizerUserId &&
         !ownJoin &&
@@ -324,7 +327,7 @@ export async function requestJoin(matchId: string, participantUserId: string, no
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
     const match = await tx.match.findUnique({ where: { id: matchId } });
     if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
-    if (match.status !== 'open' || match.cutoffAt <= now) {
+    if (match.status !== 'open' || match.skillConfiguredAt === null || match.cutoffAt <= now) {
       throw new AppError(409, 'MATCH_NOT_OPEN', 'Kèo không còn mở nhận người chơi.');
     }
     if (match.organizerUserId === participantUserId) {
@@ -347,5 +350,38 @@ export async function requestJoin(matchId: string, participantUserId: string, no
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
     return tx.join.create({ data: { matchId, participantUserId } });
+  });
+}
+
+export async function configureMatchSkillRange(
+  matchId: string,
+  organizerUserId: string,
+  input: { skillMin: SkillTier; skillMax: SkillTier },
+  now = new Date(),
+) {
+  if (TIER_ORDER[input.skillMin] > TIER_ORDER[input.skillMax]) {
+    throw new AppError(422, 'MATCH_SKILL_RANGE_INVALID', 'Bậc tối thiểu không được cao hơn bậc tối đa.');
+  }
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
+    const match = await tx.match.findUnique({ where: { id: matchId } });
+    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
+    if (match.organizerUserId !== organizerUserId) {
+      throw new AppError(403, 'MATCH_ORGANIZER_REQUIRED', 'Chỉ chủ kèo được thiết lập bậc trình độ.');
+    }
+    if (match.skillConfiguredAt) {
+      if (match.skillMin === input.skillMin && match.skillMax === input.skillMax) {
+        return { id: match.id, skillMin: match.skillMin, skillMax: match.skillMax, skillConfiguredAt: match.skillConfiguredAt };
+      }
+      throw new AppError(409, 'MATCH_SKILL_ALREADY_CONFIGURED', 'Bậc trình độ của kèo đã được thiết lập.');
+    }
+    if (match.status !== 'open' || !match.organizerContributionPaidAt) {
+      throw new AppError(409, 'MATCH_SKILL_SETUP_NOT_READY', 'Kèo phải được thanh toán cọc và đang mở trước khi thiết lập bậc.');
+    }
+    return tx.match.update({
+      where: { id: matchId },
+      data: { ...input, skillConfiguredAt: now },
+      select: { id: true, skillMin: true, skillMax: true, skillConfiguredAt: true },
+    });
   });
 }

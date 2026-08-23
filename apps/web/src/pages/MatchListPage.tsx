@@ -14,7 +14,7 @@ import {
   Toast,
 } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
-import { createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
+import { configureMatchSkillRange, createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
@@ -82,8 +82,9 @@ function toDateInputValue(value: Date): string {
 }
 
 export function MatchListPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const createdMatchId = searchParams.get('created');
+  const setupRequested = searchParams.get('setup') === '1';
   const createdCardRef = useRef<HTMLAnchorElement>(null);
   const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(createdMatchId);
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
@@ -99,6 +100,11 @@ export function MatchListPage() {
   const [matchSources, setMatchSources] = useState<MatchSource[]>([]);
   const [sourceKey, setSourceKey] = useState('');
   const [notice, setNotice] = useState('');
+  const [skillSetupOpen, setSkillSetupOpen] = useState(false);
+  const [setupSkillMin, setSetupSkillMin] = useState<SkillTier | ''>('');
+  const [setupSkillMax, setSetupSkillMax] = useState<SkillTier | ''>('');
+  const [setupError, setSetupError] = useState('');
+  const [setupSaving, setSetupSaving] = useState(false);
   const navigate = useNavigate();
 
   const load = async () => {
@@ -153,6 +159,56 @@ export function MatchListPage() {
     return () => window.clearTimeout(timer);
   }, [createdMatchId, loading, matches]);
 
+  useEffect(() => {
+    if (!setupRequested || !createdMatchId) return;
+    let active = true;
+    void getMatchDetail(createdMatchId)
+      .then((detail) => {
+        if (!active) return;
+        if (detail.skillConfiguredAt) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('setup');
+          setSearchParams(next, { replace: true });
+          return;
+        }
+        setSkillSetupOpen(true);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setSkillSetupOpen(true);
+        setSetupError(cause instanceof Error ? cause.message : 'Không thể tải thông tin thiết lập kèo.');
+      });
+    return () => { active = false; };
+  }, [createdMatchId, searchParams, setSearchParams, setupRequested]);
+
+  const saveSkillSetup = async () => {
+    if (!createdMatchId || !setupSkillMin || !setupSkillMax) {
+      setSetupError('Hãy chọn đầy đủ bậc tối thiểu và bậc tối đa.');
+      return;
+    }
+    if (tierOptions.findIndex(([tier]) => tier === setupSkillMin) > tierOptions.findIndex(([tier]) => tier === setupSkillMax)) {
+      setSetupError('Bậc tối thiểu không được cao hơn bậc tối đa.');
+      return;
+    }
+    setSetupSaving(true);
+    setSetupError('');
+    try {
+      await configureMatchSkillRange(createdMatchId, { skillMin: setupSkillMin, skillMax: setupSkillMax });
+      const next = new URLSearchParams(searchParams);
+      next.delete('setup');
+      setSearchParams(next, { replace: true });
+      setSkillSetupOpen(false);
+      setNotice('Thiết lập hoàn tất — kèo đang tìm đối thủ.');
+      setHighlightedMatchId(null);
+      await load();
+      setHighlightedMatchId(createdMatchId);
+    } catch (cause) {
+      setSetupError(cause instanceof Error ? cause.message : 'Không thể lưu bậc trình độ.');
+    } finally {
+      setSetupSaving(false);
+    }
+  };
+
   const hasActiveFilters = Boolean(area.trim() || skill || priceMin || priceMax || datePreset !== 'all');
   const resetFilters = () => {
     setArea('');
@@ -199,9 +255,9 @@ export function MatchListPage() {
 
   return (
     <div className="page-container py-8 sm:py-10">
-      {notice && <Toast message={notice} tone={notice.includes('thành công') ? 'success' : 'error'} />}
+      {notice && <Toast message={notice} tone={notice.includes('thành công') || notice.includes('hoàn tất') ? 'success' : 'error'} />}
       <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={() => void openCreate()}>Tạo kèo từ slot đang giữ</Button>} />
-      {createdMatchId && <div role="status" className="mt-5 rounded-xl border border-success bg-success-bg p-4 text-sm text-success">Kèo đã được tạo và đang tìm đối thủ.{!loading && !matches.some((match) => match.id === createdMatchId) && <> <Link className="font-bold underline" to={`/matches/${encodeURIComponent(createdMatchId)}`}>Xem kèo vừa tạo</Link></>}</div>}
+      {createdMatchId && !setupRequested && <div role="status" className="mt-5 rounded-xl border border-success bg-success-bg p-4 text-sm text-success">Kèo đã được tạo và đang tìm đối thủ.{!loading && !matches.some((match) => match.id === createdMatchId) && <> <Link className="font-bold underline" to={`/matches/${encodeURIComponent(createdMatchId)}`}>Xem kèo vừa tạo</Link></>}</div>}
       <div className="mt-6">
         <QuickMatchPanel />
       </div>
@@ -430,6 +486,32 @@ export function MatchListPage() {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal open={skillSetupOpen} title="Thiết lập bậc trình độ" dismissible={false} onClose={() => undefined}>
+        <div className="space-y-4">
+          <p className="text-sm text-ink-600">Chọn khoảng trình độ phù hợp. Kèo sẽ xuất hiện để tìm đối thủ ngay sau khi lưu.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium">
+              Bậc tối thiểu
+              <SelectInput className="mt-1" aria-label="Bậc tối thiểu" value={setupSkillMin} onChange={(event) => { setSetupSkillMin(event.target.value as SkillTier | ''); setSetupError(''); }}>
+                <option value="">Chọn bậc</option>
+                {tierOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </SelectInput>
+            </label>
+            <label className="block text-sm font-medium">
+              Bậc tối đa
+              <SelectInput className="mt-1" aria-label="Bậc tối đa" value={setupSkillMax} onChange={(event) => { setSetupSkillMax(event.target.value as SkillTier | ''); setSetupError(''); }}>
+                <option value="">Chọn bậc</option>
+                {tierOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </SelectInput>
+            </label>
+          </div>
+          {setupSkillMin && setupSkillMax && <div className="rounded-xl bg-canvas p-3 text-sm text-ink-700">Đối thủ phù hợp: <b>{tierLabels[setupSkillMin]} – {tierLabels[setupSkillMax]}</b></div>}
+          {setupError && <p role="alert" className="text-sm text-danger">{setupError}</p>}
+          <div className="flex justify-end">
+            <Button disabled={setupSaving} onClick={() => void saveSkillSetup()}>{setupSaving ? 'Đang lưu…' : 'Lưu và mở kèo'}</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -1,15 +1,20 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { createMatchOrganizerContributionSepayIntent, payMatchOrganizerContributionBalance } from '../lib/financeApi.js'
+import { createMatchOrganizerContributionSepayIntent, getMyWallets, payMatchOrganizerContributionBalance } from '../lib/financeApi.js'
 import { waitForMatchOpen } from '../lib/matchApi.js'
 import { MatchDepositCheckout } from './MatchDepositCheckout.js'
 
-vi.mock('../lib/financeApi.js', () => ({ payMatchOrganizerContributionBalance: vi.fn(), createMatchOrganizerContributionSepayIntent: vi.fn() }))
+vi.mock('../lib/financeApi.js', () => ({ getMyWallets: vi.fn(), payMatchOrganizerContributionBalance: vi.fn(), createMatchOrganizerContributionSepayIntent: vi.fn() }))
 vi.mock('../lib/matchApi.js', () => ({ waitForMatchOpen: vi.fn() }))
 const future = '2026-08-23T03:10:00.000Z'
 const sepayIntent = { intentId: 'pi1', matchCode: 'KLTORG01', amount: '60000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'COURTIN', amount: '60000', matchCode: 'KLTORG01', qrImageUrl: 'https://qr.test/code' } }
 
-beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z')) })
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z'))
+  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', pending: '0', reserved: '0', currency: 'VND' }])
+})
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
 
 it('shows the exact 50 percent deposit and waits for the match to open', async () => {
@@ -24,12 +29,28 @@ it('shows the exact 50 percent deposit and waits for the match to open', async (
   expect(waitForMatchOpen).toHaveBeenCalledWith('m1')
 })
 
+it('shows the personal wallet balance in VND next to the balance method', async () => {
+  render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={vi.fn()} onExpired={vi.fn()} />)
+  expect(await screen.findByRole('option', { name: 'Số dư — 250.000đ' })).toBeInTheDocument()
+})
+
 it('shows a balance error and allows retrying', async () => {
   vi.mocked(payMatchOrganizerContributionBalance).mockRejectedValue(new Error('Số dư không đủ.'))
   render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={vi.fn()} onExpired={vi.fn()} />)
   fireEvent.click(screen.getByRole('button', { name: 'Thanh toán số dư' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Số dư không đủ.')
   expect(screen.getByRole('button', { name: 'Thanh toán số dư' })).toBeEnabled()
+})
+
+it('redirects after balance payment under React StrictMode', async () => {
+  vi.mocked(payMatchOrganizerContributionBalance).mockResolvedValue({} as never)
+  vi.mocked(waitForMatchOpen)
+    .mockRejectedValueOnce(new Error('pending'))
+    .mockResolvedValue({ status: 'open' } as never)
+  const onPaid = vi.fn()
+  render(<StrictMode><MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={onPaid} onExpired={vi.fn()} /></StrictMode>)
+  fireEvent.click(screen.getByRole('button', { name: 'Thanh toán số dư' }))
+  await waitFor(() => expect(onPaid).toHaveBeenCalledWith('m1'))
 })
 
 it('renders SePay and does not finish while payment is pending', async () => {

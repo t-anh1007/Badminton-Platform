@@ -70,6 +70,7 @@ model Match {
   feePerSlot      BigInt
   skillMin        SkillTier?
   skillMax        SkillTier?
+  skillConfiguredAt DateTime? @db.Timestamptz(3)
   status          MatchStatus @default(open)
   cutoffAt        DateTime    @db.Timestamptz(3)
   /// PLAN_MATCH-DEPOSIT: hạn tìm đối X (find-opponent deadline). Scheduler tự

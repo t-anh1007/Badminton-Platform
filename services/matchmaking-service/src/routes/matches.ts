@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import type { MatchmakerExplanationClient } from '@khoaluantn/ai';
-import { createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } from '../domain/matches.js';
+import { configureMatchSkillRange, createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } from '../domain/matches.js';
 import { suggestAiMatches } from '../domain/aiMatchmaker.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -65,6 +65,11 @@ const createSchema = z.object({
   || skillTier.options.indexOf(input.skillMin) <= skillTier.options.indexOf(input.skillMax), {
   message: 'skillMin must not exceed skillMax',
 });
+
+const skillRangeSchema = z.object({
+  skillMin: skillTier,
+  skillMax: skillTier,
+}).strict();
 
 const evaluationSchema = z.object({
   rateeUserId: z.string().uuid(),
@@ -136,6 +141,11 @@ export function createMatchRouter(
     const matchId = z.string().uuid().parse(req.params.matchId);
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(201).json(await requestJoin(matchId, userId));
+  }));
+  router.patch('/:matchId/skill-range', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json(await configureMatchSkillRange(matchId, userId, skillRangeSchema.parse(req.body)));
   }));
   router.get('/:matchId/joins/pending', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);
