@@ -9,6 +9,7 @@ import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
 import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
 import { createMatch } from '../lib/matchApi.js'
+import { vietnamDateInput } from '../lib/formatters.js'
 import {
   createBooking,
   createHold,
@@ -99,8 +100,8 @@ export function BookingPage() {
   const availabilityRequestId = useRef(0)
   const findOpponentInFlight = useRef(false)
   const pendingMatchHold = useRef<HoldResult | null>(null)
-  const [date, setDate] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10))
-  const [dateField, setDateField] = useState(() => formatDateField(new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)))
+  const [date, setDate] = useState(() => vietnamDateInput(new Date(Date.now() + 86_400_000)))
+  const [dateField, setDateField] = useState(() => formatDateField(vietnamDateInput(new Date(Date.now() + 86_400_000))))
 
   const step = booking || matchCheckout ? 3 : hold ? 2 : 1
   const selectedCourt = detail?.courts.find((court) => court.id === courtId)
@@ -351,7 +352,7 @@ export function BookingPage() {
               ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => void confirm()}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading} onClick={() => void findOpponent()}>TÌM ĐỐI THỦ</Button></div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
-            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => navigate(`/matches?created=${encodeURIComponent(matchId)}`, { replace: true })} onExpired={expireHold} />}
+            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true })} onExpired={expireHold} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>

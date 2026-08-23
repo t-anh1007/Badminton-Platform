@@ -3,16 +3,16 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { getRefundPercentageFromSnapshot } from './cancellationPolicy.js';
 import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { vietnamDateIdentifier, vietnamMinuteOfDay, vietnamWeekday } from '../lib/vietnamTime.js';
 
 function operationalWindow(startAt: Date, endAt: Date) {
-  const sameDay = startAt.getUTCFullYear() === endAt.getUTCFullYear()
-    && startAt.getUTCMonth() === endAt.getUTCMonth()
-    && startAt.getUTCDate() === endAt.getUTCDate();
-  const startMinute = startAt.getUTCHours() * 60 + startAt.getUTCMinutes();
-  const rawEndMinute = endAt.getUTCHours() * 60 + endAt.getUTCMinutes();
+  const startDay = vietnamDateIdentifier(startAt);
+  const endDay = vietnamDateIdentifier(endAt);
+  const sameDay = startDay.getTime() === endDay.getTime();
+  const startMinute = vietnamMinuteOfDay(startAt);
+  const rawEndMinute = vietnamMinuteOfDay(endAt);
   const endMinute = sameDay ? rawEndMinute : 1440;
-  const dayStart = new Date(Date.UTC(startAt.getUTCFullYear(), startAt.getUTCMonth(), startAt.getUTCDate()));
-  return { weekday: startAt.getUTCDay(), startMinute, endMinute, dayStart };
+  return { weekday: vietnamWeekday(startAt), startMinute, endMinute, dayStart: startDay };
 }
 
 function assertCancellable(booking: { status: string; startAt: Date }): void {

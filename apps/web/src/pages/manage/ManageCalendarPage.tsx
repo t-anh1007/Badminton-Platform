@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyManagedVenues, getVenueCalendar, type ManagedVenue } from '../../lib/venueBookingApi'
-import { formatMoneyVnd } from '../../lib/formatters'
+import { formatMoneyVnd, vietnamDateInput, vietnamMinuteOfDay } from '../../lib/formatters'
 
 // NOTE: Tạo booking vãng lai (createInternalBooking) / hủy nội bộ (cancelInternalBooking)
 // tạm ẩn khỏi trang này — tab Lịch sân hiện chỉ để XEM/quản lý. Logic API vẫn giữ
@@ -46,7 +46,7 @@ const computeRange = (entries: CalendarEntry[]) => {
 
 const isoToDate = (iso: string) => new Date(`${iso}T00:00:00Z`)
 const dateToIso = (date: Date) => date.toISOString().slice(0, 10)
-const todayIso = () => dateToIso(new Date())
+const todayIso = () => vietnamDateInput(new Date())
 const addDays = (iso: string, n: number) => {
   const date = isoToDate(iso)
   date.setUTCDate(date.getUTCDate() + n)
@@ -60,7 +60,7 @@ const minuteOf = (iso?: string) => {
   if (!iso) return null
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
-  return date.getUTCHours() * 60 + date.getUTCMinutes()
+  return vietnamMinuteOfDay(date)
 }
 const clockLabel = (min: number) => `${Math.floor(min / 60).toString().padStart(2, '0')}:${(min % 60).toString().padStart(2, '0')}`
 

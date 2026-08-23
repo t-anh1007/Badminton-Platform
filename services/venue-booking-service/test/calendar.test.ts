@@ -79,4 +79,19 @@ describe('VEN-08 — Quản lý lịch sân hợp nhất', () => {
       code: 'FORBIDDEN_NOT_OWNER',
     });
   });
+
+  it('chỉ lấy booking thuộc trọn ngày Việt Nam được chọn', async () => {
+    const provider = await createApprovedProvider();
+    const { venue, courts } = await createVenueWithNCourts(provider.id, 1);
+    const date = new Date('2026-08-23T00:00:00.000Z');
+    const inside = await prisma.booking.create({
+      data: { courtId: courts[0]!.id, startAt: new Date('2026-08-22T18:00:00.000Z'), endAt: new Date('2026-08-22T19:00:00.000Z'), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Trong ngày', guestContact: '0900' },
+    });
+    await prisma.booking.create({
+      data: { courtId: courts[0]!.id, startAt: new Date('2026-08-23T18:00:00.000Z'), endAt: new Date('2026-08-23T19:00:00.000Z'), source: 'internal', status: 'confirmed', priceSnapshot: 100000n, guestName: 'Ngày sau', guestContact: '0900' },
+    });
+
+    const result = await getUnifiedCalendar(provider.userId, venue.id, date);
+    expect(result.entries.map((entry) => entry.id)).toEqual([inside.id]);
+  });
 });

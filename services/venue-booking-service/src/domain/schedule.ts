@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { vietnamMinuteOfDay, vietnamWeekday } from '../lib/vietnamTime.js';
 
 async function getOwnedCourtOrThrow(userId: string, courtId: string) {
   const court = await prisma.court.findUniqueOrThrow({
@@ -10,10 +11,6 @@ async function getOwnedCourtOrThrow(userId: string, courtId: string) {
     throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu sân này.', 403);
   }
   return court;
-}
-
-function minuteOfDayUTC(d: Date): number {
-  return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
 /** BR-VEN-05/05a dùng chung: chặn nếu có booking `confirmed` tương lai HOẶC
@@ -34,9 +31,9 @@ async function assertNoConflictForNarrowedWindow(
     select: { id: true, startAt: true, endAt: true },
   });
   const conflictingBookings = futureConfirmed.filter((b) => {
-    if (b.startAt.getUTCDay() !== weekday) return false;
-    const start = minuteOfDayUTC(b.startAt);
-    const end = minuteOfDayUTC(b.endAt) || 24 * 60;
+    if (vietnamWeekday(b.startAt) !== weekday) return false;
+    const start = vietnamMinuteOfDay(b.startAt);
+    const end = vietnamMinuteOfDay(b.endAt) || 24 * 60;
     return start < openMinute || end > closeMinute;
   });
   if (conflictingBookings.length > 0) {
@@ -53,9 +50,9 @@ async function assertNoConflictForNarrowedWindow(
     select: { id: true, startAt: true, endAt: true, expiresAt: true },
   });
   const conflictingHold = activeHolds.find((h) => {
-    if (h.startAt.getUTCDay() !== weekday) return false;
-    const start = minuteOfDayUTC(h.startAt);
-    const end = minuteOfDayUTC(h.endAt) || 24 * 60;
+    if (vietnamWeekday(h.startAt) !== weekday) return false;
+    const start = vietnamMinuteOfDay(h.startAt);
+    const end = vietnamMinuteOfDay(h.endAt) || 24 * 60;
     return start < openMinute || end > closeMinute;
   });
   if (conflictingHold) {

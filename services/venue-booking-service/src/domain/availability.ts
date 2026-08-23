@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { getEffectivePricingWindows } from './pricing.js';
 import { isRangeFree, isClosedOnDate } from './slotAvailability.js';
+import { vietnamMinuteToInstant } from '../lib/vietnamTime.js';
 
 export interface ScheduleSlot {
   startMinute: number;
@@ -43,8 +44,8 @@ export async function getAvailabilitySchedule(courtId: string, date: Date): Prom
 
   const slots: ScheduleSlot[] = [];
   for (let m = operatingHour.openMinute; m < operatingHour.closeMinute; m += step) {
-    const slotStart = new Date(requested.getTime() + m * 60_000);
-    const slotEnd = new Date(requested.getTime() + (m + step) * 60_000);
+    const slotStart = vietnamMinuteToInstant(requested, m);
+    const slotEnd = vietnamMinuteToInstant(requested, m + step);
     const available = await isRangeFree(courtId, slotStart, slotEnd);
 
     const windows = await getEffectivePricingWindows(courtId, weekday, slotStart);

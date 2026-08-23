@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../src/lib/prisma.js';
 import { searchVenues, filterAndSortVenues } from '../src/domain/search.js';
 import { createApprovedProvider, makeCourtSearchable, fakeUserId } from './helpers.js';
+import { vietnamMinuteToInstant } from '../src/lib/vietnamTime.js';
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -82,7 +83,7 @@ describe('BOK-02 — Lọc và sắp xếp sân', () => {
     const tomorrow = new Date();
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const dayStart = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate()));
-    const bookedStart = new Date(dayStart.getTime() + 19 * 60 * 60_000);
+    const bookedStart = vietnamMinuteToInstant(dayStart, 19 * 60);
     await prisma.booking.create({
       data: {
         courtId: busyCourt.id,

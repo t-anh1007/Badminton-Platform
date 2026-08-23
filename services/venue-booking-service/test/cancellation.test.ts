@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { CANCELLATION_POLICY } from '../src/domain/cancellationPolicy.js';
 import { createApprovedProvider, createVenueWithCourt, fakeUserId, signTestAccessToken } from './helpers.js';
 import { createHold } from '../src/domain/hold.js';
+import { vietnamDateIdentifier, vietnamWeekday } from '../src/lib/vietnamTime.js';
 
 const app = createApp();
 
@@ -207,9 +208,7 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
 
   it('AC-BOK-10-2: không liệt kê sân con đóng cửa hoặc ngoài giờ hoạt động', async () => {
     const { providerUserId, booking, replacementCourt } = await setupConfirmedBooking(30);
-    const dayStart = new Date(
-      Date.UTC(booking.startAt.getUTCFullYear(), booking.startAt.getUTCMonth(), booking.startAt.getUTCDate()),
-    );
+    const dayStart = vietnamDateIdentifier(booking.startAt);
     await prisma.closure.create({ data: { courtId: replacementCourt.id, date: dayStart, reason: 'Bảo trì' } });
     const token = signTestAccessToken(providerUserId, ['player', 'provider']);
     const closed = await request(app)
@@ -219,7 +218,7 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
 
     await prisma.closure.delete({ where: { courtId_date: { courtId: replacementCourt.id, date: dayStart } } });
     await prisma.operatingHour.update({
-      where: { courtId_weekday: { courtId: replacementCourt.id, weekday: booking.startAt.getUTCDay() } },
+      where: { courtId_weekday: { courtId: replacementCourt.id, weekday: vietnamWeekday(booking.startAt) } },
       data: { openMinute: 0, closeMinute: 1 },
     });
     const outsideHours = await request(app)

@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { vietnamMinuteToInstant, vietnamWeekday } from '../lib/vietnamTime.js';
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -46,7 +47,7 @@ export async function searchVenues(
   radiusKm?: number,
 ): Promise<VenueSearchResult[]> {
   const now = new Date();
-  const weekday = now.getUTCDay();
+  const weekday = vietnamWeekday(now);
   const venues = await prisma.venue.findMany({
     where: {
       provider: { status: 'approved' },
@@ -118,8 +119,8 @@ export async function filterAndSortVenues(
 
   if (params.availability) {
     const { date, startMinute, endMinute } = params.availability;
-    const startAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, startMinute));
-    const endAt = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, endMinute));
+    const startAt = vietnamMinuteToInstant(date, startMinute);
+    const endAt = vietnamMinuteToInstant(date, endMinute);
     const now = new Date();
     const freeCourts = await prisma.court.findMany({
       where: {

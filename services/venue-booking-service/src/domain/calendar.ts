@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { HttpAccountDisplayNameClient, type AccountDisplayNameClient } from '../clients/account.js';
+import { vietnamDateEndExclusiveInstant, vietnamDateStartInstant } from '../lib/vietnamTime.js';
 
 export interface CalendarEntry {
   /** Chỉ có ở booking (để quản lý/xem chi tiết); hold không mang id. */
@@ -39,13 +40,14 @@ export async function getUnifiedCalendar(
     throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
   }
 
-  const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const closureDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayStart = vietnamDateStartInstant(date);
+  const dayEnd = vietnamDateEndExclusiveInstant(date);
 
   const courtIds = venue.courts.map((c) => c.id);
 
   const [closures, bookings, holds] = await Promise.all([
-    prisma.closure.findMany({ where: { courtId: { in: courtIds }, date: dayStart } }),
+    prisma.closure.findMany({ where: { courtId: { in: courtIds }, date: closureDate } }),
     prisma.booking.findMany({
       where: { courtId: { in: courtIds }, startAt: { lt: dayEnd }, endAt: { gt: dayStart }, status: { in: ['confirmed', 'held'] } },
     }),
