@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "dotenv -e ../../.env -- node dist/index.js",
     "start:prod": "node dist/index.js",
-    "migrate:prod": "prisma migrate deploy",
+    "migrate:prod": "(prisma migrate resolve --rolled-back 20260805223500_g3_hold_exclude_constraint || true) && prisma migrate deploy",
     "prisma:generate": "dotenv -e ../../.env -- prisma generate",
     "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "prisma:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
