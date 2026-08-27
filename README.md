@@ -25,6 +25,7 @@
 
 ## Mục lục
 
+0. [Performance Benchmarks](#0-performance-benchmarks)
 1. [Bài toán & lý do kiến trúc](#1-bài-toán--lý-do-kiến-trúc)
 2. [Tính năng theo vai trò](#2-tính-năng-theo-vai-trò)
 3. [Kiến trúc tổng thể](#3-kiến-trúc-tổng-thể)
@@ -34,6 +35,81 @@
 7. [Mô hình dữ liệu](#7-mô-hình-dữ-liệu)
 8. [Cấu trúc dự án](#8-cấu-trúc-dự-án)
 9. [Kỹ năng & tư duy hệ thống thể hiện qua dự án](#9-kỹ-năng--tư-duy-hệ-thống-thể-hiện-qua-dự-án)
+
+---
+
+## 0. Performance Benchmarks
+
+### Internal Microbenchmarks
+
+Số đo thực hiện trên máy local — **12th Gen Intel Core i7-12700H**, Windows 11,
+Node 22.18, PostgreSQL 16, ngày 2026-08-20–2026-08-21.
+
+#### Performance / speed
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| API gateway `/health` — p50 | **58 ms** | 3.000 request, concurrency 50 |
+| API gateway `/health` — p95 | **196 ms** | 3.000 request, concurrency 50 |
+| API gateway `/health` — throughput | **635 req/s** | 3.000 request, concurrency 50 |
+| Frontend bundle transfer | **800,64 KB → 245,73 KB gzip (−69,3%)** | production build local |
+| Frontend build time | **1,57 s** | Vite production build local |
+
+Bằng chứng: [docs/benchmarks/bench.mjs](docs/benchmarks/bench.mjs) ·
+[docs/benchmarks/cv-metrics-2026-08-20_Courtin.md](docs/benchmarks/cv-metrics-2026-08-20_Courtin.md).
+
+#### Scale / load (realtime)
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| Socket.IO concurrent connections | **500** | 500 client local, một lượt tải |
+| WebSocket warm RTT — p50 | **1,1 ms** | 200 mẫu RTT |
+
+Bằng chứng: [docs/benchmarks/ws-bench.mjs](docs/benchmarks/ws-bench.mjs).
+
+#### Data access — call reduction
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| Prisma relational filtering | **450 → 1 DB query (−99,8%)** | 50 venue, 200 court |
+| Batch match-context API | **101 → 1 internal HTTP call (−99,0%)** | 101 match |
+
+Bằng chứng:
+[docs/benchmarks/new-performance-bench.ts](docs/benchmarks/new-performance-bench.ts) ·
+[docs/benchmarks/cv-performance-improvements-2026-08-20.md](docs/benchmarks/cv-performance-improvements-2026-08-20.md).
+
+#### Security / compliance
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| HMAC-SHA256 webhook verification | **15.000 check** (5.000 hợp lệ / 5.000 giả mạo / 5.000 sửa đổi) | gọi trực tiếp `verifySepaySignature` |
+
+Bằng chứng: [docs/benchmarks/load.mjs](docs/benchmarks/load.mjs) ·
+[docs/benchmarks/cv-metrics-2026-08-20_Courtin.md](docs/benchmarks/cv-metrics-2026-08-20_Courtin.md).
+
+#### Availability (local health sampling)
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| Health probe qua gateway | **600/600 thành công** | 100 vòng × 6 endpoint local |
+
+#### Code quality / testing
+
+| Chỉ số | Kết quả | Phạm vi |
+|---|---:|---|
+| Test thực thi pass | **298 test** | Venue Booking 117 · Finance 95 · Matchmaking 77 · Object Storage 9 |
+| Test inventory tĩnh | **486 test case / 108 file**, cộng **11 E2E** | toàn repo (chưa chứng minh pass rate) |
+
+#### Automation / productivity
+
+| Chỉ số | Kết quả | Điều kiện đo |
+|---|---:|---|
+| Capability audit | **157 surface** (126 HTTP · 8 Socket.IO · 23 event) | `ui:coverage` |
+| Missing UI mapping phát hiện | **4/157 (2,5%)** | cùng lần audit |
+
+> **Giới hạn:** không có số production uptime/MTTR/SLO; các phần trăm là tỷ lệ
+> call bị loại bỏ hoặc tỷ lệ payload nén, không phải claim latency giảm tương
+> ứng. Chi tiết mẫu đo và ràng buộc: [docs/benchmarks/](docs/benchmarks/).
 
 ---
 
