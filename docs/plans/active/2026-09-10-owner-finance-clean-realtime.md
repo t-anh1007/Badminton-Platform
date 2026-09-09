@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-10-owner-finance-clean-ui-design.md`
 
+## Execution progress — 2026-09-10
+
+- Implemented the transactional owner invalidation, authenticated SSE fanout, resilient browser stream client, and Clean V2 finance surface in the shared working tree.
+- Focused evidence passed: finance-service typecheck, web TypeScript check, one realtime hub contract test, and the owner finance flow test.
+- A live authenticated SSE request returned the `ready` event with `200 text/event-stream`; it did not create or mutate financial data.
+- The running browser is unauthenticated and therefore redirects to `/auth`; owner-session visual QA and a real post-commit refresh remain pending. This plan stays active until that evidence is available.
+- No code commit was made: this worktree contains unrelated, in-progress dispute changes, so staging must be reviewed with the user first.
+
 ## Global Constraints
 
 - Preserve all current finance policy: 10% commission, 24-hour revenue hold, append-only ledger, one active withdrawal and the current `MIN_WITHDRAWAL = 10000n`.

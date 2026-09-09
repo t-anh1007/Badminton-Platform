@@ -4,10 +4,12 @@ import { walletRouter } from './routes/wallets.js';
 import { paymentRouter } from './routes/payments.js';
 import { financeOperationsRouter } from './routes/financeOperations.js';
 import { env } from './lib/env.js';
+import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
+import { createFinanceRealtimeRouter } from './routes/financeRealtime.js';
 
 const SERVICE_NAME = 'finance-service';
 
-export function createApp() {
+export function createApp(dependencies?: { financeRealtimeHub?: FinanceRealtimeHub }) {
   const app = express();
   // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
   app.use((_req, _res, next) => { markActivity(); next(); });
@@ -37,6 +39,7 @@ export function createApp() {
   app.use('/', walletRouter);
   app.use('/', paymentRouter);
   app.use('/', financeOperationsRouter);
+  app.use('/', createFinanceRealtimeRouter(dependencies?.financeRealtimeHub ?? new FinanceRealtimeHub()));
 
   return app;
 }

@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { ManageIncidentsPage } from './ManageIncidentsPage.js'
 import { ManageFinancePage } from './ManageFinancePage.js'
-import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWithdrawals } from '../../lib/financeApi.js'
-vi.mock('../../lib/financeApi.js', () => ({ getMyWallets: vi.fn().mockResolvedValue([{ id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }]), getWalletLedger: vi.fn().mockResolvedValue({ wallet: { id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }, entries: [] }), getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'booking-1', venueId: 'v1', gross: '1000000', net: '900000', commission: '100000', releaseAt: '2026-08-20T00:00:00Z', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([]), createWithdrawal: vi.fn().mockResolvedValue({ transferCode: 'WD123' }), cancelMyWithdrawal: vi.fn().mockResolvedValue({}) }))
+import { createWithdrawal, getMyRevenue } from '../../lib/financeApi.js'
+vi.mock('../../lib/financeApi.js', () => ({ getMyWallets: vi.fn().mockResolvedValue([{ id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }]), getWalletLedger: vi.fn().mockResolvedValue({ wallet: { id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }, entries: [] }), getMyRevenue: vi.fn().mockResolvedValue([{ bookingId: 'booking-1', venueId: 'v1', gross: '1000000', net: '900000', commission: '100000', releaseAt: '2026-08-20T00:00:00Z', releasedAt: null, disputeOpen: false }]), getMyWithdrawals: vi.fn().mockResolvedValue([]), createWithdrawal: vi.fn().mockResolvedValue({ transferCode: 'WD123' }), cancelMyWithdrawal: vi.fn().mockResolvedValue({}), streamMyFinance: vi.fn().mockImplementation(() => new Promise(() => {})) }))
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn().mockResolvedValue([{ id: 'v1', name: 'Sân A', courts: [{ id: 'c1', name: 'Sân 1' }] }]),
   getVenueCalendar: vi.fn().mockResolvedValue({ courts: [{ id: 'c1', name: 'Sân 1' }], entries: [{ id: 'b1', courtId: 'c1', kind: 'booking', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z' }] }),
@@ -18,17 +18,11 @@ it('loads replacement choices and requires a provider-fault reason before cancel
   fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
   fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
 })
-it('filters revenue by venue and validates/creates a provider withdrawal', async () => {
-  render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ/)
-  fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
+it('shows today’s owner snapshot and creates a withdrawal from the single primary action', async () => {
+  render(<ManageFinancePage />); await screen.findByText('Số dư có thể rút')
+  expect(getMyRevenue).toHaveBeenCalledWith(expect.objectContaining({ from: expect.stringContaining('+07:00'), to: expect.stringContaining('+07:00') }))
+  fireEvent.click(screen.getByRole('button', { name: 'Rút tiền' })); expect(screen.getByRole('dialog')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/Nhập đủ thông tin/i)
   for (const [label, value] of [['Số tiền rút','10000'],['Mã ngân hàng','VCB'],['Số tài khoản nhận','123'],['Tên chủ tài khoản','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
-  expect(screen.getByLabelText('Số tiền rút')).toHaveValue('10.000đ')
-  const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1))
-  expect(createWithdrawal).toHaveBeenCalledWith(expect.objectContaining({ amount: '10000' }))
-})
-it('cancels a pending provider withdrawal', async () => {
-  vi.mocked(getMyWithdrawals).mockResolvedValueOnce([{ id: 'w1', sellerUserId: 's', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'WD1', bankCode: 'VCB', bankAccountNumber: '123', bankAccountName: 'A' }])
-  render(<ManageFinancePage />)
-  fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' })); await waitFor(() => expect(cancelMyWithdrawal).toHaveBeenCalledWith('w1'))
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận yêu cầu rút' })); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledWith(expect.objectContaining({ amount: '10000' })))
 })

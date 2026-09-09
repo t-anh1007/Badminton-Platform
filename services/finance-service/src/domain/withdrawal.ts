@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { postLedgerEntry } from './wallet.js';
 import { writeOutbox } from '../lib/outbox.js';
+import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
 export const MIN_WITHDRAWAL = 10000n;
 
@@ -49,6 +50,7 @@ export async function createWithdrawal(userId: string, input: WithdrawalInput) {
       where: { id: wallet.id },
       data: { available: { decrement: input.amount }, reserved: { increment: input.amount } },
     });
+    await writeFinanceUiInvalidation(tx, userId, ['wallet', 'withdrawals'], request.id);
     return request;
   });
 }
@@ -99,6 +101,7 @@ async function reversePendingWithdrawal(
         data: { actorUserId: audit.actorUserId, action: 'withdrawal_rejected', refType: 'withdrawal', refId: request.id, reason: audit.reason },
       });
     }
+    await writeFinanceUiInvalidation(tx, request.sellerUserId, ['wallet', 'withdrawals'], request.id);
     return updated;
   });
 }
@@ -130,6 +133,7 @@ export async function settleWithdrawalPayout(
     where: { id: request.id },
     data: { status, paidAmount, sePayEventId: sepayEventId, processedAt: status === 'paid' ? new Date() : null },
   });
+  await writeFinanceUiInvalidation(tx, request.sellerUserId, ['wallet', 'withdrawals', 'ledger'], request.id);
   if (status === 'paid') {
     await writeOutbox(tx, {
       aggregateType: 'WithdrawalRequest', aggregateId: request.id, eventType: 'PayoutCompleted',

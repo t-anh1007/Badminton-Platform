@@ -4,6 +4,7 @@ import { AppError } from '../lib/errors.js';
 import { COMMISSION_RATE_PERCENT } from '../lib/constants.js';
 import { getOrCreateWallet, postLedgerEntry } from './wallet.js';
 
+import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 const createSchema = z.object({
   bookingId: z.string().uuid(),
   reason: z.string().trim().min(1),
@@ -79,13 +80,15 @@ export async function createDispute(userId: string, rawInput: CreateDisputeInput
     if (await tx.dispute.findUnique({ where: { bookingId: input.bookingId } })) {
       throw new AppError('DISPUTE_EXISTS', 'Booking đã có tranh chấp.', 409);
     }
-    return tx.dispute.create({
+    const dispute = await tx.dispute.create({
       data: {
         refType: 'booking', refId: input.bookingId, bookingId: input.bookingId,
         raiserUserId: userId, reason: input.reason, evidence: input.evidence,
         deadlineAt: revenue.releaseAt,
       },
     });
+    await writeFinanceUiInvalidation(tx, revenue.businessUserId, ['revenue'], dispute.id);
+    return dispute;
   });
 }
 
@@ -167,6 +170,7 @@ export async function resolveDispute(adminUserId: string, disputeId: string, raw
         },
       },
     });
+    await writeFinanceUiInvalidation(tx, revenue.businessUserId, ['wallet', 'revenue', 'ledger'], dispute.id);
     return resolved;
   });
 }
