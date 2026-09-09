@@ -6,7 +6,7 @@ import { PassportPage } from './PassportPage.js'
 import { CommunityPage } from './CommunityPage.js'
 import { CommunityDetailPage } from './CommunityDetailPage.js'
 import { SupportPage } from './SupportPage.js'
-import { approveMatchJoin, cancelMatch, getMatchDetail, rejectMatchJoin, requestMatchJoin, withdrawMatchJoin } from '../lib/matchApi.js'
+import { cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin } from '../lib/matchApi.js'
 import { createMatchJoinSepayIntent, payMatchJoinBalance, payMatchOrganizerContributionBalance } from '../lib/financeApi.js'
 import { submitMatchEvaluation } from '../lib/passportApi.js'
 import {
@@ -20,8 +20,7 @@ import {
 } from '../lib/communityApi.js'
 
 vi.mock('../lib/matchApi.js', () => ({
-  getMatchDetail: vi.fn(), listPendingMatchJoins: vi.fn().mockResolvedValue({ joins: [{ id: 'join-internal', status: 'pending', approvedAt: null, participantUserId: 'participant-internal-uuid', participantTier: 'intermediate', compatibilityScore: 84, compatibilityExplanation: 'Phù hợp bậc chơi' }] }),
-  approveMatchJoin: vi.fn().mockResolvedValue({}), rejectMatchJoin: vi.fn().mockResolvedValue({}), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}),
+  getMatchDetail: vi.fn(), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../lib/financeApi.js', () => ({
   payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
@@ -57,7 +56,7 @@ vi.mock('../lib/communityApi.js', () => ({
 }))
 
 const detail = (actions: Record<string, unknown>) => ({
-  id: 'match-1', capacity: 4, openSlots: 2, feePerSlot: '45000', skillMin: 'beginner', skillMax: 'advanced', cutoffAt: '2026-08-15T08:00:00Z', startAt: '2026-08-15T09:00:00Z', endAt: '2026-08-15T10:00:00Z', court: { id: 'c1', name: 'Sân 1' }, venue: { id: 'v1', name: 'Nhà thi đấu A', address: 'Quận 1', lat: 10.8, lng: 106.6 }, status: 'open', organizer: { displayName: 'Organizer A', avatarUrl: null, identityVisibility: 'public', tier: 'intermediate' }, confirmedParticipants: 0, actions,
+  id: 'match-1', capacity: 4, openSlots: 2, paymentPending: false, feePerSlot: '45000', skillMin: 'beginner', skillMax: 'advanced', cutoffAt: '2026-08-15T08:00:00Z', startAt: '2026-08-15T09:00:00Z', endAt: '2026-08-15T10:00:00Z', court: { id: 'c1', name: 'Sân 1' }, venue: { id: 'v1', name: 'Nhà thi đấu A', address: 'Quận 1', lat: 10.8, lng: 106.6 }, status: 'open', organizer: { displayName: 'Organizer A', avatarUrl: null, identityVisibility: 'public', tier: 'intermediate' }, confirmedParticipants: 0, actions,
 })
 
 beforeEach(() => {
@@ -66,15 +65,12 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear() })
 
-it('derives organizer join, payment and cancel controls from MatchDetail.actions without exposing participant IDs', async () => {
+it('shows organizer payment and cancel controls without an approval queue', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: false, isOrganizer: true, canPayOrganizerContribution: true, ownJoin: null }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
-  expect(await screen.findByText('Người chơi đang chờ 1')).toBeInTheDocument()
+  expect(await screen.findByText('Bạn là organizer')).toBeInTheDocument()
   expect(screen.queryByText(/participant-internal-uuid/)).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Duyệt' }))
-  await waitFor(() => expect(approveMatchJoin).toHaveBeenCalledWith('match-1', 'join-internal'))
-  fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
-  await waitFor(() => expect(rejectMatchJoin).toHaveBeenCalledWith('match-1', 'join-internal'))
+  expect(screen.queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
   await waitFor(() => expect(payMatchOrganizerContributionBalance).toHaveBeenCalledWith('match-1'))
   fireEvent.change(screen.getByLabelText('Cách thanh toán phần organizer'), { target: { value: 'sepay' } })
@@ -109,8 +105,15 @@ it('describes awaiting-deposit participants without claiming they are confirmed'
 it('requests a match join only when MatchDetail.actions allows it', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: true, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: null }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
-  fireEvent.click(await screen.findByRole('button', { name: 'Gửi yêu cầu tham gia' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Tham gia kèo' }))
   await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1'))
+})
+
+it('keeps a reserved match visible but disables joining while another player pays', async () => {
+  vi.mocked(getMatchDetail).mockResolvedValue({ ...detail({ canJoin: false, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: null }), openSlots: 0, paymentPending: true } as never)
+  render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
+  expect(await screen.findByText('Đang chờ thanh toán')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Tham gia kèo' })).toBeDisabled()
 })
 
 it('shows participant payment/withdraw controls only from ownJoin state', async () => {

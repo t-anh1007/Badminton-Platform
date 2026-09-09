@@ -10,6 +10,7 @@ import { SessionProvider } from '../session/SessionProvider.js'
 import { createTopupIntent, createDispute } from '../lib/financeApi.js'
 import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail } from '../lib/accountApi.js'
 import { searchVenues } from '../lib/venueBookingApi.js'
+import { getMyConfirmedMatches } from '../lib/matchApi.js'
 
 vi.mock('../lib/accountApi.js', () => ({
   getMyProfile: vi.fn().mockResolvedValue({ id: 'u1', email: 'player@example.com', phone: '0900000000', roles: ['player', 'provider'], playerProfile: { displayName: 'Người chơi A', avatarUrl: 'https://cdn.example/avatar.webp', visibility: 'public' } }),
@@ -30,6 +31,9 @@ vi.mock('../lib/financeApi.js', () => ({
 vi.mock('../lib/venueBookingApi.js', () => ({
   getMyUpcomingBookings: vi.fn().mockResolvedValue([]), getMyBookingHistory: vi.fn().mockResolvedValue([]),
   searchVenues: vi.fn().mockResolvedValue([]),
+}))
+vi.mock('../lib/matchApi.js', () => ({
+  getMyConfirmedMatches: vi.fn().mockResolvedValue({ matches: [] }),
 }))
 
 beforeEach(() => {
@@ -115,6 +119,17 @@ it('ignores radius in list view and only applies it in map view', async () => {
 
   fireEvent.click(screen.getByRole('tab', { name: 'Bản đồ' }))
   await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20 })))
+})
+
+it('shows a confirmed match in booking history with a link for the participant', async () => {
+  vi.mocked(getMyConfirmedMatches).mockResolvedValueOnce({ matches: [{
+    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', feePerSlot: '90000',
+    startAt: new Date(Date.now() + 60_000).toISOString(), endAt: new Date(Date.now() + 3_600_000).toISOString(),
+    court: { id: 'court-1', name: 'Sân 1' }, venue: { id: 'venue-1', name: 'Sân Linh Xuân', address: 'Thủ Đức', lat: 10.8, lng: 106.7 },
+  }] })
+  render(<MemoryRouter initialEntries={['/profile']}><ProfilePage /></MemoryRouter>)
+  expect(await screen.findByText('Kèo đã tham gia · Đã xác nhận')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Sân Linh Xuân/ })).toHaveAttribute('href', '/matches/match-confirmed')
 })
 
 it('creates a dispute from a business label without exposing booking UUID text', async () => {

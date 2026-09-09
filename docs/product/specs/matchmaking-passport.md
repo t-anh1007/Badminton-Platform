@@ -43,7 +43,7 @@ schema-per-service D17 — không FK/query xuyên schema, chỉ giao tiếp qua 
 ### 2.1. Quan hệ với tiền (FIN-05 — D-P2-2, đã PO chốt)
 Phí kèo **góp trả tiền sân qua platform**, KHÔNG chuyển ngang hàng (bất biến #6):
 1. Người tổ chức tạo kèo trên một slot đã **giữ chỗ** (reuse hold 10' GĐ1) hoặc một booking `held`.
-2. Mỗi người tham gia được duyệt sẽ **trả `feePerSlot`** → finance ghi khoản này vào ví `platform`
+2. Người đầu tiên giữ được slot sẽ **trả `feePerSlot` trong 10 phút** → finance ghi khoản này vào ví `platform`
    ở trạng thái giữ tạm (reserved), tham chiếu `matchId`.
 3. Khi kèo đủ người và tới ngưỡng xác nhận → tổng phí đã gom **thanh toán cho `bookingId`** (đường
    thanh toán booking chuẩn GĐ1). Booking `held → confirmed`. Phần chênh (nếu tổ chức góp thêm/bù)
@@ -66,9 +66,8 @@ open|filled ─(MMP-08 tổ chức hủy | hết hạn giữ chỗ | không đ�
 
 **`JOIN.status`**
 ```
-[*] ─(MMP-04 gửi yêu cầu)─> pending
-pending ─(MMP-05 tổ chức duyệt)─> approved ─(MMP-06 trả phí)─> confirmed
-pending ─(tổ chức từ chối)─> rejected
+[*] ─(MMP-04 bấm tham gia, giữ slot 10')─> approved ─(MMP-06 trả phí)─> confirmed
+approved ─(hết 10' chưa trả)─> rejected
 approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn phí nếu đã trả)
 ```
 
@@ -80,10 +79,10 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | BR-MMP-02 | Kèo phải gắn một slot sân hợp lệ đang được người tổ chức giữ chỗ (hold còn hạn) hoặc booking `held` của chính họ. Không tạo kèo "không có sân". Giữ bất biến #3 (nền tảng là nguồn lịch chính thức). |
 | BR-MMP-03 | `capacity ≥ 2`. Người tổ chức chiếm 1 chỗ. Số người tham gia khác `≤ capacity − 1`. |
 | BR-MMP-04 | Một player chỉ có **một** JOIN không-kết-thúc trên một kèo (không tự nhân bản chỗ). |
-| BR-MMP-05 | Chỉ chuyển `approved → confirmed` khi phí `feePerSlot` đã trả thành công (FIN-05). Chỗ chưa trả phí không giữ vô hạn: hết `holdMinutes` (mặc định 10') kể từ lúc `approved` mà chưa trả → tự nhả về `pending`/giải phóng chỗ. `pending` không giữ chỗ; chỉ organizer được duyệt mới mở hold (D44). Tái dùng cơ chế giữ 10' GĐ1 (bất biến #2). |
-| BR-MMP-06 | Chống chồng chỗ: tổng JOIN `approved` + `confirmed` + suất tổ chức ≤ `capacity`, kiểm ở tầng CSDL (ràng buộc/khóa), không chỉ tầng ứng dụng — tương tự chống double-booking GĐ1 (bất biến #4). Khi tranh chấp chỗ cuối, chỉ một organizer approval được mở hold; candidate còn lại nhận `MATCH_FULL` trước bất kỳ contribution/debit/reserve/ledger nào (D44). |
+| BR-MMP-05 | Bấm tham gia chuyển thẳng JOIN sang `approved` và mở hold thanh toán 10 phút, không qua organizer duyệt. Chỉ chuyển `approved → confirmed` khi phí `feePerSlot` đã trả thành công (FIN-05); hết hạn chưa trả thì JOIN `rejected` và giải phóng chỗ (D50). |
+| BR-MMP-06 | Chống chồng chỗ: tổng JOIN `approved` + `confirmed` + suất tổ chức ≤ `capacity`, kiểm bằng khóa transaction theo `matchId`. Người đầu tiên giữ suất cuối; candidate còn lại nhận `MATCH_FULL` trước contribution/debit/reserve/ledger (D50). |
 | BR-MMP-07 | Kèo chỉ `confirmed` khi tổng phí gom đủ thanh toán `bookingId` và booking chuyển `confirmed`. **D28:** hạn chốt `cutoffAt = giờ bắt đầu ca − 60 phút`. Nếu tới hạn chốt mà chưa đủ người/tiền → kèo `cancelled`, hoàn toàn bộ phí đã trả về ví cá nhân, và **hold/booking sân được nhả** (slot bán lại được). |
-| BR-MMP-08 | `feePerSlot ≥ 0`. Nếu `= 0` (kèo giao lưu miễn phí) thì bỏ qua bước trả phí; xác nhận chỗ ngay khi duyệt; booking sân do người tổ chức tự thanh toán theo luồng GĐ1 (không gom phí). |
+| BR-MMP-08 | `feePerSlot ≥ 0`. Nếu `= 0` (kèo giao lưu miễn phí) thì bỏ qua bước trả phí và xác nhận chỗ ngay khi bấm tham gia; booking sân do người tổ chức tự thanh toán theo luồng GĐ1 (không gom phí). |
 | BR-MMP-09 | **D32/D35/D36/D39/D40:** trước `cutoffAt` hoàn 100% khi booking còn `held`; nếu booking đã `confirmed` thì không hoàn riêng. Khi settlement đang chờ, venue atomically quyết định `held→revoke` hay `held→confirmed`: revoke thắng thì hoàn và mở lại chỗ, confirm thắng thì áp D36. Hủy toàn kèo nhận `held_revoked` phải rebase revision và gửi lại lệnh đến kết quả terminal, không trả thành công khi sân vẫn held. Lệnh ghi Venue chỉ đi qua shared service secret D40. Từ cutoff không hoàn nếu kèo vẫn diễn ra. Nếu cả kèo cuối cùng bị hủy, D33/D35 phân bổ hoàn theo trạng thái booking. Không áp bậc thang booking cho lượt rút riêng. |
 | BR-MMP-10 | Suất của người tổ chức KHÔNG tự trả phí cho chính mình (không P2P). Người tổ chức chịu phần sân của mình bằng cách: tổng phí người khác gom + phần tổ chức tự thanh toán (nếu thiếu) = giá booking. Xem BR-MMP-11. |
 | BR-MMP-11 | **Bảo toàn giá trị FIN-05 — D29**: không cho đặt phí tùy ý. `feePerSlot = floor(giá booking / capacity)`; (tổng phí participant đã trả) + (phần organizer tự thanh toán, gồm số lẻ phép chia) = giá `bookingId`. Không tạo tiền, không mất tiền, không gom dư, không P2P. |
@@ -149,26 +148,23 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - `AC-MMP-03-1` — Given một kèo `open`, When xem chi tiết, Then thấy sân/giờ/phí/số chỗ trống/bậc trình độ tổ chức.
 - `AC-MMP-03-2` — Given khách chưa đăng nhập, When xem kèo công khai, Then xem được nhưng không thấy nút tham gia.
 
-### MMP-04 — Gửi yêu cầu tham gia kèo
+### MMP-04 — Tham gia và giữ slot thanh toán
 - **Actor**: người chơi. **Điều kiện**: kèo `open`, còn chỗ, chưa `cutoffAt`, chưa có JOIN đang hoạt động.
-- **Workflow**: gửi yêu cầu → JOIN `pending` → tổ chức nhận được để duyệt. Chưa trừ tiền ở bước này.
+- **Workflow**: bấm tham gia → JOIN `approved` ngay → giữ slot và mở thanh toán 10 phút. Không qua tổ chức duyệt.
 - **BR**: BR-MMP-01, 04.
 
 **AC**
-- `AC-MMP-04-1` — Given kèo `open` còn chỗ, When player gửi yêu cầu, Then tạo JOIN `pending`.
+- `AC-MMP-04-1` — Given kèo `open` còn chỗ, When player bấm tham gia, Then tạo JOIN `approved`, phát `JoinApproved` và giữ slot 10 phút.
 - `AC-MMP-04-2` — Given player đã có JOIN `pending`/`approved`/`confirmed` trên kèo đó, When gửi lại, Then bị từ chối (BR-MMP-04).
 - `AC-MMP-04-3` — Given kèo đã `filled`, When gửi yêu cầu, Then bị từ chối.
 
-### MMP-05 — Xét duyệt người tham gia
-- **Actor**: người tổ chức. **Workflow**: xem danh sách `pending` (kèm bậc trình độ + điểm độ hợp
-  F-02) → duyệt/từ chối. Duyệt → JOIN `approved`, phát `JoinApproved`, mở cửa sổ trả phí
-  (`holdMinutes`). Từ chối → `rejected`.
-- **BR**: BR-MMP-05, 14.
+### MMP-05 — Tự động nhả slot chưa thanh toán
+- **Actor**: hệ thống. **Workflow**: quét JOIN `approved`; quá 10 phút chưa trả thì chuyển `rejected` và mở lại slot.
+- **BR**: BR-MMP-05, 06.
 
 **AC**
-- `AC-MMP-05-1` — Given JOIN `pending`, When tổ chức duyệt, Then JOIN `approved` + phát `JoinApproved`.
-- `AC-MMP-05-2` — Given người KHÔNG phải tổ chức, When gọi duyệt, Then 403 (BR-MMP-14).
-- `AC-MMP-05-3` — Given JOIN `approved` quá `holdMinutes` chưa trả phí, When hết hạn, Then chỗ tự giải phóng (BR-MMP-05).
+- `AC-MMP-05-1` — Given JOIN `approved` quá 10 phút chưa trả phí, When scheduler chạy, Then JOIN `rejected` và chỗ tự giải phóng.
+- `AC-MMP-05-2` — Given một JOIN đang giữ suất cuối, When player khác bấm tham gia, Then nhận `MATCH_FULL` và không tạo contribution.
 
 ### MMP-06 — Xác nhận tham gia kèo (sau khi trả phí)
 - **Actor**: người chơi (đã `approved`). **Workflow**: trả `feePerSlot` bằng số dư/SePay (luồng
@@ -178,8 +174,8 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 **AC**
 - `AC-MMP-06-1` — Given JOIN `approved` và số dư đủ, When trả phí, Then JOIN `confirmed`, phí vào ví platform (reserved, ref matchId).
 - `AC-MMP-06-2` — Given hai người cùng trả phí cho chỗ cuối đồng thời, When xử lý, Then chỉ một `confirmed`, người kia bị từ chối/hoàn (BR-MMP-06, chống chồng chỗ tầng CSDL).
-- `AC-MMP-06-3` — Given kèo miễn phí, When tổ chức duyệt, Then JOIN `confirmed` ngay không cần trả phí.
-- `AC-MMP-06-4` — Given tổng người `confirmed` đủ ngưỡng, When chỗ cuối `confirmed`, Then kèo `filled`, phát `MatchConfirmed`, gom phí thanh toán booking (bảo toàn giá trị BR-MMP-11).
+- `AC-MMP-06-3` — Given kèo miễn phí, When player bấm tham gia, Then JOIN `confirmed` ngay không cần trả phí.
+- `AC-MMP-06-4` — Given tổng người `confirmed` đủ ngưỡng, When chỗ cuối `confirmed`, Then kèo `filled`, phát `MatchConfirmed`, settlement booking ngay và cả booking/kèo chuyển `confirmed` sau quyết định Venue (bảo toàn giá trị BR-MMP-11, D39, D50).
 
 ### MMP-07 — Rút khỏi kèo
 - **Actor**: người chơi (`approved`/`confirmed`). **Workflow**: rút → JOIN `withdrawn`; nếu đã trả
@@ -269,7 +265,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
   (F-01), chênh RD, và khớp khung giờ/địa điểm → kèm **giải thích ngắn có căn cứ** ("hợp vì cùng
   bậc TB+, lệch rating nhỏ, cùng khu vực"). Ràng buộc bất biến #8: AI/điểm chỉ **gợi ý + giải
   thích**, không tự ghép.
-- **Nối**: MMP-05 hiển thị điểm độ hợp của từng `pending`; AI-01 dùng điểm này (spec `ai-assist.md`).
+- **Nối**: độ hợp được dùng để gợi ý/xếp hạng trước khi player chủ động giữ slot; không tạo bước organizer duyệt (D50).
 
 **AC**
 - `AC-F02-1` — Given hai player cùng bậc rating gần nhau, When tính độ hợp, Then điểm cao + giải thích nêu lý do cụ thể.
@@ -279,7 +275,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 ### F-03 — Ghép kèo live (Tìm nhanh + lấp chỗ)  【D-P2-3: WS thẳng matchmaking】
 - **Mô hình**: người chơi bật "Tìm nhanh" → kết nối **WebSocket thẳng tới matchmaking-service** →
   hệ thống ghép realtime với kèo đang thiếu người (ưu tiên độ hợp F-02) hoặc gom người thành kèo
-  mới. Khi khớp → tạo JOIN `pending`/tự duyệt theo cấu hình kèo → vào luồng trả phí FIN-05. Tái
+  mới. Khi khớp và player chấp nhận → tạo JOIN `approved`, giữ slot 10 phút → vào luồng trả phí FIN-05. Tái
   dùng cơ chế **giữ chỗ 10'** và **chống chồng chỗ** (BR-MMP-05/06).
 - **Ngoài phạm vi**: matchmaking đấu xếp hạng cạnh tranh; chỉ ghép giao lưu.
 

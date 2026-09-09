@@ -189,7 +189,7 @@ Inventory ngày 2026-08-14 có 105 route declaration trong năm business service
 |---|---|---:|
 | Matchmaking health | Admin Tổng quan → Trạng thái hệ thống | 10 |
 | Match create/list/detail/cancel | Tìm kèo/Chi tiết kèo/Tạo kèo | 13, 17 |
-| Join request + organizer pending list/approve/reject | Chi tiết kèo player/organizer | 13, 17 |
+| Join giữ slot 10 phút + thanh toán trực tiếp, không organizer duyệt (D50) | Chi tiết kèo player/organizer | 13, 17 |
 | Join withdraw | Chi tiết kèo → Rút yêu cầu tham gia | 17 |
 | Match evaluation submit | Hồ sơ trình độ → Đánh giá sau trận | 12, 17 |
 | Evaluation admin review + minimal pending list | Admin → Đánh giá bất thường | 11 |
@@ -861,7 +861,7 @@ git commit -m "feat(passport): enforce weekly level declaration"
 
 - [x] **Step 1: Write failing Socket.IO tests**
 
-Assert start/progress/proposal ordering, stop prevents later proposal/join, disconnect cleanup, accept creates exactly one pending JOIN, and server never auto-accepts.
+Assert start/progress/proposal ordering, stop prevents later proposal/join, disconnect cleanup, accept atomically creates exactly one `approved` JOIN giữ slot 10 phút và candidate sau nhận `MATCH_FULL` (D50).
 
 - [x] **Step 2: Implement request-scoped progress and cancellation**
 
@@ -1094,11 +1094,11 @@ git commit -m "feat(web): expose account venue and finance capabilities"
 
 - [ ] **Step 1: Write failing Matchmaking surface tests**
 
-Cover create/list/detail/cancel match, join request/pending list/approve/reject/withdraw, participant and organizer balance/SePay payments, submit evaluation, own/public Passport and AI suggestion navigation.
+Cover create/list/detail/cancel match, join giữ slot 10 phút/thanh toán trực tiếp/withdraw, participant and organizer balance/SePay payments, submit evaluation, own/public Passport and AI suggestion navigation.
 
 - [ ] **Step 2: Implement action-state Match detail**
 
-Reload match/join/contribution state after every terminal action. Organizer sees pending JOIN and contribution state; participant sees own JOIN/payment/withdraw state; unavailable actions render an explanation instead of a disabled mystery button.
+Reload match/join/contribution state after every terminal action. Organizer sees trạng thái slot/thanh toán nhưng không có hàng chờ duyệt; participant sees own JOIN/payment/withdraw state; unavailable actions render an explanation instead of a disabled mystery button.
 
 - [ ] **Step 3: Write failing Community/Support surface tests**
 
@@ -1182,7 +1182,7 @@ Open Account, Provider, Booking, Withdrawal, Reconciliation, Dispute, Moderation
 
 - [ ] **Step 5: Verify matchmaking, AI, Community and Support in browser**
 
-Create a match from a valid hold/held booking; use a second player context to observe Quick Match progress, accept, organizer approve, participant/organizer payment and withdrawal/cancel states. Verify own/public Hồ sơ trình độ, 7-day cooldown, grounded AI match chat, policy-support mode, image post CRUD, comment/report/moderation and ticket typing/reply/status without focus jumping.
+Create a match from a valid hold/held booking; use a second player context to observe Quick Match progress, accept with an immediate 10-minute payment hold, participant/organizer payment and withdrawal/cancel states. Verify own/public Hồ sơ trình độ, 7-day cooldown, grounded AI match chat, policy-support mode, image post CRUD, comment/report/moderation and ticket typing/reply/status without focus jumping.
 
 - [ ] **Step 6: Review responsive and runtime quality directly in browser**
 

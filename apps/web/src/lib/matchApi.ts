@@ -36,6 +36,8 @@ export interface MatchCourt {
 }
 export interface MatchRow {
   id: string;
+  status: 'open' | 'filled' | 'confirmed';
+  paymentPending: boolean;
   organizerUserId: string;
   capacity: number;
   openSlots: number;
@@ -55,7 +57,7 @@ export interface OwnJoin {
   approvedAt: string | null;
 }
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId'> {
-  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed';
+  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed';
   skillConfiguredAt: string | null;
   organizer: {
     displayName: string;
@@ -107,6 +109,7 @@ export const configureMatchSkillRange = (id: string, input: { skillMin: SkillTie
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+export const getMyConfirmedMatches = () => api<{ matches: MyConfirmedMatch[] }>('/matches/me/history');
 export async function waitForMatchOpen(id: string, options: { attempts?: number; intervalMs?: number } = {}) {
   const attempts = options.attempts ?? 20;
   const intervalMs = options.intervalMs ?? 1_000;
@@ -117,6 +120,17 @@ export async function waitForMatchOpen(id: string, options: { attempts?: number;
     if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   throw new Error('Khoản cọc đang được xác nhận. Vui lòng chờ thêm hoặc thử kiểm tra lại.');
+}
+export interface MyConfirmedMatch {
+  id: string;
+  status: 'confirmed' | 'completed';
+  participationRole: 'organizer' | 'participant';
+  participationLabel: 'Kèo đã tham gia';
+  feePerSlot: string;
+  startAt: string;
+  endAt: string;
+  court: MatchCourt;
+  venue: MatchVenue;
 }
 export const requestMatchJoin = (id: string) =>
   api<OwnJoin & { matchId: string }>(`/matches/${id}/joins`, {

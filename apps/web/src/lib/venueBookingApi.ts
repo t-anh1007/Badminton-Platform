@@ -27,6 +27,7 @@ export interface BookingSummary {
   status: string;
   priceSnapshot: string;
   holdExpiresAt?: string | null;
+  matchDepositPaid?: boolean;
   terminalStatus?: 'confirmed' | 'cancelled' | null;
   court?: { name: string; venue?: { name: string } };
 }

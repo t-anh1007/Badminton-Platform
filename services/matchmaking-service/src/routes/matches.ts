@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import type { MatchmakerExplanationClient } from '@khoaluantn/ai';
-import { configureMatchSkillRange, createMatch, findPublicMatches, getPublicMatchDetail, requestJoin } from '../domain/matches.js';
+import { configureMatchSkillRange, createMatch, findPublicMatches, getPublicMatchDetail, listMyConfirmedMatches, requestJoin } from '../domain/matches.js';
 import { suggestAiMatches } from '../domain/aiMatchmaker.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -18,7 +18,7 @@ const searchSchema = z.object({
   startFrom: z.coerce.date().optional(),
   endBefore: z.coerce.date().optional(),
   feeMax: z.string().regex(/^\d+$/).transform(BigInt).optional(),
-  minOpenSlots: z.coerce.number().int().min(1).default(1),
+  minOpenSlots: z.coerce.number().int().min(0).default(0),
 }).refine((input) => !input.startFrom || !input.endBefore || input.startFrom < input.endBefore, {
   message: 'startFrom must be before endBefore',
 });
@@ -109,7 +109,7 @@ export function createMatchRouter(
   router.get('/suggestions/ai', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const { skill: _ignoredSkill, ...filters } = searchSchema.parse(req.query);
     const userId = (req as AuthenticatedRequest).user!.id;
-    const suggestions = await suggestAiMatches(venueBookingClient, userId, filters, matchmakerClient);
+    const suggestions = await suggestAiMatches(venueBookingClient, userId, { ...filters, minOpenSlots: 1 }, matchmakerClient);
     res.status(200).json({ suggestions });
   }));
   router.post('/suggestions/ai/chat', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
@@ -141,6 +141,10 @@ export function createMatchRouter(
     const matchId = z.string().uuid().parse(req.params.matchId);
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(201).json(await requestJoin(matchId, userId));
+  }));
+  router.get('/me/history', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json({ matches: await listMyConfirmedMatches(venueBookingClient, userId) });
   }));
   router.patch('/:matchId/skill-range', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);

@@ -88,6 +88,7 @@ async function createOneSlotMatch() {
       cutoffAt: new Date(Date.now() + 2 * 60 * 60_000),
       deadlineAt: new Date(Date.now() + 2 * 60 * 60_000),
       status: 'open',
+      skillConfiguredAt: new Date(),
     },
   });
   // approveJoin đòi MatchCreated đã ghi outbox cho kèo có phí.
@@ -136,7 +137,7 @@ describe('F-03 — live quick match', () => {
     await expect(proposal).resolves.toMatchObject({ requestId, matchId: match.id, openSlots: 1 });
   });
 
-  it('AC-F03-2: accepting a proposal creates the ordinary pending JOIN and payment-approval flow', async () => {
+  it('D50: accepting a proposal immediately reserves the payment slot', async () => {
     const match = await createOneSlotMatch();
     const participantUserId = randomUUID();
     const url = await startGateway();
@@ -152,59 +153,36 @@ describe('F-03 — live quick match', () => {
 
     const join = await joined;
     createdJoinIds.push(join.id);
-    expect(join).toMatchObject({ requestId, matchId: match.id, participantUserId, status: 'pending' });
-
-    const pendingResponse = await fetch(`${url}/matches/${match.id}/joins/pending`, {
-      headers: { authorization: `Bearer ${playerToken(match.organizerUserId)}` },
-    });
-    expect(pendingResponse.status).toBe(200);
-    await expect(pendingResponse.json()).resolves.toMatchObject({
-      joins: [expect.objectContaining({ id: join.id, participantUserId, status: 'pending' })],
-    });
-
-    const approvalResponse = await fetch(`${url}/matches/${match.id}/joins/${join.id}/approve`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${playerToken(match.organizerUserId)}` },
-    });
-    expect(approvalResponse.status).toBe(200);
-    const approvedJoin = await approvalResponse.json() as { id: string; status: string; approvedAt: string };
-    expect(approvedJoin).toMatchObject({ id: join.id, status: 'approved' });
+    expect(join).toMatchObject({ requestId, matchId: match.id, participantUserId, status: 'approved' });
     const approvalEvent = await prisma.outbox.findFirstOrThrow({
       where: { aggregateId: join.id, eventType: 'JoinApproved' },
     });
     expect((approvalEvent.payload as { expiresAt: string }).expiresAt)
-      .toBe(new Date(new Date(approvedJoin.approvedAt).getTime() + 15 * 60_000).toISOString());
+      .toBe(new Date(new Date((join as typeof join & { approvedAt: string }).approvedAt).getTime() + 10 * 60_000).toISOString());
   });
 
-  it('AC-F03-3: two WS candidates for the final slot leave only one 10-minute payment hold', async () => {
+  it('AC-F03-3: the first WS candidate reserves the final slot and the next is blocked', async () => {
     const match = await createOneSlotMatch();
     const url = await startGateway();
     const participants = [randomUUID(), randomUUID()];
     const sockets = await Promise.all(participants.map((userId) => connect(url, playerToken(userId))));
 
-    const joins = await Promise.all(sockets.map(async (socket) => {
+    const proposalIds = await Promise.all(sockets.map(async (socket) => {
       const requestId = randomUUID();
       const proposal = once<{ matchId: string }>(socket, 'quick_match:proposal');
       socket.emit('quick_match:find', { requestId });
       await proposal;
-      const joined = once<{ id: string; participantUserId: string; status: string }>(socket, 'quick_match:joined');
-      socket.emit('quick_match:accept', { requestId, matchId: match.id });
-      return joined;
+      return requestId;
     }));
-    createdJoinIds.push(...joins.map((join) => join.id));
-    expect(joins.map((join) => join.status)).toEqual(['pending', 'pending']);
+    const joined = once<{ id: string; participantUserId: string; status: string }>(sockets[0]!, 'quick_match:joined');
+    sockets[0]!.emit('quick_match:accept', { requestId: proposalIds[0], matchId: match.id });
+    const reserved = await joined;
+    createdJoinIds.push(reserved.id);
+    expect(reserved).toMatchObject({ participantUserId: participants[0], status: 'approved' });
 
-    const approvalResponses = await Promise.all(joins.map(async (join) => {
-      const response = await fetch(`${url}/matches/${match.id}/joins/${join.id}/approve`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${playerToken(match.organizerUserId)}` },
-      });
-      return { status: response.status, body: await response.json() };
-    }));
-
-    expect(approvalResponses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect(approvalResponses.find((response) => response.status === 200)!.body).toMatchObject({ status: 'approved' });
-    expect(approvalResponses.find((response) => response.status === 409)!.body.error.code).toBe('MATCH_FULL');
+    const blocked = once<{ code: string }>(sockets[1]!, 'quick_match:error');
+    sockets[1]!.emit('quick_match:accept', { requestId: proposalIds[1], matchId: match.id });
+    await expect(blocked).resolves.toMatchObject({ code: 'MATCH_FULL' });
   });
 
   it('stops a request and never accepts its stale proposal', async () => {
@@ -249,12 +227,6 @@ describe('F-03 — live quick match', () => {
 
     const join = await joined;
     createdJoinIds.push(join.id);
-    expect(join).toMatchObject({ participantUserId: nextPlayerId, status: 'pending' });
-    const pendingResponse = await fetch(`${url}/matches/${match.id}/joins/pending`, {
-      headers: { authorization: `Bearer ${playerToken(match.organizerUserId)}` },
-    });
-    await expect(pendingResponse.json()).resolves.toMatchObject({
-      joins: [expect.objectContaining({ id: join.id, participantUserId: nextPlayerId })],
-    });
+    expect(join).toMatchObject({ participantUserId: nextPlayerId, status: 'approved' });
   });
 });
