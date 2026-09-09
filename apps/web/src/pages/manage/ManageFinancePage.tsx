@@ -18,7 +18,7 @@ import { getMyManagedVenues, type ManagedVenue } from '../../lib/venueBookingApi
 import { formatDateTimeVi, formatMoneyVnd, parseDateFieldVi } from '../../lib/formatters.js'
 
 const money = formatMoneyVnd
-const MIN_WITHDRAWAL = 100_000n
+const MIN_WITHDRAWAL = 10_000n
 const ACTIVE_STATUSES = new Set(['pending', 'partially_paid'])
 
 const withdrawalStatus: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
@@ -246,7 +246,7 @@ export function ManageFinancePage() {
                   aria-label="Số tiền rút"
                   inputMode="numeric"
                   placeholder={`Tối thiểu ${money(MIN_WITHDRAWAL)}`}
-                  value={form.amount}
+                  value={form.amount ? money(form.amount) : ''}
                   onChange={(event) => setForm({ ...form, amount: event.target.value.replace(/\D/g, '') })}
                 />
                 <Button

@@ -30,10 +30,11 @@ describe('FIN-10 — yêu cầu rút số dư khả dụng', () => {
     await expect(createWithdrawal(randomUUID(), { amount: 100000n, ...bank })).rejects.toMatchObject({ code: 'BUSINESS_WALLET_NOT_FOUND' });
   });
 
-  it('từ chối dưới ngưỡng rút tối thiểu 100.000đ', async () => {
+  it('cho phép rút từ 10.000đ và từ chối số tiền thấp hơn', async () => {
     const userId = randomUUID();
     await seedBusinessBalance(userId, 1_000_000n);
-    await expect(createWithdrawal(userId, { amount: 99999n, ...bank })).rejects.toMatchObject({ code: 'MIN_WITHDRAWAL' });
+    await expect(createWithdrawal(userId, { amount: 9999n, ...bank })).rejects.toMatchObject({ code: 'MIN_WITHDRAWAL' });
+    await expect(createWithdrawal(userId, { amount: 10000n, ...bank })).resolves.toMatchObject({ amount: 10000n });
   });
 
   it('AC-FIN-10-4: chủ ví hủy pending trả reserved về available, không tạo ledger', async () => {

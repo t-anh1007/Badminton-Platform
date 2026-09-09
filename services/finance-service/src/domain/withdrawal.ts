@@ -5,7 +5,7 @@ import { AppError } from '../lib/errors.js';
 import { postLedgerEntry } from './wallet.js';
 import { writeOutbox } from '../lib/outbox.js';
 
-export const MIN_WITHDRAWAL = 100000n;
+export const MIN_WITHDRAWAL = 10000n;
 
 export interface WithdrawalInput {
   amount: bigint;

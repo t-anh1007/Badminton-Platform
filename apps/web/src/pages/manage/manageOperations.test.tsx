@@ -22,8 +22,10 @@ it('filters revenue by venue and validates/creates a provider withdrawal', async
   render(<ManageFinancePage />); await screen.findByText(/Đang chờ 24 giờ/)
   fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'v1' } }); fireEvent.click(screen.getByRole('button', { name: 'Lọc doanh thu' })); await waitFor(() => expect(getMyRevenue).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'v1' })))
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/thông tin ngân hàng/i)
-  for (const [label, value] of [['Số tiền rút','100000'],['Mã ngân hàng','VCB'],['Số tài khoản nhận','123'],['Tên chủ tài khoản','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  for (const [label, value] of [['Số tiền rút','10000'],['Mã ngân hàng','VCB'],['Số tài khoản nhận','123'],['Tên chủ tài khoản','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  expect(screen.getByLabelText('Số tiền rút')).toHaveValue('10.000đ')
   const submit = screen.getByRole('button', { name: 'Gửi yêu cầu rút' }); fireEvent.click(submit); expect(submit).toBeDisabled(); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledTimes(1))
+  expect(createWithdrawal).toHaveBeenCalledWith(expect.objectContaining({ amount: '10000' }))
 })
 it('cancels a pending provider withdrawal', async () => {
   vi.mocked(getMyWithdrawals).mockResolvedValueOnce([{ id: 'w1', sellerUserId: 's', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'WD1', bankCode: 'VCB', bankAccountNumber: '123', bankAccountName: 'A' }])
