@@ -285,6 +285,8 @@ model Dispute {
   bookingId       String        @unique
   raiserUserId    String
   reason          String        @default("")
+  /// Snapshot liên hệ do người chơi xác nhận khi mở tranh chấp; nullable chỉ để tương thích dữ liệu cũ.
+  contactPhone    String?
   evidence        Json?
   status          DisputeStatus @default(open)
   resolution      String?

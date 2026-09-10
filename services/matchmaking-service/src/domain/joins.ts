@@ -148,6 +148,10 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
         expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
       } satisfies JoinApprovedPayload,
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `match.payment_required:${join.id}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: join.participantUserId, targetRole: 'player' }, category: 'match', kind: 'match.payment_required', title: 'Bạn đã được duyệt tham gia kèo', body: match.feePerSlot === 0n ? 'Kèo đã được xác nhận.' : 'Hoàn tất thanh toán để giữ chỗ của bạn.', priority: match.feePerSlot === 0n ? 'update' : 'action_required', entityType: 'match', entityId: matchId, actionKind: 'match.view', actionExpiresAt: match.feePerSlot === 0n ? null : new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString() },
+    });
     return updated;
   });
 }

@@ -449,13 +449,13 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | User Story | Là người chơi gặp vấn đề với một booking đã trả tiền, tôi muốn gửi tranh chấp kèm bằng chứng, để được xem xét hoàn tiền |
 | Điều kiện trước | Booking của chính mình, ca **đã kết thúc**, và **chưa quá 24 giờ** kể từ lúc ca kết thúc |
 | Sự kiện kích hoạt | Gửi tranh chấp |
-| Workflow chính | 1. Chọn booking trong danh sách đủ điều kiện → 2. Nhập lý do và đính kèm bằng chứng → 3. Tạo `DISPUTE(open)` → 4. **Hoãn** việc chuyển `pending → available` cho đúng khoản doanh thu của booking đó → 5. Vào hàng đợi xử lý của Admin |
+| Workflow chính | 1. Chọn booking bằng card trong danh sách đủ điều kiện → 2. Chọn nhóm vấn đề, nhập mô tả và số điện thoại liên hệ bắt buộc → 3. Có thể tải trực tiếp tối đa 5 ảnh JPEG/PNG/WebP → 4. Tạo `DISPUTE(open)` → 5. **Hoãn** việc chuyển `pending → available` cho đúng khoản doanh thu của booking đó → 6. Vào hàng đợi xử lý của Admin |
 | Luồng thay thế | — |
 | Luồng lỗi | Quá 24 giờ → không cho gửi, nêu rõ đã hết hạn khiếu nại; Booking chưa kết thúc → không cho gửi, gợi ý dùng BOK-09 để hủy; Đã có tranh chấp cho booking đó → từ chối |
 | Business Rules | BR-FIN-06, BR-FIN-07, BR-FIN-12 |
 | Trạng thái liên quan | `DISPUTE: [*] → open`; hoãn chuyển `pending → available` |
 | Quyền hạn | Chỉ booking của chính mình |
-| Dữ liệu vào | Mã booking, lý do, bằng chứng |
+| Dữ liệu vào | Mã booking, lý do, snapshot số điện thoại liên hệ, tối đa 5 ảnh bằng chứng |
 | Dữ liệu ra | Tranh chấp ở trạng thái mở |
 | Phụ thuộc | BOK-08, FIN-09 |
 | Trong phạm vi | Gửi tranh chấp trong cửa sổ 24 giờ |

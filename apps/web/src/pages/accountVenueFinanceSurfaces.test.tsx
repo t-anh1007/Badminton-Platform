@@ -27,9 +27,11 @@ vi.mock('../lib/financeApi.js', () => ({
   createTopupIntent: vi.fn().mockResolvedValue({ intentId: 'must-not-render', matchCode: 'KLTABC123', amount: '100000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '100000', matchCode: 'KLTABC123', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=100000&des=KLTABC123' } }),
   getEligibleDisputeBookings: vi.fn().mockResolvedValue([{ bookingId: 'booking-must-not-render', venueId: 'venue-id', gross: '180000', endAt: '2026-08-15T09:00:00Z', deadlineAt: '2026-08-16T09:00:00Z' }]),
   getMyDisputes: vi.fn().mockResolvedValue([]), createDispute: vi.fn().mockResolvedValue({}),
+  authorizeDisputeEvidence: vi.fn(), uploadDisputeEvidence: vi.fn(),
 }))
 vi.mock('../lib/venueBookingApi.js', () => ({
   getMyUpcomingBookings: vi.fn().mockResolvedValue([]), getMyBookingHistory: vi.fn().mockResolvedValue([]),
+  getVenueDetail: vi.fn().mockResolvedValue({ id: 'venue-id', name: 'Sân Phú Nhuận' }),
   searchVenues: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('../lib/matchApi.js', () => ({
@@ -132,12 +134,17 @@ it('shows a confirmed match in booking history with a link for the participant',
   expect(screen.getByRole('link', { name: /Sân Linh Xuân/ })).toHaveAttribute('href', '/matches/match-confirmed')
 })
 
-it('creates a dispute from a business label without exposing booking UUID text', async () => {
+it('creates a booking-first dispute with category, contact phone and no exposed UUID', async () => {
   render(<DisputePanel />)
-  expect(await screen.findByRole('option', { name: /Ca kết thúc/ })).toBeInTheDocument()
+  fireEvent.click(await screen.findByRole('button', { name: 'Báo vấn đề' }))
+  expect(screen.getByText('Sân Phú Nhuận')).toBeInTheDocument()
   expect(screen.queryByText(/booking-must-not-render/)).not.toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('Lý do tranh chấp'), { target: { value: 'Sân đóng cửa' } })
-  fireEvent.change(screen.getByLabelText('Bằng chứng'), { target: { value: 'https://evidence.example/photo' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi tranh chấp' }))
-  await waitFor(() => expect(createDispute).toHaveBeenCalledWith({ bookingId: 'booking-must-not-render', reason: 'Sân đóng cửa', evidence: ['https://evidence.example/photo'] }))
+  expect(screen.getByLabelText('Số điện thoại liên hệ')).toHaveValue('0900000000')
+  fireEvent.click(screen.getByLabelText('Sân đóng cửa / không thể chơi'))
+  fireEvent.change(screen.getByLabelText('Mô tả vấn đề'), { target: { value: 'Cổng sân khóa khi tôi đến.' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu' }))
+  await waitFor(() => expect(createDispute).toHaveBeenCalledWith({
+    bookingId: 'booking-must-not-render', reason: 'Sân đóng cửa / không thể chơi — Cổng sân khóa khi tôi đến.',
+    contactPhone: '0900000000', evidence: [],
+  }))
 })

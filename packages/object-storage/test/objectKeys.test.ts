@@ -25,6 +25,12 @@ describe('object-storage upload boundary', () => {
     expect(key).toBe(`community/posts/${ownerUserId}/fixed-token.webp`);
   });
 
+  it('creates dispute evidence keys inside the finance owner namespace', () => {
+    expect(buildOwnedObjectKey({
+      namespace: 'finance/disputes', ownerUserId, mimeType: 'image/webp', nonce: 'proof',
+    })).toBe(`finance/disputes/${ownerUserId}/proof.webp`);
+  });
+
   it.each([
     ['community/posts/../other/file.jpg', 'community/posts'],
     ['community/posts/another-user/file.jpg', 'community/posts'],

@@ -133,6 +133,7 @@ export interface DisputeRow {
   bookingId: string;
   raiserUserId: string;
   reason: string;
+  contactPhone: string | null;
   evidence: string[];
   status: 'open' | 'resolved';
   resolution: 'full_refund' | 'partial_refund' | 'rejected' | null;
@@ -250,7 +251,18 @@ export const markOutOfScope = (id: string, reason: string) =>
   });
 export const getEligibleDisputeBookings = () => api<DisputeEligibleRow[]>('/players/me/dispute-eligible');
 export const getMyDisputes = () => api<DisputeRow[]>('/players/me/disputes');
-export const createDispute = (body: { bookingId: string; reason: string; evidence: string[] }) =>
+export interface DisputeEvidenceUploadAuthorization {
+  objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string;
+}
+export const authorizeDisputeEvidence = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') =>
+  api<DisputeEvidenceUploadAuthorization>('/players/me/dispute-evidence-upload', { method: 'POST', body: JSON.stringify({ mimeType }) });
+export async function uploadDisputeEvidence(authorization: DisputeEvidenceUploadAuthorization, file: File, onProgress?: (progress: number) => void) {
+  onProgress?.(10);
+  const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file });
+  if (!response.ok) throw new Error('Không thể tải ảnh bằng chứng lên.');
+  onProgress?.(100);
+}
+export const createDispute = (body: { bookingId: string; reason: string; contactPhone: string; evidence: string[] }) =>
   api<DisputeRow>('/players/me/disputes', {
     method: 'POST',
     body: JSON.stringify(body),

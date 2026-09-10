@@ -56,7 +56,7 @@ export interface OwnJoin {
   status: JoinStatus;
   approvedAt: string | null;
 }
-export interface MatchDetail extends Omit<MatchRow, 'organizerUserId'> {
+export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'> {
   status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed';
   skillConfiguredAt: string | null;
   organizer: {

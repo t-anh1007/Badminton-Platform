@@ -6,6 +6,8 @@ import { recordBookingRevenue } from '../src/domain/revenue.js';
 import { releaseBookingRevenue, releaseMatureRevenue } from '../src/domain/revenueRelease.js';
 import { refundCancelledBooking } from '../src/domain/refund.js';
 
+const CONTACT_PHONE = '0901234567';
+
 async function disputeFixture(hoursAfterEnd = 5) {
   const bookingId = randomUUID();
   const playerId = randomUUID();
@@ -26,9 +28,9 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
   it('AC-FIN-12-1: tạo open trong cửa sổ và giữ riêng doanh thu booking ở pending', async () => {
     const fixture = await disputeFixture(5);
     const dispute = await createDispute(fixture.playerId, {
-      bookingId: fixture.bookingId, reason: 'Sân không cung cấp đúng dịch vụ', evidence: ['https://example.test/evidence.jpg'],
+      bookingId: fixture.bookingId, reason: 'Sân không cung cấp đúng dịch vụ', contactPhone: '090 123-4567', evidence: ['https://example.test/evidence.jpg'],
     });
-    expect(dispute).toMatchObject({ bookingId: fixture.bookingId, raiserUserId: fixture.playerId, status: 'open' });
+    expect(dispute).toMatchObject({ bookingId: fixture.bookingId, raiserUserId: fixture.playerId, contactPhone: CONTACT_PHONE, status: 'open' });
     await releaseMatureRevenue(new Date(fixture.endAt.getTime() + 25 * 3_600_000), [fixture.bookingId]);
     const revenue = await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } });
     expect(revenue.releasedAt).toBeNull();
@@ -37,19 +39,19 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
 
   it('AC-FIN-12-2/3: từ chối sau hạn và trước khi ca kết thúc', async () => {
     const expired = await disputeFixture(30);
-    await expect(createDispute(expired.playerId, { bookingId: expired.bookingId, reason: 'Quá muộn', evidence: [] }))
+    await expect(createDispute(expired.playerId, { bookingId: expired.bookingId, reason: 'Quá muộn', contactPhone: CONTACT_PHONE, evidence: [] }))
       .rejects.toMatchObject({ code: 'DISPUTE_EXPIRED' });
     const future = await disputeFixture(-2);
-    await expect(createDispute(future.playerId, { bookingId: future.bookingId, reason: 'Ca chưa kết thúc', evidence: [] }))
+    await expect(createDispute(future.playerId, { bookingId: future.bookingId, reason: 'Ca chưa kết thúc', contactPhone: CONTACT_PHONE, evidence: [] }))
       .rejects.toMatchObject({ code: 'BOOKING_NOT_ENDED' });
   });
 
   it('AC-FIN-12-4/5: một booking chỉ có một dispute và chỉ đúng người trả được gửi', async () => {
     const fixture = await disputeFixture();
-    await expect(createDispute(randomUUID(), { bookingId: fixture.bookingId, reason: 'Không sở hữu', evidence: [] }))
+    await expect(createDispute(randomUUID(), { bookingId: fixture.bookingId, reason: 'Không sở hữu', contactPhone: CONTACT_PHONE, evidence: [] }))
       .rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Lần đầu', evidence: [] });
-    await expect(createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Lần hai', evidence: [] }))
+    await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Lần đầu', contactPhone: CONTACT_PHONE, evidence: [] });
+    await expect(createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Lần hai', contactPhone: CONTACT_PHONE, evidence: [] }))
       .rejects.toMatchObject({ code: 'DISPUTE_EXISTS' });
   });
 
@@ -59,7 +61,7 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
       bookingId: fixture.bookingId, userId: fixture.playerId, businessUserId: fixture.businessUserId,
       gross: '200000', refundPercent: 0, reason: 'self',
     });
-    await expect(createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Đòi hoàn lần hai', evidence: [] }))
+    await expect(createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Đòi hoàn lần hai', contactPhone: CONTACT_PHONE, evidence: [] }))
       .rejects.toMatchObject({ code: 'BOOKING_CANCELLED' });
   });
 
@@ -69,7 +71,7 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
       const boundary = new Date(fixture.endAt.getTime() + 24 * 3_600_000);
       await prisma.bookingRevenue.update({ where: { bookingId: fixture.bookingId }, data: { endAt: new Date(boundary.getTime() - 24 * 3_600_000), releaseAt: boundary } });
       const [opened] = await Promise.allSettled([
-        createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Race boundary', evidence: [] }, boundary),
+        createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Race boundary', contactPhone: CONTACT_PHONE, evidence: [] }, boundary),
         releaseBookingRevenue(fixture.bookingId, boundary),
       ]);
       const [dispute, revenue] = await Promise.all([
@@ -80,13 +82,26 @@ describe('FIN-12 — gửi tranh chấp trong cửa sổ 24 giờ', () => {
       expect(opened.status === 'fulfilled').toBe(Boolean(dispute));
     }
   }, 30_000);
+
+  it('yêu cầu số điện thoại Việt Nam hợp lệ và tối đa 5 ảnh bằng chứng', async () => {
+    const invalidPhone = await disputeFixture();
+    await expect(createDispute(invalidPhone.playerId, {
+      bookingId: invalidPhone.bookingId, reason: 'Cần liên hệ', contactPhone: '123', evidence: [],
+    })).rejects.toBeDefined();
+
+    const tooManyImages = await disputeFixture();
+    await expect(createDispute(tooManyImages.playerId, {
+      bookingId: tooManyImages.bookingId, reason: 'Có nhiều ảnh', contactPhone: CONTACT_PHONE,
+      evidence: Array.from({ length: 6 }, (_, index) => `finance/disputes/${tooManyImages.playerId}/${index}.jpg`),
+    })).rejects.toBeDefined();
+  });
 });
 
 describe('FIN-13 — Admin giải quyết tranh chấp', () => {
   it('AC-FIN-13-1/7/8: hoàn toàn bộ đảo ba vế, bảo toàn và giữ nguyên bút toán gốc', async () => {
     const fixture = await disputeFixture();
     const originalIds = (await prisma.ledgerEntry.findMany({ where: { refId: fixture.bookingId } })).map((row) => row.id);
-    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Không được chơi', evidence: [] });
+    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Không được chơi', contactPhone: CONTACT_PHONE, evidence: [] });
     await resolveDispute(randomUUID(), dispute.id, { decision: 'full_refund', reason: 'Bằng chứng hợp lệ' });
     const [personal, business, resolved, revenue] = await Promise.all([
       prisma.wallet.findFirstOrThrow({ where: { userId: fixture.playerId, walletType: 'personal' } }),
@@ -105,7 +120,7 @@ describe('FIN-13 — Admin giải quyết tranh chấp', () => {
 
   it('AC-FIN-13-2/8: hoàn 80k rồi release phần ròng còn lại, tổng ba vế vẫn bằng gross', async () => {
     const fixture = await disputeFixture();
-    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Dịch vụ thiếu', evidence: [] });
+    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Dịch vụ thiếu', contactPhone: CONTACT_PHONE, evidence: [] });
     await resolveDispute(randomUUID(), dispute.id, { decision: 'partial_refund', amount: 80000n, reason: 'Hoàn một phần' });
     const revenue = await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } });
     const [personal, business] = await Promise.all([
@@ -119,7 +134,7 @@ describe('FIN-13 — Admin giải quyết tranh chấp', () => {
 
   it('AC-FIN-13-3: bác không ghi ledger tiền và release toàn bộ doanh thu', async () => {
     const fixture = await disputeFixture();
-    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Khiếu nại', evidence: [] });
+    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Khiếu nại', contactPhone: CONTACT_PHONE, evidence: [] });
     const before = await prisma.ledgerEntry.count({ where: { refId: fixture.bookingId } });
     await resolveDispute(randomUUID(), dispute.id, { decision: 'rejected', reason: 'Không đủ bằng chứng' });
     const revenue = await prisma.bookingRevenue.findUniqueOrThrow({ where: { bookingId: fixture.bookingId } });
@@ -136,7 +151,7 @@ describe('FIN-13 — Admin giải quyết tranh chấp', () => {
 
   it('AC-FIN-13-4/5/6: chặn hoàn vượt gross, lý do rỗng và quyết định lại', async () => {
     const fixture = await disputeFixture();
-    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Khiếu nại', evidence: [] });
+    const dispute = await createDispute(fixture.playerId, { bookingId: fixture.bookingId, reason: 'Khiếu nại', contactPhone: CONTACT_PHONE, evidence: [] });
     await expect(resolveDispute(randomUUID(), dispute.id, { decision: 'partial_refund', amount: 300000n, reason: 'Sai' }))
       .rejects.toMatchObject({ code: 'INVALID_REFUND' });
     await expect(resolveDispute(randomUUID(), dispute.id, { decision: 'rejected', reason: ' ' }))

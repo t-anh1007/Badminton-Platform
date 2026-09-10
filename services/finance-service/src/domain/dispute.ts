@@ -3,12 +3,15 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { COMMISSION_RATE_PERCENT } from '../lib/constants.js';
 import { getOrCreateWallet, postLedgerEntry } from './wallet.js';
-
 import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
+
 const createSchema = z.object({
   bookingId: z.string().uuid(),
   reason: z.string().trim().min(1),
-  evidence: z.array(z.string().trim().min(1)).max(10).default([]),
+  contactPhone: z.string().trim()
+    .transform((value) => value.replace(/[\s.-]/g, '').replace(/^\+84/, '0'))
+    .refine((value) => /^0\d{9}$/.test(value), 'Số điện thoại liên hệ không hợp lệ.'),
+  evidence: z.array(z.string().trim().min(1)).max(5).default([]),
 });
 
 const resolutionSchema = z.discriminatedUnion('decision', [
@@ -83,8 +86,14 @@ export async function createDispute(userId: string, rawInput: CreateDisputeInput
     const dispute = await tx.dispute.create({
       data: {
         refType: 'booking', refId: input.bookingId, bookingId: input.bookingId,
-        raiserUserId: userId, reason: input.reason, evidence: input.evidence,
+        raiserUserId: userId, reason: input.reason, contactPhone: input.contactPhone, evidence: input.evidence,
         deadlineAt: revenue.releaseAt,
+      },
+    });
+    await tx.outbox.create({
+      data: {
+        aggregateType: 'Notification', aggregateId: `dispute.opened:${dispute.id}`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'role', targetRole: 'admin' }, category: 'dispute', kind: 'dispute.opened', title: 'Có tranh chấp mới cần xử lý', body: 'Người chơi đã gửi yêu cầu hỗ trợ cho một booking.', priority: 'action_required', entityType: 'dispute', entityId: dispute.id, actionKind: 'admin.dispute.review', actionExpiresAt: null },
       },
     });
     await writeFinanceUiInvalidation(tx, revenue.businessUserId, ['revenue'], dispute.id);
@@ -170,6 +179,17 @@ export async function resolveDispute(adminUserId: string, disputeId: string, raw
         },
       },
     });
+    for (const recipient of [
+      { userId: dispute.raiserUserId, targetRole: 'player' as const },
+      { userId: revenue.businessUserId, targetRole: 'provider' as const },
+    ]) {
+      await tx.outbox.create({
+        data: {
+          aggregateType: 'Notification', aggregateId: `dispute.resolved:${dispute.id}:${recipient.targetRole}`, eventType: 'UserNotificationRequested',
+          payload: { recipient: { type: 'user', userId: recipient.userId, targetRole: recipient.targetRole }, category: 'dispute', kind: 'dispute.resolved', title: 'Tranh chấp đã có kết quả', body: 'Bạn có thể xem quyết định và cập nhật liên quan.', priority: 'update', entityType: 'dispute', entityId: dispute.id, actionKind: 'dispute.view', actionExpiresAt: null },
+        },
+      });
+    }
     await writeFinanceUiInvalidation(tx, revenue.businessUserId, ['wallet', 'revenue', 'ledger'], dispute.id);
     return resolved;
   });

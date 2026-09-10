@@ -2,14 +2,15 @@ import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
 import { walletRouter } from './routes/wallets.js';
 import { paymentRouter } from './routes/payments.js';
-import { financeOperationsRouter } from './routes/financeOperations.js';
+import { createFinanceOperationsRouter } from './routes/financeOperations.js';
 import { env } from './lib/env.js';
+import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
 import { createFinanceRealtimeRouter } from './routes/financeRealtime.js';
 
 const SERVICE_NAME = 'finance-service';
 
-export function createApp(dependencies?: { financeRealtimeHub?: FinanceRealtimeHub }) {
+export function createApp(dependencies?: { objectStorage?: ObjectStorageClient; financeRealtimeHub?: FinanceRealtimeHub }) {
   const app = express();
   // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
   app.use((_req, _res, next) => { markActivity(); next(); });
@@ -38,7 +39,8 @@ export function createApp(dependencies?: { financeRealtimeHub?: FinanceRealtimeH
 
   app.use('/', walletRouter);
   app.use('/', paymentRouter);
-  app.use('/', financeOperationsRouter);
+  const resolveObjectStorage = () => dependencies?.objectStorage ?? createObjectStorageClientFromEnv();
+  app.use('/', createFinanceOperationsRouter(resolveObjectStorage));
   app.use('/', createFinanceRealtimeRouter(dependencies?.financeRealtimeHub ?? new FinanceRealtimeHub()));
 
   return app;

@@ -4,6 +4,7 @@ import type { VenueBookingClient } from '../clients/venueBooking.js';
 import { HttpVenueBookingClient } from '../clients/venueBooking.js';
 import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
+import { writeMatchOutcomeNotifications } from '../lib/notificationOutbox.js';
 import { prisma } from '../lib/prisma.js';
 
 type CancelReason = 'organizer' | 'cutoff';
@@ -108,6 +109,10 @@ export async function applyMatchBookingResolution(
     if (payload.decision === 'cancelled') {
       const paidJoins = await tx.join.findMany({
         where: { matchId: match.id, feePaidAt: { not: null } }, select: { id: true },
+      });
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.cancelled',
+        title: 'Kèo đã bị hủy', body: 'Kèo không thể tiếp tục; các khoản đủ điều kiện sẽ được hoàn theo quy định.',
       });
       await tx.join.updateMany({
         where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
@@ -215,6 +220,10 @@ async function finalizeConfirmedPolicyCancellation(
     const fresh = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
     if (fresh.status === 'cancelled') return fresh;
     const paidJoins = await tx.join.findMany({ where: { matchId, feePaidAt: { not: null } }, select: { id: true } });
+    await writeMatchOutcomeNotifications(tx, {
+      matchId, organizerUserId: fresh.organizerUserId, kind: 'match.cancelled',
+      title: 'Kèo đã bị hủy', body: 'Kèo không thể tiếp tục; các khoản đủ điều kiện sẽ được hoàn theo quy định.',
+    });
     await tx.join.updateMany({
       where: { matchId, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' },
     });
@@ -287,6 +296,10 @@ export async function cancelExpiredDepositMatches(now = new Date()): Promise<num
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${stub.id}, 0))`;
       const fresh = await tx.match.findUnique({ where: { id: stub.id } });
       if (!fresh || fresh.status !== 'awaiting_deposit') return;
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: fresh.id, organizerUserId: fresh.organizerUserId, kind: 'match.cancelled',
+        title: 'Kèo đã bị hủy', body: 'Kèo không được xác nhận trước hạn nên đã được hủy.',
+      });
       await tx.match.update({ where: { id: stub.id }, data: { status: 'cancelled' } });
       await writeOutbox(tx, {
         aggregateType: 'Match', aggregateId: stub.id, eventType: 'MatchCancelled',

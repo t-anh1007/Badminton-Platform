@@ -50,6 +50,40 @@ export async function createWithdrawal(userId: string, input: WithdrawalInput) {
       where: { id: wallet.id },
       data: { available: { decrement: input.amount }, reserved: { increment: input.amount } },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification',
+      aggregateId: `withdrawal.opened:${request.id}`,
+      eventType: 'UserNotificationRequested',
+      payload: {
+        recipient: { type: 'role', targetRole: 'admin' },
+        category: 'finance',
+        kind: 'withdrawal.opened',
+        title: 'Có yêu cầu rút tiền mới',
+        body: `Chủ sân đang yêu cầu rút ${request.amount.toLocaleString('vi-VN')}đ.`,
+        priority: 'action_required',
+        entityType: 'withdrawal',
+        entityId: request.id,
+        actionKind: 'admin.withdrawal.review',
+        actionExpiresAt: null,
+      },
+    });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification',
+      aggregateId: `withdrawal.submitted:${request.id}`,
+      eventType: 'UserNotificationRequested',
+      payload: {
+        recipient: { type: 'user', userId, targetRole: 'provider' },
+        category: 'finance',
+        kind: 'withdrawal.submitted',
+        title: 'Yêu cầu rút tiền đã được gửi',
+        body: `${request.amount.toLocaleString('vi-VN')}đ đang chờ xử lý.`,
+        priority: 'update',
+        entityType: 'withdrawal',
+        entityId: request.id,
+        actionKind: 'withdrawal.view',
+        actionExpiresAt: null,
+      },
+    });
     await writeFinanceUiInvalidation(tx, userId, ['wallet', 'withdrawals'], request.id);
     return request;
   });
@@ -101,6 +135,25 @@ async function reversePendingWithdrawal(
         data: { actorUserId: audit.actorUserId, action: 'withdrawal_rejected', refType: 'withdrawal', refId: request.id, reason: audit.reason },
       });
     }
+    if (action === 'rejected') {
+      await writeOutbox(tx, {
+        aggregateType: 'Notification',
+        aggregateId: `withdrawal.rejected:${request.id}`,
+        eventType: 'UserNotificationRequested',
+        payload: {
+          recipient: { type: 'user', userId: request.sellerUserId, targetRole: 'provider' },
+          category: 'finance',
+          kind: 'withdrawal.rejected',
+          title: 'Yêu cầu rút tiền chưa được duyệt',
+          body: 'Số tiền đã được trả lại vào số dư khả dụng của bạn.',
+          priority: 'update',
+          entityType: 'withdrawal',
+          entityId: request.id,
+          actionKind: 'withdrawal.view',
+          actionExpiresAt: null,
+        },
+      });
+    }
     await writeFinanceUiInvalidation(tx, request.sellerUserId, ['wallet', 'withdrawals'], request.id);
     return updated;
   });
@@ -135,6 +188,23 @@ export async function settleWithdrawalPayout(
   });
   await writeFinanceUiInvalidation(tx, request.sellerUserId, ['wallet', 'withdrawals', 'ledger'], request.id);
   if (status === 'paid') {
+    await writeOutbox(tx, {
+      aggregateType: 'Notification',
+      aggregateId: `withdrawal.paid:${request.id}`,
+      eventType: 'UserNotificationRequested',
+      payload: {
+        recipient: { type: 'user', userId: request.sellerUserId, targetRole: 'provider' },
+        category: 'finance',
+        kind: 'withdrawal.paid',
+        title: 'Yêu cầu rút tiền đã hoàn tất',
+        body: `${paidAmount.toLocaleString('vi-VN')}đ đã được chi theo yêu cầu của bạn.`,
+        priority: 'update',
+        entityType: 'withdrawal',
+        entityId: request.id,
+        actionKind: 'withdrawal.view',
+        actionExpiresAt: null,
+      },
+    });
     await writeOutbox(tx, {
       aggregateType: 'WithdrawalRequest', aggregateId: request.id, eventType: 'PayoutCompleted',
       payload: { withdrawalRequestId: request.id, sellerUserId: request.sellerUserId, amount: paidAmount.toString() },

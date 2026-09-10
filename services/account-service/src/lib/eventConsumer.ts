@@ -3,8 +3,19 @@ import { createHash } from 'node:crypto';
 import { connectRabbitMQ, shouldRequeue } from '@khoaluantn/eventbus';
 import { env } from './env.js';
 import { grantProviderRole } from '../domain/providerRole.js';
+import { projectNotification } from '../domain/notifications.js';
+import { userNotificationRequestedSchema } from '@khoaluantn/shared';
+import { publishNotificationSignal } from './notificationRealtime.js';
 
 const QUEUE_NAME = 'account.domain-events';
+
+export async function handleNotificationRequested(eventId: string, raw: unknown) {
+  const rows = await projectNotification(eventId, userNotificationRequestedSchema.parse(raw));
+  for (const row of rows) publishNotificationSignal(row.userId, {
+    eventId, notificationId: row.notification.id, occurredAt: row.notification.createdAt,
+  });
+  return rows;
+}
 
 function eventIdOf(msg: ConsumeMessage): string {
   // Ưu tiên messageId (= Outbox.id, ổn định qua replay — xem eventbus
@@ -23,6 +34,9 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
     if (envelope.type === 'ProviderApproved') {
       await grantProviderRole(eventId, envelope.payload as { providerId: string; userId: string });
     }
+    if (envelope.type === 'UserNotificationRequested') {
+      await handleNotificationRequested(eventId, envelope.payload);
+    }
     channel.ack(msg);
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -40,6 +54,7 @@ export async function bootstrapEventConsumption(): Promise<() => Promise<void>> 
   const { connection, channel } = await connectRabbitMQ(env.rabbitmqUrl);
   await channel.assertQueue(QUEUE_NAME, { durable: true });
   await channel.bindQueue(QUEUE_NAME, 'domain-events', 'ProviderApproved');
+  await channel.bindQueue(QUEUE_NAME, 'domain-events', 'UserNotificationRequested');
   await channel.consume(QUEUE_NAME, (msg) => void onMessage(channel, msg));
 
   return async () => {
