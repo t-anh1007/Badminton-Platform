@@ -77,7 +77,7 @@ export function ManageFinancePage() {
   return <div className="grid gap-7">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-caption text-ink-500">QUẢN LÝ TÀI CHÍNH</p><h2 className="mt-1 text-h1">Dòng tiền hôm nay</h2><p className="mt-1 text-sm text-ink-500">Xem tiền có thể rút và hoạt động mới nhất của các cơ sở.</p></div><Button tone="ghost" size="sm" onClick={() => void load()}>Tải lại</Button></header>
     <FinanceOverview available={wallet.available} pending={wallet.pending} todayNet={today.toString()} todayCount={revenue.length} activeWithdrawal={activeWithdrawal} status={status} onWithdraw={() => setWithdrawOpen(true)} />
-    <FinanceActivityList ledger={ledger} venues={venues} onApplyFilter={(nextFilters) => void load(nextFilters)} />
+    <FinanceActivityList ledger={ledger} withdrawals={withdrawals} venues={venues} onApplyFilter={(nextFilters) => void load(nextFilters)} />
     {error && <p role="alert" className="rounded-2xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</p>}
     {message && !error && <p role="status" className="rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">{message}</p>}
     <WithdrawalModal open={withdrawOpen} available={wallet.available} active={activeWithdrawal} busy={busy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />

@@ -44,9 +44,12 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 it('requires a reason and confirmation before rejecting a withdrawal', async () => {
   render(<AdminFinancePage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Từ chối' }))
+  expect(screen.getByLabelText('Lý do từ chối RUT-2026-001')).toBeVisible()
+  expect(screen.queryByLabelText('Lý do xử lý tiền')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }))
   expect(screen.getByRole('status')).toHaveTextContent('Nhập lý do')
-  fireEvent.change(screen.getByLabelText('Lý do xử lý tiền'), { target: { value: 'Sai thông tin ngân hàng' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
+  fireEvent.change(screen.getByLabelText('Lý do từ chối RUT-2026-001'), { target: { value: 'Sai thông tin ngân hàng' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(rejectWithdrawal).toHaveBeenCalledWith('w1', 'Sai thông tin ngân hàng'))
 })
@@ -72,8 +75,9 @@ it('filters and sorts the finance operation queues', async () => {
 
 it('finalizes a partial withdrawal and supports all reconciliation decisions', async () => {
   render(<AdminFinancePage />)
-  fireEvent.change(await screen.findByLabelText('Lý do xử lý tiền'), { target: { value: 'Đối chiếu sao kê' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Chốt mức đã chi' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Chốt mức đã chi' }))
+  fireEvent.change(screen.getByLabelText('Lý do chốt mức đã chi RUT-2026-002'), { target: { value: 'Đối chiếu sao kê' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chốt mức đã chi' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(finalizePartialWithdrawal).toHaveBeenCalledWith('w2', 'Đối chiếu sao kê'))
 

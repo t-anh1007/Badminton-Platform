@@ -16,7 +16,9 @@
 - Focused evidence passed: finance-service typecheck, web TypeScript check, one realtime hub contract test, and the owner finance flow test.
 - A live authenticated SSE request returned the `ready` event with `200 text/event-stream`; it did not create or mutate financial data.
 - The running browser is unauthenticated and therefore redirects to `/auth`; owner-session visual QA and a real post-commit refresh remain pending. This plan stays active until that evidence is available.
-- No code commit was made: this worktree contains unrelated, in-progress dispute changes, so staging must be reviewed with the user first.
+- The initial finance slice was committed as `f66eef8`; unrelated in-progress changes remain outside that commit and must still be staged selectively.
+- Follow-up after owner visual QA: activity now combines ledger rows with non-ledger withdrawal states, so an admin rejection visibly confirms its `reserved → available` return without inventing a ledger entry. The client paginates the combined feed at six items per page; focused web typecheck and UI test passed.
+- Follow-up after admin visual QA: each withdrawal opens its own reason field only after its action is selected. The confirmation retains that exact row's reason, while reconciliation continues to use its separate reason field; focused admin UI tests and web typecheck passed.
 
 ## Global Constraints
 
