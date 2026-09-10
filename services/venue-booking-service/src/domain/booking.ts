@@ -409,10 +409,19 @@ export async function listMyBookings(userId: string) {
     orderBy: { startAt: 'desc' },
     include: { court: { include: { venue: true } } },
   });
+  const holdIds = bookings.flatMap((booking) => booking.holdId ? [booking.holdId] : []);
+  const paidMatchHoldIds = new Set((await prisma.hold.findMany({
+    where: { id: { in: holdIds }, purpose: 'match' },
+    select: { id: true },
+  })).map((hold) => hold.id));
+  const projectedBookings = bookings.map((booking) => ({
+    ...booking,
+    matchDepositPaid: booking.status === 'held' && !!booking.holdId && paidMatchHoldIds.has(booking.holdId),
+  }));
   // Booking bị hủy khi còn là hold chưa thanh toán không phải lịch sử giao dịch
   // của người chơi. Vẫn giữ bản ghi hết hạn tự động ở DB để đối soát kỹ thuật,
   // nhưng không đưa vào bất kỳ tab lịch sử nào.
-  const visibleBookings = bookings.filter((booking) => !(
+  const visibleBookings = projectedBookings.filter((booking) => !(
     booking.status === 'cancelled'
     && booking.holdExpiresAt !== null
     && booking.cancellationReason === null

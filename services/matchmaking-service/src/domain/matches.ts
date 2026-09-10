@@ -1,11 +1,12 @@
 import type { SkillTier } from '@prisma/client';
-import type { MatchCreatedPayload } from '@khoaluantn/shared';
+import type { JoinApprovedPayload, MatchCreatedPayload } from '@khoaluantn/shared';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating } from './rating.js';
+import { JOIN_HOLD_MINUTES } from './joins.js';
 
 const TIER_ORDER: Record<SkillTier, number> = {
   newcomer: 0,
@@ -169,15 +170,23 @@ export async function findPublicMatches(
 ) {
   const candidates = await prisma.match.findMany({
     where: {
-      status: 'open',
+      status: { in: ['open', 'filled', 'confirmed'] },
       skillConfiguredAt: { not: null },
-      cutoffAt: { gt: now },
+      OR: [
+        { status: 'open', cutoffAt: { gt: now } },
+        { status: { in: ['filled', 'confirmed'] } },
+      ],
       ...(filters.feeMax === undefined ? {} : { feePerSlot: { lte: filters.feeMax } }),
     },
     include: {
       joins: {
-        where: { status: { in: ['approved', 'confirmed'] } },
-        select: { id: true },
+        where: {
+          OR: [
+            { status: 'confirmed' },
+            { status: 'approved', approvedAt: { gt: new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000) } },
+          ],
+        },
+        select: { id: true, status: true, approvedAt: true },
       },
     },
   });
@@ -203,6 +212,8 @@ export async function findPublicMatches(
       return [
         {
           id: match.id,
+          status: match.status,
+          paymentPending: match.joins.some((join) => join.status === 'approved'),
           organizerUserId: match.organizerUserId,
           capacity: match.capacity,
           openSlots,
@@ -247,14 +258,20 @@ export async function getPublicMatchDetail(
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
-  const ownJoin = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
+  const ownJoinCandidate = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
+  const ownJoin = ownJoinCandidate?.status === 'approved'
+    && (!ownJoinCandidate.approvedAt || ownJoinCandidate.approvedAt.getTime() + JOIN_HOLD_MINUTES * 60_000 <= now.getTime())
+    ? null
+    : ownJoinCandidate;
   const isOrganizer = requester?.id === match.organizerUserId;
-  const isPubliclyOpen = match.status === 'open' && match.skillConfiguredAt !== null && match.cutoffAt > now;
+  const isPubliclyVisible = match.skillConfiguredAt !== null && (
+    (match.status === 'open' && match.cutoffAt > now) || ['filled', 'confirmed'].includes(match.status)
+  );
   const canViewOwnLifecycle = Boolean(
     // PLAN_MATCH-DEPOSIT: chủ kèo phải xem được kèo awaiting_deposit để trả cọc.
-    requester && (isOrganizer || ownJoin) && ['awaiting_deposit', 'open', 'filled', 'confirmed'].includes(match.status),
+    requester && (isOrganizer || ownJoin) && ['awaiting_deposit', 'open', 'filled', 'confirmed', 'completed'].includes(match.status),
   );
-  if (!isPubliclyOpen && !canViewOwnLifecycle) {
+  if (!isPubliclyVisible && !canViewOwnLifecycle) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
@@ -263,11 +280,15 @@ export async function getPublicMatchDetail(
     accountClient.getPublicMatchProfile(match.organizerUserId),
     prisma.passport.findUnique({ where: { userId: match.organizerUserId } }),
   ]);
-  if (!context || !organizerProfile || context.status === 'cancelled' || context.status === 'completed') {
+  if (!context || !organizerProfile || context.status === 'cancelled' || (context.status === 'completed' && !canViewOwnLifecycle)) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
-  const reservedJoins = match.joins.filter((join) => join.status === 'approved' || join.status === 'confirmed');
+  const reservedJoins = match.joins.filter((join) => join.status === 'confirmed' || (
+    join.status === 'approved'
+    && join.approvedAt !== null
+    && join.approvedAt.getTime() + JOIN_HOLD_MINUTES * 60_000 > now.getTime()
+  ));
   const openSlots = match.capacity - 1 - reservedJoins.length;
   return {
     id: match.id,
@@ -296,6 +317,7 @@ export async function getPublicMatchDetail(
         : null,
     },
     confirmedParticipants: reservedJoins.filter((join) => join.status === 'confirmed').length,
+    paymentPending: reservedJoins.some((join) => join.status === 'approved'),
     actions: {
       canJoin: Boolean(
         requester?.roles.includes('player') &&
@@ -333,7 +355,15 @@ export async function requestJoin(matchId: string, participantUserId: string, no
     if (match.organizerUserId === participantUserId) {
       throw new AppError(409, 'ORGANIZER_ALREADY_PARTICIPATES', 'Organizer đã chiếm một chỗ trong kèo.');
     }
-    const [reservedCount, activeJoin] = await Promise.all([
+    await tx.join.updateMany({
+      where: {
+        matchId,
+        status: 'approved',
+        approvedAt: { lte: new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000) },
+      },
+      data: { status: 'rejected', approvedAt: null },
+    });
+    const [reservedCount, activeJoin, fundingEvent] = await Promise.all([
       tx.join.count({
         where: { matchId, status: { in: ['approved', 'confirmed'] } },
       }),
@@ -344,12 +374,74 @@ export async function requestJoin(matchId: string, participantUserId: string, no
           status: { in: ['pending', 'approved', 'confirmed'] },
         },
       }),
+      tx.outbox.findFirst({
+        where: { aggregateId: matchId, eventType: 'MatchCreated' },
+        select: { id: true },
+      }),
     ]);
     if (activeJoin) throw new AppError(409, 'JOIN_ALREADY_ACTIVE', 'Đã có yêu cầu tham gia đang hoạt động.');
     if (reservedCount + 1 >= match.capacity) {
-      throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
+      throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ hoặc đang có người thanh toán.');
     }
-    return tx.join.create({ data: { matchId, participantUserId } });
+    if (match.feePerSlot > 0n && !fundingEvent) {
+      throw new AppError(409, 'MATCH_FUNDING_NOT_INITIALIZED', 'Kèo chưa khởi tạo dữ liệu chia phí. Vui lòng tạo kèo mới.');
+    }
+    const join = await tx.join.create({
+      data: {
+        matchId,
+        participantUserId,
+        status: match.feePerSlot === 0n ? 'confirmed' : 'approved',
+        approvedAt: now,
+      },
+    });
+    if (match.feePerSlot === 0n && reservedCount + 1 === match.capacity - 1) {
+      await tx.match.update({ where: { id: match.id }, data: { status: 'filled' } });
+    }
+    await writeOutbox(tx, {
+      aggregateType: 'Join',
+      aggregateId: join.id,
+      eventType: 'JoinApproved',
+      payload: {
+        joinId: join.id,
+        matchId,
+        participantUserId,
+        fee: match.feePerSlot.toString(),
+        expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
+      } satisfies JoinApprovedPayload,
+    });
+    return join;
+  });
+}
+
+export async function listMyConfirmedMatches(venueBookingClient: VenueBookingClient, userId: string) {
+  const matches = await prisma.match.findMany({
+    where: {
+      status: { in: ['confirmed', 'completed'] },
+      OR: [
+        { organizerUserId: userId },
+        { joins: { some: { participantUserId: userId, status: 'confirmed' } } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (matches.length === 0) return [];
+  const contexts = venueBookingClient.getMatchContexts
+    ? await venueBookingClient.getMatchContexts(matches.map((match) => match.bookingId))
+    : await Promise.all(matches.map((match) => venueBookingClient.getMatchContext(match.bookingId)));
+  return matches.flatMap((match, index) => {
+    const context = contexts[index];
+    if (!context) return [];
+    return [{
+      id: match.id,
+      status: match.status,
+      participationRole: match.organizerUserId === userId ? 'organizer' as const : 'participant' as const,
+      participationLabel: 'Kèo đã tham gia',
+      feePerSlot: match.feePerSlot.toString(),
+      startAt: context.startAt,
+      endAt: context.endAt,
+      court: context.court,
+      venue: context.venue,
+    }];
   });
 }
 

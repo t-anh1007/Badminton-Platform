@@ -193,6 +193,7 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
 
   let stops: Array<() => void | Promise<void>> = [];
   let released = false;
+  let resuming = false;
   let stopped = false;
   let lastActivity = Date.now();
   // Nối tiếp mọi lần bật/tắt để touch() giữa chừng không chạy đua với release().
@@ -220,6 +221,8 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
       released = false;
     } catch (err) {
       logError('không dựng lại được việc nền:', err);
+    } finally {
+      resuming = false;
     }
   };
 
@@ -247,7 +250,11 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
   const handle: IdleReleaseHandle = {
     touch: () => {
       lastActivity = Date.now();
-      if (released && !stopped) {
+      if (released && !resuming && !stopped) {
+        // Nhiều request thường đến cùng lúc ngay sau cold start. Đánh dấu trước
+        // khi xếp hàng để chúng không tạo nhiều relay/consumer rồi làm thất lạc
+        // các hàm stop của những instance bị ghi đè.
+        resuming = true;
         log('có request khi đang buông — dựng lại việc nền');
         void queue(runStart);
       }

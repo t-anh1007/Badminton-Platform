@@ -5,10 +5,13 @@ import { createApp } from './app.js';
 import { bootstrapEventConsumption } from './lib/eventConsumer.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { startRevenueReleaseScheduler } from './lib/revenueScheduler.js';
+import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
+import { bootstrapFinanceRealtimeConsumer } from './realtime/financeRealtimeConsumer.js';
 
 const SERVICE_NAME = 'finance-service';
 
-const app = createApp();
+const financeRealtimeHub = new FinanceRealtimeHub();
+const app = createApp({ financeRealtimeHub });
 
 app.listen(env.port, () => {
   // eslint-disable-next-line no-console
@@ -24,6 +27,7 @@ startWithIdleRelease({
     startRevenueReleaseScheduler(),
     await bootstrapEventConsumption(),
     await bootstrapEventPublishing(),
+    await bootstrapFinanceRealtimeConsumer(financeRealtimeHub),
   ],
   onRelease: () => prisma.$disconnect(),
 });

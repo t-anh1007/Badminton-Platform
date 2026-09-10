@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
 /** Tạo ví — dùng chung cho ví personal (AC-ACC-02-5, userId bắt buộc) và ví
  * platform (D16, userId null, tạo thủ công/seed — ngoài phạm vi G4). */
@@ -87,7 +88,7 @@ export async function postLedgerEntry(
   const after = before + params.amount;
   if (after < 0n) throw new AppError('NEGATIVE_BALANCE', 'Số dư ví không thể âm.', 409);
   await tx.wallet.update({ where: { id: wallet.id }, data: { [field]: after } });
-  return tx.ledgerEntry.create({
+  const entry = await tx.ledgerEntry.create({
     data: {
       walletId: wallet.id,
       amount: params.amount,
@@ -99,4 +100,8 @@ export async function postLedgerEntry(
       after,
     },
   });
+  if (wallet.walletType === 'business') {
+    await writeFinanceUiInvalidation(tx, wallet.userId, ['wallet', 'ledger'], entry.id);
+  }
+  return entry;
 }

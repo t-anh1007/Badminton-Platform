@@ -19,7 +19,7 @@ vi.mock('../../lib/financeApi.js', () => ({
   getReconciliationQueue: vi.fn().mockResolvedValue([{ id: 'rc1', direction: 'in', amount: '100000', rawRef: 'SEPAY-LONG-REFERENCE-001', receivedAt: '2026-08-15T00:00:00Z' }, { id: 'rc2', direction: 'out', amount: '90000', rawRef: 'BANK-LONG-REFERENCE-002', receivedAt: '2026-08-15T01:00:00Z' }]),
   rejectWithdrawal: vi.fn().mockResolvedValue({}), finalizePartialWithdrawal: vi.fn().mockResolvedValue({}),
   reconcileIncoming: vi.fn().mockResolvedValue({}), reconcileOutgoing: vi.fn().mockResolvedValue({}), markOutOfScope: vi.fn().mockResolvedValue({}),
-  getAdminDisputes: vi.fn().mockResolvedValue([{ id: 'd1', bookingId: 'booking-uuid', raiserUserId: 'u1', reason: 'Sân đóng cửa', evidence: [], status: 'open', resolution: null, resolutionAmount: null, deadlineAt: '2026-08-20T00:00:00Z', createdAt: '2026-08-15T00:00:00Z', resolvedAt: null }]),
+  getAdminDisputes: vi.fn().mockResolvedValue([{ id: 'd1', bookingId: 'booking-uuid', raiserUserId: 'u1', reason: 'Sân đóng cửa', contactPhone: '0901234567', evidence: ['https://cdn.test/proof.webp'], status: 'open', resolution: null, resolutionAmount: null, deadlineAt: '2026-08-20T00:00:00Z', createdAt: '2026-08-15T00:00:00Z', resolvedAt: null, revenue: { gross: '200000', net: '180000', commission: '20000', endAt: '2026-08-15T00:00:00Z', releaseAt: '2026-08-16T00:00:00Z', releasedAt: null }, ledgerEntries: [] }]),
   resolveDispute: vi.fn().mockResolvedValue({}),
 }))
 
@@ -44,9 +44,12 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 it('requires a reason and confirmation before rejecting a withdrawal', async () => {
   render(<AdminFinancePage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Từ chối' }))
+  expect(screen.getByLabelText('Lý do từ chối RUT-2026-001')).toBeVisible()
+  expect(screen.queryByLabelText('Lý do xử lý tiền')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }))
   expect(screen.getByRole('status')).toHaveTextContent('Nhập lý do')
-  fireEvent.change(screen.getByLabelText('Lý do xử lý tiền'), { target: { value: 'Sai thông tin ngân hàng' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
+  fireEvent.change(screen.getByLabelText('Lý do từ chối RUT-2026-001'), { target: { value: 'Sai thông tin ngân hàng' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(rejectWithdrawal).toHaveBeenCalledWith('w1', 'Sai thông tin ngân hàng'))
 })
@@ -72,8 +75,9 @@ it('filters and sorts the finance operation queues', async () => {
 
 it('finalizes a partial withdrawal and supports all reconciliation decisions', async () => {
   render(<AdminFinancePage />)
-  fireEvent.change(await screen.findByLabelText('Lý do xử lý tiền'), { target: { value: 'Đối chiếu sao kê' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Chốt mức đã chi' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Chốt mức đã chi' }))
+  fireEvent.change(screen.getByLabelText('Lý do chốt mức đã chi RUT-2026-002'), { target: { value: 'Đối chiếu sao kê' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chốt mức đã chi' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(finalizePartialWithdrawal).toHaveBeenCalledWith('w2', 'Đối chiếu sao kê'))
 
@@ -95,10 +99,13 @@ it('finalizes a partial withdrawal and supports all reconciliation decisions', a
 
 it('submits a validated partial-refund dispute decision', async () => {
   render(<AdminDisputesPage />)
-  fireEvent.change(await screen.findByLabelText('Số tiền hoàn một phần cho tranh chấp'), { target: { value: '90000' } })
+  expect(await screen.findByRole('link', { name: '0901234567' })).toHaveAttribute('href', 'tel:0901234567')
+  expect(screen.getByAltText('Bằng chứng 1')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('radio', { name: 'Hoàn một phần' }))
+  fireEvent.change(screen.getByLabelText('Số tiền hoàn một phần cho tranh chấp'), { target: { value: '90000' } })
   fireEvent.change(screen.getByLabelText('Lý do quyết định tranh chấp'), { target: { value: 'Hoàn một nửa do lỗi sân' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Hoàn một phần' }))
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Xem lại & xác nhận' }))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận quyết định' }))
   await waitFor(() => expect(resolveDispute).toHaveBeenCalledWith('d1', { decision: 'partial_refund', amount: '90000', reason: 'Hoàn một nửa do lỗi sân' }))
 })
 

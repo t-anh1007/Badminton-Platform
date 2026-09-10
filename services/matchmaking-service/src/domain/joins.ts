@@ -5,8 +5,8 @@ import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating, INITIAL_RD, TIER_CENTERS } from './rating.js';
 
-// PLAN_MATCH-DEPOSIT DM6: cửa sổ để đối trả 1/2 sau khi được duyệt.
-export const JOIN_HOLD_MINUTES = 15;
+// D50: người đầu tiên bấm tham gia giữ slot để thanh toán trong 10 phút.
+export const JOIN_HOLD_MINUTES = 10;
 
 async function assertOrganizer(matchId: string, organizerUserId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
@@ -148,6 +148,10 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
         expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
       } satisfies JoinApprovedPayload,
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `match.payment_required:${join.id}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: join.participantUserId, targetRole: 'player' }, category: 'match', kind: 'match.payment_required', title: 'Bạn đã được duyệt tham gia kèo', body: match.feePerSlot === 0n ? 'Kèo đã được xác nhận.' : 'Hoàn tất thanh toán để giữ chỗ của bạn.', priority: match.feePerSlot === 0n ? 'update' : 'action_required', entityType: 'match', entityId: matchId, actionKind: 'match.view', actionExpiresAt: match.feePerSlot === 0n ? null : new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString() },
+    });
     return updated;
   });
 }
@@ -156,7 +160,7 @@ export async function releaseExpiredApprovedJoins(now = new Date()): Promise<num
   const threshold = new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000);
   const result = await prisma.join.updateMany({
     where: { status: 'approved', approvedAt: { lte: threshold } },
-    data: { status: 'pending', approvedAt: null },
+    data: { status: 'rejected', approvedAt: null },
   });
   return result.count;
 }

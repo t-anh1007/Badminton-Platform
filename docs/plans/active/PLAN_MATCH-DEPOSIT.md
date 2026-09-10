@@ -22,7 +22,7 @@ trong khi kèo cần thời gian dài hơn để tìm đối → hết 10 phút 
 | DM3 | **Chỉ cho tạo kèo khi slot còn ≥ 24h** tới giờ đá (bỏ ca sát giờ). | ✅ |
 | DM4 | **Cọc = 50% giá slot = phần của chủ kèo.** Có đối: đối trả 50% còn lại → confirmed. Không đối: hoàn 50% vào ví. Không thu hai lần, không bước top-up. | ✅ |
 | DM5 | **Hạn giữ X = lúc tạo + H**, H theo bậc thời gian dẫn L (xem §3). | ✅ |
-| DM6 | **Cửa sổ đối trả tiền = 15 phút** sau khi tham gia (không vượt X). | ✅ |
+| DM6 | **Cửa sổ đối trả tiền = 10 phút** ngay sau khi bấm tham gia (không vượt X); không qua organizer duyệt. | ✅ D50 |
 | DM7 | **Trần 3 kèo đang giữ slot đồng thời / chủ kèo.** | ✅ |
 | DM8 | Mọi khoản hoàn → **cộng vào ví** (SePay không có API refund — hard-rule). | ✅ |
 | DM9 | Chủ kèo **tự hủy khi CHƯA có đối** → **hoàn 100% cọc** vào ví. | ✅ |
@@ -91,7 +91,7 @@ Gọi **L = giờ đá − lúc tạo** (luôn ≥ 24h theo DM3). **X = lúc t�
         ▼
  awaiting_opponent ──(chủ kèo hủy: DM9 hoàn 100% cọc)──► cancelled
         │           ──(hết X không có đối: hoàn 100% cọc)──► expired
-        │  đối tham gia + chủ kèo duyệt
+        │  đối tham gia, giữ slot 10 phút
         ▼
  awaiting_payment  ──(đối không trả trong 15': nhả lượt)──► quay lại awaiting_opponent
         │  PaymentCompleted(đối 50%) → đủ 100% → confirm booking 'held'→'confirmed'
@@ -124,11 +124,11 @@ Gọi **L = giờ đá − lúc tạo** (luôn ≥ 24h theo DM3). **X = lúc t�
    - finance: ghi bút toán **cọc escrow** (chưa payout cho chủ sân).
 6. Không trả cọc trong 10 phút → xóa nháp, nhả hold ngắn (đúng như booking bỏ dở hiện nay).
 
-### 5.2 Tìm & duyệt đối (kèo đơn)
-1. Đối `requestJoin` → chủ kèo `approveJoin` (giữ bước duyệt hiện có).
-2. Duyệt xong → Match `awaiting_payment`, phát **VietQR phí đối = 50%**, hạn **15 phút** (DM6),
-   không vượt X. (Tái dùng `JoinApproved` + `expiresAt`, đổi `JOIN_HOLD_MINUTES` ngữ nghĩa cửa sổ trả tiền.)
-3. Đối không trả trong 15′ → nhả lượt (join→`pending`/`rejected`), Match → `awaiting_opponent` (tái dùng `releaseExpiredApprovedJoins`).
+### 5.2 Tìm và giữ slot thanh toán (kèo đơn)
+1. Đối `requestJoin` trên kèo còn chỗ → JOIN chuyển thẳng `approved`, không qua organizer duyệt; transaction lock theo `matchId` bảo đảm người đầu tiên chiếm slot.
+2. Mở thanh toán **phí đối = 50%** trong **10 phút** (DM6), không vượt X. Người sau vẫn thấy kèo nhưng không thể tham gia khi slot đang được giữ.
+3. Đối không trả trong 10′ → JOIN `rejected`, nhả slot để có thể tham gia lại. Đối trả đủ → settlement ngay; booking và Match cùng chuyển `confirmed` sau quyết định nguyên tử của Venue (D39/D50).
+4. Kèo đang chờ thanh toán, đã đầy hoặc đã xác nhận vẫn có trong danh sách. Hai thành viên đã xác nhận xem được từ lịch sử đặt sân với nhãn “Kèo đã tham gia”.
 
 ### 5.3 Chốt kèo
 1. `PaymentCompleted(đối 50%)` → đủ 100% (cọc chủ kèo + phí đối).

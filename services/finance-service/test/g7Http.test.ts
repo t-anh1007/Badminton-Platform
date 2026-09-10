@@ -6,8 +6,19 @@ import { createApp } from '../src/app.js';
 import { env } from '../src/lib/env.js';
 import { prisma } from '../src/lib/prisma.js';
 import { recordBookingRevenue } from '../src/domain/revenue.js';
+import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
-const app = createApp();
+const authorizeUpload = async ({ ownerUserId, mimeType }: { ownerUserId: string; mimeType: string }) => ({
+  objectKey: `finance/disputes/${ownerUserId}/proof.${mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'}`,
+  uploadUrl: 'https://storage.test/put', headers: { 'Content-Type': mimeType }, expiresAt: '2026-09-10T00:10:00.000Z',
+});
+const objectStorage: ObjectStorageClient = {
+  authorizeUpload: authorizeUpload as ObjectStorageClient['authorizeUpload'],
+  assertOwnedObject: async () => undefined,
+  getReadUrl: async (key) => `https://cdn.test/${key}`,
+  deleteObject: async () => undefined,
+};
+const app = createApp({ objectStorage });
 const token = (userId: string, roles: string[]) => jwt.sign({ sub: userId, roles, type: 'access' }, env.jwtSecret);
 
 async function fixture() {
@@ -33,21 +44,26 @@ describe('G7 HTTP contract', () => {
     expect(eligible.status).toBe(200);
     expect(eligible.body).toContainEqual(expect.objectContaining({ bookingId: data.bookingId, gross: '200000' }));
 
+    const upload = await request(app).post('/players/me/dispute-evidence-upload').set('Authorization', auth)
+      .send({ mimeType: 'image/webp' });
+    expect(upload.status).toBe(201);
+    expect(upload.body.objectKey).toBe(`finance/disputes/${data.playerId}/proof.webp`);
+
     const created = await request(app).post('/players/me/disputes').set('Authorization', auth)
-      .send({ bookingId: data.bookingId, reason: 'Sân không đúng mô tả', evidence: ['https://example.test/proof'] });
+      .send({ bookingId: data.bookingId, reason: 'Sân không đúng mô tả', contactPhone: '090 123-4567', evidence: [upload.body.objectKey] });
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ bookingId: data.bookingId, status: 'open', reason: 'Sân không đúng mô tả' });
+    expect(created.body).toMatchObject({ bookingId: data.bookingId, status: 'open', reason: 'Sân không đúng mô tả', contactPhone: '0901234567' });
 
     const mine = await request(app).get('/players/me/disputes').set('Authorization', auth);
     expect(mine.status).toBe(200);
-    expect(mine.body).toContainEqual(expect.objectContaining({ id: created.body.id, status: 'open' }));
+    expect(mine.body).toContainEqual(expect.objectContaining({ id: created.body.id, status: 'open', evidence: [`https://cdn.test/${upload.body.objectKey}`] }));
   });
 
   it('chỉ Admin xem queue/resolve; amount truyền bằng chuỗi BigInt và lý do bắt buộc', async () => {
     const data = await fixture();
     const playerAuth = `Bearer ${token(data.playerId, ['player'])}`;
     const created = await request(app).post('/players/me/disputes').set('Authorization', playerAuth)
-      .send({ bookingId: data.bookingId, reason: 'Khiếu nại', evidence: [] });
+      .send({ bookingId: data.bookingId, reason: 'Khiếu nại', contactPhone: '0901234567', evidence: [] });
     const forbidden = await request(app).get('/admin/disputes').set('Authorization', playerAuth);
     expect(forbidden.status).toBe(403);
 
@@ -63,6 +79,7 @@ describe('G7 HTTP contract', () => {
     expect(queue.status).toBe(200);
     expect(queue.body).toContainEqual(expect.objectContaining({
       id: created.body.id, resolutionAmount: '80000',
+      contactPhone: '0901234567',
       revenue: expect.objectContaining({ gross: '200000', net: '108000', commission: '12000' }),
       ledgerEntries: expect.arrayContaining([expect.objectContaining({ refType: 'dispute', amount: '80000' })]),
     }));

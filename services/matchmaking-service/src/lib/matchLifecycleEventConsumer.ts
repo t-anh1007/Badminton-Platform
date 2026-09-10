@@ -16,6 +16,7 @@ import type {
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import { HttpVenueBookingClient } from '../clients/venueBooking.js';
 import { writeOutbox } from './outbox.js';
+import { writeMatchOutcomeNotifications } from './notificationOutbox.js';
 import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
 import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
@@ -182,6 +183,10 @@ export async function handleMatchFeePaymentCompleted(
       if (depositTooLate) {
         // Slot đã nhả trước khi cọc về -> hủy kèo; finance hoàn cọc vào ví (DM8).
         if (match.status !== 'cancelled' && match.status !== 'confirmed') {
+          await writeMatchOutcomeNotifications(tx, {
+            matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.cancelled',
+            title: 'Kèo đã bị hủy', body: 'Khoản đặt cọc đến sau hạn nên kèo không thể tiếp tục.',
+          });
           await tx.match.update({ where: { id: match.id }, data: { status: 'cancelled' } });
           await writeOutbox(tx, {
             aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled',
@@ -224,6 +229,10 @@ export async function handleBookingConfirmedForMatch(
       await tx.match.update({
         where: { id: match.id },
         data: { status: match.completedAt ? 'completed' : 'confirmed' },
+      });
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
+        title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất thanh toán và lịch sân được giữ chỗ.',
       });
     }
     await tx.processedEvent.create({ data: { eventId, processedAt: now } });
@@ -272,6 +281,10 @@ export async function handleMatchBookingResolved(
         const paidJoins = await tx.join.findMany({
           where: { matchId: match.id, feePaidAt: { not: null } }, select: { id: true },
         });
+        await writeMatchOutcomeNotifications(tx, {
+          matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.cancelled',
+          title: 'Kèo đã bị hủy', body: 'Kèo không thể tiếp tục; các khoản đủ điều kiện sẽ được hoàn theo quy định.',
+        });
         await tx.join.updateMany({
           where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
           data: { status: 'withdrawn' },
@@ -297,6 +310,10 @@ export async function handleMatchSettlementFailed(eventId: string, raw: MatchSet
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
     const match = await tx.match.findUnique({ where: { id: payload.matchId } });
     if (match && match.bookingId === payload.bookingId && match.status !== 'confirmed') {
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.cancelled',
+        title: 'Kèo đã bị hủy', body: 'Không thể hoàn tất việc giữ sân cho kèo này.',
+      });
       await tx.join.updateMany({
         where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
         data: { status: 'withdrawn' },

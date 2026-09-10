@@ -16,6 +16,27 @@ export const SERVICES = [
 
 export type ServiceName = (typeof SERVICES)[number];
 
+/** Event tối giản để service nghiệp vụ yêu cầu tạo thông báo trong ứng dụng.
+ * Không chứa URL tự do hoặc dữ liệu nhạy cảm; account-service là nơi dựng inbox. */
+export const notificationCategories = ['booking', 'finance', 'match', 'dispute', 'support', 'security', 'community'] as const;
+export const notificationActionKinds = ['booking.view', 'booking.pay', 'match.view', 'dispute.view', 'support.view', 'withdrawal.view', 'admin.dispute.review', 'admin.withdrawal.review', 'admin.provider.review', 'admin.moderation.review', 'admin.ticket.view'] as const;
+export const userNotificationRequestedSchema = z.object({
+  recipient: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('user'), userId: z.string().uuid(), targetRole: z.enum(['player', 'provider', 'admin']) }).strict(),
+    z.object({ type: z.literal('role'), targetRole: z.literal('admin') }).strict(),
+  ]),
+  category: z.enum(notificationCategories),
+  kind: z.string().min(1).max(80),
+  title: z.string().min(1).max(120),
+  body: z.string().min(1).max(240),
+  priority: z.enum(['action_required', 'update']),
+  entityType: z.string().min(1).max(40).nullable().default(null),
+  entityId: z.string().uuid().nullable().default(null),
+  actionKind: z.enum(notificationActionKinds).nullable().default(null),
+  actionExpiresAt: z.string().datetime().nullable().default(null),
+}).strict();
+export type UserNotificationRequestedPayload = z.infer<typeof userNotificationRequestedSchema>;
+
 /** Danh tính tài khoản "Test demo / Vãng lai" — cố định để cổng đăng nhập demo
  * luôn dùng cùng một userId trên mọi service. Tài khoản này KHÔNG kèm dữ liệu
  * mẫu — đăng nhập vào là thấy đúng dữ liệu thật của hệ thống. */

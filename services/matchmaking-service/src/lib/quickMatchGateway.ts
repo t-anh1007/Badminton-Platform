@@ -17,7 +17,7 @@ interface QuickMatchServerEvents {
   'quick_match:progress': (event: { requestId: string; elapsedMs: number; scannedCount: number; candidateCount: number; phase: 'starting' | 'scanning' | 'proposal' | 'completed' }) => void
   'quick_match:proposal': (proposal: { requestId: string; matchId: string; openSlots: number; feePerSlot: string; startAt: string; endAt: string; court: { id: string; name: string }; venue: { id: string; name: string; address: string; lat: number; lng: number } }) => void
   'quick_match:stopped': (event: { requestId: string }) => void
-  'quick_match:joined': (join: { requestId: string; id: string; matchId: string; participantUserId: string; status: 'pending' }) => void
+  'quick_match:joined': (join: { requestId: string; id: string; matchId: string; participantUserId: string; status: 'approved' | 'confirmed'; approvedAt: Date | null }) => void
   'quick_match:error': (error: { requestId?: string; code: string; message: string }) => void
 }
 
@@ -102,7 +102,14 @@ export function attachQuickMatchGateway(httpServer: HttpServer, venueBookingClie
         const join = await requestJoin(input.matchId, socket.data.user.id)
         if (searches.get(input.requestId) !== state) return
         searches.delete(input.requestId)
-        socket.emit('quick_match:joined', { requestId: input.requestId, id: join.id, matchId: join.matchId, participantUserId: join.participantUserId, status: 'pending' })
+        socket.emit('quick_match:joined', {
+          requestId: input.requestId,
+          id: join.id,
+          matchId: join.matchId,
+          participantUserId: join.participantUserId,
+          status: join.status as 'approved' | 'confirmed',
+          approvedAt: join.approvedAt,
+        })
       } catch (error) {
         emitQuickMatchError(socket, error, requestId)
       }

@@ -3,18 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import {
-  approveMatchJoin,
-  cancelMatch,
-  getMatchDetail,
-  listPendingMatchJoins,
-  rejectMatchJoin,
-  requestMatchJoin,
-  withdrawMatchJoin,
-  type MatchDetail,
-  type PendingJoin,
-  type SkillTier,
-} from '../lib/matchApi';
+import { cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type SkillTier } from '../lib/matchApi';
 import {
   createMatchOrganizerContributionSepayIntent,
   createMatchJoinSepayIntent,
@@ -38,7 +27,6 @@ export function MatchDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<MatchDetail | null>(null);
-  const [pending, setPending] = useState<PendingJoin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -60,10 +48,6 @@ export function MatchDetailPage() {
     try {
       const next = await getMatchDetail(id);
       setDetail(next);
-      if (next.actions.isOrganizer) {
-        const result = await listPendingMatchJoins(id);
-        setPending(result.joins);
-      } else setPending([]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể tải chi tiết kèo.');
     } finally {
@@ -80,7 +64,7 @@ export function MatchDetailPage() {
   const remaining = useMemo(
     () =>
       detail?.actions.ownJoin?.status === 'approved' && detail.actions.ownJoin.approvedAt
-        ? Math.max(0, new Date(detail.actions.ownJoin.approvedAt).getTime() + 15 * 60_000 - now)
+        ? Math.max(0, new Date(detail.actions.ownJoin.approvedAt).getTime() + 10 * 60_000 - now)
         : 0,
     [detail, now],
   );
@@ -191,7 +175,7 @@ export function MatchDetailPage() {
       navigate('/auth');
       return;
     }
-    void mutate(() => requestMatchJoin(detail.id), 'Đã gửi yêu cầu; organizer sẽ duyệt trước khi mở giữ chỗ 15 phút.');
+    void mutate(() => requestMatchJoin(detail.id), 'Đã giữ slot 10 phút. Hãy thanh toán phần còn lại để xác nhận kèo và booking sân.');
   };
 
   return (
@@ -210,8 +194,8 @@ export function MatchDetailPage() {
                   {detail.venue.name} · {detail.court.name}
                 </h1>
               </div>
-              <Badge tone={detail.status === 'awaiting_deposit' ? 'warning' : isFull ? 'warning' : 'success'}>
-                {detail.status === 'awaiting_deposit' ? 'Chờ đặt cọc' : isFull ? 'Đã đầy' : `Còn ${detail.openSlots} chỗ`}
+              <Badge tone={detail.status === 'confirmed' || detail.status === 'completed' ? 'success' : detail.status === 'awaiting_deposit' || isFull ? 'warning' : 'success'}>
+                {detail.status === 'completed' ? 'Đã hoàn thành' : detail.status === 'confirmed' ? 'Đã xác nhận' : detail.status === 'awaiting_deposit' ? 'Chờ đặt cọc' : detail.paymentPending ? 'Đang chờ thanh toán' : isFull ? 'Đã đầy' : `Còn ${detail.openSlots} chỗ`}
               </Badge>
             </div>
             <div className="mt-6 grid gap-4 border-y border-line py-5 sm:grid-cols-2">
@@ -251,56 +235,6 @@ export function MatchDetailPage() {
               Xem bản đồ ↗
             </a>
           </SurfaceCard>
-          {detail.actions.isOrganizer && (
-            <SurfaceCard>
-              <div className="flex items-center justify-between">
-                <h2 className="text-h2">Duyệt yêu cầu</h2>
-                <Badge>{pending.length} pending</Badge>
-              </div>
-              {pending.length === 0 ? (
-                <p className="mt-4 text-sm text-ink-500">Chưa có yêu cầu đang chờ.</p>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {pending.map((item, index) => (
-                    <div key={item.id} className="rounded-xl border border-line p-4">
-                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                        <div>
-                          <p className="font-medium">Người chơi đang chờ {index + 1}</p>
-                          <p className="text-caption">
-                            {item.participantTier ? tierLabels[item.participantTier] : 'Chưa có hồ sơ trình độ'} · Hợp{' '}
-                            {Math.round(item.compatibilityScore)}%
-                          </p>
-                          <p className="mt-1 text-sm text-ink-500">{item.compatibilityExplanation}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            tone="secondary"
-                            size="sm"
-                            onClick={() =>
-                              void mutate(() => rejectMatchJoin(detail.id, item.id), 'Đã từ chối yêu cầu.')
-                            }
-                          >
-                            Từ chối
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              void mutate(
-                                () => approveMatchJoin(detail.id, item.id),
-                                'Đã duyệt; hold thanh toán 10 phút đã mở nếu kèo có phí.',
-                              )
-                            }
-                          >
-                            Duyệt
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </SurfaceCard>
-          )}
         </div>
         <aside className="space-y-5">
           <SurfaceCard>
@@ -348,14 +282,11 @@ export function MatchDetailPage() {
                     : detail.status === 'awaiting_deposit'
                       ? 'Đang chờ xác nhận cọc; kèo sẽ mở tìm đối ngay sau khi cọc về.'
                       : detail.status === 'filled'
-                        ? 'Đối đã đóng đủ; đang đối soát để xác nhận sân.'
-                        : 'Duyệt yêu cầu hoặc hủy kèo theo quy tắc hiện hành.'}
+                        ? 'Đối đã đóng đủ; hệ thống đang xác nhận sân.'
+                        : detail.status === 'confirmed'
+                          ? 'Kèo và booking sân đã được xác nhận.'
+                          : 'Kèo đang mở; người thanh toán trước sẽ có slot.'}
                 </p>
-              </>
-            ) : join?.status === 'pending' ? (
-              <>
-                <p className="font-semibold">Chờ tổ chức duyệt</p>
-                <p className="text-sm text-ink-500">Chưa trừ tiền và chưa giữ chỗ thanh toán.</p>
               </>
             ) : join?.status === 'approved' ? (
               <>
@@ -366,17 +297,17 @@ export function MatchDetailPage() {
                     {String(Math.floor((remaining % 60_000) / 1000)).padStart(2, '0')}
                   </span>
                 </p>
-                <p className="text-sm text-ink-500">Chọn số dư hoặc SePay; hết hạn sẽ trở lại pending.</p>
+                <p className="text-sm text-ink-500">Chọn số dư hoặc SePay; hết 10 phút slot sẽ được mở lại cho người khác.</p>
               </>
             ) : join?.status === 'confirmed' ? (
               <>
-                <p className="font-semibold">Đã tham gia</p>
-                <p className="text-sm text-ink-500">Rút kèo tuân theo cutoff và trạng thái booking.</p>
+                <p className="font-semibold">Kèo đã tham gia · Đã xác nhận</p>
+                <p className="text-sm text-ink-500">Booking sân đã xác nhận. Rút kèo tuân theo cutoff và trạng thái booking.</p>
               </>
             ) : (
               <>
-                <p className="font-semibold">{isFull ? 'Kèo đã đủ người' : 'Gửi yêu cầu tham gia'}</p>
-                <p className="text-sm text-ink-500">Organizer duyệt trước, sau đó mới mở cửa sổ thanh toán 15 phút.</p>
+                <p className="font-semibold">{detail.paymentPending ? 'Đang có người thanh toán' : isFull ? 'Kèo đã đủ người' : 'Tham gia và thanh toán'}</p>
+                <p className="text-sm text-ink-500">Người bấm trước được giữ slot 10 phút; thanh toán đủ sẽ xác nhận ngay kèo và booking sân.</p>
               </>
             )}
           </div>
@@ -425,7 +356,7 @@ export function MatchDetailPage() {
                 disabled={isFull || (!detail.actions.canJoin && Boolean(window.localStorage.getItem('accessToken')))}
                 onClick={requestJoin}
               >
-                {window.localStorage.getItem('accessToken') ? 'Gửi yêu cầu tham gia' : 'Đăng nhập để tham gia'}
+                {window.localStorage.getItem('accessToken') ? 'Tham gia kèo' : 'Đăng nhập để tham gia'}
               </Button>
             )}
           </div>

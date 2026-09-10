@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import {
+  MAX_IMAGE_BYTES, createObjectStorageClientFromEnv,
+  type ImageMimeType, type ObjectStorageClient,
+} from '@khoaluantn/object-storage';
 import { h } from './handler.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { listBusinessRevenue } from '../domain/revenueRelease.js';
@@ -14,7 +18,6 @@ import {
   listMyDisputes, resolveDispute,
 } from '../domain/dispute.js';
 
-export const financeOperationsRouter = Router();
 const positiveAmount = z.string().regex(/^[1-9]\d*$/);
 const withdrawalSchema = z.object({
   amount: positiveAmount,
@@ -24,13 +27,31 @@ const withdrawalSchema = z.object({
 });
 const reasonSchema = z.object({ reason: z.string().trim().min(1) });
 const createDisputeSchema = reasonSchema.extend({
-  bookingId: z.string().uuid(), evidence: z.array(z.string().trim().min(1)).max(10).default([]),
+  bookingId: z.string().uuid(), contactPhone: z.string().trim().min(1),
+  evidence: z.array(z.string().trim().min(1)).max(5).default([]),
 });
 const resolveDisputeSchema = z.discriminatedUnion('decision', [
   reasonSchema.extend({ decision: z.literal('full_refund') }),
   reasonSchema.extend({ decision: z.literal('partial_refund'), amount: positiveAmount.transform(BigInt) }),
   reasonSchema.extend({ decision: z.literal('rejected') }),
 ]);
+
+const uploadBody = z.object({ mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']) }).strict();
+const mimeFromKey = (objectKey: string): ImageMimeType => objectKey.endsWith('.png') ? 'image/png' : objectKey.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+const evidenceForRead = async (resolveStorage: () => ObjectStorageClient, evidence: unknown) => Promise.all(
+  (Array.isArray(evidence) ? evidence : []).filter((item): item is string => typeof item === 'string')
+    .map((item) => /^https?:\/\//i.test(item) ? item : resolveStorage().getReadUrl(item)),
+);
+
+export function createFinanceOperationsRouter(resolveStorage: () => ObjectStorageClient = createObjectStorageClientFromEnv) {
+const financeOperationsRouter = Router();
+
+financeOperationsRouter.post('/players/me/dispute-evidence-upload', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const { mimeType } = uploadBody.parse(req.body);
+  const upload = await resolveStorage().authorizeUpload({ namespace: 'finance/disputes', ownerUserId: userId, mimeType });
+  res.status(201).json(upload);
+}));
 
 financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
@@ -115,19 +136,27 @@ financeOperationsRouter.get('/players/me/dispute-eligible', requireAuth, require
 financeOperationsRouter.get('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
   const rows = await listMyDisputes(userId);
-  res.json(rows.map((row) => ({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null })));
+  res.json(await Promise.all(rows.map(async (row) => ({
+    ...row, evidence: await evidenceForRead(resolveStorage, row.evidence), resolutionAmount: row.resolutionAmount?.toString() ?? null,
+  }))));
 }));
 
 financeOperationsRouter.post('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
-  const row = await createDispute(userId, createDisputeSchema.parse(req.body));
+  const body = createDisputeSchema.parse(req.body);
+  await Promise.all(body.evidence.map((objectKey) => resolveStorage().assertOwnedObject({
+    objectKey, namespace: 'finance/disputes', ownerUserId: userId,
+    mimeType: mimeFromKey(objectKey), maxBytes: MAX_IMAGE_BYTES,
+  })));
+  const row = await createDispute(userId, body);
   res.status(201).json({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null });
 }));
 
 financeOperationsRouter.get('/admin/disputes', requireAuth, requireRole('admin'), h(async (_req, res) => {
   const rows = await listAdminDisputes();
-  res.json(rows.map((row) => ({
+  res.json(await Promise.all(rows.map(async (row) => ({
     ...row,
+    evidence: await evidenceForRead(resolveStorage, row.evidence),
     resolutionAmount: row.resolutionAmount?.toString() ?? null,
     revenue: row.revenue ? {
       ...row.revenue, gross: row.revenue.gross.toString(), net: row.revenue.net.toString(), commission: row.revenue.commission.toString(),
@@ -135,7 +164,7 @@ financeOperationsRouter.get('/admin/disputes', requireAuth, requireRole('admin')
     ledgerEntries: row.ledgerEntries.map((entry) => ({
       ...entry, amount: entry.amount.toString(), before: entry.before.toString(), after: entry.after.toString(),
     })),
-  })));
+  }))));
 }));
 
 financeOperationsRouter.post('/admin/disputes/:id/resolve', requireAuth, requireRole('admin'), h(async (req, res) => {
@@ -143,3 +172,8 @@ financeOperationsRouter.post('/admin/disputes/:id/resolve', requireAuth, require
   const row = await resolveDispute(actor, req.params.id!, resolveDisputeSchema.parse(req.body));
   res.json({ ...row, resolutionAmount: row.resolutionAmount?.toString() ?? null });
 }));
+
+return financeOperationsRouter;
+}
+
+export const financeOperationsRouter = createFinanceOperationsRouter();

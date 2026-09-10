@@ -161,7 +161,7 @@ describe('FIN-14 — đối soát giao dịch chưa khớp', () => {
       await recordBookingRevenue(randomUUID(), { bookingId: balanceBookingId, businessUserId: balanceBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() + 10 * 3_600_000).toISOString(), source: 'marketplace' });
       await recordBookingRevenue(randomUUID(), { bookingId: directBookingId, businessUserId: directBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), source: 'marketplace' });
       await refundCancelledBooking(randomUUID(), { bookingId: balanceBookingId, userId: balanceUserId, businessUserId: balanceBusinessUserId, gross: '200000', refundPercent: 50, reason: 'self' });
-      const dispute = await createDispute(directUserId, { bookingId: directBookingId, reason: 'Dịch vụ không đúng', evidence: ['proof'] });
+      const dispute = await createDispute(directUserId, { bookingId: directBookingId, reason: 'Dịch vụ không đúng', contactPhone: '0901234567', evidence: ['proof'] });
       await resolveDispute(adminId, dispute.id, { decision: 'partial_refund', amount: 80000n, reason: 'Hoàn theo bằng chứng' });
 
       const withdrawal = await createWithdrawal(directBusinessUserId, { amount: 100000n, ...bank });

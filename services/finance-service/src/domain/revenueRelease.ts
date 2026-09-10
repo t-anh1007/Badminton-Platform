@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
 export interface RevenueFilters {
   venueId?: string;
@@ -41,6 +42,7 @@ export async function releaseBookingRevenue(bookingId: string, now = new Date())
       data: { pending: { decrement: revenue.net }, available: { increment: revenue.net } },
     });
     await tx.bookingRevenue.update({ where: { bookingId: revenue.bookingId }, data: { releasedAt: now } });
+    await writeFinanceUiInvalidation(tx, revenue.businessUserId, ['wallet', 'revenue'], revenue.bookingId);
     return true;
   });
 }

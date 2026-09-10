@@ -167,13 +167,13 @@ afterAll(async () => {
 });
 
 describe('MMP-01 — public match search', () => {
-  it('AC-MMP-01-1: returns only open matches with available slots', async () => {
+  it('D50: keeps open and filled matches visible in the public list', async () => {
     await Promise.all([createMatch({}), createMatch({}), createMatch({}), createMatch({ status: 'filled' })]);
 
     const response = await request(app).get('/matches').expect(200);
 
-    expect(response.body.matches).toHaveLength(3);
-    expect(response.body.matches.every((match: { openSlots: number }) => match.openSlots === 3)).toBe(true);
+    expect(response.body.matches).toHaveLength(4);
+    expect(response.body.matches.filter((match: { status: string }) => match.status === 'filled')).toHaveLength(1);
   });
 
   it('AC-MMP-01-2: filters by intersecting skill tier', async () => {
@@ -369,7 +369,7 @@ describe('MMP-03 — public match detail', () => {
   it('returns the requester active JOIN so the client can render the durable state machine', async () => {
     const match = await detailFixture();
     const participantUserId = randomUUID();
-    const approvedAt = new Date('2026-08-09T10:00:00.000Z');
+    const approvedAt = new Date();
     const join = await prisma.join.create({
       data: {
         matchId: match.id,
@@ -391,7 +391,7 @@ describe('MMP-03 — public match detail', () => {
       ownJoin: {
         id: join.id,
         status: 'approved',
-        approvedAt: '2026-08-09T10:00:00.000Z',
+        approvedAt: approvedAt.toISOString(),
       },
     });
   });
@@ -427,9 +427,9 @@ describe('MMP-03 — public match detail', () => {
     expect(response.body).toMatchObject({ status: 'filled' });
     expect(response.body.actions).toMatchObject({
       isOrganizer: true,
-      canPayOrganizerContribution: true,
+      canPayOrganizerContribution: false,
     });
-    await request(app).get(`/matches/${match.id}`).expect(404);
+    await request(app).get(`/matches/${match.id}`).expect(200);
   });
 
   it('keeps a confirmed match visible only to its organizer and active participants', async () => {
@@ -456,12 +456,31 @@ describe('MMP-03 — public match detail', () => {
         ownJoin: { id: confirmedJoin.id, status: 'confirmed' },
       },
     });
-    await request(app).get(`/matches/${match.id}`).expect(404);
+    await request(app).get(`/matches/${match.id}`).expect(200);
+  });
+
+  it('D50: exposes a confirmed match in booking history to both members', async () => {
+    const match = await createMatch({});
+    const participantUserId = randomUUID();
+    await prisma.match.update({ where: { id: match.id }, data: { status: 'confirmed' } });
+    await prisma.join.create({ data: { matchId: match.id, participantUserId, status: 'confirmed' } });
+
+    for (const userId of [match.organizerUserId, participantUserId]) {
+      const response = await request(app)
+        .get('/matches/me/history')
+        .set('Authorization', `Bearer ${playerToken(userId)}`)
+        .expect(200);
+      expect(response.body.matches).toContainEqual(expect.objectContaining({
+        id: match.id,
+        status: 'confirmed',
+        participationLabel: 'Kèo đã tham gia',
+      }));
+    }
   });
 });
 
-describe('MMP-04 — request to join a match', () => {
-  it('AC-MMP-04-1: creates a pending join for an open match', async () => {
+describe('MMP-04 — reserve a slot and pay', () => {
+  it('D50: creates an approved join and opens the 10-minute payment window immediately', async () => {
     const match = await createMatch({});
     const participantUserId = randomUUID();
 
@@ -473,15 +492,22 @@ describe('MMP-04 — request to join a match', () => {
     expect(response.body).toMatchObject({
       matchId: match.id,
       participantUserId,
-      status: 'pending',
+      status: 'approved',
     });
+    expect(response.body.approvedAt).toBeTruthy();
+    const event = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: response.body.id, eventType: 'JoinApproved' },
+    });
+    eventAggregateIds.push(response.body.id);
+    expect(new Date((event.payload as { expiresAt: string }).expiresAt).getTime() - new Date(response.body.approvedAt).getTime()).toBe(10 * 60_000);
   });
 
   it('AC-MMP-04-2: rejects a duplicate active join', async () => {
     const match = await createMatch({});
     const participantUserId = randomUUID();
     const token = playerToken(participantUserId);
-    await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).expect(201);
+    const created = await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).expect(201);
+    eventAggregateIds.push(created.body.id);
 
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
@@ -500,6 +526,16 @@ describe('MMP-04 — request to join a match', () => {
       .expect(409);
 
     expect(response.body.error.code).toBe('MATCH_NOT_OPEN');
+  });
+
+  it('D50: only the first concurrent player reserves the last slot', async () => {
+    const match = await createMatch({ capacity: 2 });
+    const responses = await Promise.all([randomUUID(), randomUUID()].map((userId) =>
+      request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${playerToken(userId)}`),
+    ));
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    expect(await prisma.join.count({ where: { matchId: match.id, status: 'approved' } })).toBe(1);
+    eventAggregateIds.push(responses.find((response) => response.status === 201)!.body.id);
   });
 });
 
@@ -606,7 +642,7 @@ describe('MMP-05 — organizer join review', () => {
     expect(response.body.error.code).toBe('MATCH_ORGANIZER_ONLY');
   });
 
-  it('AC-MMP-05-3: an unpaid approval returns to pending after the payment window (15 min)', async () => {
+  it('D50: an unpaid slot is rejected and released after the 10-minute payment window', async () => {
     const { join } = await pendingJoinFixture();
     await prisma.join.update({
       where: { id: join.id },
@@ -616,9 +652,9 @@ describe('MMP-05 — organizer join review', () => {
       },
     });
 
-    expect(await releaseExpiredApprovedJoins(new Date('2026-08-08T00:15:00.001Z'))).toBe(1);
+    expect(await releaseExpiredApprovedJoins(new Date('2026-08-08T00:10:00.001Z'))).toBe(1);
     await expect(prisma.join.findUniqueOrThrow({ where: { id: join.id } })).resolves.toMatchObject({
-      status: 'pending',
+      status: 'rejected',
       approvedAt: null,
     });
   });

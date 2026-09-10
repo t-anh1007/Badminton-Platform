@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { ensurePlatformWallet, getOrCreateWallet, postLedgerEntry } from './wallet.js';
 import { COMMISSION_RATE_PERCENT } from '../lib/constants.js';
 import { z } from 'zod';
+import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
 export interface BookingConfirmedPayload {
   bookingId: string;
@@ -91,6 +92,8 @@ export async function recordBookingRevenue(eventId: string, rawPayload: BookingC
         releaseAt: new Date(endAt.getTime() + 24 * 3_600_000),
       },
     });
+
+    await writeFinanceUiInvalidation(tx, payload.businessUserId, ['revenue'], payload.bookingId);
 
     await tx.processedEvent.create({ data: { eventId } });
   });

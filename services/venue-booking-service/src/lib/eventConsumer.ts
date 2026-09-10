@@ -94,6 +94,16 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
           source: booking.source,
         },
       });
+      if (booking.userId) {
+        await writeOutbox(tx, {
+          aggregateType: 'Notification', aggregateId: `booking.confirmed:${booking.id}:player`, eventType: 'UserNotificationRequested',
+          payload: { recipient: { type: 'user', userId: booking.userId, targetRole: 'player' }, category: 'booking', kind: 'booking.confirmed', title: 'Đặt sân đã được xác nhận', body: `${booking.court.venue.name} · ${booking.court.name}`, priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+        });
+      }
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `booking.received:${booking.id}:provider`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'user', userId: booking.court.venue.provider.userId, targetRole: 'provider' }, category: 'booking', kind: 'booking.received', title: 'Bạn vừa nhận một lịch đặt sân', body: `${booking.court.name} · ${booking.startAt.toLocaleString('vi-VN')}`, priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+      });
     } else {
       // BR-BOK-04: hết hạn thì KHÔNG phục hồi — chỉ đảm bảo trạng thái là
       // cancelled (có thể đã được tác vụ nền chuyển từ trước) rồi báo finance.

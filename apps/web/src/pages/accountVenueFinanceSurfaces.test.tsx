@@ -10,6 +10,7 @@ import { SessionProvider } from '../session/SessionProvider.js'
 import { createTopupIntent, createDispute } from '../lib/financeApi.js'
 import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail } from '../lib/accountApi.js'
 import { searchVenues } from '../lib/venueBookingApi.js'
+import { getMyConfirmedMatches } from '../lib/matchApi.js'
 
 vi.mock('../lib/accountApi.js', () => ({
   getMyProfile: vi.fn().mockResolvedValue({ id: 'u1', email: 'player@example.com', phone: '0900000000', roles: ['player', 'provider'], playerProfile: { displayName: 'Người chơi A', avatarUrl: 'https://cdn.example/avatar.webp', visibility: 'public' } }),
@@ -26,10 +27,15 @@ vi.mock('../lib/financeApi.js', () => ({
   createTopupIntent: vi.fn().mockResolvedValue({ intentId: 'must-not-render', matchCode: 'KLTABC123', amount: '100000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '100000', matchCode: 'KLTABC123', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=100000&des=KLTABC123' } }),
   getEligibleDisputeBookings: vi.fn().mockResolvedValue([{ bookingId: 'booking-must-not-render', venueId: 'venue-id', gross: '180000', endAt: '2026-08-15T09:00:00Z', deadlineAt: '2026-08-16T09:00:00Z' }]),
   getMyDisputes: vi.fn().mockResolvedValue([]), createDispute: vi.fn().mockResolvedValue({}),
+  authorizeDisputeEvidence: vi.fn(), uploadDisputeEvidence: vi.fn(),
 }))
 vi.mock('../lib/venueBookingApi.js', () => ({
   getMyUpcomingBookings: vi.fn().mockResolvedValue([]), getMyBookingHistory: vi.fn().mockResolvedValue([]),
+  getVenueDetail: vi.fn().mockResolvedValue({ id: 'venue-id', name: 'Sân Phú Nhuận' }),
   searchVenues: vi.fn().mockResolvedValue([]),
+}))
+vi.mock('../lib/matchApi.js', () => ({
+  getMyConfirmedMatches: vi.fn().mockResolvedValue({ matches: [] }),
 }))
 
 beforeEach(() => {
@@ -117,12 +123,28 @@ it('ignores radius in list view and only applies it in map view', async () => {
   await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20 })))
 })
 
-it('creates a dispute from a business label without exposing booking UUID text', async () => {
+it('shows a confirmed match in booking history with a link for the participant', async () => {
+  vi.mocked(getMyConfirmedMatches).mockResolvedValueOnce({ matches: [{
+    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', feePerSlot: '90000',
+    startAt: new Date(Date.now() + 60_000).toISOString(), endAt: new Date(Date.now() + 3_600_000).toISOString(),
+    court: { id: 'court-1', name: 'Sân 1' }, venue: { id: 'venue-1', name: 'Sân Linh Xuân', address: 'Thủ Đức', lat: 10.8, lng: 106.7 },
+  }] })
+  render(<MemoryRouter initialEntries={['/profile']}><ProfilePage /></MemoryRouter>)
+  expect(await screen.findByText('Kèo đã tham gia · Đã xác nhận')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Sân Linh Xuân/ })).toHaveAttribute('href', '/matches/match-confirmed')
+})
+
+it('creates a booking-first dispute with category, contact phone and no exposed UUID', async () => {
   render(<DisputePanel />)
-  expect(await screen.findByRole('option', { name: /Ca kết thúc/ })).toBeInTheDocument()
+  fireEvent.click(await screen.findByRole('button', { name: 'Báo vấn đề' }))
+  expect(screen.getByText('Sân Phú Nhuận')).toBeInTheDocument()
   expect(screen.queryByText(/booking-must-not-render/)).not.toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('Lý do tranh chấp'), { target: { value: 'Sân đóng cửa' } })
-  fireEvent.change(screen.getByLabelText('Bằng chứng'), { target: { value: 'https://evidence.example/photo' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi tranh chấp' }))
-  await waitFor(() => expect(createDispute).toHaveBeenCalledWith({ bookingId: 'booking-must-not-render', reason: 'Sân đóng cửa', evidence: ['https://evidence.example/photo'] }))
+  expect(screen.getByLabelText('Số điện thoại liên hệ')).toHaveValue('0900000000')
+  fireEvent.click(screen.getByLabelText('Sân đóng cửa / không thể chơi'))
+  fireEvent.change(screen.getByLabelText('Mô tả vấn đề'), { target: { value: 'Cổng sân khóa khi tôi đến.' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu' }))
+  await waitFor(() => expect(createDispute).toHaveBeenCalledWith({
+    bookingId: 'booking-must-not-render', reason: 'Sân đóng cửa / không thể chơi — Cổng sân khóa khi tôi đến.',
+    contactPhone: '0900000000', evidence: [],
+  }))
 })

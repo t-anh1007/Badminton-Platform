@@ -39,6 +39,21 @@ enum ProfileVisibility {
   private
 }
 
+enum NotificationCategory {
+  booking
+  finance
+  match
+  dispute
+  support
+  security
+  community
+}
+
+enum NotificationPriority {
+  action_required
+  update
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -58,6 +73,8 @@ model User {
   verifications  Verification[]
   passwordResets PasswordReset[]
   auditsAsTarget AccountAudit[] @relation("AuditTarget")
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -106,6 +123,42 @@ model AccountAudit {
   ts           DateTime @default(now())
 
   @@map("account_audits")
+}
+
+model Notification {
+  id              String               @id @default(uuid())
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id])
+  targetRole      UserRole
+  category        NotificationCategory
+  kind            String
+  title           String
+  body            String
+  priority        NotificationPriority
+  entityType      String?
+  entityId        String?
+  actionKind      String?
+  actionExpiresAt DateTime?
+  sourceEventId   String
+  readAt          DateTime?
+  createdAt       DateTime             @default(now())
+
+  @@unique([sourceEventId, userId, targetRole])
+  @@index([userId, createdAt, id])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId     String
+  user       User                 @relation(fields: [userId], references: [id])
+  targetRole UserRole
+  category   NotificationCategory
+  enabled    Boolean
+  updatedAt  DateTime             @updatedAt
+
+  @@id([userId, targetRole, category])
+  @@map("notification_preferences")
 }
 
 /// G1: bảng hạ tầng Outbox (data-model.md §7) — ghi cùng transaction với thay

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
 import { presentLedgerEntry } from '../lib/presenters';
 import { DisputePanel } from '../components/DisputePanel';
@@ -13,6 +13,7 @@ import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
 import { RouteState } from '../components/RouteState.js';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { getMyConfirmedMatches, type MyConfirmedMatch } from '../lib/matchApi.js';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
@@ -26,6 +27,7 @@ export function ProfilePage() {
   const [ledgerByWallet, setLedgerByWallet] = useState<Record<string, WalletLedgerEntry[]>>({});
   const [upcoming, setUpcoming] = useState<BookingSummary[]>([]);
   const [past, setPast] = useState<BookingSummary[]>([]);
+  const [confirmedMatches, setConfirmedMatches] = useState<MyConfirmedMatch[]>([]);
   const [period, setPeriod] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [message, setMessage] = useState('');
   const [pageLoading, setPageLoading] = useState(true);
@@ -45,11 +47,12 @@ export function ProfilePage() {
     setPageLoading(true);
     setPageError('');
     try {
-      const [nextProfile, nextWallets, nextUpcoming, nextPast] = await Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory()]);
+      const [nextProfile, nextWallets, nextUpcoming, nextPast, nextMatches] = await Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory(), getMyConfirmedMatches()]);
         setProfile(nextProfile);
         setWallets(nextWallets);
         setUpcoming(nextUpcoming);
         setPast(nextPast);
+        setConfirmedMatches(nextMatches.matches);
         setForm({
           displayName: nextProfile.playerProfile?.displayName ?? '',
           phone: nextProfile.phone ?? '',
@@ -171,6 +174,9 @@ export function ProfilePage() {
   const bookings = period === 'cancelled'
     ? cancelledBookings
     : (period === 'upcoming' ? upcoming : past).filter((booking) => booking.status !== 'cancelled');
+  const matchesForPeriod = period === 'cancelled' ? [] : confirmedMatches.filter((match) =>
+    period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date(),
+  );
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
 
@@ -215,7 +221,19 @@ export function ProfilePage() {
           {tab === 'bookings' && (
             <div className="mt-6">
               <SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }]} value={period} onChange={(next) => setPeriod(next as 'upcoming' | 'past' | 'cancelled')} />
-              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : <EmptyState title="Chưa có booking" description="Khi bạn đặt sân, lịch sử sẽ hiển thị tại đây." />}</div>
+              {matchesForPeriod.length > 0 && (
+                <section className="mt-4" aria-label="Kèo đã tham gia">
+                  <h2 className="mb-3 text-h3">Kèo đã tham gia</h2>
+                  <div className="space-y-3">
+                    {matchesForPeriod.map((match) => (
+                      <Link key={match.id} to={`/matches/${match.id}`} className="block rounded-xl border border-green-600/30 bg-green-50 p-4 transition hover:border-green-600">
+                        <div className="flex justify-between gap-3"><div><p className="font-semibold">{match.venue.name} — {match.court.name}</p><p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(match.startAt)}</p><p className="mt-1 text-xs font-semibold text-green-700">Kèo đã tham gia · Đã xác nhận</p></div><strong>{formatMoneyVnd(match.feePerSlot)}</strong></div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có booking" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
             </div>
           )}
 

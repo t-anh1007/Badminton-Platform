@@ -61,6 +61,7 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D47 | 2026-08-14 | Người chơi chỉ được khai hoặc đổi bậc trình độ tối đa một lần mỗi 7 ngày; backend trả `nextDeclarationAt` để UI hiển thị thời điểm thử lại. | MMP-09, Passport |
 | D48 | 2026-08-14 | Community lưu tối đa bốn metadata ảnh mỗi bài; Community và Venue xác thực object key theo namespace và chủ sở hữu trước khi lưu command. | COM-02..04, VEN-03 |
 | D49 | 2026-08-22 | Mỗi sân con có cấu hình lịch, giá, quy tắc đặt và **1–5 ảnh riêng**. Khi tạo cơ sở, chủ sân chọn thiết lập chung hoặc riêng; thiết lập chung chỉ là thao tác hàng loạt và vẫn lưu cấu hình vào từng sân. Người chơi thấy ảnh của sân con đang chọn khi đặt sân. | VEN-04..07, BOK-03, BOK-04 |
+| D50 | 2026-09-09 | **Tham gia kèo theo người giữ slot trước:** bỏ bước organizer duyệt. Player đầu tiên bấm tham gia trên kèo còn chỗ được chuyển thẳng sang `approved` và giữ slot 10 phút để trả phần phí còn lại; trong thời gian này người sau không thể tham gia. Hết hạn chưa trả thì nhả slot. Khi `PaymentCompleted` hợp lệ làm kèo đủ người, hệ thống settlement ngay để booking sân và kèo cùng chuyển `confirmed`. Kèo đang chờ thanh toán, `filled` và `confirmed` vẫn xuất hiện trong danh sách nhưng không mở thêm lượt tham gia; organizer và participant đã xác nhận đều xem được kèo từ lịch sử đặt sân với nhãn “Kèo đã tham gia”. Quyết định này supersede D44 về bước organizer duyệt. **PO duyệt 2026-09-09.** | MMP-01, MMP-04..06, F-03, FIN-05 |
 
 ### Lý do đáng ghi nhớ
 
@@ -155,8 +156,9 @@ Chi tiết nằm ở mục 6 của từng file spec. Tổng hợp những giả 
 | A-BOK-01 | Một người chơi chỉ có tối đa một hold đang hoạt động | Trung bình | [court-booking.md](specs/court-booking.md) |
 | A-BOK-02 | Mốc tính bậc thang hoàn tiền là giờ bắt đầu ca, không phải giờ kết thúc | Trung bình | như trên |
 
-Ngoài ra còn 8 giả định tham số rủi ro thấp: ngưỡng rút, số nạp tối thiểu, giới hạn đặt trước
-30 ngày, bán kính tìm kiếm mặc định, và tương tự.
+Ngoài ra còn 7 giả định tham số rủi ro thấp: số nạp tối thiểu, giới hạn đặt trước 30 ngày,
+bán kính tìm kiếm mặc định, và tương tự. Ngưỡng rút tối thiểu đã được PO chốt ở mức
+10.000đ ngày 2026-09-09 (`A-FIN-02`).
 
 ## 3. Câu hỏi còn mở
 

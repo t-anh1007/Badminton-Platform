@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma.js';
 import { createHold } from '../src/domain/hold.js';
-import { createBookingFromHold, reapExpiredHeldBookings, listMyBookings, getMyBookingDetail } from '../src/domain/booking.js';
+import { activateMatchHold, createBookingFromHold, reapExpiredHeldBookings, listMyBookings, getMyBookingDetail } from '../src/domain/booking.js';
 import { handlePaymentCompleted } from '../src/lib/eventConsumer.js';
 import { createApprovedProvider, createVenueWithCourt, makeCourtSearchable, fakeUserId } from './helpers.js';
 
@@ -121,6 +121,19 @@ describe('BOK-07 — Tạo booking đặt sân', () => {
 });
 
 describe('BOK-08 — Xem chi tiết và lịch sử booking', () => {
+  it('hiển thị booking giữ chỗ mở kèo đã đặt cọc', async () => {
+    const userId = fakeUserId();
+    const provider = await createApprovedProvider();
+    const { court } = await makeCourtSearchable(provider.id);
+    const hold = await createHold(userId, { courtId: court.id, startAt: tomorrowAt(8), endAt: tomorrowAt(9) });
+    const booking = await createBookingFromHold(userId, hold.id);
+    await activateMatchHold(userId, booking.id, new Date(Date.now() + 20 * 3600_000));
+
+    const { upcoming } = await listMyBookings(userId);
+
+    expect(upcoming).toEqual([expect.objectContaining({ id: booking.id, matchDepositPaid: true })]);
+  });
+
   it('AC-BOK-08-1: 2 booking sắp tới và 3 booking đã qua -> cả 5 hiển thị đúng nhóm', async () => {
     const userId = fakeUserId();
     const provider = await createApprovedProvider();

@@ -31,6 +31,13 @@ it('shows the complete court-local range and lets a held booking release its slo
   expect(onChanged).toHaveBeenCalledTimes(1)
 })
 
+it('labels a match hold with a paid organizer deposit clearly', () => {
+  render(<BookingCard booking={{ ...booking('1', 'held'), matchDepositPaid: true }} preview={null} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
+
+  expect(screen.getByText('Đang giữ chỗ · đã đặt cọc')).toBeInTheDocument()
+  expect(screen.queryByText('Đang giữ chỗ · chưa thanh toán')).not.toBeInTheDocument()
+})
+
 it('keys previews per booking, clears stale selection and reloads both lists after cancellation', async () => {
   vi.mocked(getBookingDetail).mockResolvedValueOnce({ booking: booking('1'), expectedRefundPercent: 50, courtChangeNote: null }).mockResolvedValueOnce({ booking: booking('2'), expectedRefundPercent: 100, courtChangeNote: null })
   vi.mocked(cancelMyBooking).mockResolvedValue({ status: 'cancelled', refundPercent: 100 }); const onChanged = vi.fn().mockResolvedValue(undefined)

@@ -39,8 +39,15 @@ export async function registerProvider(userId: string, input: RegisterProviderIn
   const existing = await prisma.provider.findFirst({ where: { userId } });
 
   if (!existing) {
-    return prisma.provider.create({
-      data: { userId, orgName: input.orgName, contact: input.contact as never, status: 'pending' },
+    return prisma.$transaction(async (tx) => {
+      const provider = await tx.provider.create({
+        data: { userId, orgName: input.orgName, contact: input.contact as never, status: 'pending' },
+      });
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `provider.submitted:${provider.id}`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'role', targetRole: 'admin' }, category: 'support', kind: 'provider.submitted', title: 'Có hồ sơ chủ sân mới', body: `${provider.orgName} đang chờ duyệt.`, priority: 'action_required', entityType: 'provider', entityId: provider.id, actionKind: 'admin.provider.review', actionExpiresAt: null },
+      });
+      return provider;
     });
   }
 
@@ -98,6 +105,10 @@ export async function approveProvider(providerId: string): Promise<void> {
       eventType: 'ProviderApproved',
       payload: { providerId, userId: provider.userId },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `provider.approved:${providerId}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: provider.userId, targetRole: 'player' }, category: 'support', kind: 'provider.approved', title: 'Hồ sơ chủ sân đã được duyệt', body: 'Bạn có thể bắt đầu thiết lập và quản lý cơ sở của mình.', priority: 'update', entityType: 'provider', entityId: providerId, actionKind: null, actionExpiresAt: null },
+    });
   });
 }
 
@@ -115,8 +126,14 @@ export async function rejectProvider(providerId: string, reason: string): Promis
       { status: provider.status },
     );
   }
-  await prisma.provider.update({
-    where: { id: providerId },
-    data: { status: 'rejected', decisionReason: reason, decidedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.provider.update({
+      where: { id: providerId },
+      data: { status: 'rejected', decisionReason: reason, decidedAt: new Date() },
+    });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `provider.rejected:${providerId}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: provider.userId, targetRole: 'player' }, category: 'support', kind: 'provider.rejected', title: 'Hồ sơ chủ sân chưa được duyệt', body: 'Bạn có thể xem lý do và gửi lại hồ sơ khi sẵn sàng.', priority: 'update', entityType: 'provider', entityId: providerId, actionKind: null, actionExpiresAt: null },
+    });
   });
 }

@@ -415,11 +415,11 @@ export function MatchListPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-caption">
-                    {match.capacity === 2 ? 'Kèo đơn' : 'Kèo đôi'} · {match.openSlots > 0 ? 'Mở' : 'Đầy'}
+                    {match.capacity === 2 ? 'Kèo đơn' : 'Kèo đôi'} · {match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang chờ thanh toán' : match.openSlots > 0 ? 'Mở' : 'Đầy'}
                   </p>
                   <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2>
                 </div>
-                <Badge tone={match.openSlots <= 1 ? 'warning' : 'success'}>Còn {match.openSlots} chỗ</Badge>
+                <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ slot' : `Còn ${match.openSlots} chỗ`}</Badge>
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <Avatar label={match.organizer?.displayName ?? 'T'} src={match.organizer?.avatarUrl} alt={`Ảnh đại diện ${match.organizer?.displayName ?? 'Người tổ chức'}`} />

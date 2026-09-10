@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth.js';
 import { createProfileRouter } from './routes/profile.js';
 import { adminRouter } from './routes/admin.js';
 import { createInternalRouter } from './routes/internal.js';
+import { notificationsRouter } from './routes/notifications.js';
 
 const SERVICE_NAME = 'account-service';
 
@@ -22,6 +23,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }
   app.use('/auth', authRouter);
   app.use('/profile', createProfileRouter(resolveStorage));
   app.use('/admin', adminRouter);
+  app.use('/notifications', notificationsRouter);
   app.use('/internal', createInternalRouter(resolveStorage));
 
   return app;

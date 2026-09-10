@@ -98,6 +98,10 @@ export async function finalizePartialWithdrawal(adminUserId: string, requestId: 
       aggregateType: 'WithdrawalRequest', aggregateId: request.id, eventType: 'PayoutCompleted',
       payload: { withdrawalRequestId: request.id, sellerUserId: request.sellerUserId, amount: request.paidAmount.toString() },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `withdrawal.paid:${request.id}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: request.sellerUserId, targetRole: 'provider' }, category: 'finance', kind: 'withdrawal.paid', title: 'Yêu cầu rút tiền đã hoàn tất', body: `${request.paidAmount.toLocaleString('vi-VN')}đ đã được chi theo yêu cầu của bạn.`, priority: 'update', entityType: 'withdrawal', entityId: request.id, actionKind: 'withdrawal.view', actionExpiresAt: null },
+    });
     await tx.financeAudit.create({
       data: { actorUserId: adminUserId, action: 'withdrawal_finalized_partial', refType: 'withdrawal', refId: request.id, reason: cleanReason },
     });

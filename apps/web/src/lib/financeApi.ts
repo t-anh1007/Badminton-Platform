@@ -45,6 +45,52 @@ export interface WithdrawalRow {
   createdAt?: string;
   processedAt?: string | null;
 }
+
+export type FinanceUiScope = 'wallet' | 'revenue' | 'ledger' | 'withdrawals';
+
+export async function streamMyFinance(
+  signal: AbortSignal,
+  onInvalidated: (scopes: FinanceUiScope[]) => void,
+  onReady: () => void,
+): Promise<void> {
+  const token = accessToken();
+  const response = await fetch(`${BASE_URL}/providers/me/finance-stream`, {
+    headers: { Accept: 'text/event-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    signal,
+  });
+  if (!response.ok || !response.body) throw new Error('Không thể kết nối cập nhật trực tiếp.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) throw new Error('Kết nối cập nhật trực tiếp đã đóng.');
+      buffer += decoder.decode(next.value, { stream: true });
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf('\n\n');
+        const event = frame.match(/^event: (.+)$/m)?.[1];
+        if (event === 'ready') onReady();
+        if (event === 'finance-invalidated') {
+          const data = frame.match(/^data: (.+)$/m)?.[1];
+          try {
+            const parsed = JSON.parse(data ?? '{}') as { scopes?: unknown };
+            if (Array.isArray(parsed.scopes)) {
+              onInvalidated(parsed.scopes.filter((scope): scope is FinanceUiScope =>
+                scope === 'wallet' || scope === 'revenue' || scope === 'ledger' || scope === 'withdrawals'));
+            }
+          } catch { /* Ignore malformed transient frames and wait for the next authoritative refresh. */ }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
 export interface ReconciliationRow {
   id: string;
   direction: 'in' | 'out';
@@ -87,6 +133,7 @@ export interface DisputeRow {
   bookingId: string;
   raiserUserId: string;
   reason: string;
+  contactPhone: string | null;
   evidence: string[];
   status: 'open' | 'resolved';
   resolution: 'full_refund' | 'partial_refund' | 'rejected' | null;
@@ -204,7 +251,18 @@ export const markOutOfScope = (id: string, reason: string) =>
   });
 export const getEligibleDisputeBookings = () => api<DisputeEligibleRow[]>('/players/me/dispute-eligible');
 export const getMyDisputes = () => api<DisputeRow[]>('/players/me/disputes');
-export const createDispute = (body: { bookingId: string; reason: string; evidence: string[] }) =>
+export interface DisputeEvidenceUploadAuthorization {
+  objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string;
+}
+export const authorizeDisputeEvidence = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') =>
+  api<DisputeEvidenceUploadAuthorization>('/players/me/dispute-evidence-upload', { method: 'POST', body: JSON.stringify({ mimeType }) });
+export async function uploadDisputeEvidence(authorization: DisputeEvidenceUploadAuthorization, file: File, onProgress?: (progress: number) => void) {
+  onProgress?.(10);
+  const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file });
+  if (!response.ok) throw new Error('Không thể tải ảnh bằng chứng lên.');
+  onProgress?.(100);
+}
+export const createDispute = (body: { bookingId: string; reason: string; contactPhone: string; evidence: string[] }) =>
   api<DisputeRow>('/players/me/disputes', {
     method: 'POST',
     body: JSON.stringify(body),

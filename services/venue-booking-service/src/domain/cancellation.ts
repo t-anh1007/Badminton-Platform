@@ -79,6 +79,10 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
         reason: 'self',
       },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `booking.cancelled:${booking.id}:provider`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'user', userId: booking.court.venue.provider.userId, targetRole: 'provider' }, category: 'booking', kind: 'booking.cancelled_by_player', title: 'Khách đã hủy lịch đặt sân', body: `${booking.court.venue.name} · hoàn ${refundPercent}% theo chính sách.`, priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+    });
     return { status: 'cancelled' as const, refundPercent };
   });
 }
@@ -161,6 +165,12 @@ export async function changeBookingCourt(providerUserId: string, bookingId: stri
       eventType: 'BookingCourtChanged',
       payload: { bookingId: booking.id, courtId: replacementCourtId, changedAt: changedAt.toISOString() },
     });
+    if (booking.userId) {
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `booking.court_changed:${booking.id}`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'user', userId: booking.userId, targetRole: 'player' }, category: 'booking', kind: 'booking.court_changed', title: 'Sân cho lịch đặt của bạn đã được đổi', body: `Khung giờ giữ nguyên; sân mới là ${replacement.name}.`, priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+      });
+    }
     return tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
   });
 }
@@ -194,6 +204,18 @@ async function cancelBookingWithReason(
         gross: booking.priceSnapshot.toString(), refundPercent: 100, reason, cancellationNote,
       },
     });
+    if (booking.userId) {
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `booking.cancelled:${booking.id}:player`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'user', userId: booking.userId, targetRole: 'player' }, category: 'booking', kind: 'booking.cancelled', title: 'Lịch đặt sân đã được hủy', body: 'Bạn sẽ được hoàn 100% giá trị booking.', priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+      });
+    }
+    if (reason === 'platform_admin') {
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `booking.cancelled:${booking.id}:provider`, eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'user', userId: booking.court.venue.provider.userId, targetRole: 'provider' }, category: 'booking', kind: 'booking.cancelled_by_admin', title: 'Một lịch đặt sân đã được Admin hủy', body: 'Người chơi được hoàn 100% giá trị booking.', priority: 'update', entityType: 'booking', entityId: booking.id, actionKind: 'booking.view', actionExpiresAt: null },
+      });
+    }
     return { status: 'cancelled' as const, refundPercent: 100 };
   });
 }

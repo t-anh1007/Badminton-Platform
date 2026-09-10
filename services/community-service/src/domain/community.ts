@@ -238,6 +238,12 @@ export async function createReport(
         eventType: 'ContentReported',
         payload: { reportId: report.id, targetType, targetId },
       });
+      await writeOutbox(tx, {
+        aggregateType: 'Notification',
+        aggregateId: `community.reported:${report.id}`,
+        eventType: 'UserNotificationRequested',
+        payload: { recipient: { type: 'role', targetRole: 'admin' }, category: 'community', kind: 'community.reported', title: 'Có báo cáo cộng đồng mới', body: 'Một nội dung trong cộng đồng cần được kiểm duyệt.', priority: 'action_required', entityType: 'report', entityId: report.id, actionKind: 'admin.moderation.review', actionExpiresAt: null },
+      });
       return report;
     });
   } catch (error) {
@@ -358,6 +364,10 @@ export async function createTicket(
         body,
       },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `support.opened:${ticket.id}`, eventType: 'UserNotificationRequested',
+      payload: { recipient: { type: 'role', targetRole: 'admin' }, category: 'support', kind: 'support.opened', title: 'Có yêu cầu hỗ trợ mới', body: subject, priority: 'action_required', entityType: 'ticket', entityId: ticket.id, actionKind: 'admin.ticket.view', actionExpiresAt: null },
+    });
     return ticket;
   });
 }
@@ -400,7 +410,7 @@ export async function addTicketMessage(
         data: { status: 'in_progress' },
       });
     }
-    return tx.ticketMessage.create({
+    const message = await tx.ticketMessage.create({
       data: {
         ticketId,
         senderUserId,
@@ -408,6 +418,13 @@ export async function addTicketMessage(
         body,
       },
     });
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `support.replied:${message.id}`, eventType: 'UserNotificationRequested',
+      payload: isAdmin
+        ? { recipient: { type: 'user', userId: ticket.requesterUserId, targetRole: 'player' }, category: 'support', kind: 'support.replied', title: 'Yêu cầu hỗ trợ có phản hồi mới', body: ticket.subject, priority: 'update', entityType: 'ticket', entityId: ticket.id, actionKind: 'support.view', actionExpiresAt: null }
+        : { recipient: { type: 'role', targetRole: 'admin' }, category: 'support', kind: 'support.replied', title: 'Khách hàng vừa phản hồi yêu cầu hỗ trợ', body: ticket.subject, priority: 'action_required', entityType: 'ticket', entityId: ticket.id, actionKind: 'admin.ticket.view', actionExpiresAt: null },
+    });
+    return message;
   });
 }
 
