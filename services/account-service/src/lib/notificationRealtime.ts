@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { markActivity } from '@khoaluantn/eventbus';
 
 export type NotificationSignal = { eventId: string; notificationId: string | null; occurredAt: string };
 
@@ -8,6 +9,7 @@ let heartbeat: NodeJS.Timeout | undefined;
 function ensureHeartbeat() {
   if (heartbeat) return;
   heartbeat = setInterval(() => {
+    markActivity();
     for (const subscribers of clients.values()) for (const response of subscribers) response.write(': heartbeat\n\n');
   }, 25_000);
 }

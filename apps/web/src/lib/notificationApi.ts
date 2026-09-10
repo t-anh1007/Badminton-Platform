@@ -15,12 +15,19 @@ export const readNotification = (id: string) => api<{ unreadCount: number }>(`/n
 export const readAllNotifications = () => api<{ unreadCount: number }>('/notifications/read-all', { method: 'POST' });
 export const getNotificationPreferences = () => api<{ items: { targetRole: NotificationRole; category: string; enabled: boolean }[] }>('/notifications/preferences');
 export const saveNotificationPreference = (body: { targetRole: NotificationRole; category: string; enabled: boolean }) => api<typeof body>('/notifications/preferences', { method: 'PUT', body: JSON.stringify(body) });
-export function openNotificationStream(onChange: () => void) {
+export function openNotificationStream(
+  onChange: () => void,
+  onOpen?: () => void,
+  onDisconnect?: () => void,
+) {
   const controller = new AbortController();
   void fetch(`${BASE_URL}/notifications/stream`, { headers: token() ? { Authorization: `Bearer ${token()}` } : {}, signal: controller.signal }).then(async (response) => {
-    if (!response.body) return;
+    if (!response.ok || !response.body) throw new Error('Không thể kết nối thông báo realtime.');
+    onOpen?.();
     const reader = response.body.getReader(); const decoder = new TextDecoder(); let pending = '';
     while (!controller.signal.aborted) { const { value, done } = await reader.read(); if (done) break; pending += decoder.decode(value, { stream: true }); if (pending.includes('event: notification-changed')) { pending = ''; onChange(); } }
-  }).catch(() => undefined);
+  }).catch(() => undefined).finally(() => {
+    if (!controller.signal.aborted) onDisconnect?.();
+  });
   return () => controller.abort();
 }
