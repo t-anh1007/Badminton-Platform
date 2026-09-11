@@ -4,6 +4,7 @@ import { demoLogin, login, loginWithGoogle, register, resendVerificationEmail, v
 import { useSession } from '../session/SessionProvider'
 import { Button, TextInput } from './ui'
 import { GoogleSignInButton } from './GoogleSignInButton'
+import { OtpCodeInput } from './OtpCodeInput'
 
 type Mode = 'login' | 'register' | 'verify'
 
@@ -11,12 +12,13 @@ interface AuthFormProps {
   onAuthenticated?: () => void
   onNavigateAway?: () => void
   initialMode?: Mode
+  initialEmail?: string
 }
 
-export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login' }: AuthFormProps) {
+export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login', initialEmail = '' }: AuthFormProps) {
   const { establish } = useSession()
   const [mode, setMode] = useState<Mode>(initialMode)
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [code, setCode] = useState('')
@@ -27,9 +29,10 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
 
   useEffect(() => {
     setMode(initialMode)
+    setEmail(initialEmail)
     setError('')
     setMessage('')
-  }, [initialMode])
+  }, [initialEmail, initialMode])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -134,7 +137,7 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
             <label className="grid gap-1.5 text-sm font-semibold text-ink-700">Mật khẩu<TextInput type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Tối thiểu 8 ký tự" /></label>
           ) : (
             <>
-              <label className="grid gap-1.5 text-sm font-semibold text-ink-700">Mã xác minh<TextInput required inputMode="numeric" maxLength={6} className="text-figures" value={code} onChange={(event) => setCode(event.target.value)} placeholder="6 chữ số" /></label>
+              <OtpCodeInput value={code} onChange={setCode} disabled={loading} />
               <Button tone="ghost" className="w-fit" disabled={!email || resending} onClick={() => void resend()}>{resending ? 'Đang gửi lại…' : 'Gửi lại email xác minh'}</Button>
             </>
           )}

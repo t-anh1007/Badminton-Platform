@@ -44,6 +44,8 @@ export const logout = (refreshToken: string) =>
   api<{ message: string }>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
 export const requestPasswordReset = (email: string) =>
   api<{ message: string }>('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) });
+export const verifyPasswordResetCode = (body: { email: string; code: string }) =>
+  api<{ resetToken: string }>('/auth/password/verify', { method: 'POST', body: JSON.stringify(body) });
 export const resetPassword = (body: { token: string; newPassword: string }) =>
   api<{ message: string }>('/auth/password/reset', { method: 'POST', body: JSON.stringify(body) });
 export const changePassword = (body: { currentPassword: string; newPassword: string; currentRefreshToken?: string }) =>

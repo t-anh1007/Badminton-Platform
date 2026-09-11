@@ -8,7 +8,7 @@ import { AuthForm } from '../components/AuthForm.js'
 import { ResetPasswordPage } from './ResetPasswordPage.js'
 import { SessionProvider } from '../session/SessionProvider.js'
 import { createTopupIntent, createDispute } from '../lib/financeApi.js'
-import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail } from '../lib/accountApi.js'
+import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail, verifyPasswordResetCode } from '../lib/accountApi.js'
 import { searchVenues } from '../lib/venueBookingApi.js'
 import { getMyConfirmedMatches } from '../lib/matchApi.js'
 
@@ -19,7 +19,7 @@ vi.mock('../lib/accountApi.js', () => ({
   uploadAvatarFile: vi.fn().mockResolvedValue(undefined),
   commitAvatarUpload: vi.fn().mockResolvedValue({ id: 'u1', email: 'player@example.com', phone: '0900000000', roles: ['player', 'provider'], playerProfile: { displayName: 'Người chơi A', avatarUrl: 'https://cdn.example/new.webp', visibility: 'public' } }),
   register: vi.fn().mockResolvedValue({ message: 'Đã gửi mã' }), verifyEmail: vi.fn().mockResolvedValue({ message: 'Đã xác minh' }), resendVerificationEmail: vi.fn().mockResolvedValue({ message: 'Đã gửi lại' }),
-  login: vi.fn(), refreshSession: vi.fn(), logout: vi.fn(), requestPasswordReset: vi.fn().mockResolvedValue({ message: 'Đã gửi liên kết' }), resetPassword: vi.fn().mockResolvedValue({ message: 'Đã đổi mật khẩu' }),
+  login: vi.fn(), refreshSession: vi.fn(), logout: vi.fn(), requestPasswordReset: vi.fn().mockResolvedValue({ message: 'Đã gửi mã' }), verifyPasswordResetCode: vi.fn().mockResolvedValue({ resetToken: 'safe-reset-token' }), resetPassword: vi.fn().mockResolvedValue({ message: 'Đã đổi mật khẩu' }),
 }))
 vi.mock('../lib/financeApi.js', () => ({
   getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', pending: '0', reserved: '0', currency: 'VND' }]),
@@ -79,14 +79,16 @@ it('supports registration, verification and resend without losing the email', as
   await waitFor(() => expect(verifyEmail).toHaveBeenCalledWith({ email: 'new@example.com', code: '123456' }))
 })
 
-it('supports forgot and token-based reset password surfaces', async () => {
-  const first = render(<MemoryRouter initialEntries={['/reset-password']}><ResetPasswordPage /></MemoryRouter>)
+it('supports forgot password with an email code before allowing a new password', async () => {
+  render(<MemoryRouter initialEntries={['/reset-password']}><ResetPasswordPage /></MemoryRouter>)
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'player@example.com' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi liên kết' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi mã xác nhận' }))
   await waitFor(() => expect(requestPasswordReset).toHaveBeenCalledWith('player@example.com'))
-  first.unmount()
-
-  render(<MemoryRouter initialEntries={['/reset-password?token=safe-reset-token']}><ResetPasswordPage /></MemoryRouter>)
+  expect(screen.getByRole('heading', { name: 'Xác minh mã' })).toBeInTheDocument()
+  expect(screen.getByText('05:00')).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Mã xác minh'), { target: { value: '123456' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Xác minh mã' }))
+  await waitFor(() => expect(verifyPasswordResetCode).toHaveBeenCalledWith({ email: 'player@example.com', code: '123456' }))
   fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'NewPassword1' } })
   fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), { target: { value: 'NewPassword1' } })
   fireEvent.click(screen.getByRole('button', { name: 'Lưu mật khẩu mới' }))
