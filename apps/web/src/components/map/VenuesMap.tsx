@@ -60,9 +60,17 @@ function venueIcon(venue: VenueMapPoint) {
   });
 }
 
+export function shouldFocusCurrentLocation(searchOrigin: { lat: number; lng: number }, currentLocation?: { lat: number; lng: number } | null) {
+  return currentLocation?.lat === searchOrigin.lat && currentLocation.lng === searchOrigin.lng;
+}
+
 function FitBounds({ searchOrigin, currentLocation, venues }: { searchOrigin: { lat: number; lng: number }; currentLocation?: { lat: number; lng: number } | null; venues: VenueMapPoint[] }) {
   const map = useMap();
   useEffect(() => {
+    if (currentLocation && shouldFocusCurrentLocation(searchOrigin, currentLocation)) {
+      map.setView([currentLocation.lat, currentLocation.lng], 15);
+      return;
+    }
     const points: [number, number][] = [
       [searchOrigin.lat, searchOrigin.lng],
       ...(currentLocation ? [[currentLocation.lat, currentLocation.lng] as [number, number]] : []),

@@ -78,17 +78,21 @@ export async function ipLocate(signal?: AbortSignal): Promise<GeoResult | null> 
 
 /** Toạ độ → địa chỉ (điền địa chỉ khi người dùng click/kéo marker). */
 export async function reverseGeocode(lat: number, lng: number, signal?: AbortSignal): Promise<string | null> {
-  const params = new URLSearchParams({
-    lat: String(lat),
-    lon: String(lng),
-    format: 'jsonv2',
-    'accept-language': 'vi',
-  });
-  const res = await fetch(`${NOMINATIM_BASE}/reverse?${params.toString()}`, {
-    signal,
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as Partial<NominatimPlace>;
-  return data.display_name ? formatLocationLabel(data.display_name) : null;
+  try {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lng),
+      format: 'jsonv2',
+      'accept-language': 'vi',
+    });
+    const res = await fetch(`${NOMINATIM_BASE}/reverse?${params.toString()}`, {
+      signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Partial<NominatimPlace>;
+    return data.display_name ? formatLocationLabel(data.display_name) : null;
+  } catch {
+    return null;
+  }
 }

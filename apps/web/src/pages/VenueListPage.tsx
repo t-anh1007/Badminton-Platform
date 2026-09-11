@@ -16,6 +16,7 @@ type ViewMode = 'list' | 'map';
 // nút "Dùng vị trí của tôi" hoặc click trên bản đồ — không còn preset cứng.
 const DEFAULT_ORIGIN: Origin = { label: 'Trung tâm TP.HCM', lat: 10.8231, lng: 106.6297 };
 const RADIUS_OPTIONS = [5, 10, 20] as const;
+const CURRENT_LOCATION_SESSION_KEY = 'courtin.venue-search.current-location';
 
 function readCoordinate(value: string | null): number | null {
   if (value === null || value.trim() === '') return null;
@@ -23,11 +24,34 @@ function readCoordinate(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function loadCurrentLocation(): Origin | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(CURRENT_LOCATION_SESSION_KEY) ?? 'null') as Partial<Origin> | null;
+    const { label, lat, lng } = value ?? {};
+    if (typeof label !== 'string' || typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { label, lat, lng };
+  } catch {
+    return null;
+  }
+}
+
+function saveCurrentLocation(location: Origin) {
+  try {
+    sessionStorage.setItem(CURRENT_LOCATION_SESSION_KEY, JSON.stringify(location));
+  } catch {
+    // Location persistence is a convenience only; the active page still works.
+  }
+}
+
+function coordinateLabel(latitude: number, longitude: number) {
+  return `Vị trí của bạn · ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
+
 function initialOrigin(searchParams: URLSearchParams): Origin {
   const lat = readCoordinate(searchParams.get('lat'));
   const lng = readCoordinate(searchParams.get('lng'));
   if (lat !== null && lng !== null) return { label: 'Vị trí trên liên kết', lat, lng };
-  return DEFAULT_ORIGIN;
+  return loadCurrentLocation() ?? DEFAULT_ORIGIN;
 }
 
 function formatLowestPrice(price: string | null): string | null {
@@ -64,7 +88,7 @@ function minuteOfDay(value: string): number | null {
 export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { embedded?: boolean; initialViewMode?: ViewMode } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [origin, setOrigin] = useState<Origin>(() => initialOrigin(searchParams));
-  const [currentLocation, setCurrentLocation] = useState<Origin | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<Origin | null>(() => loadCurrentLocation());
   const [selectedLocation, setSelectedLocation] = useState<Origin | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
@@ -136,7 +160,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
     setSearchParams(nextParams, { replace: true });
   }, [embedded, origin.lat, origin.lng, radiusKm, setSearchParams]);
 
-  const useMyLocation = () => {
+  const useMyLocation = useCallback(() => {
     setLocating(true); setLocateError('');
     // `gpsWon` chốt ngay khi GPS thành công (đồng bộ) để IP fallback đang chạy dở
     // không ghi đè; `settled` chặn nhiều nhánh cùng kết thúc.
@@ -153,6 +177,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
         if (place) {
           const nextLocation = { label: `${place.label} (gần đúng theo IP)`, lat: place.lat, lng: place.lng };
           setCurrentLocation(nextLocation);
+          saveCurrentLocation(nextLocation);
           setSelectedLocation(null);
           setOrigin(nextLocation);
           setLocateError('Không lấy được GPS chính xác nên đang dùng vị trí gần đúng theo IP. Click trên bản đồ nếu muốn chỉnh lại điểm.');
@@ -173,26 +198,33 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
         gpsWon = true;
         window.clearTimeout(safety);
         const { latitude, longitude } = position.coords;
-        const nextLocation = { label: 'Vị trí của bạn', lat: latitude, lng: longitude };
+        const nextLocation = { label: coordinateLabel(latitude, longitude), lat: latitude, lng: longitude };
         setCurrentLocation(nextLocation);
+        saveCurrentLocation(nextLocation);
         setSelectedLocation(null);
         setOrigin(nextLocation);
         setLocateError(''); // xoá mọi thông báo IP fallback có thể đã hiện khi GPS chậm
         settled = true; setLocating(false);
         void reverseGeocode(latitude, longitude).then((addr) => {
           if (!addr) return;
-          setCurrentLocation((current) => (current?.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
-          setOrigin((current) => (current.lat === latitude && current.lng === longitude ? { ...current, label: addr } : current));
+          const resolvedLocation = { ...nextLocation, label: addr };
+          setCurrentLocation((current) => (current?.lat === latitude && current.lng === longitude ? resolvedLocation : current));
+          setOrigin((current) => (current.lat === latitude && current.lng === longitude ? resolvedLocation : current));
+          saveCurrentLocation(resolvedLocation);
         });
       },
       () => {
-        window.clearTimeout(safety);
-        // Mọi lỗi (từ chối quyền, timeout, không có nguồn định vị) → thử IP.
-        if (!gpsWon && !settled) applyIpFallback('Trình duyệt đang chặn quyền vị trí. Bấm biểu tượng khoá cạnh URL → Quyền → Vị trí → Cho phép rồi thử lại, hoặc click trên bản đồ.');
+        // Một số trình duyệt báo POSITION_UNAVAILABLE tạm thời trước khi nguồn GPS
+        // hoàn tất. Giữ safety timer thay vì chạy IP ngay, để GPS còn cơ hội trả
+        // vị trí chính xác; chỉ sau 12s không có GPS mới fallback sang IP.
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
-  };
+  }, []);
+
+  useEffect(() => {
+    useMyLocation();
+  }, [useMyLocation]);
 
   const pickOriginOnMap = (lat: number, lng: number) => {
     const nextLocation = { label: 'Điểm đã chọn trên bản đồ', lat, lng };
