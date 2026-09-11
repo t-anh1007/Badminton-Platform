@@ -9,7 +9,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export type NotificationRole = 'player' | 'provider' | 'admin';
 export type NotificationItem = { id: string; targetRole: NotificationRole; category: string; kind: string; title: string; body: string; priority: 'action_required' | 'update'; entityType: string | null; entityId: string | null; actionKind: string | null; actionExpiresAt: string | null; readAt: string | null; createdAt: string };
 export type NotificationPage = { items: NotificationItem[]; page: number; pageSize: number; totalItems: number; totalPages: number; unreadCount: number; roles: NotificationRole[] };
-export const getRecentNotifications = () => api<{ items: NotificationItem[]; unreadCount: number }>('/notifications/recent');
+export const getRecentNotifications = () => api<{ items: NotificationItem[]; unreadCount: number }>('/notifications/recent?limit=20');
 export const getNotifications = (params: { page: number; role?: string; unread?: boolean }) => api<NotificationPage>(`/notifications?${new URLSearchParams({ page: String(params.page), pageSize: '20', ...(params.role ? { role: params.role } : {}), ...(params.unread ? { unread: 'true' } : {}) })}`);
 export const readNotification = (id: string) => api<{ unreadCount: number }>(`/notifications/${id}/read`, { method: 'POST' });
 export const readAllNotifications = () => api<{ unreadCount: number }>('/notifications/read-all', { method: 'POST' });
