@@ -31,6 +31,7 @@ import {
 } from '../lib/communityApi';
 import { CommunityComposer } from '../components/CommunityComposer';
 import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const PAGE_SIZE = 10;
 const postStatus: Record<ContentStatus, { label: string; tone: 'success' | 'warning' | 'danger' }> = {
@@ -201,6 +202,7 @@ export function CommunityPage() {
     }
     setActivityLoading(false);
   };
+  useLiveDataRefresh(async () => { await Promise.all([loadFeed(), loadOwnActivity()]); });
 
   useEffect(() => {
     void loadFeed();

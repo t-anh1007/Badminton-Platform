@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_ACCOUNT_URL ?? '/api/account';
 
 export class AccountApiError extends Error {
@@ -24,6 +25,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = await response.json().catch(() => ({})) as T & { error?: { message?: string; code?: string } };
   if (!response.ok) throw new AccountApiError(body.error?.message ?? 'Không thể xử lý tài khoản.', response.status, body.error?.code);
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

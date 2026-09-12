@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
 import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js'
+import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js'
 
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
@@ -29,6 +30,7 @@ export function AdminBookingsPage() {
   useEffect(() => {
     void load()
   }, [])
+  useLiveDataRefresh(load)
 
   const cancel = async () => {
     if (!target || !reason.trim()) {

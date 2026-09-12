@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_COMMUNITY_URL ?? '/api/community';
 function token(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
@@ -16,6 +17,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     error?: { message?: string };
   };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý kiểm duyệt.');
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 export interface CommunityReport {

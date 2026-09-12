@@ -4,6 +4,7 @@ import { getAdminAccountIdentities, type AdminAccountIdentity } from '../lib/acc
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { Badge, Button, EmptyState, Modal, Pagination, SelectInput, TextInput } from './ui';
 import { SepayPayBox } from './SepayPayBox.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 type PendingAction = { label: string; reason: string; task: () => Promise<unknown> };
 type WithdrawalAction = { id: string; kind: 'reject' | 'finalize' | 'manual' };
@@ -71,6 +72,7 @@ export function FinanceAdminPanel({ mode }: { mode: 'withdrawals' | 'reconciliat
   };
 
   useEffect(() => { void reload(); }, [mode]);
+  useLiveDataRefresh(reload);
 
   useEffect(() => { setPage(1); }, [directionFilter, query, sortBy, statusFilter]);
 

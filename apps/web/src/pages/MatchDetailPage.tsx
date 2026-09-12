@@ -14,6 +14,7 @@ import {
 } from '../lib/financeApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { SepayPayBox } from '../components/SepayPayBox.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -70,6 +71,7 @@ export function MatchDetailPage() {
   useEffect(() => {
     void load();
   }, [id]);
+  useLiveDataRefresh(load);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);

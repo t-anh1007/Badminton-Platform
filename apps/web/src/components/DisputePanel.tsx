@@ -5,6 +5,7 @@ import { getVenueDetail } from '../lib/venueBookingApi';
 import { Button, SurfaceCard, TextArea, TextInput } from './ui';
 import { ImageUploadPicker, type UploadImageState } from './CommunityComposer';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const CATEGORIES = ['Sân đóng cửa / không thể chơi', 'Dịch vụ không đúng mô tả', 'Sai thời lượng hoặc sân đã đặt', 'Vấn đề thanh toán', 'Vấn đề khác'] as const;
 const statusLabel = (row: DisputeRow) => row.status === 'open' ? 'Đang xem xét' : row.resolution === 'full_refund' ? 'Đã hoàn toàn bộ' : row.resolution === 'partial_refund' ? 'Đã hoàn một phần' : 'Không được chấp nhận';
@@ -24,6 +25,7 @@ export function DisputePanel() {
   const [venueNames, setVenueNames] = useState<Record<string, string>>({});
   const reload = () => Promise.all([getEligibleDisputeBookings(), getMyDisputes()]).then(async ([nextEligible, nextDisputes]) => { setEligible(nextEligible); setDisputes(nextDisputes); const ids = [...new Set(nextEligible.map((row) => row.venueId))]; const details = await Promise.all(ids.map((id) => getVenueDetail(id).catch(() => null))); setVenueNames(Object.fromEntries(details.filter(Boolean).map((venue) => [venue!.id, venue!.name]))); }).catch((error: Error) => setMessage(error.message));
   useEffect(() => { void reload(); void getMyProfile().then((profile) => setContactPhone(profile.phone ?? '')).catch(() => undefined); }, []);
+  useLiveDataRefresh(reload);
   const uploadPending = images.some((image) => image.status === 'uploading'); const uploadFailed = images.some((image) => image.status === 'error');
   const canSubmit = Boolean(bookingId && category && detail.trim() && contactPhone.trim()) && !uploadPending && !uploadFailed && !submitting;
 

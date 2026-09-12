@@ -5,6 +5,7 @@ import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { getVenueDetail, type VenueDetail } from '../lib/venueBookingApi';
 import { LocationMap } from '../components/map/LocationMap';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Không thể tải thông tin cơ sở. Hãy thử lại.';
@@ -59,6 +60,7 @@ export function VenueDetailPage() {
   }, [reloadKey, venueId]);
 
   const retry = () => setReloadKey((value) => value + 1);
+  useLiveDataRefresh(retry);
 
   if (loading) {
     return <main className="min-h-screen bg-canvas py-8 sm:py-10"><div className="page-container"><RouteState variant="loading" title="Đang tải thông tin cơ sở" /></div></main>;

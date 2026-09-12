@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getAdminDisputes, resolveDispute, type DisputeRow } from '../lib/financeApi';
 import { Button, Modal, TextInput } from './ui';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 type Decision = 'full_refund' | 'partial_refund' | 'rejected';
 const labels: Record<Decision, string> = { full_refund: 'Hoàn toàn bộ', partial_refund: 'Hoàn một phần', rejected: 'Bác tranh chấp' };
@@ -21,6 +22,7 @@ export function DisputeAdminPanel() {
   const [message, setMessage] = useState(''); const [confirming, setConfirming] = useState(false); const [busy, setBusy] = useState(false);
   const reload = () => getAdminDisputes().then((next) => { const sorted = [...next].sort((a, b) => a.status === b.status ? (a.status === 'open' ? +new Date(a.deadlineAt) - +new Date(b.deadlineAt) : +new Date(b.createdAt) - +new Date(a.createdAt)) : a.status === 'open' ? -1 : 1); setRows(sorted); setSelectedId((current) => sorted.some((row) => row.id === current) ? current : sorted[0]?.id ?? ''); }).catch((error: Error) => setMessage(error.message));
   useEffect(() => { void reload(); }, []);
+  useLiveDataRefresh(reload);
   const selected = useMemo(() => rows.find((row) => row.id === selectedId) ?? null, [rows, selectedId]);
   useEffect(() => { setDecision(''); setAmount(''); setReason(''); setConfirming(false); setMessage(''); }, [selectedId]);
 

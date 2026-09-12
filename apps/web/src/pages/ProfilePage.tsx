@@ -14,6 +14,7 @@ import type { UserRole } from '../session/session';
 import { RouteState } from '../components/RouteState.js';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { getMyConfirmedMatches, type MyConfirmedMatch } from '../lib/matchApi.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 type Tab = 'bookings' | 'wallet' | 'disputes';
 
@@ -74,6 +75,9 @@ export function ProfilePage() {
     }
   }, []);
   useEffect(() => { void loadPage(); }, [loadPage]);
+  useLiveDataRefresh(() => {
+    if (!editOpen && !passwordOpen && !topupOpen && !withdrawOpen) return loadPage();
+  });
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();

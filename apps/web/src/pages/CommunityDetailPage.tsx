@@ -16,6 +16,7 @@ import {
 } from '../lib/communityApi';
 
 import { formatDateTimeVi } from '../lib/formatters.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const formatDate = formatDateTimeVi;
 
@@ -71,6 +72,7 @@ export function CommunityDetailPage() {
   useEffect(() => {
     void load();
   }, [postId]);
+  useLiveDataRefresh(load);
 
   const requireSession = (action: () => void) => {
     if (!session) {
