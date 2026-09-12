@@ -64,6 +64,10 @@ function isPastSlot(date: string, startMinute: number, now = new Date()): boolea
   return date < current.date || (date === current.date && startMinute <= current.minute)
 }
 
+function isMatchLeadTooShort(startAt: string, now = Date.now()): boolean {
+  return new Date(startAt).getTime() - now < MATCH_MIN_LEAD_HOURS * 3_600_000
+}
+
 function HoldCountdown({ expiresAt, onExpired }: { expiresAt?: string; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0)
   const onExpiredRef = useRef(onExpired)
@@ -97,6 +101,7 @@ export function BookingPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [error, setError] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
+  const [matchEligibilityCheckedAt, setMatchEligibilityCheckedAt] = useState(() => Date.now())
   const retryAfterAuth = useRef<(() => void) | null>(null)
   const availabilityRequestId = useRef(0)
   const findOpponentInFlight = useRef(false)
@@ -225,6 +230,7 @@ export function BookingPage() {
     void run(async () => {
       const validated = await selectSlot(proposed.courtId, { startAt: proposed.startAt, durationMinutes: proposed.durationMinutes })
       setSelection({ ...proposed, startAt: validated.startAt, endAt: validated.endAt, durationMinutes: validated.durationMinutes, totalPrice: validated.totalPrice })
+      setMatchEligibilityCheckedAt(Date.now())
       setHold(null)
       setBooking(null)
       setMessage(`Đã chọn ${proposed.slotCount} khung giờ liền nhau.`)
@@ -249,7 +255,7 @@ export function BookingPage() {
   })
 
   // DM3: slot còn dưới 24 giờ thì không tạo được kèo — chặn trước khi giữ chỗ để không khóa slot vô ích.
-  const opponentLeadTooShort = selection ? new Date(selection.startAt).getTime() - Date.now() < MATCH_MIN_LEAD_HOURS * 3_600_000 : false
+  const opponentLeadTooShort = selection ? isMatchLeadTooShort(selection.startAt, matchEligibilityCheckedAt) : false
 
   // Matchmaking từ chối hẳn (DM3, DM7…): thử lại cùng hold cũng không đổi kết quả. Lỗi mạng/5xx vẫn giữ
   // hold để thử lại như cũ.
@@ -258,14 +264,25 @@ export function BookingPage() {
   // Matchmaking có thể đã đổi hold thành booking `held` trước khi từ chối. createBooking idempotent theo
   // holdId nên trả đúng booking đó; hủy booking held xóa luôn hold -> slot trống lại, mở khóa giao diện.
   const releaseMatchHold = async (rejectedHold: HoldResult) => {
+    try {
+      const orphan = await createBooking(rejectedHold.id)
+      await cancelMyBooking(orphan.id)
+    } catch {
+      // Giữ hold hiện tại và khóa việc chọn slot nếu backend chưa xác nhận nhả chỗ.
+      return
+    }
     pendingMatchHold.current = null
     setHold(null)
-    await createBooking(rejectedHold.id).then((orphan) => cancelMyBooking(orphan.id)).catch(() => undefined)
     if (courtId) await loadAvailability(courtId, date)
   }
 
   const findOpponent = () => {
-    if (!selection || matchCheckout || findOpponentInFlight.current || opponentLeadTooShort) return
+    if (!selection || matchCheckout || findOpponentInFlight.current) return
+    const checkedAt = Date.now()
+    if (isMatchLeadTooShort(selection.startAt, checkedAt)) {
+      setMatchEligibilityCheckedAt(checkedAt)
+      return
+    }
     findOpponentInFlight.current = true
     void run(async () => {
       try {

@@ -170,6 +170,22 @@ it('disables finding an opponent for slots less than 24 hours away without holdi
   expect(createHold).not.toHaveBeenCalled()
 })
 
+it('rechecks the 24-hour match lead when the action is clicked after the page was left open', async () => {
+  vi.setSystemTime(new Date('2026-08-13T22:30:00.000Z')) // slot còn 24 giờ 30 phút
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  const findButton = await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' })
+  expect(findButton).toBeEnabled()
+
+  vi.setSystemTime(new Date('2026-08-13T23:30:00.000Z')) // slot nay chỉ còn 23 giờ 30 phút
+  fireEvent.click(findButton)
+
+  expect(createHold).not.toHaveBeenCalled()
+  expect(await screen.findByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
+  expect(findButton).toBeDisabled()
+})
+
 it('releases the orphan hold and unlocks selection when match creation is rejected', async () => {
   vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z')) // 03:00 ngày 14/08 tại Việt Nam, slot 06:00 ngày 15/08 còn 27 giờ
   vi.mocked(createHold).mockResolvedValue({ id: 'hold-rejected', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-13T20:10:00.000Z' })
@@ -187,4 +203,22 @@ it('releases the orphan hold and unlocks selection when match creation is reject
   await waitFor(() => expect(screen.getByRole('button', { name: 'XÁC NHẬN' })).toBeEnabled())
   expect(screen.getByRole('button', { name: 'Chọn 06:00 - 06:30' })).toBeEnabled()
   expect(screen.queryByText(/Giữ chỗ \d{2}:\d{2}/)).not.toBeInTheDocument()
+})
+
+it('keeps the hold visible and selection locked when orphan cleanup is not confirmed', async () => {
+  vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z'))
+  vi.mocked(createHold).mockResolvedValue({ id: 'hold-cleanup-failed', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-13T20:10:00.000Z' })
+  vi.mocked(createMatch).mockRejectedValue(new MatchApiError('Slot không hợp lệ.', 422, 'MATCH_SLOT_NOT_HELD'))
+  vi.mocked(createBooking).mockResolvedValue({ id: 'booking-cleanup-failed', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', status: 'held', priceSnapshot: '360000' })
+  vi.mocked(cancelMyBooking).mockRejectedValue(new Error('Không thể nhả hold.'))
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Slot không hợp lệ.')
+  expect(cancelMyBooking).toHaveBeenCalledWith('booking-cleanup-failed')
+  expect(getCourtAvailability).toHaveBeenCalledTimes(1)
+  expect(screen.getByText(/Giữ chỗ \d{2}:\d{2}/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'XÁC NHẬN' })).toBeDisabled()
 })
