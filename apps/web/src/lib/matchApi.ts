@@ -163,6 +163,9 @@ export const rejectMatchJoin = (matchId: string, joinId: string) =>
 export const withdrawMatchJoin = (matchId: string, joinId: string) =>
   api(`/matches/${matchId}/joins/${joinId}/withdraw`, { method: 'POST' });
 export const cancelMatch = (id: string) => api(`/matches/${id}/cancel`, { method: 'POST' });
+export const abandonMatch = (id: string) => api(`/matches/${id}/cancel`, { method: 'POST', keepalive: true });
+export const abandonMatchJoin = (matchId: string, joinId: string) =>
+  api(`/matches/${matchId}/joins/${joinId}/withdraw`, { method: 'POST', keepalive: true });
 export const createMatch = (body: ({ bookingId: string; holdId?: never } | { holdId: string; bookingId?: never }) & {
   capacity: number;
   feeMode: 'free' | 'split';

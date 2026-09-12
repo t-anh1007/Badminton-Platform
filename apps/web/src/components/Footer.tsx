@@ -1,3 +1,9 @@
 import { Link } from 'react-router-dom';
-const links = ['Về chúng tôi', 'Liên hệ', 'Điều khoản', 'Chính sách hủy', 'Chính sách bảo mật'];
-export function Footer() { return <footer className="mt-auto bg-brand-navy text-surface"><div className="page-container grid gap-8 py-10 sm:grid-cols-[1.2fr_2fr]"><div><div className="flex items-center gap-2"><img src="/logo.png" alt="" aria-hidden="true" className="h-7 w-auto object-contain" /><p className="font-display text-lg font-extrabold">COURTIN</p></div><p className="mt-3 max-w-xs text-sm leading-6 text-surface/70">Đặt sân, tìm kèo và kết nối cộng đồng cầu lông trong một nhịp chơi liền mạch.</p></div><div className="flex flex-wrap content-start gap-x-5 gap-y-3 text-sm font-semibold text-surface/70">{links.map((label) => <Link key={label} to="/" className="hover:text-brand-yellow">{label}</Link>)}</div></div><div className="border-t border-surface/15"><div className="page-container py-4 text-xs text-surface/60">© 2026 COURTIN. Dành cho cộng đồng cầu lông Việt Nam.</div></div></footer>; }
+const links = [
+  { label: 'Về chúng tôi', to: '/about' },
+  { label: 'Liên hệ', to: '/contact' },
+  { label: 'Điều khoản', to: '/terms' },
+  { label: 'Chính sách hủy', to: '/cancellation-policy' },
+  { label: 'Chính sách bảo mật', to: '/privacy' },
+];
+export function Footer() { return <footer className="mt-auto bg-brand-navy text-surface"><div className="page-container grid gap-8 py-10 sm:grid-cols-[1.2fr_2fr]"><div><div className="flex items-center gap-2"><img src="/logo.png" alt="" aria-hidden="true" className="h-7 w-auto object-contain" /><p className="font-display text-lg font-extrabold">COURTIN</p></div><p className="mt-3 max-w-xs text-sm leading-6 text-surface/70">Đặt sân, tìm kèo và kết nối cộng đồng cầu lông trong một nhịp chơi liền mạch.</p></div><div className="flex flex-wrap content-start gap-x-5 gap-y-3 text-sm font-semibold text-surface/70">{links.map((link) => <Link key={link.label} to={link.to} className="hover:text-brand-yellow">{link.label}</Link>)}</div></div><div className="border-t border-surface/15"><div className="page-container py-4 text-xs text-surface/60">© 2026 COURTIN. Dành cho cộng đồng cầu lông Việt Nam.</div></div></footer>; }

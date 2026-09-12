@@ -31,6 +31,7 @@ import { ManageCalendarPage } from './pages/manage/ManageCalendarPage'; import {
 import { ManageFinancePage } from './pages/manage/ManageFinancePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationProvider } from './notifications/NotificationProvider';
+import { FooterInformationPage } from './pages/FooterInformationPage';
 
 function App() {
   return (
@@ -54,6 +55,11 @@ function App() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/about" element={<FooterInformationPage />} />
+          <Route path="/contact" element={<FooterInformationPage />} />
+          <Route path="/terms" element={<FooterInformationPage />} />
+          <Route path="/cancellation-policy" element={<FooterInformationPage />} />
+          <Route path="/privacy" element={<FooterInformationPage />} />
           <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
           <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="finance" element={<ManageFinancePage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
           <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminLayout />}><Route index element={<AdminOverviewPage />} /><Route path="accounts" element={<AdminAccountsPage />} /><Route path="providers" element={<AdminProvidersPage />} /><Route path="bookings" element={<AdminBookingsPage />} /><Route path="finance" element={<AdminFinancePage />} /><Route path="disputes" element={<AdminDisputesPage />} /><Route path="moderation" element={<AdminModerationPage />} /><Route path="evaluations" element={<AdminEvaluationsPage />} /><Route path="tickets" element={<AdminTicketsPage />} /></Route></Route>
