@@ -32,4 +32,21 @@ describe('startWithIdleRelease', () => {
     expect(start).toHaveBeenCalledTimes(2);
     await handle.stop();
   });
+
+  it('retries background startup on the next request after the initial startup fails', async () => {
+    const stopBackground = vi.fn();
+    const start = vi.fn()
+      .mockRejectedValueOnce(new Error('RabbitMQ is temporarily unavailable'))
+      .mockResolvedValue([stopBackground]);
+    const handle = startWithIdleRelease({ label: 'test-service', start });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(start).toHaveBeenCalledTimes(1);
+
+    handle.touch();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(start).toHaveBeenCalledTimes(2);
+    await handle.stop();
+  });
 });
