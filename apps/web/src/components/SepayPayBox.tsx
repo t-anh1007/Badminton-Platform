@@ -7,6 +7,7 @@ import { Button } from './ui.js';
  * tiết tài khoản nhận và mã đối soát để người dùng nhập tay khi cần. */
 export function SepayPayBox({ payment }: { payment: SepayPayInstruction }) {
   const [copied, setCopied] = useState<'code' | 'account' | null>(null);
+  const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'failed'>('idle');
   const copy = async (value: string, which: 'code' | 'account') => {
     try {
       await navigator.clipboard.writeText(value);
@@ -16,17 +17,42 @@ export function SepayPayBox({ payment }: { payment: SepayPayInstruction }) {
       /* clipboard bị chặn — người dùng vẫn nhập tay được từ text hiển thị */
     }
   };
+  const downloadQrImage = async () => {
+    setDownloadState('downloading');
+    try {
+      const response = await fetch(payment.qrImageUrl);
+      if (!response.ok) throw new Error(`Không tải được ảnh QR (${response.status})`);
+      const image = await response.blob();
+      const objectUrl = URL.createObjectURL(image);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `vietqr-${payment.matchCode.replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      setDownloadState('idle');
+    } catch {
+      setDownloadState('failed');
+    }
+  };
   return (
     <div className="space-y-3">
       <p className="text-figures text-2xl font-bold text-green-700">{formatMoneyVnd(payment.amount)}</p>
       <div className="flex justify-center">
-        <img
-          src={payment.qrImageUrl}
-          alt={`Mã VietQR chuyển ${formatMoneyVnd(payment.amount)} nội dung ${payment.matchCode}`}
-          width={240}
-          height={240}
-          className="rounded-xl border border-ink-100 bg-white p-2"
-        />
+        <div className="grid justify-items-center gap-2">
+          <img
+            src={payment.qrImageUrl}
+            alt={`Mã VietQR chuyển ${formatMoneyVnd(payment.amount)} nội dung ${payment.matchCode}`}
+            width={240}
+            height={240}
+            className="rounded-xl border border-ink-100 bg-white p-2"
+          />
+          <Button tone="secondary" size="sm" disabled={downloadState === 'downloading'} onClick={() => void downloadQrImage()}>
+            {downloadState === 'downloading' ? 'Đang tải ảnh…' : 'Lưu ảnh mã QR'}
+          </Button>
+          {downloadState === 'failed' && <p role="status" className="text-center text-xs text-danger">Không thể tải ảnh QR. Vui lòng thử lại.</p>}
+        </div>
       </div>
       <dl className="space-y-1 rounded-xl bg-canvas p-3 text-sm">
         <div className="flex justify-between gap-3"><dt className="text-ink-500">Ngân hàng</dt><dd className="text-figures font-medium">{payment.bankCode}</dd></div>
