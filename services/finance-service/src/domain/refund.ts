@@ -154,7 +154,10 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
       }
 
       const [personal, business, platform] = await Promise.all([
-        tx.wallet.findFirst({ where: { userId: payload.userId, walletType: 'personal' } }),
+        // Thanh toán SePay không cần người chơi đã từng có số dư, nên có thể
+        // chưa tồn tại ví personal. Tạo ví ngay trong transaction để khoản
+        // hoàn không bị quarantine chỉ vì thiếu ví đích.
+        getOrCreatePersonalWallet(tx, payload.userId),
         tx.wallet.findFirst({ where: { userId: payload.businessUserId, walletType: 'business' } }),
         tx.wallet.findFirst({ where: { userId: null, walletType: 'platform' } }),
       ]);
