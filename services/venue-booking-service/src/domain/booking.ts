@@ -404,6 +404,13 @@ export async function releaseHeldMatchBooking(eventId: string, payload: MatchCan
 
 /** BOK-08 — booking của chính người chơi (không gồm booking nội bộ, AC-08-5). */
 export async function listMyBookings(userId: string) {
+  // Scheduler có thể chưa kịp chạy giữa lúc hold hết hạn và người chơi mở Hồ
+  // sơ. Tự chữa tại read boundary để booking checkout hết hạn không bị hiển thị
+  // như một lịch đặt sân còn hiệu lực.
+  await prisma.booking.updateMany({
+    where: { userId, status: 'held', holdExpiresAt: { lte: new Date() } },
+    data: { status: 'cancelled' },
+  });
   const bookings = await prisma.booking.findMany({
     where: { userId, source: 'marketplace' },
     orderBy: { startAt: 'desc' },
@@ -442,10 +449,22 @@ export async function listMyMatchSources(userId: string) {
   return { holds, bookings };
 }
 
-export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date }) {
+export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date; page: number; pageSize: number }) {
   const query = input.query?.trim();
-  const bookings = await prisma.booking.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(input.from || input.to ? { startAt: { ...(input.from ? { gte: vietnamDateStartInstant(input.from) } : {}), ...(input.to ? { lt: vietnamDateEndExclusiveInstant(input.to) } : {}) } } : {}), ...(query ? { OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] } : {}) }, include: { court: { include: { venue: true } } }, take: 100, orderBy: { startAt: 'desc' } });
-  return bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name } } }));
+  const paidMatchHoldIds = (await prisma.hold.findMany({ where: { purpose: 'match' }, select: { id: true } })).map((hold) => hold.id);
+  const eligibleBookings = {
+    OR: [
+      { status: { in: ['confirmed', 'completed'] } },
+      { status: 'cancelled', cancellationReason: { not: null } },
+      ...(paidMatchHoldIds.length ? [{ holdId: { in: paidMatchHoldIds } }] : []),
+    ],
+  };
+  const where = { source: 'marketplace' as const, AND: [eligibleBookings, ...(input.status ? [{ status: input.status }] : []), ...(query ? [{ OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] }] : []), ...(input.from || input.to ? [{ startAt: { ...(input.from ? { gte: vietnamDateStartInstant(input.from) } : {}), ...(input.to ? { lt: vietnamDateEndExclusiveInstant(input.to) } : {}) } }] : [])] };
+  const [total, bookings] = await prisma.$transaction([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({ where, include: { court: { include: { venue: true } } }, skip: (input.page - 1) * input.pageSize, take: input.pageSize, orderBy: { startAt: 'desc' } }),
+  ]);
+  return { total, page: input.page, pageSize: input.pageSize, items: bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, holdExpiresAt: b.holdExpiresAt, matchDepositPaid: b.status === 'held' && !!b.holdId && paidMatchHoldIds.includes(b.holdId), player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name, address: b.court.venue.address } } })) };
 }
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */

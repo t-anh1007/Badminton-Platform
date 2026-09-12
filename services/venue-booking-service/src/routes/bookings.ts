@@ -8,7 +8,9 @@ import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, c
 
 export const bookingRouter = Router();
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
-  res.json((await listAdminBookings(z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() }).parse(req.query))).map(serializeBooking));
+  const input = z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'completed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);
+  const result = await listAdminBookings(input);
+  res.json({ ...result, items: result.items.map(serializeBooking) });
 }));
 
 /** `res.json()` KHÔNG serialize được `bigint` native (ném TypeError 500 —
