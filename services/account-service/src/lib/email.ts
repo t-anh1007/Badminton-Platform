@@ -18,6 +18,12 @@ if (host && user && pass) {
     port,
     secure: port === 465,
     auth: { user, pass },
+    // SMTP không phản hồi ở production không được giữ request đăng ký/đặt lại
+    // mật khẩu mở vô thời hạn. Caller đã xử lý lỗi gửi mail như một lỗi không
+    // rollback được, nên trả quyền điều khiển lại cho người dùng sớm.
+    connectionTimeout: 8_000,
+    greetingTimeout: 8_000,
+    socketTimeout: 10_000,
   });
 }
 
