@@ -57,19 +57,20 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
   const already = await prisma.processedEvent.findUnique({ where: { eventId } });
   if (already) return; // AC-BOK-07-4: phát lại không sinh BookingConfirmed lần hai
 
-  const booking = await prisma.booking.findUnique({
-    where: { id: payload.bookingId },
-    include: { court: { include: { venue: { include: { provider: true } } } } },
-  });
-  if (!booking) {
-    // Không có gì để xử lý — vẫn đánh dấu đã xử lý để không kẹt requeue vô hạn.
-    await prisma.processedEvent.create({ data: { eventId } });
-    return;
-  }
-
-  const stillPayable = booking.status === 'held' && !!booking.holdExpiresAt && booking.holdExpiresAt.getTime() > Date.now();
-
   await prisma.$transaction(async (tx) => {
+    // Serialize webhook với thao tác người chơi rời checkout/hủy hold. Trạng
+    // thái được đọc lại sau lock nên booking đã nhả không thể bị xác nhận ngược.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.bookingId}, 0))`;
+    const booking = await tx.booking.findUnique({
+      where: { id: payload.bookingId },
+      include: { court: { include: { venue: { include: { provider: true } } } } },
+    });
+    if (!booking) {
+      await tx.processedEvent.create({ data: { eventId } });
+      return;
+    }
+    const stillPayable = booking.status === 'held' && !!booking.holdExpiresAt && booking.holdExpiresAt.getTime() > Date.now();
+
     if (stillPayable) {
       await tx.booking.update({ where: { id: booking.id }, data: { status: 'confirmed' } });
       // BOK-07 bước 5: xóa hold Ở BƯỚC XÁC NHẬN (không phải lúc tạo booking).

@@ -37,6 +37,9 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   }
   if (booking.status === 'held') {
     return prisma.$transaction(async (tx) => {
+      // Cùng lock với PaymentCompleted: rời checkout và webhook cạnh tranh
+      // nguyên tử, thao tác thắng trước quyết định trạng thái cuối.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
       const removed = await tx.booking.deleteMany({
         where: { id: booking.id, status: 'held' },
       });
