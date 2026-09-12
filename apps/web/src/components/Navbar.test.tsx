@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { SessionProvider } from '../session/SessionProvider.js'
+import { NotificationProvider } from '../notifications/NotificationProvider.js'
 import { Navbar } from './Navbar.js'
 
 const accessToken = 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJwMSJ9.'
@@ -11,6 +12,12 @@ vi.mock('../lib/accountApi.js', () => ({
   getMyProfile: vi.fn().mockResolvedValue({ id: 'p1', email: 'player@example.com', phone: null, roles: ['player'], playerProfile: { displayName: 'Người chơi', avatarUrl: null, visibility: 'public' } }),
   logout: vi.fn().mockResolvedValue({ message: 'ok' }),
 }))
+vi.mock('../lib/notificationApi.js', () => ({
+  getRecentNotifications: vi.fn().mockResolvedValue({ items: [], unreadCount: 0 }),
+  openNotificationStream: vi.fn(() => vi.fn()),
+  readAllNotifications: vi.fn(),
+  readNotification: vi.fn(),
+}))
 
 beforeEach(() => {
   localStorage.clear()
@@ -18,7 +25,7 @@ beforeEach(() => {
 })
 
 it('exposes the provider partnership CTA inside the account menu', async () => {
-  render(<MemoryRouter><SessionProvider><Navbar onOpenAuth={vi.fn()} /></SessionProvider></MemoryRouter>)
+  render(<MemoryRouter><SessionProvider><NotificationProvider><Navbar onOpenAuth={vi.fn()} /></NotificationProvider></SessionProvider></MemoryRouter>)
   await userEvent.click(await screen.findByRole('button', { name: 'Menu tài khoản' }))
   const link = screen.getByRole('menuitem', { name: 'Hợp tác chủ sân' })
   expect(link).toHaveAttribute('href', '/provider-onboarding')

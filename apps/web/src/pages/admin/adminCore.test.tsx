@@ -8,7 +8,7 @@ import { getAdminAccounts, lockAdminAccount, unlockAdminAccount } from '../../li
 import { cancelAdminBooking, getAdminBookings, rejectProvider } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/accountApi.js', () => ({ getAdminAccounts: vi.fn().mockResolvedValue([{ id: 'u1', email: 'player@example.com', displayName: 'Người chơi A', status: 'active', roles: ['player'] }]), lockAdminAccount: vi.fn().mockResolvedValue({}), unlockAdminAccount: vi.fn().mockResolvedValue({}) }))
-vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', userId: 'user-internal-id', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue([{ id: 'b1', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', player: { label: 'Người chơi đã đăng nhập' }, court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu A' } } }]), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
+vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', userId: 'user-internal-id', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue({ items: [{ id: 'b1', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', player: { label: 'Người chơi đã đăng nhập' }, court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu A', address: 'Quận 1' } } }], total: 1, page: 1, pageSize: 20 }), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
 vi.mock('../../lib/systemHealthApi.js', () => ({ getSystemHealth: vi.fn().mockResolvedValue([{ key: 'account', label: 'Tài khoản', state: 'available' }, { key: 'finance', label: 'Tài chính', state: 'degraded' }, { key: 'community', label: 'Cộng đồng', state: 'unreachable' }]) }))
 afterEach(cleanup)
 
@@ -61,10 +61,10 @@ it('sends all selected booking filters to the admin queue', async () => {
   await screen.findByText('Nhà thi đấu A · Sân 1')
   fireEvent.change(screen.getByLabelText('Tìm booking'), { target: { value: 'Phú Nhuận' } })
   fireEvent.change(screen.getByLabelText('Trạng thái booking'), { target: { value: 'confirmed' } })
-  fireEvent.change(screen.getByLabelText('Từ ngày booking'), { target: { value: '15/08/2026' } })
-  fireEvent.change(screen.getByLabelText('Đến ngày booking'), { target: { value: '16/08/2026' } })
+  fireEvent.change(screen.getByLabelText('Từ ngày booking'), { target: { value: '2026-08-15' } })
+  fireEvent.change(screen.getByLabelText('Đến ngày booking'), { target: { value: '2026-08-16' } })
   fireEvent.click(screen.getByRole('button', { name: 'Lọc' }))
-  await waitFor(() => expect(getAdminBookings).toHaveBeenLastCalledWith({ query: 'Phú Nhuận', status: 'confirmed', from: '2026-08-15', to: '2026-08-16' }))
+  await waitFor(() => expect(getAdminBookings).toHaveBeenLastCalledWith({ query: 'Phú Nhuận', status: 'confirmed', from: '2026-08-15', to: '2026-08-16', page: 1, pageSize: 20 }))
 })
 
 it('shows Vietnamese service health labels', async () => {

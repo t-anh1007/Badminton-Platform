@@ -48,6 +48,15 @@ describe('G6 HTTP contract', () => {
       .send({ amount: '100000', bankCode: 'VCB', bankAccountNumber: '0123', bankAccountName: 'A' });
     expect(withdrawal.status).toBe(201);
     expect(withdrawal.body).toMatchObject({ amount: '100000', status: 'pending' });
+
+    await prisma.wallet.create({ data: { userId, walletType: 'personal', available: 100000n, withdrawable: 100000n } });
+    await prisma.withdrawalRequest.create({
+      data: { sellerUserId: userId, walletType: 'personal', amount: 10000n, transferCode: `WD${randomUUID().slice(0, 8)}`, bankCode: 'VCB', bankAccountNumber: '9999', bankAccountName: 'A' },
+    });
+    const providerWithdrawals = await request(app).get('/providers/me/withdrawals')
+      .set('Authorization', `Bearer ${token(userId, ['player', 'provider'])}`);
+    expect(providerWithdrawals.body).toHaveLength(1);
+    expect(providerWithdrawals.body[0]).toMatchObject({ walletType: 'business' });
   });
 
   it('player không có business wallet bị từ chối và provider không đọc được hàng Admin', async () => {

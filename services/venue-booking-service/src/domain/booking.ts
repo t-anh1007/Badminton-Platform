@@ -5,7 +5,7 @@ import { CANCELLATION_POLICY, getRefundPercentageFromSnapshot } from './cancella
 import { venueMatchContextSchema } from '@khoaluantn/shared';
 import type { MatchBookingResolutionPayload, MatchCancelledPayload } from '@khoaluantn/shared';
 import { writeOutbox } from '../lib/outbox.js';
-import type { BookingStatus } from '@prisma/client';
+import type { BookingStatus, Prisma } from '@prisma/client';
 import { vietnamDateEndExclusiveInstant, vietnamDateStartInstant } from '../lib/vietnamTime.js';
 
 /** BOK-07 bước 1 — Tạo `BOOKING(status=held)` gắn với một hold hợp lệ, chốt
@@ -452,14 +452,32 @@ export async function listMyMatchSources(userId: string) {
 export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date; page: number; pageSize: number }) {
   const query = input.query?.trim();
   const paidMatchHoldIds = (await prisma.hold.findMany({ where: { purpose: 'match' }, select: { id: true } })).map((hold) => hold.id);
-  const eligibleBookings = {
+  const eligibleBookings: Prisma.BookingWhereInput = {
     OR: [
       { status: { in: ['confirmed', 'completed'] } },
       { status: 'cancelled', cancellationReason: { not: null } },
       ...(paidMatchHoldIds.length ? [{ holdId: { in: paidMatchHoldIds } }] : []),
     ],
   };
-  const where = { source: 'marketplace' as const, AND: [eligibleBookings, ...(input.status ? [{ status: input.status }] : []), ...(query ? [{ OR: [{ court: { name: { contains: query, mode: 'insensitive' } } }, { court: { venue: { name: { contains: query, mode: 'insensitive' } } } }] }] : []), ...(input.from || input.to ? [{ startAt: { ...(input.from ? { gte: vietnamDateStartInstant(input.from) } : {}), ...(input.to ? { lt: vietnamDateEndExclusiveInstant(input.to) } : {}) } }] : [])] };
+  const filters: Prisma.BookingWhereInput[] = [eligibleBookings];
+  if (input.status) filters.push({ status: input.status });
+  if (query) {
+    filters.push({
+      OR: [
+        { court: { name: { contains: query, mode: 'insensitive' } } },
+        { court: { venue: { name: { contains: query, mode: 'insensitive' } } } },
+      ],
+    });
+  }
+  if (input.from || input.to) {
+    filters.push({
+      startAt: {
+        ...(input.from ? { gte: vietnamDateStartInstant(input.from) } : {}),
+        ...(input.to ? { lt: vietnamDateEndExclusiveInstant(input.to) } : {}),
+      },
+    });
+  }
+  const where: Prisma.BookingWhereInput = { source: 'marketplace', AND: filters };
   const [total, bookings] = await prisma.$transaction([
     prisma.booking.count({ where }),
     prisma.booking.findMany({ where, include: { court: { include: { venue: true } } }, skip: (input.page - 1) * input.pageSize, take: input.pageSize, orderBy: { startAt: 'desc' } }),

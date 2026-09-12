@@ -90,7 +90,7 @@ financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('p
 
 financeOperationsRouter.get('/providers/me/withdrawals', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
-  const rows = await prisma.withdrawalRequest.findMany({ where: { sellerUserId: userId }, orderBy: { createdAt: 'desc' } });
+  const rows = await prisma.withdrawalRequest.findMany({ where: { sellerUserId: userId, walletType: 'business' }, orderBy: { createdAt: 'desc' } });
   res.json(rows.map(serializeWithdrawal));
 }));
 
