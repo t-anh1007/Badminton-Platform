@@ -34,6 +34,7 @@ export interface RevenueRow {
 export interface WithdrawalRow {
   id: string;
   sellerUserId: string;
+  walletType: 'personal' | 'business';
   amount: string;
   paidAmount: string;
   status: string;
@@ -102,6 +103,7 @@ export interface WalletRow {
   id: string;
   walletType: string;
   available: string;
+  withdrawable: string;
   pending: string;
   reserved: string;
   currency: string;
@@ -222,9 +224,18 @@ export const createWithdrawal = (body: {
     body: JSON.stringify(body),
   });
 export const cancelMyWithdrawal = (id: string) => api(`/providers/me/withdrawals/${id}/cancel`, { method: 'POST' });
+export const getMyPersonalWithdrawals = () => api<WithdrawalRow[]>('/players/me/withdrawals');
+export const createPersonalWithdrawal = (body: { amount: string; bankCode: string; bankAccountNumber: string; bankAccountName: string }) =>
+  api<WithdrawalRow>('/players/me/withdrawals', { method: 'POST', body: JSON.stringify(body) });
+export const cancelMyPersonalWithdrawal = (id: string) => api(`/players/me/withdrawals/${id}/cancel`, { method: 'POST' });
 export const getAdminWithdrawals = () => api<WithdrawalRow[]>('/admin/withdrawals');
 export const rejectWithdrawal = (id: string, reason: string) =>
   api(`/admin/withdrawals/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+export const confirmManualWithdrawalPayout = (id: string, reason: string) =>
+  api(`/admin/withdrawals/${id}/manual-payout`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   });

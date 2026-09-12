@@ -7,7 +7,7 @@ import { DisputePanel } from '../components/DisputePanel.js'
 import { AuthForm } from '../components/AuthForm.js'
 import { ResetPasswordPage } from './ResetPasswordPage.js'
 import { SessionProvider } from '../session/SessionProvider.js'
-import { createTopupIntent, createDispute } from '../lib/financeApi.js'
+import { createTopupIntent, createDispute, createPersonalWithdrawal } from '../lib/financeApi.js'
 import { authorizeAvatarUpload, changePassword, commitAvatarUpload, register, requestPasswordReset, resendVerificationEmail, resetPassword, updateMyProfile, uploadAvatarFile, verifyEmail, verifyPasswordResetCode } from '../lib/accountApi.js'
 import { searchVenues } from '../lib/venueBookingApi.js'
 import { getMyConfirmedMatches } from '../lib/matchApi.js'
@@ -22,8 +22,11 @@ vi.mock('../lib/accountApi.js', () => ({
   login: vi.fn(), refreshSession: vi.fn(), logout: vi.fn(), requestPasswordReset: vi.fn().mockResolvedValue({ message: 'Đã gửi mã' }), verifyPasswordResetCode: vi.fn().mockResolvedValue({ resetToken: 'safe-reset-token' }), resetPassword: vi.fn().mockResolvedValue({ message: 'Đã đổi mật khẩu' }),
 }))
 vi.mock('../lib/financeApi.js', () => ({
-  getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', pending: '0', reserved: '0', currency: 'VND' }]),
+  getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', withdrawable: '120000', pending: '0', reserved: '0', currency: 'VND' }]),
   getWalletLedger: vi.fn().mockResolvedValue({ wallet: {}, entries: [] }),
+  getMyPersonalWithdrawals: vi.fn().mockResolvedValue([]),
+  createPersonalWithdrawal: vi.fn().mockResolvedValue({ id: 'pw1', amount: '100000', walletType: 'personal', status: 'pending', transferCode: 'WDP1' }),
+  cancelMyPersonalWithdrawal: vi.fn().mockResolvedValue({}),
   createTopupIntent: vi.fn().mockResolvedValue({ intentId: 'must-not-render', matchCode: 'KLTABC123', amount: '100000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '100000', matchCode: 'KLTABC123', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=100000&des=KLTABC123' } }),
   getEligibleDisputeBookings: vi.fn().mockResolvedValue([{ bookingId: 'booking-must-not-render', venueId: 'venue-id', gross: '180000', endAt: '2026-08-15T09:00:00Z', deadlineAt: '2026-08-16T09:00:00Z' }]),
   getMyDisputes: vi.fn().mockResolvedValue([]), createDispute: vi.fn().mockResolvedValue({}),
@@ -97,7 +100,7 @@ it('supports forgot password with an email code before allowing a new password',
 
 it('renders a safe top-up instruction with copy action and no intent UUID', async () => {
   render(<MemoryRouter initialEntries={['/profile?tab=wallet']}><ProfilePage /></MemoryRouter>)
-  fireEvent.click(await screen.findByRole('button', { name: 'Nạp tiền bằng SePay' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Nạp tiền' }))
   fireEvent.click(screen.getByRole('button', { name: 'Tạo mã chuyển khoản' }))
   expect(await screen.findByText('KLTABC123')).toBeInTheDocument()
   expect(screen.queryByText('must-not-render')).not.toBeInTheDocument()
@@ -123,6 +126,31 @@ it('ignores radius in list view and only applies it in map view', async () => {
 
   fireEvent.click(screen.getByRole('tab', { name: 'Bản đồ' }))
   await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20 })))
+})
+
+it('shows withdrawable personal balance and keeps both modal actions on one row', async () => {
+  render(<MemoryRouter initialEntries={['/profile?tab=wallet']}><ProfilePage /></MemoryRouter>)
+  expect(await screen.findByText('Tổng số dư')).toBeInTheDocument()
+  expect(screen.getByText('Có thể rút')).toBeInTheDocument()
+  expect(screen.getByText('120.000đ')).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Rút tiền' }))
+  const withdrawalDialog = screen.getByRole('dialog')
+  expect(within(withdrawalDialog).getByText('Chỉ tiền hoàn và tiền chuyển dư mới có thể rút.')).toHaveClass('text-danger')
+  const withdrawalActions = within(withdrawalDialog).getByTestId('personal-withdrawal-actions')
+  expect(withdrawalActions).toHaveClass('flex')
+  expect(within(withdrawalActions).getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
+  fireEvent.change(within(withdrawalDialog).getByLabelText('Số tiền rút'), { target: { value: '100000' } })
+  fireEvent.change(within(withdrawalDialog).getByLabelText('Mã ngân hàng'), { target: { value: 'VCB' } })
+  fireEvent.change(within(withdrawalDialog).getByLabelText('Số tài khoản nhận'), { target: { value: '0123' } })
+  fireEvent.change(within(withdrawalDialog).getByLabelText('Tên chủ tài khoản'), { target: { value: 'NGUYEN TUAN ANH' } })
+  fireEvent.click(within(withdrawalActions).getByRole('button', { name: 'Gửi yêu cầu rút tiền' }))
+  await waitFor(() => expect(createPersonalWithdrawal).toHaveBeenCalledWith(expect.objectContaining({ amount: '100000' })))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Nạp tiền' }))
+  const topupDialog = screen.getByRole('dialog')
+  expect(within(topupDialog).getByText('Tiền bạn chủ động nạp vào ví không thể rút về tài khoản ngân hàng.')).toHaveClass('text-danger')
+  expect(within(topupDialog).getByTestId('personal-topup-actions')).toHaveClass('flex')
 })
 
 it('shows a confirmed match in booking history with a link for the participant', async () => {
