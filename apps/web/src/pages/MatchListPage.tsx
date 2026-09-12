@@ -17,6 +17,7 @@ import { RouteState } from '../components/RouteState.js';
 import { configureMatchSkillRange, createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -149,6 +150,7 @@ export function MatchListPage() {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [area, skill, priceMin, priceMax, datePreset, customDate]);
+  useLiveDataRefresh(load);
 
   useEffect(() => {
     if (loading || !createdMatchId || !matches.some((match) => match.id === createdMatchId)) return;

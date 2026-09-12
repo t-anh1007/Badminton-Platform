@@ -14,6 +14,7 @@ import {
 } from '../lib/financeApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { SepayPayBox } from '../components/SepayPayBox.js';
+import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -70,6 +71,16 @@ export function MatchDetailPage() {
   useEffect(() => {
     void load();
   }, [id]);
+  useLiveDataRefresh(load);
+  useEffect(() => {
+    // PaymentCompleted is processed asynchronously by finance → matchmaking →
+    // booking. The organizer's tab did not initiate that request, so it has no
+    // local mutation event to refresh its snapshot. Poll only while that saga
+    // is advancing, then stop once the match reaches a stable state.
+    if (!detail || (!detail.paymentPending && detail.status !== 'filled')) return;
+    const timer = window.setInterval(() => { void load(); }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [detail?.id, detail?.paymentPending, detail?.status]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);

@@ -23,7 +23,7 @@ trong khi kèo cần thời gian dài hơn để tìm đối → hết 10 phút 
 | DM4 | **Cọc = 50% giá slot = phần của chủ kèo.** Có đối: đối trả 50% còn lại → confirmed. Không đối: hoàn 50% vào ví. Không thu hai lần, không bước top-up. | ✅ |
 | DM5 | **Hạn giữ X = lúc tạo + H**, H theo bậc thời gian dẫn L (xem §3). | ✅ |
 | DM6 | **Cửa sổ đối trả tiền = 10 phút** ngay sau khi bấm tham gia (không vượt X); không qua organizer duyệt. | ✅ D50 |
-| DM7 | **Trần 3 kèo đang giữ slot đồng thời / chủ kèo.** | ✅ |
+| DM7 | **Không giới hạn số kèo chủ kèo được giữ slot đồng thời.** | ✅ (PO, 2026-09-13) |
 | DM8 | Mọi khoản hoàn → **cộng vào ví** (SePay không có API refund — hard-rule). | ✅ |
 | DM9 | Chủ kèo **tự hủy khi CHƯA có đối** → **hoàn 100% cọc** vào ví. | ✅ |
 | DM10 | Chủ kèo **tự hủy SAU khi confirmed** → áp **cancellation policy** cho chủ kèo (mất theo % thời gian); **đối được hoàn 100%** vào ví. | ✅ |
@@ -113,7 +113,7 @@ Gọi **L = giờ đá − lúc tạo** (luôn ≥ 24h theo DM3). **X = lúc t�
 ## 5. Luồng chi tiết theo bước
 
 ### 5.1 Tạo kèo (chủ kèo)
-1. FE gọi tạo kèo với `courtId + startAt + duration` (slot **chưa đặt**), kiểm DM3 (≥24h) & DM7 (≤3 kèo đang giữ).
+1. FE gọi tạo kèo với `courtId + startAt + duration` (slot **chưa đặt**), kiểm DM3 (≥24h); không áp trần số kèo đang giữ.
 2. venue-booking tạo **hold ngắn 10 phút** (checkout, tái dùng BOK-06) để chặn slot trong lúc trả cọc.
 3. matchmaking tạo Match `awaiting_deposit`, tính `feePerSlot=price/2`, `deposit=price/2`, `X`.
 4. finance phát hành **VietQR cọc = 50%**. Chủ kèo quét trả trong 10 phút.
@@ -166,8 +166,7 @@ Gọi **L = giờ đá − lúc tạo** (luôn ≥ 24h theo DM3). **X = lúc t�
   và bước **gia hạn hold ngắn → X** khi `PaymentCompleted(deposit)`.
 - ⚠️ **Phát hiện M2**: `createHold` xóa mọi hold cũ của user (A-BOK-01: 1 hold/user) → phải thêm
   cột **`Hold.purpose` enum `{ checkout, match }`** (mặc định `checkout`). Quy tắc 1-hold/user chỉ áp
-  cho `checkout`; match-hold miễn trừ. Trần ≤3 (DM7) enforce ở **matchmaking** (đếm match awaiting_* của
-  organizer), không ở venue.
+  cho `checkout`; match-hold miễn trừ. Không áp trần số match-hold đồng thời ở matchmaking hoặc venue (DM7).
 
 ### 6.3 finance ([schema.prisma](../../services/finance-service/prisma/schema.prisma)) — phần lớn TÁI DÙNG
 - `MatchFunding` (collecting→settling→settled→cancelled) và `MatchContribution`

@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_VENUE_BOOKING_URL ?? '/api/venue';
 
 function accessToken(): string | null {
@@ -16,6 +17,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu.');
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

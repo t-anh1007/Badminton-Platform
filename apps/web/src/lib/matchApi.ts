@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_MATCHMAKING_URL ?? '/api/matchmaking';
 
 // DM3 (PLAN_MATCH-DEPOSIT): khớp MIN_LEAD_HOURS ở matchmaking-service — chỉ tạo kèo khi slot còn >= 24 giờ.
@@ -33,6 +34,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     error?: { message?: string; code?: string };
   };
   if (!response.ok) throw new MatchApiError(body.error?.message ?? 'Không thể xử lý yêu cầu kèo.', response.status, body.error?.code);
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

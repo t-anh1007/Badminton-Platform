@@ -14,6 +14,7 @@ import {
 } from '../../lib/venueBookingApi';
 import { ImageUploadPicker, type UploadImageState } from '../../components/CommunityComposer';
 import { LocationPicker, type PickedLocation } from '../../components/map/LocationPicker';
+import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 
 interface VenueForm { name: string; address: string; amenities: string }
 interface CourtSetup { weekdays: number[]; openTime: string; closeTime: string; hourlyPrice: string; effectiveFrom: string }
@@ -70,6 +71,7 @@ export function ManageVenuesPage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tải danh sách cơ sở.'); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useLiveDataRefresh(() => { if (!open) return load(); });
 
   const change = (key: keyof VenueForm, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));

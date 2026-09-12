@@ -1,4 +1,5 @@
 import type { SkillTier } from './matchApi';
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 
 const BASE_URL = import.meta.env.VITE_MATCHMAKING_URL ?? '/api/matchmaking';
 function token(): string | null {
@@ -18,6 +19,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     error?: { message?: string };
   };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể tải hồ sơ trình độ.');
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

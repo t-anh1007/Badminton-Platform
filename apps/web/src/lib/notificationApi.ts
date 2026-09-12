@@ -1,9 +1,11 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_ACCOUNT_URL ?? '/api/account';
 const token = () => typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init?.headers } });
   const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể tải thông báo.');
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 export type NotificationRole = 'player' | 'provider' | 'admin';
@@ -25,7 +27,21 @@ export function openNotificationStream(
     if (!response.ok || !response.body) throw new Error('Không thể kết nối thông báo realtime.');
     onOpen?.();
     const reader = response.body.getReader(); const decoder = new TextDecoder(); let pending = '';
-    while (!controller.signal.aborted) { const { value, done } = await reader.read(); if (done) break; pending += decoder.decode(value, { stream: true }); if (pending.includes('event: notification-changed')) { pending = ''; onChange(); } }
+    while (!controller.signal.aborted) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      pending += decoder.decode(value, { stream: true });
+      let boundary = pending.indexOf('\n\n');
+      while (boundary >= 0) {
+        const frame = pending.slice(0, boundary);
+        pending = pending.slice(boundary + 2);
+        boundary = pending.indexOf('\n\n');
+        if (/^event: notification-changed$/m.test(frame)) {
+          onChange();
+          publishDataInvalidation('notification');
+        }
+      }
+    }
   }).catch(() => undefined).finally(() => {
     if (!controller.signal.aborted) onDisconnect?.();
   });

@@ -18,9 +18,10 @@ app.listen(env.port, () => {
   console.log(`[${SERVICE_NAME}] listening on :${env.port}`);
 });
 
-// Việc nền được buông sau một khoảng không có request để Railway ru ngủ được
-// service (relay/AMQP/pool DB mở liên tục thì nó không bao giờ ngủ). Request
-// kế tiếp dựng lại; event phát ra lúc ngủ nằm yên trong queue durable.
+// Finance consumes durable monetary events such as BookingCancelled. Unlike an
+// HTTP request, a RabbitMQ delivery cannot wake a released Railway service, so
+// its consumer must remain active; otherwise wallet refunds remain queued until
+// a later finance request arrives.
 startWithIdleRelease({
   label: SERVICE_NAME,
   start: async () => [
@@ -30,4 +31,5 @@ startWithIdleRelease({
     await bootstrapFinanceRealtimeConsumer(financeRealtimeHub),
   ],
   onRelease: () => prisma.$disconnect(),
+  idleMs: 0,
 });

@@ -10,6 +10,7 @@ import { FinanceActivityList } from './FinanceActivityList.js';
 import { FinanceOverview } from './FinanceOverview.js';
 import { useFinanceRealtime } from './useFinanceRealtime.js';
 import { WithdrawalModal } from './WithdrawalModal.js';
+import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 
 const ACTIVE_STATUSES = new Set(['pending', 'partially_paid']);
 const vietnamDayBoundary = (date: string, edge: 'start' | 'end') => `${date}T${edge === 'start' ? '00:00:00.000' : '23:59:59.999'}+07:00`;
@@ -50,6 +51,7 @@ export function ManageFinancePage() {
 
   useEffect(() => { void load(); /* Initial finance snapshot only. */ }, []);
   const { status } = useFinanceRealtime(() => load());
+  useLiveDataRefresh(() => { if (!withdrawOpen) return load(); });
   const activeWithdrawal = useMemo(() => withdrawals.find((row) => ACTIVE_STATUSES.has(row.status)) ?? null, [withdrawals]);
   const today = useMemo(() => revenue.reduce((total, row) => total + BigInt(row.net), 0n), [revenue]);
 

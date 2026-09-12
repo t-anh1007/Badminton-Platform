@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_COMMUNITY_URL ?? '/api/community';
 
 export type ContentStatus = 'published' | 'hidden' | 'removed';
@@ -121,6 +122,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
       response.status === 403 ? 'Bạn không có quyền thực hiện thao tác này.' : 'Không thể xử lý yêu cầu cộng đồng.';
     throw new CommunityApiError(body.error?.message ?? fallback, response.status, body.error?.code);
   }
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

@@ -1,3 +1,4 @@
+import { publishDataInvalidation } from '../realtime/dataInvalidation.js';
 const BASE_URL = import.meta.env.VITE_FINANCE_URL ?? '/api/finance';
 
 function accessToken(): string | null {
@@ -18,6 +19,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     error?: { message?: string };
   };
   if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu tài chính.');
+  if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
 

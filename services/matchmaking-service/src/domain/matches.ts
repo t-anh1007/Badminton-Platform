@@ -37,7 +37,6 @@ export interface CreateMatchInput {
 // PLAN_MATCH-DEPOSIT (kèo đơn, cọc). Đặt thành config để chỉnh không rải rác.
 const HOUR_MS = 3_600_000;
 export const MIN_LEAD_HOURS = 24;      // DM3: chỉ tạo kèo khi slot còn >= 24h
-export const MAX_ACTIVE_MATCHES = 3;   // DM7: trần kèo đang giữ slot / chủ kèo
 
 /** DM5 — hạn tìm đối X theo thời gian dẫn L (giờ). */
 export function computeMatchDeadline(now: Date, startAt: Date): Date {
@@ -62,14 +61,6 @@ export async function createMatch(
   }
   if (!input.holdId) {
     throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ slot trước khi tạo kèo.');
-  }
-
-  // DM7: trần số kèo đang giữ slot đồng thời của chủ kèo.
-  const activeCount = await prisma.match.count({
-    where: { organizerUserId, status: { in: ['awaiting_deposit', 'open', 'filled'] } },
-  });
-  if (activeCount >= MAX_ACTIVE_MATCHES) {
-    throw new AppError(409, 'MATCH_ACTIVE_LIMIT', `Bạn đang giữ ${MAX_ACTIVE_MATCHES} kèo; hãy hoàn tất hoặc hủy bớt trước.`);
   }
 
   const bookingId = await venueBookingClient.createBookingFromHold(input.holdId, authorization);
