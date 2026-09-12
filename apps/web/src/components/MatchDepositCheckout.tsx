@@ -7,6 +7,27 @@ import { Button, SelectInput } from './ui.js'
 
 type Phase = 'selecting' | 'paying' | 'confirming' | 'expired' | 'failed'
 
+const ORGANIZER_CONTRIBUTION_RETRY_MS = 500
+const ORGANIZER_CONTRIBUTION_RETRY_ATTEMPTS = 5
+
+function isOrganizerContributionInitializing(error: unknown) {
+  return error instanceof Error && error.message === 'Không tìm thấy phần góp organizer.'
+}
+
+async function retryOrganizerContribution<T>(request: () => Promise<T>): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < ORGANIZER_CONTRIBUTION_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await request()
+    } catch (error) {
+      lastError = error
+      if (!isOrganizerContributionInitializing(error) || attempt === ORGANIZER_CONTRIBUTION_RETRY_ATTEMPTS - 1) throw error
+      await new Promise<void>((resolve) => window.setTimeout(resolve, ORGANIZER_CONTRIBUTION_RETRY_MS))
+    }
+  }
+  throw lastError
+}
+
 export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid, onExpired }: { matchId: string; fullPrice: string; holdExpiresAt: string; onPaid: (matchId: string) => void; onExpired: () => void }) {
   const [method, setMethod] = useState<'balance' | 'sepay'>('balance')
   const [phase, setPhase] = useState<Phase>('selecting')
@@ -70,8 +91,8 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
   const pay = async () => {
     updatePhase('paying'); setError('')
     try {
-      if (method === 'balance') await payMatchOrganizerContributionBalance(matchId)
-      else setSepay(await createMatchOrganizerContributionSepayIntent(matchId))
+      if (method === 'balance') await retryOrganizerContribution(() => payMatchOrganizerContributionBalance(matchId))
+      else setSepay(await retryOrganizerContribution(() => createMatchOrganizerContributionSepayIntent(matchId)))
       if (!mounted.current || expired.current) return
       updatePhase('confirming')
       if (method === 'sepay') {

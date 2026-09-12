@@ -33,7 +33,7 @@ approved: 2026-08-05
 | BR-ACC-03 | Tài khoản chưa xác minh email không đăng nhập được. Xác minh là bước bắt buộc giữa đăng ký và đăng nhập. |
 | BR-ACC-04 | Mật khẩu tối thiểu 8 ký tự, phải có ít nhất một chữ và một số. Lưu dưới dạng băm, không bao giờ lưu bản rõ. |
 | BR-ACC-05 | Mã xác minh gồm 6 chữ số, hiệu lực 15 phút, dùng một lần. Tối đa 3 lần gửi lại trong 1 giờ cho cùng một tài khoản. |
-| BR-ACC-06 | Token đặt lại mật khẩu hiệu lực 30 phút, dùng một lần, vô hiệu ngay khi phát hành token mới cho cùng tài khoản. |
+| BR-ACC-06 | Mã đặt lại mật khẩu gồm 6 chữ số, hiệu lực 5 phút, dùng một lần. Yêu cầu mới vô hiệu ngay mã cũ cho cùng tài khoản. |
 | BR-ACC-07 | **Đặt lại** mật khẩu (ACC-05) thành công thu hồi **toàn bộ** refresh token, kể cả phiên vừa dùng để đặt lại. Lý do: người dùng đến ACC-05 khi đã mất kiểm soát mật khẩu, không có cơ sở để coi phiên nào là đáng tin. |
 | BR-ACC-13 | **Đổi** mật khẩu (ACC-06) thành công thu hồi refresh token của **mọi thiết bị khác**, giữ lại phiên hiện tại. Lý do: người dùng vừa chứng minh biết mật khẩu cũ, nên phiên đang thao tác là đáng tin. |
 | BR-ACC-08 | Sai mật khẩu 5 lần trong 15 phút với cùng một email sẽ khóa tạm việc đăng nhập 15 phút. Khóa tạm này khác `USER.status = locked`. |
@@ -203,13 +203,13 @@ active ──(ACC-08 khóa)──> locked ──(ACC-08 khôi phục)──> act
 | User Story | Là người dùng quên mật khẩu, tôi muốn đặt lại qua email, để lấy lại tài khoản |
 | Điều kiện trước | Chưa đăng nhập |
 | Sự kiện kích hoạt | Gửi yêu cầu quên mật khẩu |
-| Workflow chính | 1. Nhập email → 2. Nếu tài khoản tồn tại, sinh `PASSWORD_RESET` và gửi liên kết chứa token → 3. Người dùng mở liên kết, nhập mật khẩu mới → 4. Kiểm tra token còn hiệu lực và mật khẩu đạt BR-ACC-04 → 5. Cập nhật băm mật khẩu, đánh dấu token đã dùng → 6. Thu hồi toàn bộ refresh token → 7. Yêu cầu đăng nhập lại |
-| Luồng thay thế | Yêu cầu lần hai khi token cũ chưa dùng: token cũ bị vô hiệu ngay, chỉ token mới dùng được |
-| Luồng lỗi | Email không tồn tại → vẫn hiển thị cùng thông báo theo BR-ACC-10, không gửi email; Token hết hạn hoặc đã dùng → yêu cầu tạo lại; Mật khẩu mới không đạt → báo lỗi cụ thể |
+| Workflow chính | 1. Nhập email → 2. Nếu tài khoản tồn tại, sinh `PASSWORD_RESET` và gửi mã 6 chữ số → 3. Người dùng nhập đúng mã → 4. Hệ thống cho phép nhập mật khẩu mới → 5. Kiểm tra mật khẩu đạt BR-ACC-04 → 6. Cập nhật băm mật khẩu, đánh dấu yêu cầu đã dùng → 7. Thu hồi toàn bộ refresh token → 8. Yêu cầu đăng nhập lại |
+| Luồng thay thế | Yêu cầu lần hai khi mã cũ chưa dùng: mã cũ bị vô hiệu ngay, chỉ mã mới dùng được |
+| Luồng lỗi | Email không tồn tại → vẫn hiển thị cùng thông báo theo BR-ACC-10, không gửi email; Mã hết hạn hoặc đã dùng → yêu cầu tạo lại; Mật khẩu mới không đạt → báo lỗi cụ thể |
 | Business Rules | BR-ACC-04, BR-ACC-06, BR-ACC-07, BR-ACC-10 |
 | Trạng thái liên quan | `PASSWORD_RESET: pending → consumed\|expired` |
 | Quyền hạn | Công khai; quyền thật nằm ở việc kiểm soát hòm thư |
-| Dữ liệu vào | email; sau đó token và mật khẩu mới |
+| Dữ liệu vào | email; sau đó mã 6 chữ số và mật khẩu mới |
 | Dữ liệu ra | Thông báo trung tính; kết quả đặt lại |
 | Phụ thuộc | ACC-01 |
 | Trong phạm vi | Đặt lại qua email |
@@ -218,11 +218,11 @@ active ──(ACC-08 khóa)──> locked ──(ACC-08 khôi phục)──> act
 
 **Acceptance Criteria**
 
-- `AC-ACC-05-1` — **Given** email tồn tại, **When** yêu cầu đặt lại mật khẩu, **Then** hệ thống gửi một liên kết chứa token hiệu lực 30 phút.
+- `AC-ACC-05-1` — **Given** email tồn tại, **When** yêu cầu đặt lại mật khẩu, **Then** hệ thống gửi một mã 6 chữ số hiệu lực 5 phút.
 - `AC-ACC-05-2` — **Given** email không tồn tại, **When** yêu cầu đặt lại, **Then** thông báo hiển thị giống hệt trường hợp email tồn tại và không email nào được gửi.
-- `AC-ACC-05-3` — **Given** token còn hiệu lực, **When** đặt mật khẩu mới hợp lệ, **Then** mật khẩu được cập nhật và **toàn bộ** refresh token bị thu hồi, kể cả phiên vừa thực hiện thao tác đặt lại; người dùng phải đăng nhập lại.
-- `AC-ACC-05-4` — **Given** token đã dùng một lần, **When** dùng lại token đó, **Then** hệ thống từ chối.
-- `AC-ACC-05-5` — **Given** đã yêu cầu đặt lại lần thứ hai, **When** dùng token của lần thứ nhất, **Then** hệ thống từ chối.
+- `AC-ACC-05-3` — **Given** mã còn hiệu lực và được xác minh đúng, **When** đặt mật khẩu mới hợp lệ, **Then** mật khẩu được cập nhật và **toàn bộ** refresh token bị thu hồi, kể cả phiên vừa thực hiện thao tác đặt lại; người dùng phải đăng nhập lại.
+- `AC-ACC-05-4` — **Given** mã đã xác minh một lần, **When** dùng lại mã đó, **Then** hệ thống từ chối.
+- `AC-ACC-05-5` — **Given** đã yêu cầu đặt lại lần thứ hai, **When** dùng mã của lần thứ nhất, **Then** hệ thống từ chối.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 5 AC; kiểm thử thủ công rằng phản hồi ở AC-ACC-05-2 không khác biệt về nội dung lẫn thời gian phản hồi ở mức nhận biết được.
 

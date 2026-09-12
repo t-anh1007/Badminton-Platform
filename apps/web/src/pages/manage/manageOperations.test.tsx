@@ -14,9 +14,9 @@ it('loads replacement choices and requires a provider-fault reason before cancel
   render(<ManageIncidentsPage />)
   const select = await screen.findByLabelText('Booking đã chọn'); await screen.findByRole('option', { name: /–/ }); fireEvent.change(select, { target: { value: 'b1' } }); fireEvent.click(screen.getByRole('button', { name: 'Tải sân thay thế' }))
   await waitFor(() => expect(api.getReplacementCourts).toHaveBeenCalledWith('b1'))
-  expect(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })).toBeDisabled()
-  fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
-  fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
+  fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
+  fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled()
+  fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); fireEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy booking' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
 })
 it('shows today’s owner snapshot and creates a withdrawal from the single primary action', async () => {
   render(<ManageFinancePage />); await screen.findByText('Số dư có thể rút')

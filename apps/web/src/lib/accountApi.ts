@@ -1,5 +1,17 @@
 const BASE_URL = import.meta.env.VITE_ACCOUNT_URL ?? '/api/account';
 
+export class AccountApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'AccountApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function accessToken(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
@@ -10,8 +22,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
   });
-  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
-  if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý tài khoản.');
+  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string; code?: string } };
+  if (!response.ok) throw new AccountApiError(body.error?.message ?? 'Không thể xử lý tài khoản.', response.status, body.error?.code);
   return body;
 }
 
@@ -44,6 +56,8 @@ export const logout = (refreshToken: string) =>
   api<{ message: string }>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
 export const requestPasswordReset = (email: string) =>
   api<{ message: string }>('/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) });
+export const verifyPasswordResetCode = (body: { email: string; code: string }) =>
+  api<{ resetToken: string }>('/auth/password/verify', { method: 'POST', body: JSON.stringify(body) });
 export const resetPassword = (body: { token: string; newPassword: string }) =>
   api<{ message: string }>('/auth/password/reset', { method: 'POST', body: JSON.stringify(body) });
 export const changePassword = (body: { currentPassword: string; newPassword: string; currentRefreshToken?: string }) =>

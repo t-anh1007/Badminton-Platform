@@ -13,7 +13,7 @@ const sepayIntent = { intentId: 'pi1', matchCode: 'KLTORG01', amount: '60000', p
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z'))
-  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', pending: '0', reserved: '0', currency: 'VND' }])
+  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', withdrawable: '0', pending: '0', reserved: '0', currency: 'VND' }])
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
 
@@ -40,6 +40,23 @@ it('shows a balance error and allows retrying', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Thanh toán số dư' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Số dư không đủ.')
   expect(screen.getByRole('button', { name: 'Thanh toán số dư' })).toBeEnabled()
+})
+
+it('retries the organizer deposit while finance initializes the contribution', async () => {
+  vi.mocked(payMatchOrganizerContributionBalance)
+    .mockRejectedValueOnce(new Error('Không tìm thấy phần góp organizer.'))
+    .mockResolvedValue({} as never)
+  vi.mocked(waitForMatchOpen).mockResolvedValue({ status: 'open' } as never)
+  const onPaid = vi.fn()
+  render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={onPaid} onExpired={vi.fn()} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Thanh toán số dư' }))
+  await Promise.resolve()
+  await vi.advanceTimersByTimeAsync(500)
+
+  await waitFor(() => expect(payMatchOrganizerContributionBalance).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(onPaid).toHaveBeenCalledWith('m1'))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
 it('redirects after balance payment under React StrictMode', async () => {

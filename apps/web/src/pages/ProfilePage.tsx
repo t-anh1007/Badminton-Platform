@@ -4,10 +4,10 @@ import { BookingCancellationPanel } from '../components/BookingCancellationPanel
 import { presentLedgerEntry } from '../lib/presenters';
 import { DisputePanel } from '../components/DisputePanel';
 import { Avatar, Button, EmptyState, Modal, SegmentedControl, SelectInput, SurfaceCard, Tabs, TextInput } from '../components/ui';
-import { MetricCard } from '../components/courtin/MetricCard';
 import { authorizeAvatarUpload, changePassword, commitAvatarUpload, getMyProfile, updateMyProfile, uploadAvatarFile, type ProfileResult } from '../lib/accountApi';
-import { createTopupIntent, getMyWallets, getWalletLedger, type SepayIntent, type WalletLedgerEntry, type WalletRow } from '../lib/financeApi';
+import { cancelMyPersonalWithdrawal, createPersonalWithdrawal, createTopupIntent, getMyPersonalWithdrawals, getMyWallets, getWalletLedger, type SepayIntent, type WalletLedgerEntry, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
 import { SepayPayBox } from '../components/SepayPayBox.js';
+import { PersonalWithdrawalModal } from '../components/PersonalWithdrawalModal.js';
 import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from '../lib/venueBookingApi';
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
@@ -39,20 +39,27 @@ export function ProfilePage() {
   const [topupIntent, setTopupIntent] = useState<SepayIntent | null>(null);
   const [topupBaseline, setTopupBaseline] = useState('0');
   const [topupState, setTopupState] = useState<'idle' | 'pending' | 'completed' | 'timeout'>('idle');
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [form, setForm] = useState({ displayName: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
+  const [passwordNotice, setPasswordNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const loadPage = useCallback(async () => {
     setPageLoading(true);
     setPageError('');
     try {
-      const [nextProfile, nextWallets, nextUpcoming, nextPast, nextMatches] = await Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory(), getMyConfirmedMatches()]);
+      const [nextProfile, nextWallets, nextUpcoming, nextPast, nextMatches, nextWithdrawals] = await Promise.all([getMyProfile(), getMyWallets(), getMyUpcomingBookings(), getMyBookingHistory(), getMyConfirmedMatches(), getMyPersonalWithdrawals()]);
         setProfile(nextProfile);
         setWallets(nextWallets);
         setUpcoming(nextUpcoming);
         setPast(nextPast);
         setConfirmedMatches(nextMatches.matches);
+        setWithdrawals(nextWithdrawals);
         setForm({
           displayName: nextProfile.playerProfile?.displayName ?? '',
           phone: nextProfile.phone ?? '',
@@ -109,12 +116,23 @@ export function ProfilePage() {
         newPassword: password.next,
         currentRefreshToken: localStorage.getItem('refreshToken') ?? undefined,
       });
-      setPasswordOpen(false);
       setPassword({ current: '', next: '' });
-      setMessage('Đổi mật khẩu thành công.');
+      setPasswordNotice({ tone: 'success', text: 'Đổi mật khẩu thành công.' });
     } catch (caught) {
-      setMessage((caught as Error).message);
+      setPasswordNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'Không thể đổi mật khẩu.' });
     }
+  };
+
+  const openPasswordModal = () => {
+    setPasswordNotice(null);
+    setPasswordOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setPasswordNotice(null);
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setPasswordOpen(false);
   };
 
   const createTopup = async () => {
@@ -130,6 +148,28 @@ export function ProfilePage() {
     } catch (caught) {
       setMessage((caught as Error).message);
     }
+  };
+
+  const submitWithdrawal = async (body: { amount: string; bankCode: string; bankAccountNumber: string; bankAccountName: string }) => {
+    setWithdrawBusy(true);
+    try {
+      await createPersonalWithdrawal(body);
+      const [nextWallets, nextWithdrawals] = await Promise.all([getMyWallets(), getMyPersonalWithdrawals()]);
+      setWallets(nextWallets); setWithdrawals(nextWithdrawals); setWithdrawOpen(false);
+      setMessage('Đã gửi yêu cầu rút tiền.');
+    } catch (caught) { setMessage((caught as Error).message); }
+    finally { setWithdrawBusy(false); }
+  };
+
+  const cancelWithdrawal = async (id: string) => {
+    setWithdrawBusy(true);
+    try {
+      await cancelMyPersonalWithdrawal(id);
+      const [nextWallets, nextWithdrawals] = await Promise.all([getMyWallets(), getMyPersonalWithdrawals()]);
+      setWallets(nextWallets); setWithdrawals(nextWithdrawals); setWithdrawOpen(false);
+      setMessage('Đã hủy yêu cầu rút tiền.');
+    } catch (caught) { setMessage((caught as Error).message); }
+    finally { setWithdrawBusy(false); }
   };
 
   useEffect(() => {
@@ -178,6 +218,7 @@ export function ProfilePage() {
     period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date(),
   );
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
+  const activePersonalWithdrawal = withdrawals.find((row) => row.status === 'pending' || row.status === 'partially_paid') ?? null;
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
 
   if (pageLoading) return <main className="page-container py-8 sm:py-12"><RouteState variant="loading" title="Đang tải hồ sơ và giao dịch" /></main>;
@@ -206,7 +247,7 @@ export function ProfilePage() {
               <p><span className="text-ink-500">Trình độ</span><span className="float-right">Chưa cập nhật</span></p>
             </div>
             <Button tone="secondary" className="mt-5 w-full" onClick={() => setEditOpen(true)}>Cập nhật thông tin</Button>
-            <Button tone="ghost" className="mt-2 w-full" onClick={() => setPasswordOpen(true)}>Đổi mật khẩu</Button>
+            <Button tone="ghost" className="mt-2 w-full" onClick={openPasswordModal}>Đổi mật khẩu</Button>
           </SurfaceCard>
         </aside>
 
@@ -239,8 +280,14 @@ export function ProfilePage() {
 
           {tab === 'wallet' && (
             <div className="mt-6">
-              <div className="grid gap-4 sm:grid-cols-2"><MetricCard label="Ví cá nhân" value={money(personal?.available)} /></div>
-              <Button className="mt-4" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền bằng SePay</Button>
+              <SurfaceCard>
+                <p className="courtin-kicker">Ví cá nhân</p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-line">
+                  <div><p className="text-sm text-ink-500">Tổng số dư</p><p className="text-figures mt-1 text-2xl font-medium">{money(personal?.available)}</p></div>
+                  <div className="sm:pl-5"><p className="text-sm text-ink-500">Có thể rút</p><p className="text-figures mt-1 text-xl font-medium text-success">{money(personal?.withdrawable)}</p><p className="mt-1 text-xs text-ink-500">Từ hoàn tiền và tiền chuyển dư</p></div>
+                </div>
+                <div className="mt-5 flex gap-2 border-t border-line pt-4"><Button className="flex-1" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền</Button><Button tone="secondary" className="flex-1" onClick={() => setWithdrawOpen(true)}>Rút tiền</Button></div>
+              </SurfaceCard>
               <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
             </div>
           )}
@@ -258,16 +305,18 @@ export function ProfilePage() {
         </form>
       </Modal>
 
-      <Modal open={passwordOpen} title="Đổi mật khẩu" onClose={() => setPasswordOpen(false)}>
+      <Modal open={passwordOpen} title="Đổi mật khẩu" onClose={closePasswordModal}>
         <form onSubmit={savePassword} className="grid gap-4">
-          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu hiện tại<TextInput type="password" required value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu mới<TextInput type="password" required minLength={8} value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} /></label>
+          {passwordNotice && <p role={passwordNotice.tone === 'error' ? 'alert' : 'status'} aria-live="polite" className={`rounded-xl p-3 text-sm ${passwordNotice.tone === 'error' ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'}`}>{passwordNotice.text}</p>}
+          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu hiện tại<div className="relative"><TextInput type={showCurrentPassword ? 'text' : 'password'} required value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} className="pr-12" /><button type="button" aria-label={showCurrentPassword ? 'Ẩn mật khẩu hiện tại' : 'Hiển thị mật khẩu hiện tại'} aria-pressed={showCurrentPassword} onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-[var(--radius-control)] text-ink-500 hover:text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">{showCurrentPassword ? <><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 4.2A10.7 10.7 0 0112 4c5.5 0 9.3 4.6 10 8-.3 1.4-1.2 3.1-2.7 4.6M6.2 6.2C4.2 7.8 2.7 10.1 2 12c.7 3.4 4.5 8 10 8 1.4 0 2.7-.3 3.8-.8"/></> : <><path d="M2 12s3.5-8 10-8 10 8 10 8-3.5 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>}</svg></button></div></label>
+          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu mới<div className="relative"><TextInput type={showNewPassword ? 'text' : 'password'} required minLength={8} value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} className="pr-12" /><button type="button" aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiển thị mật khẩu mới'} aria-pressed={showNewPassword} onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-[var(--radius-control)] text-ink-500 hover:text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">{showNewPassword ? <><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 4.2A10.7 10.7 0 0112 4c5.5 0 9.3 4.6 10 8-.3 1.4-1.2 3.1-2.7 4.6M6.2 6.2C4.2 7.8 2.7 10.1 2 12c.7 3.4 4.5 8 10 8 1.4 0 2.7-.3 3.8-.8"/></> : <><path d="M2 12s3.5-8 10-8 10 8 10 8-3.5 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>}</svg></button></div></label>
           <Button type="submit">Đổi mật khẩu</Button>
         </form>
       </Modal>
 
       <Modal open={topupOpen} title="Nạp tiền bằng SePay" onClose={() => { setTopupOpen(false); if (topupState === 'completed') { setTopupIntent(null); setTopupState('idle'); } }}>
         <div className="grid gap-4">
+          <p className="text-sm font-semibold text-danger">Tiền bạn chủ động nạp vào ví không thể rút về tài khoản ngân hàng.</p>
           {topupState === 'completed' ? (
             <div role="status" aria-live="assertive" className="rounded-xl border-2 border-green-500 bg-green-50 p-6 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-3xl text-white" aria-hidden="true">✓</div>
@@ -279,12 +328,13 @@ export function ProfilePage() {
           ) : (
             <>
               <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
-              <Button onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button>
+              <div className="flex gap-2" data-testid="personal-topup-actions"><Button tone="secondary" className="flex-1" onClick={() => setTopupOpen(false)}>Hủy</Button><Button className="flex-1" onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button></div>
               {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={topupIntent.payment} /><p className="mt-2 text-sm text-green-700">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
             </>
           )}
         </div>
       </Modal>
+      <PersonalWithdrawalModal open={withdrawOpen} withdrawable={personal?.withdrawable ?? '0'} active={activePersonalWithdrawal} busy={withdrawBusy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />
     </main>
   );
 }

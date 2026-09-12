@@ -108,9 +108,23 @@ model Ticket {
   status          TicketStatus @default(open)
   createdAt       DateTime     @default(now()) @db.Timestamptz(3)
   messages        TicketMessage[]
+  evidence        TicketImage[]
 
   @@index([requesterUserId, status])
   @@map("tickets")
+}
+
+model TicketImage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  objectKey String
+  position  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, position])
+  @@unique([ticketId, objectKey])
+  @@index([ticketId, position])
+  @@map("ticket_images")
 }
 
 model TicketMessage {

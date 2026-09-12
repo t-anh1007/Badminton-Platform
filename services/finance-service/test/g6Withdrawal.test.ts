@@ -2,14 +2,30 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma.js';
 import { seedBusinessBalance } from './helpers.js';
-import { cancelWithdrawal, createWithdrawal, rejectWithdrawal } from '../src/domain/withdrawal.js';
+import { cancelWithdrawal, createWithdrawal, confirmManualWithdrawalPayout, rejectWithdrawal } from '../src/domain/withdrawal.js';
 import { handleOutgoingTransfer } from '../src/domain/outgoingTransfer.js';
+import { assignOutgoingEvent } from '../src/domain/reconciliation.js';
 
 const bank = { bankCode: 'VCB', bankAccountNumber: '0123456789', bankAccountName: 'NGUYEN VAN A' };
-
 afterAll(async () => prisma.$disconnect());
 
 describe('FIN-10 — yêu cầu rút số dư khả dụng', () => {
+  it('player reserves only withdrawable personal balance and cancellation restores it', async () => {
+    const userId = randomUUID();
+    const wallet = await prisma.wallet.create({
+      data: { userId, walletType: 'personal', available: 100000n, withdrawable: 80000n },
+    });
+
+    const request = await createWithdrawal(userId, { amount: 60000n, ...bank }, 'personal');
+    const reserved = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([request.walletType, reserved.available, reserved.withdrawable, reserved.reserved])
+      .toEqual(['personal', 40000n, 20000n, 60000n]);
+
+    await cancelWithdrawal(userId, request.id, 'personal');
+    const restored = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([restored.available, restored.withdrawable, restored.reserved])
+      .toEqual([100000n, 80000n, 0n]);
+  });
   it('AC-FIN-10-1: available -> reserved trong cùng transaction, tổng không đổi và không tạo ledger', async () => {
     const userId = randomUUID();
     const wallet = await seedBusinessBalance(userId, 1_000_000n);
@@ -62,6 +78,36 @@ describe('FIN-10 — yêu cầu rút số dư khả dụng', () => {
 });
 
 describe('FIN-11 — xử lý yêu cầu rút', () => {
+  it('records a full manual payout from an account outside SePay with an audit trail', async () => {
+    const userId = randomUUID();
+    const adminId = randomUUID();
+    const wallet = await seedBusinessBalance(userId, 1_000_000n);
+    const request = await createWithdrawal(userId, { amount: 600000n, ...bank });
+
+    await confirmManualWithdrawalPayout(adminId, request.id, 'MB-REF-20260912: đã nhận tiền tại tài khoản chủ sân');
+
+    const after = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    const saved = await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id } });
+    expect([saved.status, saved.paidAmount, saved.sePayEventId, after.available, after.reserved]).toEqual(['paid', 600000n, null, 400000n, 0n]);
+    expect(await prisma.ledgerEntry.count({ where: { refId: request.id, type: 'payout' } })).toBe(1);
+    expect(await prisma.financeAudit.count({ where: { refId: request.id, action: 'withdrawal_paid_manually' } })).toBe(1);
+  });
+
+  it('keeps an earlier SePay reference when manual payment completes a partial withdrawal', async () => {
+    const userId = randomUUID();
+    await seedBusinessBalance(userId, 1_000_000n);
+    const request = await createWithdrawal(userId, { amount: 600000n, ...bank });
+    const sepayReference = randomUUID();
+    await handleOutgoingTransfer({ externalRef: sepayReference, amount: 500000n, rawRef: request.transferCode });
+    const event = await prisma.sepayEvent.findUniqueOrThrow({ where: { externalRef: sepayReference } });
+    await assignOutgoingEvent(randomUUID(), event.id, request.id, 'Khớp khoản chi một phần từ SePay');
+    const partial = await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id } });
+
+    await confirmManualWithdrawalPayout(randomUUID(), request.id, 'MB-REF-20260912: chuyển bù phần còn lại');
+
+    expect((await prisma.withdrawalRequest.findUniqueOrThrow({ where: { id: request.id } })).sePayEventId).toBe(partial.sePayEventId);
+  });
+
   it('AC-FIN-11-1/6: webhook out khớp đủ chỉ trừ reserved một lần, ghi payout và outbox', async () => {
     const userId = randomUUID();
     const wallet = await seedBusinessBalance(userId, 1_000_000n);

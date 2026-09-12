@@ -13,6 +13,25 @@ const token = (userId: string, roles: string[]) => jwt.sign({ sub: userId, roles
 afterAll(async () => prisma.$disconnect());
 
 describe('G6 HTTP contract', () => {
+  it('player creates, lists and cancels a personal withdrawal with BigInt-safe fields', async () => {
+    const userId = randomUUID();
+    await prisma.wallet.create({
+      data: { userId, walletType: 'personal', available: 120000n, withdrawable: 120000n },
+    });
+    const auth = { Authorization: `Bearer ${token(userId, ['player'])}` };
+
+    const created = await request(app).post('/players/me/withdrawals').set(auth)
+      .send({ amount: '100000', bankCode: 'VCB', bankAccountNumber: '0123', bankAccountName: 'A' });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ amount: '100000', walletType: 'personal', status: 'pending' });
+
+    const listed = await request(app).get('/players/me/withdrawals').set(auth);
+    expect(listed.status).toBe(200);
+    expect(listed.body).toHaveLength(1);
+
+    const cancelled = await request(app).post(`/players/me/withdrawals/${created.body.id}/cancel`).set(auth);
+    expect(cancelled.body).toMatchObject({ status: 'rejected' });
+  });
   it('provider xem revenue của mình và tạo withdrawal bằng chuỗi BigInt an toàn', async () => {
     const userId = randomUUID();
     await recordBookingRevenue(randomUUID(), {
@@ -29,6 +48,15 @@ describe('G6 HTTP contract', () => {
       .send({ amount: '100000', bankCode: 'VCB', bankAccountNumber: '0123', bankAccountName: 'A' });
     expect(withdrawal.status).toBe(201);
     expect(withdrawal.body).toMatchObject({ amount: '100000', status: 'pending' });
+
+    await prisma.wallet.create({ data: { userId, walletType: 'personal', available: 100000n, withdrawable: 100000n } });
+    await prisma.withdrawalRequest.create({
+      data: { sellerUserId: userId, walletType: 'personal', amount: 10000n, transferCode: `WD${randomUUID().slice(0, 8)}`, bankCode: 'VCB', bankAccountNumber: '9999', bankAccountName: 'A' },
+    });
+    const providerWithdrawals = await request(app).get('/providers/me/withdrawals')
+      .set('Authorization', `Bearer ${token(userId, ['player', 'provider'])}`);
+    expect(providerWithdrawals.body).toHaveLength(1);
+    expect(providerWithdrawals.body[0]).toMatchObject({ walletType: 'business' });
   });
 
   it('player không có business wallet bị từ chối và provider không đọc được hàng Admin', async () => {

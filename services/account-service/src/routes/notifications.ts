@@ -32,7 +32,7 @@ notificationsRouter.get('/', requireAuth, h(async (req, res) => {
 }));
 
 notificationsRouter.get('/recent', requireAuth, h(async (req, res) => {
-  const limit = z.coerce.number().int().min(1).max(5).default(5).parse(req.query.limit);
+  const limit = z.coerce.number().int().min(1).max(20).default(20).parse(req.query.limit);
   res.status(200).json(await listRecentNotifications((req as AuthenticatedRequest).user!.id, limit));
 }));
 

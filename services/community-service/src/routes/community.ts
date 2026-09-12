@@ -48,6 +48,15 @@ async function attachImageUrls<T extends ImageBearing>(
     return { ...entity, images };
   }));
 }
+
+async function attachTicketEvidenceUrls<T extends { evidence?: Array<{ objectKey: string }> }>(
+  resolveObjectStorage: (() => ObjectStorageClient) | undefined,
+  ticket: T,
+): Promise<T> {
+  const storage = resolveObjectStorage?.();
+  if (!storage || !ticket.evidence?.length) return ticket;
+  return { ...ticket, evidence: await Promise.all(ticket.evidence.map(async (image) => ({ ...image, objectKey: await storage.getReadUrl(image.objectKey, { visibility: 'private' }) }))) };
+}
 import {
   addTicketMessage,
   createComment,
@@ -100,6 +109,7 @@ const ticketBody = z
   .object({
     subject: z.string().trim().min(1).max(120),
     body: z.string().trim().min(1).max(1_000),
+    evidence: z.array(z.string().min(1).max(500)).max(5).optional(),
   })
   .strict();
 const ticketStatus = z.object({ status: z.enum(['resolved', 'closed']) }).strict();
@@ -300,16 +310,15 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requirePlayer,
     withErrorHandling(async (req, res) => {
       const input = ticketBody.parse(req.body);
-      res
-        .status(201)
-        .json(
-          await createTicket(
+      const ticket = await createTicket(
             accountEligibilityClient,
             (req as AuthenticatedRequest).user!.id,
             input.subject,
             input.body,
-          ),
-        );
+            input.evidence ?? [],
+            input.evidence?.length ? resolveObjectStorage?.() : undefined,
+          );
+      res.status(201).json(await attachTicketEvidenceUrls(resolveObjectStorage, ticket));
     }),
   );
   router.get(
@@ -317,7 +326,7 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
     requireAuth,
     withErrorHandling(async (req, res) => {
       const user = (req as AuthenticatedRequest).user!;
-      res.status(200).json(await getTicket(uuid.parse(req.params.ticketId), user.id, user.roles.includes('admin')));
+      res.status(200).json(await attachTicketEvidenceUrls(resolveObjectStorage, await getTicket(uuid.parse(req.params.ticketId), user.id, user.roles.includes('admin'))));
     }),
   );
   router.post(

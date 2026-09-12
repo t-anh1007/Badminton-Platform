@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import { cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type SkillTier } from '../lib/matchApi';
+import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type SkillTier } from '../lib/matchApi';
+import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js';
 import {
   createMatchOrganizerContributionSepayIntent,
   createMatchJoinSepayIntent,
@@ -32,6 +33,7 @@ export function MatchDetailPage() {
   const [notice, setNotice] = useState('');
   const [confirmAction, setConfirmAction] = useState<'withdraw' | 'cancel' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'sepay'>('balance');
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
   const [sepay, setSepay] = useState<{
     matchCode: string;
     amount: string;
@@ -40,6 +42,17 @@ export function MatchDetailPage() {
   } | null>(null);
   const [now, setNow] = useState(Date.now());
   const expiredApprovalReloaded = useRef<string | null>(null);
+  const paymentCompleted = useRef(false);
+
+  const pendingOrganizerDeposit = Boolean(detail?.actions.isOrganizer && detail.actions.canPayOrganizerContribution);
+  const pendingParticipantPayment = detail?.actions.ownJoin?.status === 'approved';
+  useCheckoutAbandonment(
+    pendingOrganizerDeposit
+      ? () => paymentCompleted.current ? Promise.resolve() : abandonMatch(detail!.id)
+      : pendingParticipantPayment
+        ? () => paymentCompleted.current ? Promise.resolve() : abandonMatchJoin(detail!.id, detail!.actions.ownJoin!.id)
+        : null,
+  );
 
   const load = async () => {
     if (!id) return;
@@ -93,6 +106,7 @@ export function MatchDetailPage() {
           ? next.actions.ownJoin?.status === 'confirmed'
           : next.status === 'confirmed' && !next.actions.canPayOrganizerContribution;
         if (completed) {
+          paymentCompleted.current = true;
           setDetail(next);
           setSepay(null);
           setNotice('Đã xác nhận thanh toán SePay.');
@@ -126,16 +140,44 @@ export function MatchDetailPage() {
       setNotice(cause instanceof Error ? cause.message : 'Không thể hoàn tất thao tác.');
     }
   };
+  const leaveParticipantCheckout = () => {
+    const join = detail?.actions.ownJoin;
+    setPaymentOptionsOpen(false);
+    setSepay(null);
+    if (!detail || join?.status !== 'approved') return;
+    void mutate(
+      () => withdrawMatchJoin(detail.id, join.id),
+      'Đã thoát thanh toán và nhả chỗ cho người khác.',
+    );
+  };
+  const leaveSepayCheckout = () => {
+    if (sepay?.purpose === 'participant') {
+      leaveParticipantCheckout();
+      return;
+    }
+    setSepay(null);
+    if (sepay?.purpose === 'organizer' && detail?.actions.canPayOrganizerContribution) {
+      paymentCompleted.current = true;
+      void mutate(
+        () => cancelMatch(detail.id),
+        'Đã thoát thanh toán và hủy lượt giữ sân.',
+        () => navigate('/matches', { replace: true }),
+      );
+    }
+  };
   const payParticipant = async () => {
     const join = detail?.actions.ownJoin;
     if (!detail || !join) return;
     try {
       if (paymentMethod === 'balance') {
         await payMatchJoinBalance(detail.id, join.id);
+        paymentCompleted.current = true;
+        setPaymentOptionsOpen(false);
         setNotice('Đã thanh toán phí tham gia bằng số dư.');
         await load();
       } else {
         const intent = await createMatchJoinSepayIntent(detail.id, join.id);
+        setPaymentOptionsOpen(false);
         setSepay({ ...intent, purpose: 'participant' });
       }
     } catch (cause) {
@@ -147,6 +189,7 @@ export function MatchDetailPage() {
     try {
       if (paymentMethod === 'balance') {
         await payMatchOrganizerContributionBalance(detail.id);
+        paymentCompleted.current = true;
         setNotice('Đã thanh toán phần organizer bằng số dư.');
         await load();
       } else {
@@ -223,7 +266,7 @@ export function MatchDetailPage() {
               </div>
             </div>
             <p className="mt-5 text-sm text-ink-500">{detail.venue.address}</p>
-            {Number.isFinite(detail.venue.lat) && Number.isFinite(detail.venue.lng) && (
+            {join?.status !== 'approved' && Number.isFinite(detail.venue.lat) && Number.isFinite(detail.venue.lng) && (
               <LocationMap lat={detail.venue.lat} lng={detail.venue.lng} label={detail.venue.name} className="mt-3" />
             )}
             <a
@@ -290,14 +333,8 @@ export function MatchDetailPage() {
               </>
             ) : join?.status === 'approved' ? (
               <>
-                <p className="font-semibold">
-                  Hold thanh toán còn{' '}
-                  <span className="text-figures text-green-700">
-                    {String(Math.floor(remaining / 60_000)).padStart(2, '0')}:
-                    {String(Math.floor((remaining % 60_000) / 1000)).padStart(2, '0')}
-                  </span>
-                </p>
-                <p className="text-sm text-ink-500">Chọn số dư hoặc SePay; hết 10 phút slot sẽ được mở lại cho người khác.</p>
+                <p className="font-semibold">Bạn đang giữ một chỗ</p>
+                <p className="text-sm text-ink-500">Hoàn tất thanh toán để xác nhận kèo. Hạn giữ chỗ sẽ hiển thị trong bước thanh toán.</p>
               </>
             ) : join?.status === 'confirmed' ? (
               <>
@@ -333,20 +370,9 @@ export function MatchDetailPage() {
                 </Button>
               </>
             ) : join?.status === 'approved' ? (
-              <>
-                <SelectInput
-                  aria-label="Cách thanh toán"
-                  className="w-auto"
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value as 'balance' | 'sepay')}
-                >
-                  <option value="balance">Số dư</option>
-                  <option value="sepay">SePay</option>
-                </SelectInput>
-                <Button disabled={remaining <= 0} onClick={() => void payParticipant()}>
-                  Trả phí tham gia
-                </Button>
-              </>
+              <Button disabled={remaining <= 0} onClick={() => setPaymentOptionsOpen(true)}>
+                Thanh toán phần còn lại
+              </Button>
             ) : join ? (
               <Button tone="secondary" onClick={() => setConfirmAction('withdraw')}>
                 {join.status === 'pending' ? 'Rút yêu cầu' : 'Rút khỏi kèo'}
@@ -368,7 +394,9 @@ export function MatchDetailPage() {
         onClose={() => setConfirmAction(null)}
       >
         <p className="text-sm text-ink-500">
-          Hệ thống sẽ áp dụng cutoff, trạng thái booking và quy tắc hoàn phí hiện hành.
+          {confirmAction === 'cancel'
+            ? 'Kèo sẽ dừng và chỗ sân sẽ được hủy. Tiền đã thanh toán sẽ được hoàn về ví của từng người theo chính sách hoàn tiền của sân; số tiền hoàn có thể khác nhau tùy thời điểm hủy.'
+            : 'Bạn sẽ rời khỏi kèo. Nếu vẫn còn trước thời hạn, phần phí bạn đã thanh toán sẽ được hoàn về ví; sau thời hạn, phí có thể không được hoàn.'}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button tone="secondary" onClick={() => setConfirmAction(null)}>
@@ -389,11 +417,45 @@ export function MatchDetailPage() {
         </div>
       </Modal>
       <Modal
+        open={paymentOptionsOpen}
+        title="Chọn phương thức thanh toán"
+        onClose={leaveParticipantCheckout}
+      >
+        <div className="space-y-5">
+          <div className="rounded-xl bg-canvas p-4">
+            <p className="font-semibold">Giữ chỗ còn</p>
+            <p className="text-figures mt-1 text-2xl font-bold text-brand-navy">
+              {String(Math.floor(remaining / 60_000)).padStart(2, '0')}:
+              {String(Math.floor((remaining % 60_000) / 1000)).padStart(2, '0')}
+            </p>
+            <p className="mt-1 text-sm text-ink-500">Hết thời gian, slot sẽ tự mở lại cho người khác.</p>
+          </div>
+          <label className="block text-sm font-medium">
+            Phương thức thanh toán
+            <SelectInput
+              aria-label="Cách thanh toán"
+              className="mt-1"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value as 'balance' | 'sepay')}
+            >
+              <option value="balance">Số dư</option>
+              <option value="sepay">SePay</option>
+            </SelectInput>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button tone="secondary" onClick={leaveParticipantCheckout}>Thoát và nhả chỗ</Button>
+            <Button disabled={remaining <= 0} onClick={() => void payParticipant()}>
+              {paymentMethod === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
         open={Boolean(sepay)}
         title={
           sepay?.purpose === 'organizer' ? 'Thanh toán phần organizer qua SePay' : 'Thanh toán phí tham gia qua SePay'
         }
-        onClose={() => setSepay(null)}
+        onClose={leaveSepayCheckout}
       >
         {sepay && (
           <div className="space-y-3">

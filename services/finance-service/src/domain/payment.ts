@@ -48,6 +48,7 @@ export async function payBookingWithBalance(userId: string, bookingId: string): 
         refType: 'booking',
         refId: bookingId,
         referenceSummary: { kind: 'booking', title: 'Thanh toán đặt sân' },
+        consumePersonalWithdrawable: true,
       });
       await writeOutbox(tx, {
         aggregateType: 'PaymentIntent',

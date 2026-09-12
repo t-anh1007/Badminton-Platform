@@ -234,6 +234,7 @@ export async function payMatchContributionWithBalance(
       type: 'payment',
       refType: 'matchFee',
       refId: contribution.id,
+      consumePersonalWithdrawable: true,
     });
     return reserveContribution(tx, contribution.id, 'balance', now);
   });
@@ -316,6 +317,7 @@ async function refundPaidContribution(tx: Prisma.TransactionClient, contribution
     type: 'refund',
     refType: 'matchFee',
     refId: contribution.id,
+    withdrawableDelta: contribution.amount,
   });
   await tx.matchContribution.update({
     where: { id: contribution.id },

@@ -20,7 +20,7 @@ import {
 } from '../lib/communityApi.js'
 
 vi.mock('../lib/matchApi.js', () => ({
-  getMatchDetail: vi.fn(), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}),
+  getMatchDetail: vi.fn(), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}), abandonMatch: vi.fn().mockResolvedValue({}), abandonMatchJoin: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../lib/financeApi.js', () => ({
   payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
@@ -41,7 +41,7 @@ vi.mock('../lib/communityApi.js', () => ({
   listCommunityPosts: vi.fn().mockResolvedValue({ posts: [post] }),
   listOwnPosts: vi.fn().mockResolvedValue({ posts: [post] }),
   getCommunityPost: vi.fn().mockResolvedValue({ ...post, comments: [comment] }),
-  createCommunityPost: vi.fn(), authorizeCommunityPostImage: vi.fn(), uploadAuthorizedFile: vi.fn(),
+  createCommunityPost: vi.fn(), authorizeCommunityPostImage: vi.fn(), authorizeTicketEvidence: vi.fn(), uploadAuthorizedFile: vi.fn(),
   editCommunityPost: vi.fn().mockResolvedValue({ ...post, body: 'Nội dung đã sửa', editedAt: '2026-08-15T03:00:00Z' }),
   removeCommunityPost: vi.fn().mockResolvedValue({ ...post, status: 'removed' }),
   createCommunityComment: vi.fn().mockResolvedValue({ ...comment, id: 'new-comment', body: 'Bình luận mới' }),
@@ -119,10 +119,12 @@ it('keeps a reserved match visible but disables joining while another player pay
 it('shows participant payment/withdraw controls only from ownJoin state', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: false, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: { id: 'own-join', status: 'approved', approvedAt: new Date().toISOString() } }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
-  fireEvent.click(await screen.findByRole('button', { name: 'Trả phí tham gia' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Thanh toán phần còn lại' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Thanh toán số dư' }))
   await waitFor(() => expect(payMatchJoinBalance).toHaveBeenCalledWith('match-1', 'own-join'))
+  fireEvent.click(screen.getByRole('button', { name: 'Thanh toán phần còn lại' }))
   fireEvent.change(screen.getByLabelText('Cách thanh toán'), { target: { value: 'sepay' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Trả phí tham gia' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Tạo mã SePay' }))
   await waitFor(() => expect(createMatchJoinSepayIntent).toHaveBeenCalledWith('match-1', 'own-join'))
   expect(await screen.findByText('KLTJOIN01')).toBeInTheDocument()
 
@@ -196,5 +198,5 @@ it('supports player ticket list, detail, create and reply without exposing ticke
   fireEvent.change(within(createDialog).getByPlaceholderText('Ví dụ: Không thấy booking trong tài khoản'), { target: { value: 'Booking chưa hiển thị' } })
   fireEvent.change(within(createDialog).getByPlaceholderText('Mô tả điều đã xảy ra và thông tin liên quan'), { target: { value: 'Tôi đã thanh toán nhưng chưa thấy lịch.' } })
   fireEvent.click(within(createDialog).getByRole('button', { name: 'Gửi ticket' }))
-  await waitFor(() => expect(createSupportTicket).toHaveBeenCalledWith('Booking chưa hiển thị', 'Tôi đã thanh toán nhưng chưa thấy lịch.'))
+  await waitFor(() => expect(createSupportTicket).toHaveBeenCalledWith('Booking chưa hiển thị', 'Tôi đã thanh toán nhưng chưa thấy lịch.', []))
 })

@@ -90,9 +90,16 @@ export async function finalizePartialWithdrawal(adminUserId: string, requestId: 
       throw new AppError('WITHDRAWAL_NOT_PARTIAL', 'Yêu cầu không ở trạng thái đã chi một phần.', 409);
     }
     const remainder = request.amount - request.paidAmount;
-    const wallet = await tx.wallet.findFirstOrThrow({ where: { userId: request.sellerUserId, walletType: 'business' } });
+    const wallet = await tx.wallet.findFirstOrThrow({ where: { userId: request.sellerUserId, walletType: request.walletType } });
     await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
-    await tx.wallet.update({ where: { id: wallet.id }, data: { reserved: { decrement: remainder }, available: { increment: remainder } } });
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        reserved: { decrement: remainder },
+        available: { increment: remainder },
+        ...(request.walletType === 'personal' ? { withdrawable: { increment: remainder } } : {}),
+      },
+    });
     await tx.withdrawalRequest.update({ where: { id: request.id }, data: { status: 'paid', processedAt: new Date() } });
     await writeOutbox(tx, {
       aggregateType: 'WithdrawalRequest', aggregateId: request.id, eventType: 'PayoutCompleted',

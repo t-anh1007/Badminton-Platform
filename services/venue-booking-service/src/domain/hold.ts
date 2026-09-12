@@ -54,6 +54,10 @@ export async function createHold(userId: string, input: CreateHoldInput) {
   try {
     return await prisma.$transaction(async (tx) => {
       const now = new Date();
+      // Hai tab cùng một tài khoản có thể đang chọn hai sân khác nhau, nên
+      // court lock không đủ để bảo vệ quy tắc một checkout đang diễn ra. Khóa
+      // theo user ngăn tab sau xóa hold đang là nền của booking tab trước.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`checkout:${userId}`}, 0))`;
       await lockCourtSchedule(tx, input.courtId);
 
       // Reap hold hết hạn của CHÍNH sân này — giữ đúng nghĩa cho EXCLUDE
@@ -61,8 +65,35 @@ export async function createHold(userId: string, input: CreateHoldInput) {
       // đều là hold hiệu lực.
       await tx.hold.deleteMany({ where: { courtId: input.courtId, expiresAt: { lte: now } } });
 
-      // A-BOK-01: một người chơi tối đa MỘT hold checkout đang hoạt động — giải
-      // phóng hold checkout cũ (bất kỳ sân nào) TRONG CÙNG giao dịch (AC-BOK-06-4).
+      // A-BOK-01: một người chơi tối đa MỘT hold checkout đang hoạt động. Tuy
+      // nhiên hold đã được đổi thành booking `held` đang chờ thanh toán không
+      // được coi là hold nháp để thay thế: xóa nó sẽ nhả slot của tab thứ nhất,
+      // rồi mở đường cho một checkout khác trên cùng lịch.
+      const checkoutHolds = await tx.hold.findMany({
+        where: { userId, purpose: 'checkout', expiresAt: { gt: now } },
+        select: { id: true, expiresAt: true },
+      });
+      const activeCheckoutBooking = checkoutHolds.length === 0
+        ? null
+        : await tx.booking.findFirst({
+          where: {
+            userId,
+            status: 'held',
+            holdId: { in: checkoutHolds.map((hold) => hold.id) },
+            holdExpiresAt: { gt: now },
+          },
+          select: { holdExpiresAt: true },
+        });
+      if (activeCheckoutBooking) {
+        throw new AppError(
+          'CHECKOUT_IN_PROGRESS',
+          'Bạn đang có một lượt đặt sân chờ thanh toán. Hãy hoàn tất hoặc đợi hết hạn trước khi chọn lịch khác.',
+          409,
+          { holdExpiresAt: activeCheckoutBooking.holdExpiresAt },
+        );
+      }
+
+      // Hold nháp cũ (chưa có booking) mới được nhả để người chơi đổi slot.
       // PLAN_MATCH-DEPOSIT: match-hold KHÔNG bị dọn ở đây (chủ kèo được giữ nhiều
       // slot-kèo; trần ≤3 enforce ở matchmaking).
       await tx.hold.deleteMany({ where: { userId, purpose: 'checkout' } });

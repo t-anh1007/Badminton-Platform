@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { createBooking, createHold, getCourtAvailability, getVenueDetail, selectSlot } from '../lib/venueBookingApi.js'
-import { createMatch } from '../lib/matchApi.js'
+import { cancelMyBooking, createBooking, createHold, getCourtAvailability, getVenueDetail, selectSlot } from '../lib/venueBookingApi.js'
+import { createMatch, MatchApiError } from '../lib/matchApi.js'
 import { BookingPage } from './BookingPage.js'
 
 vi.mock('../lib/venueBookingApi.js', () => ({
@@ -11,10 +11,14 @@ vi.mock('../lib/venueBookingApi.js', () => ({
   selectSlot: vi.fn(),
   createHold: vi.fn(),
   createBooking: vi.fn(),
+  cancelMyBooking: vi.fn(),
   waitForBookingTerminal: vi.fn(),
 }))
 vi.mock('../lib/financeApi.js', () => ({ createBookingSepayIntent: vi.fn(), payBookingBalance: vi.fn() }))
-vi.mock('../lib/matchApi.js', () => ({ createMatch: vi.fn() }))
+vi.mock('../lib/matchApi.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/matchApi.js')>()
+  return { MATCH_MIN_LEAD_HOURS: actual.MATCH_MIN_LEAD_HOURS, MatchApiError: actual.MatchApiError, createMatch: vi.fn() }
+})
 vi.mock('../components/MatchDepositCheckout.js', () => ({ MatchDepositCheckout: () => <div>Cọc tạo kèo (50%)</div> }))
 
 beforeEach(() => {
@@ -81,6 +85,7 @@ it('uses one confirmation action to create a hold and booking, then locks select
 })
 
 it('creates one singles split match from the selected hold and opens deposit checkout', async () => {
+  vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z')) // DM3: slot 06:00 ngày 15/08 còn 27 giờ
   vi.mocked(createHold).mockResolvedValue({ id: 'hold-internal', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-14T02:10:00.000Z' })
   vi.mocked(createMatch).mockResolvedValue({ id: 'match-internal' } as never)
   render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
@@ -101,6 +106,7 @@ it('creates one singles split match from the selected hold and opens deposit che
 })
 
 it('guards concurrent creation and reuses the pending hold after match creation fails', async () => {
+  vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z')) // DM3: slot 06:00 ngày 15/08 còn 27 giờ
   let resolveHold!: (value: Awaited<ReturnType<typeof createHold>>) => void
   const deferredHold = new Promise<Awaited<ReturnType<typeof createHold>>>((resolve) => { resolveHold = resolve })
   vi.mocked(createHold).mockReturnValue(deferredHold)
@@ -149,4 +155,70 @@ it('clears stale slots when a past date is rejected', async () => {
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Không thể xem lịch của ngày đã qua.')
   expect(screen.queryByRole('button', { name: /06:00 - 06:30/ })).not.toBeInTheDocument()
+})
+
+it('disables finding an opponent for slots less than 24 hours away without holding them (DM3)', async () => {
+  // beforeEach: 09:00 ngày 14/08 tại Việt Nam, slot 06:00 ngày 15/08 chỉ còn 21 giờ.
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  expect(await screen.findByRole('button', { name: 'XÁC NHẬN' })).toBeEnabled()
+  const findButton = screen.getByRole('button', { name: 'TÌM ĐỐI THỦ' })
+  expect(findButton).toBeDisabled()
+  expect(screen.getByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
+  fireEvent.click(findButton)
+  expect(createHold).not.toHaveBeenCalled()
+})
+
+it('rechecks the 24-hour match lead when the action is clicked after the page was left open', async () => {
+  vi.setSystemTime(new Date('2026-08-13T22:30:00.000Z')) // slot còn 24 giờ 30 phút
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  const findButton = await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' })
+  expect(findButton).toBeEnabled()
+
+  vi.setSystemTime(new Date('2026-08-13T23:30:00.000Z')) // slot nay chỉ còn 23 giờ 30 phút
+  fireEvent.click(findButton)
+
+  expect(createHold).not.toHaveBeenCalled()
+  expect(await screen.findByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
+  expect(findButton).toBeDisabled()
+})
+
+it('releases the orphan hold and unlocks selection when match creation is rejected', async () => {
+  vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z')) // 03:00 ngày 14/08 tại Việt Nam, slot 06:00 ngày 15/08 còn 27 giờ
+  vi.mocked(createHold).mockResolvedValue({ id: 'hold-rejected', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-13T20:10:00.000Z' })
+  vi.mocked(createMatch).mockRejectedValue(new MatchApiError('Bạn đang giữ 3 kèo; hãy hoàn tất hoặc hủy bớt trước.', 409, 'MATCH_ACTIVE_LIMIT'))
+  vi.mocked(createBooking).mockResolvedValue({ id: 'booking-orphan', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', status: 'held', priceSnapshot: '360000' })
+  vi.mocked(cancelMyBooking).mockResolvedValue({ status: 'cancelled', refundPercent: 0 })
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Bạn đang giữ 3 kèo')
+  expect(createBooking).toHaveBeenCalledWith('hold-rejected')
+  expect(cancelMyBooking).toHaveBeenCalledWith('booking-orphan')
+  expect(getCourtAvailability).toHaveBeenCalledTimes(2)
+  await waitFor(() => expect(screen.getByRole('button', { name: 'XÁC NHẬN' })).toBeEnabled())
+  expect(screen.getByRole('button', { name: 'Chọn 06:00 - 06:30' })).toBeEnabled()
+  expect(screen.queryByText(/Giữ chỗ \d{2}:\d{2}/)).not.toBeInTheDocument()
+})
+
+it('keeps the hold visible and selection locked when orphan cleanup is not confirmed', async () => {
+  vi.setSystemTime(new Date('2026-08-13T20:00:00.000Z'))
+  vi.mocked(createHold).mockResolvedValue({ id: 'hold-cleanup-failed', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-13T20:10:00.000Z' })
+  vi.mocked(createMatch).mockRejectedValue(new MatchApiError('Slot không hợp lệ.', 422, 'MATCH_SLOT_NOT_HELD'))
+  vi.mocked(createBooking).mockResolvedValue({ id: 'booking-cleanup-failed', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', status: 'held', priceSnapshot: '360000' })
+  vi.mocked(cancelMyBooking).mockRejectedValue(new Error('Không thể nhả hold.'))
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Slot không hợp lệ.')
+  expect(cancelMyBooking).toHaveBeenCalledWith('booking-cleanup-failed')
+  expect(getCourtAvailability).toHaveBeenCalledTimes(1)
+  expect(screen.getByText(/Giữ chỗ \d{2}:\d{2}/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'XÁC NHẬN' })).toBeDisabled()
 })

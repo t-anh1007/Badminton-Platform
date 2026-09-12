@@ -5,7 +5,7 @@ import { verifyRefreshToken } from '../src/lib/jwt.js';
 import { registerUser } from '../src/domain/registration.js';
 import { verifyEmailCode } from '../src/domain/verification.js';
 import { login } from '../src/domain/session.js';
-import { requestPasswordReset, resetPassword, changePassword } from '../src/domain/passwordReset.js';
+import { requestPasswordReset, verifyPasswordResetCode, resetPassword, changePassword } from '../src/domain/passwordReset.js';
 import { uniqueEmail, VALID_PASSWORD, getLatestVerificationCode, getLatestResetToken } from './helpers.js';
 
 afterAll(async () => {
@@ -21,15 +21,16 @@ async function createVerifiedUser(email: string) {
 }
 
 describe('ACC-05 — Đặt lại mật khẩu', () => {
-  it('AC-ACC-05-1: email tồn tại -> gửi liên kết token hiệu lực 30 phút', async () => {
+  it('AC-ACC-05-1: email tồn tại -> gửi mã 6 chữ số hiệu lực 5 phút', async () => {
     const email = uniqueEmail();
     const userId = await createVerifiedUser(email);
     await requestPasswordReset(email);
 
     const row = await prisma.passwordReset.findFirstOrThrow({ where: { userId } });
     const minutesLeft = (row.expiresAt.getTime() - Date.now()) / 60_000;
-    expect(minutesLeft).toBeGreaterThan(29);
-    expect(minutesLeft).toBeLessThanOrEqual(30);
+    expect(row.token).toMatch(/^\d{6}$/);
+    expect(minutesLeft).toBeGreaterThan(4.9);
+    expect(minutesLeft).toBeLessThanOrEqual(5);
   });
 
   it('AC-ACC-05-2: email không tồn tại -> không tạo bản ghi nào, không ném lỗi', async () => {
@@ -43,7 +44,7 @@ describe('ACC-05 — Đặt lại mật khẩu', () => {
     expect(count).toBeGreaterThanOrEqual(0);
   });
 
-  it('AC-ACC-05-3: token hiệu lực -> đặt mật khẩu mới, thu hồi TOÀN BỘ refresh token kể cả phiên hiện tại', async () => {
+  it('AC-ACC-05-3: mã hợp lệ -> cấp quyền đặt mật khẩu mới, rồi thu hồi TOÀN BỘ refresh token', async () => {
     const email = uniqueEmail();
     const userId = await createVerifiedUser(email);
     const { refreshToken } = await login(email, VALID_PASSWORD);
@@ -51,7 +52,8 @@ describe('ACC-05 — Đặt lại mật khẩu', () => {
     expect(await isRefreshTokenValid(jti)).toBe(true);
 
     await requestPasswordReset(email);
-    const token = await getLatestResetToken(userId);
+    const code = await getLatestResetToken(userId);
+    const token = await verifyPasswordResetCode(email, code);
     const newPassword = 'NewPassw0rd456';
     await resetPassword(token, newPassword);
 
@@ -61,28 +63,28 @@ describe('ACC-05 — Đặt lại mật khẩu', () => {
     await expect(login(email, newPassword)).resolves.toBeTruthy();
   });
 
-  it('AC-ACC-05-4: token đã dùng một lần -> dùng lại bị từ chối', async () => {
+  it('AC-ACC-05-4: mã đã xác minh một lần -> dùng lại bị từ chối', async () => {
     const email = uniqueEmail();
     const userId = await createVerifiedUser(email);
     await requestPasswordReset(email);
-    const token = await getLatestResetToken(userId);
-    await resetPassword(token, 'NewPassw0rd456');
+    const code = await getLatestResetToken(userId);
+    await verifyPasswordResetCode(email, code);
 
-    await expect(resetPassword(token, 'AnotherPassw0rd789')).rejects.toMatchObject({
-      code: 'INVALID_RESET_TOKEN',
+    await expect(verifyPasswordResetCode(email, code)).rejects.toMatchObject({
+      code: 'INVALID_RESET_CODE',
     });
   });
 
-  it('AC-ACC-05-5: yêu cầu lần hai -> token của lần thứ nhất bị từ chối', async () => {
+  it('AC-ACC-05-5: yêu cầu lần hai -> mã của lần thứ nhất bị từ chối', async () => {
     const email = uniqueEmail();
     const userId = await createVerifiedUser(email);
     await requestPasswordReset(email);
-    const firstToken = await getLatestResetToken(userId);
+    const firstCode = await getLatestResetToken(userId);
 
     await requestPasswordReset(email);
 
-    await expect(resetPassword(firstToken, 'NewPassw0rd456')).rejects.toMatchObject({
-      code: 'INVALID_RESET_TOKEN',
+    await expect(verifyPasswordResetCode(email, firstCode)).rejects.toMatchObject({
+      code: 'INVALID_RESET_CODE',
     });
   });
 });

@@ -67,6 +67,12 @@ export interface SupportTicket {
   createdAt: string;
 }
 
+export interface TicketEvidenceImage {
+  id?: string;
+  objectKey: string;
+  position: number;
+}
+
 export interface TicketMessage {
   id: string;
   ticketId: string;
@@ -78,6 +84,7 @@ export interface TicketMessage {
 
 export interface SupportTicketDetail extends SupportTicket {
   messages: TicketMessage[];
+  evidence?: TicketEvidenceImage[];
 }
 
 export class CommunityApiError extends Error {
@@ -157,6 +164,8 @@ export const listOwnPosts = () => api<{ posts: CommunityPost[] }>('/posts/mine')
 export const getCommunityPost = (postId: string) => api<CommunityPostDetail>(`/posts/${postId}`);
 export const authorizeCommunityPostImage = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') =>
   api<UploadAuthorization>('/uploads/posts', { method: 'POST', body: JSON.stringify({ mimeType }) });
+export const authorizeTicketEvidence = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') =>
+  api<UploadAuthorization>('/uploads/tickets', { method: 'POST', body: JSON.stringify({ mimeType }) });
 
 export async function uploadAuthorizedFile(authorization: UploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> {
   onProgress?.(0);
@@ -194,10 +203,10 @@ export const listOwnReports = () => api<{ reports: CommunityReport[] }>('/report
 
 export const listSupportTickets = () => api<{ tickets: SupportTicket[] }>('/tickets');
 export const getSupportTicket = (ticketId: string) => api<SupportTicketDetail>(`/tickets/${ticketId}`);
-export const createSupportTicket = (subject: string, body: string) =>
+export const createSupportTicket = (subject: string, body: string, evidence: string[] = []) =>
   api<SupportTicket>('/tickets', {
     method: 'POST',
-    body: JSON.stringify({ subject, body }),
+    body: JSON.stringify({ subject, body, evidence }),
   });
 export const addSupportTicketMessage = (ticketId: string, body: string) =>
   api<TicketMessage>(`/tickets/${ticketId}/messages`, {

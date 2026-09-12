@@ -17,6 +17,12 @@ describe('FIN-01 — Xem số dư và lịch sử giao dịch', () => {
     expect(wallets[0]!.walletType).toBe('personal');
   });
 
+  it('personal wallet starts with no withdrawable balance before a post-rollout refund or excess transfer', async () => {
+    const wallet = await seedPersonalBalance(fakeUserId(), 100000n);
+
+    expect(wallet).toHaveProperty('withdrawable', 0n);
+  });
+
   it('AC-FIN-01-2: có cả vai provider -> hai ví tách biệt, ví kinh doanh có đủ pending/available/reserved', async () => {
     const userId = fakeUserId();
     await seedPersonalBalance(userId, 50000n);
@@ -58,5 +64,28 @@ describe('FIN-01 — Xem số dư và lịch sử giao dịch', () => {
       walletId: wallet.id, amount: -1n, type: 'payout', refType: 'withdrawal', refId: fakeUserId(), field: 'reserved',
     }))).rejects.toMatchObject({ code: 'NEGATIVE_BALANCE' });
     expect((await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } })).reserved).toBe(0n);
+  });
+
+  it('marks only post-rollout refund money as withdrawable', async () => {
+    const wallet = await seedPersonalBalance(fakeUserId(), 100000n);
+    await prisma.$transaction((tx) => postLedgerEntry(tx, ({
+      walletId: wallet.id, amount: 40000n, type: 'refund', refType: 'booking', refId: fakeUserId(),
+      withdrawableDelta: 40000n,
+    } as Parameters<typeof postLedgerEntry>[1])));
+
+    const after = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([after.available, after.withdrawable]).toEqual([140000n, 40000n]);
+  });
+
+  it('personal payment consumes non-withdrawable funds before withdrawable funds', async () => {
+    const wallet = await seedPersonalBalance(fakeUserId(), 100000n);
+    await prisma.wallet.update({ where: { id: wallet.id }, data: { withdrawable: 40000n } });
+    await prisma.$transaction((tx) => postLedgerEntry(tx, ({
+      walletId: wallet.id, amount: -70000n, type: 'payment', refType: 'booking', refId: fakeUserId(),
+      consumePersonalWithdrawable: true,
+    } as Parameters<typeof postLedgerEntry>[1])));
+
+    const after = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([after.available, after.withdrawable]).toEqual([30000n, 30000n]);
   });
 });

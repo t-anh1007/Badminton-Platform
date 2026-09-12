@@ -6,7 +6,7 @@ import { verifyEmailCode, resendVerificationCode } from '../domain/verification.
 import { login, logout, refreshSession } from '../domain/session.js';
 import { loginWithGoogle } from '../domain/googleAuth.js';
 import { demoLogin } from '../domain/demoAccount.js';
-import { requestPasswordReset, resetPassword, changePassword } from '../domain/passwordReset.js';
+import { requestPasswordReset, verifyPasswordResetCode, resetPassword, changePassword } from '../domain/passwordReset.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
 export const authRouter = Router();
@@ -102,9 +102,14 @@ authRouter.post(
   h(async (req, res) => {
     const { email } = forgotSchema.parse(req.body);
     await requestPasswordReset(email);
-    res.status(200).json({ message: 'Nếu email tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi.' });
+    res.status(200).json({ message: 'Nếu email tồn tại trong hệ thống, mã xác nhận đã được gửi.' });
   }),
 );
+
+authRouter.post('/password/verify', h(async (req, res) => {
+  const { email, code } = verifySchema.parse(req.body);
+  res.status(200).json({ resetToken: await verifyPasswordResetCode(email, code) });
+}));
 
 const resetSchema = z.object({ token: z.string(), newPassword: z.string() });
 

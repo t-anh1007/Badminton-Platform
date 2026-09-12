@@ -71,7 +71,7 @@ export async function listNotifications(userId: string, filter: NotificationFilt
   };
 }
 
-export async function listRecentNotifications(userId: string, limit = 5) {
+export async function listRecentNotifications(userId: string, limit = 20) {
   await ownedRoles(userId);
   const now = new Date();
   const actionRows = await prisma.notification.findMany({

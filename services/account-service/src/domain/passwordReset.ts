@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
 import { hashPassword, isPasswordPolicyValid, verifyPassword } from '../lib/password.js';
 import { AppError } from '../lib/errors.js';
@@ -6,8 +6,8 @@ import { emailSender } from '../lib/email.js';
 import { revokeAllRefreshTokens, revokeOtherRefreshTokens } from '../lib/redis.js';
 import { verifyRefreshToken } from '../lib/jwt.js';
 
-// BR-ACC-06
-const RESET_TOKEN_TTL_MIN = 30;
+const RESET_CODE_TTL_MIN = 5;
+function generateResetCode(): string { return randomInt(0, 1_000_000).toString().padStart(6, '0'); }
 
 /** ACC-05 (bước 1) — Yêu cầu đặt lại mật khẩu (AC-ACC-05-1..2). */
 export async function requestPasswordReset(email: string): Promise<void> {
@@ -16,7 +16,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // BR-ACC-10: không tiết lộ email có tồn tại hay không — im lặng nếu không có.
   if (!user) return;
 
-  const token = randomBytes(32).toString('hex');
+  const code = generateResetCode();
   const now = new Date();
   await prisma.$transaction(async (tx) => {
     // Luồng thay thế: yêu cầu lần hai vô hiệu token cũ ngay (AC-ACC-05-5).
@@ -27,8 +27,8 @@ export async function requestPasswordReset(email: string): Promise<void> {
     await tx.passwordReset.create({
       data: {
         userId: user.id,
-        token,
-        expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MIN * 60_000),
+        token: code,
+        expiresAt: new Date(now.getTime() + RESET_CODE_TTL_MIN * 60_000),
       },
     });
   });
@@ -36,12 +36,22 @@ export async function requestPasswordReset(email: string): Promise<void> {
   try {
     await emailSender.send(
       normalizedEmail,
-      'Đặt lại mật khẩu',
-      `Liên kết đặt lại mật khẩu (hiệu lực 30 phút): /reset-password?token=${token}`,
+      'Mã đặt lại mật khẩu',
+      `Mã đặt lại mật khẩu của bạn là: ${code}\n\nMã có hiệu lực trong ${RESET_CODE_TTL_MIN} phút.`,
     );
   } catch {
     // Nuốt lỗi gửi email có chủ đích.
   }
+}
+
+export async function verifyPasswordResetCode(email: string, code: string): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase(); const now = new Date();
+  const reset = await prisma.passwordReset.findFirst({ where: { token: code, consumedAt: null, expiresAt: { gt: now }, user: { email: normalizedEmail } } });
+  if (!reset) throw new AppError('INVALID_RESET_CODE', 'Mã xác nhận không hợp lệ hoặc đã hết hạn.', 400);
+  const resetToken = randomBytes(32).toString('hex');
+  const updated = await prisma.passwordReset.updateMany({ where: { id: reset.id, token: code, consumedAt: null, expiresAt: { gt: now } }, data: { token: resetToken } });
+  if (updated.count !== 1) throw new AppError('INVALID_RESET_CODE', 'Mã xác nhận không hợp lệ hoặc đã hết hạn.', 400);
+  return resetToken;
 }
 
 /** ACC-05 (bước 2) — Hoàn tất đặt lại mật khẩu (AC-ACC-05-3..4). */

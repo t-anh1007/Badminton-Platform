@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
 import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
-import { formatDateTimeVi, formatMoneyVnd, parseDateFieldVi } from '../../lib/formatters.js'
+import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js'
 
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
   const [filters, setFilters] = useState({ query: '', status: '', from: '', to: '' })
   const [target, setTarget] = useState<AdminBookingRow | null>(null)
+  const [detail, setDetail] = useState<AdminBookingRow | null>(null)
   const [reason, setReason] = useState('')
   const [message, setMessage] = useState('')
 
-  const load = async () => {
-    const from = filters.from ? parseDateFieldVi(filters.from) : undefined
-    const to = filters.to ? parseDateFieldVi(filters.to) : undefined
-    if ((filters.from && !from) || (filters.to && !to)) { setMessage('Ngày phải theo định dạng dd/MM/yyyy.'); return }
+  const load = async (nextPage = page) => {
     try {
-      setRows(await getAdminBookings({ ...filters, from: from ?? '', to: to ?? '' }))
+      const result = await getAdminBookings({ ...filters, page: nextPage, pageSize })
+      setRows(result.items)
+      setTotal(result.total)
+      setPage(result.page)
       setMessage('')
     } catch (cause) {
       setMessage((cause as Error).message)
@@ -60,23 +64,22 @@ export function AdminBookingsPage() {
           <option value="">Tất cả</option>
           <option value="held">Chờ thanh toán</option>
           <option value="confirmed">Đã xác nhận</option>
+          <option value="completed">Đã hoàn thành</option>
           <option value="cancelled">Đã hủy</option>
         </SelectInput>
         <TextInput
           aria-label="Từ ngày booking"
-          inputMode="numeric"
-          placeholder="dd/MM/yyyy"
+          type="date"
           value={filters.from}
           onChange={(event) => setFilters({ ...filters, from: event.target.value })}
         />
         <TextInput
           aria-label="Đến ngày booking"
-          inputMode="numeric"
-          placeholder="dd/MM/yyyy"
+          type="date"
           value={filters.to}
           onChange={(event) => setFilters({ ...filters, to: event.target.value })}
         />
-        <Button tone="secondary" onClick={() => void load()}>Lọc</Button>
+        <Button tone="secondary" onClick={() => void load(1)}>Lọc</Button>
       </div>
 
       {message && <p role="status" className="mt-3 rounded-xl bg-info-bg p-3">{message}</p>}
@@ -93,16 +96,24 @@ export function AdminBookingsPage() {
               <p className="text-sm text-ink-500">
                 {formatDateTimeVi(row.startAt)} · {formatMoneyVnd(row.priceSnapshot)}
               </p>
-              <Badge>{row.status}</Badge>
+              <Badge>{row.status === 'held' && row.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : row.status}</Badge>
             </div>
-            {row.status !== 'cancelled' && (
-              <Button tone="danger" onClick={() => setTarget(row)}>Hủy do lỗi nền tảng</Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <Button tone="secondary" onClick={() => setDetail(row)}>Xem chi tiết</Button>
+              {row.status === 'confirmed' && <Button tone="danger" onClick={() => setTarget(row)}>Hủy do lỗi nền tảng</Button>}
+            </div>
           </article>
         )) : (
           <EmptyState title="Không có booking" description="Thử đổi bộ lọc." />
         )}
       </div>
+      {total > 0 && <nav className="mt-5 flex items-center justify-between gap-3" aria-label="Phân trang booking">
+        <p className="text-sm text-ink-500">Hiển thị {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} / {total} booking</p>
+        <div className="flex gap-2">
+          <Button tone="secondary" disabled={page === 1} onClick={() => void load(page - 1)}>Trước</Button>
+          <Button tone="secondary" disabled={page * pageSize >= total} onClick={() => void load(page + 1)}>Sau</Button>
+        </div>
+      </nav>}
 
       <Modal open={Boolean(target)} title="Hủy booking do lỗi nền tảng" onClose={() => setTarget(null)}>
         <p className="text-sm text-ink-500">Booking sẽ được hủy và hoàn 100% theo luồng Admin.</p>
@@ -113,6 +124,19 @@ export function AdminBookingsPage() {
           onChange={(event) => setReason(event.target.value)}
         />
         <Button className="mt-4" tone="danger" onClick={() => void cancel()}>Xác nhận hủy</Button>
+      </Modal>
+
+      <Modal open={Boolean(detail)} title="Chi tiết booking" onClose={() => setDetail(null)}>
+        {detail && <dl className="grid gap-3 text-sm">
+          <div><dt className="text-ink-500">Người chơi</dt><dd className="font-semibold">{detail.player.label}</dd></div>
+          <div><dt className="text-ink-500">Cơ sở · sân</dt><dd className="font-semibold">{detail.court.venue.name} · {detail.court.name}</dd></div>
+          <div><dt className="text-ink-500">Địa chỉ</dt><dd>{detail.court.venue.address}</dd></div>
+          <div><dt className="text-ink-500">Thời gian</dt><dd>{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</dd></div>
+          <div><dt className="text-ink-500">Giá trị booking</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
+          <div><dt className="text-ink-500">Trạng thái</dt><dd>{detail.status === 'held' && detail.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : detail.status}</dd></div>
+          {detail.holdExpiresAt && <div><dt className="text-ink-500">Giữ chỗ đến</dt><dd>{formatDateTimeVi(detail.holdExpiresAt)}</dd></div>}
+          <div><dt className="text-ink-500">Mã booking</dt><dd className="break-all text-xs">{detail.id}</dd></div>
+        </dl>}
       </Modal>
     </>
   )

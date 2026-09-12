@@ -5,11 +5,12 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
 export const walletRouter = Router();
 
-function serializeWallet(w: { id: string; walletType: string; available: bigint; pending: bigint; reserved: bigint; currency: string }) {
+function serializeWallet(w: { id: string; walletType: string; available: bigint; withdrawable: bigint; pending: bigint; reserved: bigint; currency: string }) {
   return {
     id: w.id,
     walletType: w.walletType,
     available: w.available.toString(),
+    withdrawable: w.withdrawable.toString(),
     pending: w.pending.toString(),
     reserved: w.reserved.toString(),
     currency: w.currency,

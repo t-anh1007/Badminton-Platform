@@ -132,7 +132,7 @@ export async function resolveDispute(adminUserId: string, disputeId: string, raw
     if (refundGross > 0n) {
       // Giữ cùng thứ tự khóa personal → business → platform với các luồng hoàn
       // G5 để không tạo vòng chờ khi hai booking dùng chung ví provider.
-      await postLedgerEntry(tx, { walletId: personal.id, amount: refundGross, type: 'refund', refType: 'dispute', refId: dispute.id });
+      await postLedgerEntry(tx, { walletId: personal.id, amount: refundGross, type: 'refund', refType: 'dispute', refId: dispute.id, withdrawableDelta: refundGross });
       await postLedgerEntry(tx, { walletId: business.id, amount: -businessReversal, type: 'refund', refType: 'dispute', refId: dispute.id, field: 'pending' });
       await postLedgerEntry(tx, { walletId: platform.id, amount: -commissionReversal, type: 'refund', refType: 'dispute', refId: dispute.id });
     } else {

@@ -12,8 +12,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-/** Tile công khai của OpenStreetMap dùng chung cho mọi bản đồ. */
-export const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+/** Tile công khai của OpenStreetMap dùng chung cho mọi bản đồ.
+ * Dùng mirror Đức vì hostname tile.openstreetmap.org bị DNS cục bộ chặn.
+ */
+export const OSM_TILE_URL = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
 export const OSM_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 

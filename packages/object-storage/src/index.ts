@@ -13,7 +13,7 @@ export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const PRESIGN_EXPIRY_SECONDS = 10 * 60;
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number];
-export type ObjectNamespace = 'community/posts' | 'venue/images' | 'profile/avatars' | 'finance/disputes';
+export type ObjectNamespace = 'community/posts' | 'community/tickets' | 'venue/images' | 'profile/avatars' | 'finance/disputes';
 
 export class ObjectStorageError extends Error {
   constructor(public readonly code: string, message: string) {
@@ -43,7 +43,7 @@ export interface ObjectStorageClient {
     expiresAt: string;
   }>;
   assertOwnedObject(input: AssertOwnedObjectInput): Promise<void>;
-  getReadUrl(objectKey: string): Promise<string>;
+  getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string>;
   deleteObject(objectKey: string): Promise<void>;
 }
 
@@ -141,8 +141,10 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     }
   }
 
-  async getReadUrl(objectKey: string): Promise<string> {
-    if (this.options.publicBaseUrl) return `${this.options.publicBaseUrl.replace(/\/$/, '')}/${encodeURI(objectKey)}`;
+  async getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string> {
+    if (options?.visibility !== 'private' && this.options.publicBaseUrl) {
+      return `${this.options.publicBaseUrl.replace(/\/$/, '')}/${encodeURI(objectKey)}`;
+    }
     return getSignedUrl(
       this.options.s3,
       new GetObjectCommand({ Bucket: this.options.bucket, Key: objectKey }),

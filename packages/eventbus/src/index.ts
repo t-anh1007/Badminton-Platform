@@ -221,6 +221,10 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
       released = false;
     } catch (err) {
       logError('không dựng lại được việc nền:', err);
+      // A failed initial bootstrap leaves no background work running. Mark it
+      // released so the next HTTP request can retry instead of leaving durable
+      // events stranded until the process is restarted.
+      released = true;
     } finally {
       resuming = false;
     }

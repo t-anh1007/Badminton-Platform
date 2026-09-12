@@ -126,6 +126,49 @@ afterAll(async () => {
 });
 
 describe('COM-01..08 — public community and asynchronous support', () => {
+  it('persists up to five verified ticket evidence images and rejects a sixth', async () => {
+    const requester = player();
+    const assertOwnedObject = vi.fn<ObjectStorageClient['assertOwnedObject']>().mockResolvedValue(undefined);
+    const storage: ObjectStorageClient = {
+      authorizeUpload: vi.fn().mockImplementation(async ({ namespace, ownerUserId, mimeType }) => ({
+        objectKey: `${namespace}/${ownerUserId}/authorized.${mimeType === 'image/png' ? 'png' : 'jpg'}`,
+        uploadUrl: 'https://storage.test/upload', headers: { 'Content-Type': mimeType }, expiresAt: '2026-09-12T00:10:00.000Z',
+      })),
+      assertOwnedObject,
+      getReadUrl: vi.fn(async (objectKey: string, options?: { visibility?: 'public' | 'private' }) => options?.visibility === 'private' ? `https://storage.test/signed/${objectKey}` : `https://cdn.test/${objectKey}`),
+      deleteObject: vi.fn(),
+    };
+    const appWithStorage = createApp({
+      accountEligibilityClient: {
+        async isVerifiedPlayer(userId) { return userId === requester.userId; },
+        async getPublicDisplayNames(userIds) { return userIds.map((userId) => ({ userId, displayName: null, avatarUrl: null })); },
+      },
+      objectStorage: storage,
+    });
+    const objectKeys = Array.from({ length: 5 }, (_, index) => `community/tickets/${requester.userId}/evidence-${index}.jpg`);
+
+    await request(appWithStorage)
+      .post('/uploads/tickets')
+      .set('Authorization', requester.authorization)
+      .send({ mimeType: 'image/jpeg' })
+      .expect(201)
+      .expect(({ body }) => expect(body.objectKey).toContain(`community/tickets/${requester.userId}/`));
+
+    const created = await request(appWithStorage)
+      .post('/tickets')
+      .set('Authorization', requester.authorization)
+      .send({ subject: 'Có bằng chứng', body: 'Mô tả vấn đề', evidence: objectKeys })
+      .expect(201);
+
+    expect(assertOwnedObject).toHaveBeenCalledTimes(5);
+    expect(created.body.evidence.map((image: { objectKey: string }) => image.objectKey)).toEqual(objectKeys.map((key) => `https://storage.test/signed/${key}`));
+    await request(appWithStorage)
+      .post('/tickets')
+      .set('Authorization', requester.authorization)
+      .send({ subject: 'Quá giới hạn', body: 'Không hợp lệ', evidence: [...objectKeys, `community/tickets/${requester.userId}/evidence-5.jpg`] })
+      .expect(400);
+  });
+
   it('lists only published posts publicly, including an empty feed', async () => {
     const author = player();
     const created = await request(app)

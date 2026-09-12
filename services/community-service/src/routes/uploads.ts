@@ -17,5 +17,14 @@ export function createCommunityUploadRouter(resolveStorage: () => ObjectStorageC
     });
     res.status(201).json(upload);
   }));
+  router.post('/uploads/tickets', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const { mimeType } = uploadBody.parse(req.body);
+    const upload = await resolveStorage().authorizeUpload({
+      namespace: 'community/tickets',
+      ownerUserId: (req as AuthenticatedRequest).user!.id,
+      mimeType,
+    });
+    res.status(201).json(upload);
+  }));
   return router;
 }
