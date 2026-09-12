@@ -137,6 +137,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
             type: 'topup',
             refType: 'overpay_match_fee',
             refId: contribution.id,
+            withdrawableDelta: excess,
           });
           excessEntryId = entry.id;
         }
@@ -206,7 +207,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
       let excessEntryId: string | null = null;
       if (excess > 0n) {
         const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
-        const entry = await postLedgerEntry(tx, { walletId: wallet.id, amount: excess, type: 'topup', refType: 'overpay', refId: intent.refId });
+        const entry = await postLedgerEntry(tx, { walletId: wallet.id, amount: excess, type: 'topup', refType: 'overpay', refId: intent.refId, withdrawableDelta: excess });
         excessEntryId = entry.id;
       }
       await writeOutbox(tx, {

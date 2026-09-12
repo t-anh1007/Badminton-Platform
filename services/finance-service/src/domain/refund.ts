@@ -107,6 +107,7 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
               type: 'refund',
               refType: 'matchFeeCancellation',
               refId: allocation.contribution.id,
+              withdrawableDelta: allocation.amount,
             });
           }
           await tx.matchContribution.update({
@@ -200,6 +201,7 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
         type: 'refund',
         refType: 'booking',
         refId: payload.bookingId,
+        withdrawableDelta: refundGross,
       });
       await postLedgerEntry(tx, {
         walletId: business.id,

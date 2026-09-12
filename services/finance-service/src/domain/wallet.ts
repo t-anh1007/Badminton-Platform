@@ -68,6 +68,12 @@ export async function postLedgerEntry(
      * của ví business chờ hết cửa sổ tranh chấp — mọi bút toán khác đi thẳng
      * `available`. `before`/`after` LUÔN phản ánh field bị đổi thật sự. */
     field?: 'available' | 'pending' | 'reserved';
+    /** Personal-wallet subset that is eligible for a bank withdrawal. Only
+     * post-rollout refunds/excess transfers pass a positive delta. */
+    withdrawableDelta?: bigint;
+    /** Personal payments spend ordinary topup money first, then reduce the
+     * eligible subset only for the remainder of the debit. */
+    consumePersonalWithdrawable?: boolean;
   },
 ) {
   const referenceSummary = params.referenceSummary ?? (() => {
@@ -87,7 +93,30 @@ export async function postLedgerEntry(
   const before = field === 'pending' ? wallet.pending : field === 'reserved' ? wallet.reserved : wallet.available;
   const after = before + params.amount;
   if (after < 0n) throw new AppError('NEGATIVE_BALANCE', 'Số dư ví không thể âm.', 409);
-  await tx.wallet.update({ where: { id: wallet.id }, data: { [field]: after } });
+  let withdrawableAfter = wallet.withdrawable;
+  if (params.withdrawableDelta !== undefined || params.consumePersonalWithdrawable) {
+    if (wallet.walletType !== 'personal' || field !== 'available') {
+      throw new Error('Withdrawable chỉ áp dụng cho available của ví personal');
+    }
+    if (params.withdrawableDelta !== undefined && params.consumePersonalWithdrawable) {
+      throw new Error('Không thể vừa đặt delta vừa tự tiêu withdrawable');
+    }
+    if (params.consumePersonalWithdrawable) {
+      if (params.amount > 0n) throw new Error('Chỉ debit mới tiêu withdrawable');
+      const ordinaryBefore = wallet.available - wallet.withdrawable;
+      const eligibleDebit = -params.amount > ordinaryBefore ? -params.amount - ordinaryBefore : 0n;
+      withdrawableAfter -= eligibleDebit;
+    } else {
+      withdrawableAfter += params.withdrawableDelta!;
+    }
+    if (withdrawableAfter < 0n || withdrawableAfter > after) {
+      throw new AppError('INVALID_WITHDRAWABLE_BALANCE', 'Số dư có thể rút không hợp lệ.', 409);
+    }
+  }
+  await tx.wallet.update({
+    where: { id: wallet.id },
+    data: { [field]: after, ...(withdrawableAfter !== wallet.withdrawable ? { withdrawable: withdrawableAfter } : {}) },
+  });
   const entry = await tx.ledgerEntry.create({
     data: {
       walletId: wallet.id,

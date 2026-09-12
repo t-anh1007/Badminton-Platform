@@ -107,7 +107,10 @@ model Wallet {
   /// D3: bỏ UK đơn lẻ trên userId — một user có thể có cả ví personal lẫn business.
   walletType WalletType
   available  BigInt     @default(0)
-  /// ADR 0003 + BR-FIN-16: pending/reserved chỉ có ý nghĩa cho ví business.
+  /// Personal only: the subset of available balance created by post-rollout
+  /// refunds or excess transfers and therefore eligible for bank withdrawal.
+  withdrawable BigInt @default(0)
+  /// pending is business-only; reserved also tracks personal withdrawal holds.
   pending  BigInt @default(0)
   reserved BigInt @default(0)
   currency String @default("VND")
@@ -208,6 +211,9 @@ model QuarantinedEvent {
 model WithdrawalRequest {
   id            String            @id @default(uuid())
   sellerUserId  String
+  /// Existing rows are business requests. Personal requests use the same
+  /// audited payout lifecycle but reserve only eligible personal funds.
+  walletType    WalletType @default(business)
   amount        BigInt
   status        WithdrawalStatus  @default(pending)
   /// BR-FIN-19: số tiền đã thực chi khi chưa đủ (partially_paid).

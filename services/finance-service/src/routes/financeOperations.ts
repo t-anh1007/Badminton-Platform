@@ -7,7 +7,7 @@ import {
 import { h } from './handler.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { listBusinessRevenue } from '../domain/revenueRelease.js';
-import { cancelWithdrawal, createWithdrawal, rejectWithdrawal } from '../domain/withdrawal.js';
+import { cancelWithdrawal, confirmManualWithdrawalPayout, createWithdrawal, rejectWithdrawal } from '../domain/withdrawal.js';
 import {
   assignIncomingEvent, assignOutgoingEvent, finalizePartialWithdrawal,
   listUnmatchedEvents, markEventOutOfScope,
@@ -43,6 +43,12 @@ const evidenceForRead = async (resolveStorage: () => ObjectStorageClient, eviden
     .map((item) => /^https?:\/\//i.test(item) ? item : resolveStorage().getReadUrl(item)),
 );
 
+const serializeWithdrawal = (row: { amount: bigint; paidAmount: bigint | null } & Record<string, unknown>) => ({
+  ...row,
+  amount: row.amount.toString(),
+  paidAmount: row.paidAmount?.toString() ?? '0',
+});
+
 export function createFinanceOperationsRouter(resolveStorage: () => ObjectStorageClient = createObjectStorageClientFromEnv) {
 const financeOperationsRouter = Router();
 
@@ -51,6 +57,28 @@ financeOperationsRouter.post('/players/me/dispute-evidence-upload', requireAuth,
   const { mimeType } = uploadBody.parse(req.body);
   const upload = await resolveStorage().authorizeUpload({ namespace: 'finance/disputes', ownerUserId: userId, mimeType });
   res.status(201).json(upload);
+}));
+
+financeOperationsRouter.get('/players/me/withdrawals', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const rows = await prisma.withdrawalRequest.findMany({
+    where: { sellerUserId: userId, walletType: 'personal' },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(rows.map(serializeWithdrawal));
+}));
+
+financeOperationsRouter.post('/players/me/withdrawals', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const body = withdrawalSchema.parse(req.body);
+  const row = await createWithdrawal(userId, { ...body, amount: BigInt(body.amount) }, 'personal');
+  res.status(201).json(serializeWithdrawal(row));
+}));
+
+financeOperationsRouter.post('/players/me/withdrawals/:id/cancel', requireAuth, requireRole('player'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const row = await cancelWithdrawal(userId, req.params.id!, 'personal');
+  res.json({ id: row.id, status: row.status });
 }));
 
 financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('provider'), h(async (req, res) => {
@@ -63,25 +91,25 @@ financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('p
 financeOperationsRouter.get('/providers/me/withdrawals', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
   const rows = await prisma.withdrawalRequest.findMany({ where: { sellerUserId: userId }, orderBy: { createdAt: 'desc' } });
-  res.json(rows.map((row) => ({ ...row, amount: row.amount.toString(), paidAmount: row.paidAmount?.toString() ?? '0' })));
+  res.json(rows.map(serializeWithdrawal));
 }));
 
 financeOperationsRouter.post('/providers/me/withdrawals', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
   const body = withdrawalSchema.parse(req.body);
   const request = await createWithdrawal(userId, { ...body, amount: BigInt(body.amount) });
-  res.status(201).json({ ...request, amount: request.amount.toString(), paidAmount: request.paidAmount?.toString() ?? '0' });
+  res.status(201).json(serializeWithdrawal(request));
 }));
 
 financeOperationsRouter.post('/providers/me/withdrawals/:id/cancel', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
-  const request = await cancelWithdrawal(userId, req.params.id!);
+  const request = await cancelWithdrawal(userId, req.params.id!, 'business');
   res.json({ id: request.id, status: request.status });
 }));
 
 financeOperationsRouter.get('/admin/withdrawals', requireAuth, requireRole('admin'), h(async (_req, res) => {
   const rows = await prisma.withdrawalRequest.findMany({ orderBy: { createdAt: 'asc' } });
-  res.json(rows.map((row) => ({ ...row, amount: row.amount.toString(), paidAmount: row.paidAmount?.toString() ?? '0' })));
+  res.json(rows.map(serializeWithdrawal));
 }));
 
 financeOperationsRouter.post('/admin/withdrawals/:id/reject', requireAuth, requireRole('admin'), h(async (req, res) => {
@@ -139,6 +167,13 @@ financeOperationsRouter.get('/players/me/disputes', requireAuth, requireRole('pl
   res.json(await Promise.all(rows.map(async (row) => ({
     ...row, evidence: await evidenceForRead(resolveStorage, row.evidence), resolutionAmount: row.resolutionAmount?.toString() ?? null,
   }))));
+}));
+
+financeOperationsRouter.post('/admin/withdrawals/:id/manual-payout', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const actor = (req as AuthenticatedRequest).user!.id;
+  const { reason } = reasonSchema.parse(req.body);
+  const payout = await confirmManualWithdrawalPayout(actor, req.params.id!, reason);
+  res.json({ id: req.params.id, status: payout.status, paidAmount: payout.paidAmount.toString() });
 }));
 
 financeOperationsRouter.post('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
