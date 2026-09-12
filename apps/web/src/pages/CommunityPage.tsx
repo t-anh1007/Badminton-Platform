@@ -32,6 +32,7 @@ import {
 import { CommunityComposer } from '../components/CommunityComposer';
 import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
+import { getMyProfile, type ProfileResult } from '../lib/accountApi.js';
 
 const PAGE_SIZE = 10;
 const postStatus: Record<ContentStatus, { label: string; tone: 'success' | 'warning' | 'danger' }> = {
@@ -170,6 +171,7 @@ export function CommunityPage() {
   const [editingPost, setEditingPost] = useState<CommunityPost | null>(null);
   const [editBody, setEditBody] = useState('');
   const [removingPost, setRemovingPost] = useState<CommunityPost | null>(null);
+  const [composerProfile, setComposerProfile] = useState<ProfileResult | null>(null);
 
   const loadFeed = async () => {
     setLoading(true);
@@ -210,6 +212,13 @@ export function CommunityPage() {
   useEffect(() => {
     void loadOwnActivity();
   }, []);
+  useEffect(() => {
+    if (!session) { setComposerProfile(null); return; }
+    const loadProfile = () => { void getMyProfile().then(setComposerProfile).catch(() => setComposerProfile(null)); };
+    loadProfile();
+    window.addEventListener('courtin:profile-change', loadProfile);
+    return () => window.removeEventListener('courtin:profile-change', loadProfile);
+  }, [session?.userId]);
 
   const requireSession = (action: () => void) => {
     if (!session) {
@@ -396,7 +405,7 @@ export function CommunityPage() {
                 className="flex w-full items-center gap-3 text-left"
                 onClick={() => requireSession(() => setComposerOpen(true))}
               >
-                <Avatar label={avatarLabel(session?.userId)} />
+                <Avatar label={avatarLabel(composerProfile?.playerProfile?.displayName ?? session?.userId)} src={composerProfile?.playerProfile?.avatarUrl} alt="Ảnh đại diện của bạn" />
                 <span className="flex-1 rounded-full bg-canvas px-4 py-3 text-sm text-ink-500 transition hover:bg-green-50 hover:text-green-700">
                   Chia sẻ với cộng đồng...
                 </span>
@@ -404,7 +413,7 @@ export function CommunityPage() {
             ) : (
               <div>
                 <div className="flex items-center gap-3">
-                  <Avatar label={avatarLabel(session?.userId)} />
+                  <Avatar label={avatarLabel(composerProfile?.playerProfile?.displayName ?? session?.userId)} src={composerProfile?.playerProfile?.avatarUrl} alt="Ảnh đại diện của bạn" />
                   <div>
                     <p className="text-sm font-semibold">Bài viết công khai</p>
                     <p className="text-caption">Mọi người đều có thể xem bài này</p>
