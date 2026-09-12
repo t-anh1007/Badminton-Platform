@@ -43,7 +43,7 @@ export interface ObjectStorageClient {
     expiresAt: string;
   }>;
   assertOwnedObject(input: AssertOwnedObjectInput): Promise<void>;
-  getReadUrl(objectKey: string): Promise<string>;
+  getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string>;
   deleteObject(objectKey: string): Promise<void>;
 }
 
@@ -141,8 +141,10 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     }
   }
 
-  async getReadUrl(objectKey: string): Promise<string> {
-    if (this.options.publicBaseUrl) return `${this.options.publicBaseUrl.replace(/\/$/, '')}/${encodeURI(objectKey)}`;
+  async getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string> {
+    if (options?.visibility !== 'private' && this.options.publicBaseUrl) {
+      return `${this.options.publicBaseUrl.replace(/\/$/, '')}/${encodeURI(objectKey)}`;
+    }
     return getSignedUrl(
       this.options.s3,
       new GetObjectCommand({ Bucket: this.options.bucket, Key: objectKey }),

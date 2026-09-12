@@ -83,6 +83,21 @@ describe('object-storage upload boundary', () => {
       .resolves.toBe(`https://cdn.example.test/media/venue/images/${ownerUserId}/photo.png`);
   });
 
+  it('uses an expiring signed URL for private ticket evidence even when a public base URL exists', async () => {
+    vi.mocked(getSignedUrl).mockResolvedValue('https://storage.test/private-signed');
+    const storage = new S3ObjectStorageClient({
+      bucket: 'media',
+      s3: { send: vi.fn() } as unknown as S3Client,
+      publicBaseUrl: 'https://cdn.example.test/media/',
+    });
+
+    await expect(storage.getReadUrl(`community/tickets/${ownerUserId}/proof.jpg`, { visibility: 'private' }))
+      .resolves.toBe('https://storage.test/private-signed');
+    expect(getSignedUrl).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), {
+      expiresIn: PRESIGN_EXPIRY_SECONDS,
+    });
+  });
+
   it('HEAD-verifies MIME, size, and owned prefix before metadata can attach', async () => {
     const send = vi.fn().mockResolvedValue({ ContentType: 'image/jpeg', ContentLength: 1024 });
     const storage = new S3ObjectStorageClient({ bucket: 'media', s3: { send } as unknown as S3Client });

@@ -55,7 +55,7 @@ async function attachTicketEvidenceUrls<T extends { evidence?: Array<{ objectKey
 ): Promise<T> {
   const storage = resolveObjectStorage?.();
   if (!storage || !ticket.evidence?.length) return ticket;
-  return { ...ticket, evidence: await Promise.all(ticket.evidence.map(async (image) => ({ ...image, objectKey: await storage.getReadUrl(image.objectKey) }))) };
+  return { ...ticket, evidence: await Promise.all(ticket.evidence.map(async (image) => ({ ...image, objectKey: await storage.getReadUrl(image.objectKey, { visibility: 'private' }) }))) };
 }
 import {
   addTicketMessage,

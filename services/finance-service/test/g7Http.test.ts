@@ -15,7 +15,7 @@ const authorizeUpload = async ({ ownerUserId, mimeType }: { ownerUserId: string;
 const objectStorage: ObjectStorageClient = {
   authorizeUpload: authorizeUpload as ObjectStorageClient['authorizeUpload'],
   assertOwnedObject: async () => undefined,
-  getReadUrl: async (key) => `https://cdn.test/${key}`,
+  getReadUrl: async (key, options) => options?.visibility === 'private' ? `https://storage.test/signed/${key}` : `https://cdn.test/${key}`,
   deleteObject: async () => undefined,
 };
 const app = createApp({ objectStorage });
@@ -56,7 +56,7 @@ describe('G7 HTTP contract', () => {
 
     const mine = await request(app).get('/players/me/disputes').set('Authorization', auth);
     expect(mine.status).toBe(200);
-    expect(mine.body).toContainEqual(expect.objectContaining({ id: created.body.id, status: 'open', evidence: [`https://cdn.test/${upload.body.objectKey}`] }));
+    expect(mine.body).toContainEqual(expect.objectContaining({ id: created.body.id, status: 'open', evidence: [`https://storage.test/signed/${upload.body.objectKey}`] }));
   });
 
   it('chỉ Admin xem queue/resolve; amount truyền bằng chuỗi BigInt và lý do bắt buộc', async () => {

@@ -40,7 +40,7 @@ const uploadBody = z.object({ mimeType: z.enum(['image/jpeg', 'image/png', 'imag
 const mimeFromKey = (objectKey: string): ImageMimeType => objectKey.endsWith('.png') ? 'image/png' : objectKey.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
 const evidenceForRead = async (resolveStorage: () => ObjectStorageClient, evidence: unknown) => Promise.all(
   (Array.isArray(evidence) ? evidence : []).filter((item): item is string => typeof item === 'string')
-    .map((item) => /^https?:\/\//i.test(item) ? item : resolveStorage().getReadUrl(item)),
+    .map((item) => /^https?:\/\//i.test(item) ? item : resolveStorage().getReadUrl(item, { visibility: 'private' })),
 );
 
 const serializeWithdrawal = (row: { amount: bigint; paidAmount: bigint | null } & Record<string, unknown>) => ({

@@ -135,7 +135,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
         uploadUrl: 'https://storage.test/upload', headers: { 'Content-Type': mimeType }, expiresAt: '2026-09-12T00:10:00.000Z',
       })),
       assertOwnedObject,
-      getReadUrl: vi.fn(async (objectKey: string) => `https://cdn.test/${objectKey}`),
+      getReadUrl: vi.fn(async (objectKey: string, options?: { visibility?: 'public' | 'private' }) => options?.visibility === 'private' ? `https://storage.test/signed/${objectKey}` : `https://cdn.test/${objectKey}`),
       deleteObject: vi.fn(),
     };
     const appWithStorage = createApp({
@@ -161,7 +161,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .expect(201);
 
     expect(assertOwnedObject).toHaveBeenCalledTimes(5);
-    expect(created.body.evidence.map((image: { objectKey: string }) => image.objectKey)).toEqual(objectKeys.map((key) => `https://cdn.test/${key}`));
+    expect(created.body.evidence.map((image: { objectKey: string }) => image.objectKey)).toEqual(objectKeys.map((key) => `https://storage.test/signed/${key}`));
     await request(appWithStorage)
       .post('/tickets')
       .set('Authorization', requester.authorization)
