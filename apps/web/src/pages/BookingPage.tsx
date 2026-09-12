@@ -8,9 +8,10 @@ import { PageHeader } from '../components/courtin/PageHeader'
 import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/ui'
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
 import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
-import { createMatch } from '../lib/matchApi.js'
+import { createMatch, MATCH_MIN_LEAD_HOURS, MatchApiError } from '../lib/matchApi.js'
 import { vietnamDateInput } from '../lib/formatters.js'
 import {
+  cancelMyBooking,
   createBooking,
   createHold,
   getCourtAvailability,
@@ -247,8 +248,24 @@ export function BookingPage() {
     setMessage('Hoàn tất thanh toán trước khi lượt giữ chỗ hết hạn.')
   })
 
+  // DM3: slot còn dưới 24 giờ thì không tạo được kèo — chặn trước khi giữ chỗ để không khóa slot vô ích.
+  const opponentLeadTooShort = selection ? new Date(selection.startAt).getTime() - Date.now() < MATCH_MIN_LEAD_HOURS * 3_600_000 : false
+
+  // Matchmaking từ chối hẳn (DM3, DM7…): thử lại cùng hold cũng không đổi kết quả. Lỗi mạng/5xx vẫn giữ
+  // hold để thử lại như cũ.
+  const isMatchRejected = (caught: unknown) => caught instanceof MatchApiError && [400, 404, 409, 422].includes(caught.status)
+
+  // Matchmaking có thể đã đổi hold thành booking `held` trước khi từ chối. createBooking idempotent theo
+  // holdId nên trả đúng booking đó; hủy booking held xóa luôn hold -> slot trống lại, mở khóa giao diện.
+  const releaseMatchHold = async (rejectedHold: HoldResult) => {
+    pendingMatchHold.current = null
+    setHold(null)
+    await createBooking(rejectedHold.id).then((orphan) => cancelMyBooking(orphan.id)).catch(() => undefined)
+    if (courtId) await loadAvailability(courtId, date)
+  }
+
   const findOpponent = () => {
-    if (!selection || matchCheckout || findOpponentInFlight.current) return
+    if (!selection || matchCheckout || findOpponentInFlight.current || opponentLeadTooShort) return
     findOpponentInFlight.current = true
     void run(async () => {
       try {
@@ -259,9 +276,13 @@ export function BookingPage() {
           setHold(nextHold)
           updateSelectedSlots('held')
         }
-        const match = await createMatch({ holdId: nextHold.id, capacity: 2, feeMode: 'split' })
+        const matchHold = nextHold
+        const match = await createMatch({ holdId: matchHold.id, capacity: 2, feeMode: 'split' }).catch(async (caught: unknown) => {
+          if (isMatchRejected(caught)) await releaseMatchHold(matchHold)
+          throw caught
+        })
         pendingMatchHold.current = null
-        setMatchCheckout({ matchId: match.id, holdExpiresAt: nextHold.expiresAt })
+        setMatchCheckout({ matchId: match.id, holdExpiresAt: matchHold.expiresAt })
         setMessage('Hoàn tất đặt cọc trước khi lượt giữ chỗ hết hạn.')
       } finally {
         findOpponentInFlight.current = false
@@ -349,7 +370,7 @@ export function BookingPage() {
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
             {selection && !booking && !matchCheckout && (meetsMinDuration
-              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => void confirm()}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading} onClick={() => void findOpponent()}>TÌM ĐỐI THỦ</Button></div>
+              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => void confirm()}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => void findOpponent()}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho slot còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
             {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true })} onExpired={expireHold} />}

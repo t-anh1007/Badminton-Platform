@@ -1,5 +1,20 @@
 const BASE_URL = import.meta.env.VITE_MATCHMAKING_URL ?? '/api/matchmaking';
 
+// DM3 (PLAN_MATCH-DEPOSIT): khớp MIN_LEAD_HOURS ở matchmaking-service — chỉ tạo kèo khi slot còn >= 24 giờ.
+export const MATCH_MIN_LEAD_HOURS = 24;
+
+export class MatchApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'MatchApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function token(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
@@ -15,9 +30,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const body = (await response.json().catch(() => ({}))) as T & {
-    error?: { message?: string };
+    error?: { message?: string; code?: string };
   };
-  if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu kèo.');
+  if (!response.ok) throw new MatchApiError(body.error?.message ?? 'Không thể xử lý yêu cầu kèo.', response.status, body.error?.code);
   return body;
 }
 
