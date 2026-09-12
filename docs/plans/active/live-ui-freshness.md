@@ -57,14 +57,17 @@ Out of scope:
 ## Progress
 
 - [x] Audited current notification and finance realtime paths.
-- [ ] Add client invalidation transport and source signals.
-- [ ] Register data pages for authoritative refetch.
+- [x] Add client invalidation transport and source signals.
+- [x] Register data pages for authoritative refetch.
+- [x] Add QR-modal status polling for an Admin's external-bank handoff.
 - [ ] Validate and release.
 
 ## Decisions
 
 - 2026-09-13: Use SSE plus refetch, not browser-side state deltas or a global
   route reload, to preserve financial correctness and active form input.
+- 2026-09-13: Poll only while the Admin withdrawal QR modal is open because the
+  SePay webhook settles server-side without an Admin-targeted SSE event.
 
 ## Validation
 

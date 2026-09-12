@@ -74,6 +74,34 @@ export function FinanceAdminPanel({ mode }: { mode: 'withdrawals' | 'reconciliat
   useEffect(() => { void reload(); }, [mode]);
   useLiveDataRefresh(reload);
 
+  // QR is an external-bank handoff: after the Admin transfers, only the SePay
+  // webhook can authoritatively settle it. Poll narrowly while this modal is
+  // open so an already-confirmed payout never leaves the Admin on stale QR UI.
+  useEffect(() => {
+    const withdrawalId = qrWithdrawal?.id;
+    if (!withdrawalId) return;
+    let active = true;
+    const refreshQrStatus = async () => {
+      try {
+        const rows = await getAdminWithdrawals();
+        if (!active) return;
+        setWithdrawals(rows);
+        const latest = rows.find((row) => row.id === withdrawalId);
+        if (!latest || (latest.status !== 'pending' && latest.status !== 'partially_paid')) {
+          setQrWithdrawal(null);
+          setMessage('SePay đã xác nhận giao dịch. Yêu cầu rút đã được cập nhật.');
+          return;
+        }
+        setQrWithdrawal(latest);
+      } catch {
+        // Keep QR usable during a transient refresh failure; the next interval retries.
+      }
+    };
+    void refreshQrStatus();
+    const timer = window.setInterval(() => void refreshQrStatus(), 1_500);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [qrWithdrawal?.id]);
+
   useEffect(() => { setPage(1); }, [directionFilter, query, sortBy, statusFilter]);
 
   const filteredWithdrawals = useMemo(() => {
