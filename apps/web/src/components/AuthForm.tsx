@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { demoLogin, login, loginWithGoogle, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
+import { AccountApiError, demoLogin, login, loginWithGoogle, register, resendVerificationEmail, verifyEmail } from '../lib/accountApi'
 import { useSession } from '../session/SessionProvider'
 import { Button, TextInput } from './ui'
 import { GoogleSignInButton } from './GoogleSignInButton'
@@ -51,6 +51,8 @@ export function AuthForm({ onAuthenticated, onNavigateAway, initialMode = 'login
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể xác thực tài khoản.')
+      // AC-ACC-03-2: chưa xác minh → chuyển sang ACC-02, giữ email để nhập mã hoặc gửi lại mã.
+      if (mode === 'login' && caught instanceof AccountApiError && caught.code === 'EMAIL_NOT_VERIFIED') setMode('verify')
     } finally {
       setLoading(false)
     }
