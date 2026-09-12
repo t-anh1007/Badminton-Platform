@@ -44,6 +44,9 @@ export function ProfilePage() {
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [form, setForm] = useState({ displayName: '', phone: '', visibility: 'public' as 'public' | 'private' });
   const [password, setPassword] = useState({ current: '', next: '' });
+  const [passwordNotice, setPasswordNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const loadPage = useCallback(async () => {
@@ -113,12 +116,23 @@ export function ProfilePage() {
         newPassword: password.next,
         currentRefreshToken: localStorage.getItem('refreshToken') ?? undefined,
       });
-      setPasswordOpen(false);
       setPassword({ current: '', next: '' });
-      setMessage('Đổi mật khẩu thành công.');
+      setPasswordNotice({ tone: 'success', text: 'Đổi mật khẩu thành công.' });
     } catch (caught) {
-      setMessage((caught as Error).message);
+      setPasswordNotice({ tone: 'error', text: caught instanceof Error ? caught.message : 'Không thể đổi mật khẩu.' });
     }
+  };
+
+  const openPasswordModal = () => {
+    setPasswordNotice(null);
+    setPasswordOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setPasswordNotice(null);
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setPasswordOpen(false);
   };
 
   const createTopup = async () => {
@@ -233,7 +247,7 @@ export function ProfilePage() {
               <p><span className="text-ink-500">Trình độ</span><span className="float-right">Chưa cập nhật</span></p>
             </div>
             <Button tone="secondary" className="mt-5 w-full" onClick={() => setEditOpen(true)}>Cập nhật thông tin</Button>
-            <Button tone="ghost" className="mt-2 w-full" onClick={() => setPasswordOpen(true)}>Đổi mật khẩu</Button>
+            <Button tone="ghost" className="mt-2 w-full" onClick={openPasswordModal}>Đổi mật khẩu</Button>
           </SurfaceCard>
         </aside>
 
@@ -291,10 +305,11 @@ export function ProfilePage() {
         </form>
       </Modal>
 
-      <Modal open={passwordOpen} title="Đổi mật khẩu" onClose={() => setPasswordOpen(false)}>
+      <Modal open={passwordOpen} title="Đổi mật khẩu" onClose={closePasswordModal}>
         <form onSubmit={savePassword} className="grid gap-4">
-          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu hiện tại<TextInput type="password" required value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu mới<TextInput type="password" required minLength={8} value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} /></label>
+          {passwordNotice && <p role={passwordNotice.tone === 'error' ? 'alert' : 'status'} aria-live="polite" className={`rounded-xl p-3 text-sm ${passwordNotice.tone === 'error' ? 'bg-danger-bg text-danger' : 'bg-success-bg text-success'}`}>{passwordNotice.text}</p>}
+          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu hiện tại<div className="relative"><TextInput type={showCurrentPassword ? 'text' : 'password'} required value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} className="pr-12" /><button type="button" aria-label={showCurrentPassword ? 'Ẩn mật khẩu hiện tại' : 'Hiển thị mật khẩu hiện tại'} aria-pressed={showCurrentPassword} onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-[var(--radius-control)] text-ink-500 hover:text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">{showCurrentPassword ? <><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 4.2A10.7 10.7 0 0112 4c5.5 0 9.3 4.6 10 8-.3 1.4-1.2 3.1-2.7 4.6M6.2 6.2C4.2 7.8 2.7 10.1 2 12c.7 3.4 4.5 8 10 8 1.4 0 2.7-.3 3.8-.8"/></> : <><path d="M2 12s3.5-8 10-8 10 8 10 8-3.5 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>}</svg></button></div></label>
+          <label className="grid gap-1.5 text-sm font-medium">Mật khẩu mới<div className="relative"><TextInput type={showNewPassword ? 'text' : 'password'} required minLength={8} value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} className="pr-12" /><button type="button" aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiển thị mật khẩu mới'} aria-pressed={showNewPassword} onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-[var(--radius-control)] text-ink-500 hover:text-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">{showNewPassword ? <><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 4.2A10.7 10.7 0 0112 4c5.5 0 9.3 4.6 10 8-.3 1.4-1.2 3.1-2.7 4.6M6.2 6.2C4.2 7.8 2.7 10.1 2 12c.7 3.4 4.5 8 10 8 1.4 0 2.7-.3 3.8-.8"/></> : <><path d="M2 12s3.5-8 10-8 10 8 10 8-3.5 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>}</svg></button></div></label>
           <Button type="submit">Đổi mật khẩu</Button>
         </form>
       </Modal>
