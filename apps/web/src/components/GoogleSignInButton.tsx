@@ -54,7 +54,12 @@ function loadGsiScript(): Promise<void> {
 
 export function GoogleSignInButton({ onCredential, disabled }: GoogleSignInButtonProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const onCredentialRef = useRef(onCredential)
   const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID as string | undefined
+
+  // AuthForm tạo callback mới khi người dùng gõ. Giữ callback hiện tại trong
+  // ref để không khởi tạo lại iframe Google ở mỗi lần nhập liệu.
+  onCredentialRef.current = onCredential
 
   useEffect(() => {
     if (!clientId || !containerRef.current) return
@@ -65,7 +70,7 @@ export function GoogleSignInButton({ onCredential, disabled }: GoogleSignInButto
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response) => {
-            if (response?.credential) onCredential(response.credential)
+            if (response?.credential) onCredentialRef.current(response.credential)
           },
         })
         window.google.accounts.id.renderButton(containerRef.current, {
@@ -84,7 +89,7 @@ export function GoogleSignInButton({ onCredential, disabled }: GoogleSignInButto
     return () => {
       cancelled = true
     }
-  }, [clientId, onCredential])
+  }, [clientId])
 
   if (!clientId) {
     return (
