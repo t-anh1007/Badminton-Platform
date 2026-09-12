@@ -8,6 +8,30 @@ export type ReportTarget = 'post' | 'comment';
 export type ModerationAction = 'hide' | 'remove' | 'dismiss';
 export type TicketCloseStatus = 'resolved' | 'closed';
 
+function normalizeTicketEvidence(evidence: string[]): string[] {
+  if (evidence.length > 5) throw new AppError(400, 'TICKET_EVIDENCE_LIMIT', 'Mỗi ticket chỉ có tối đa 5 ảnh bằng chứng.');
+  if (new Set(evidence).size !== evidence.length) throw new AppError(400, 'TICKET_EVIDENCE_DUPLICATE', 'Ảnh bằng chứng không được trùng.');
+  return evidence;
+}
+
+async function assertOwnedTicketEvidence(storage: ObjectStorageClient | undefined, requesterUserId: string, evidence: string[]): Promise<string[]> {
+  const normalized = normalizeTicketEvidence(evidence);
+  if (normalized.length > 0 && !storage) throw new AppError(503, 'OBJECT_STORAGE_UNAVAILABLE', 'Kho lưu trữ ảnh chưa sẵn sàng.');
+  try {
+    await Promise.all(normalized.map((objectKey) => storage!.assertOwnedObject({
+      objectKey,
+      namespace: 'community/tickets',
+      ownerUserId: requesterUserId,
+      mimeType: objectKey.endsWith('.png') ? 'image/png' : objectKey.endsWith('.webp') ? 'image/webp' : 'image/jpeg',
+      maxBytes: 8 * 1024 * 1024,
+    })));
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(400, 'TICKET_EVIDENCE_UNVERIFIED', 'Ảnh bằng chứng chưa được xác thực quyền sở hữu.');
+  }
+  return normalized;
+}
+
 const publicPostInclude = {
   comments: {
     where: { status: 'published' as const },
@@ -350,11 +374,15 @@ export async function createTicket(
   requesterUserId: string,
   subject: string,
   body: string,
+  evidence: string[] = [],
+  storage?: ObjectStorageClient,
 ) {
   await requireEligiblePlayer(accountClient, requesterUserId);
+  const verifiedEvidence = await assertOwnedTicketEvidence(storage, requesterUserId, evidence);
   return prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.create({
-      data: { requesterUserId, subject },
+      data: { requesterUserId, subject, evidence: { create: verifiedEvidence.map((objectKey, position) => ({ objectKey, position })) } },
+      include: { evidence: { orderBy: { position: 'asc' } } },
     });
     await tx.ticketMessage.create({
       data: {
@@ -382,7 +410,7 @@ export async function listTickets(userId: string, isAdmin: boolean) {
 export async function getTicket(ticketId: string, userId: string, isAdmin: boolean) {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    include: { messages: { orderBy: { createdAt: 'asc' } } },
+    include: { messages: { orderBy: { createdAt: 'asc' } }, evidence: { orderBy: { position: 'asc' } } },
   });
   if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
   if (!isAdmin && ticket.requesterUserId !== userId) forbidden('Bạn không có quyền xem ticket này.');

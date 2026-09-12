@@ -31,7 +31,7 @@ source: docs/SCOPE_BASELINE.md §2.6, docs/product/phasing.md §4
 - **COMMENT (bình luận)**: `authorUserId`, `postId`, nội dung text, `status`.
 - **REPORT (báo cáo vi phạm)**: `reporterUserId`, target (postId/commentId), lý do, `status`
   (`open`/`actioned`/`dismissed`).
-- **TICKET (yêu cầu hỗ trợ)**: `requesterUserId`, chủ đề, nội dung, `status` (`open`/`in_progress`/
+- **TICKET (yêu cầu hỗ trợ)**: `requesterUserId`, chủ đề, nội dung, tối đa năm ảnh bằng chứng JPEG/PNG/WebP đã xác minh ownership object storage và metadata theo thứ tự, `status` (`open`/`in_progress`/
   `resolved`/`closed`), luồng phản hồi bất đồng bộ (danh sách message user↔admin). KHÔNG realtime.
 
 ## 3. Trạng thái
@@ -130,7 +130,7 @@ published ─(admin ẩn tạm COM-07)─> hidden ─(admin khôi phục)─> pu
 - `AC-COM-07-4` — Given nội dung `removed`, When kiểm tra dữ liệu, Then bản ghi còn (audit), chỉ ẩn công khai (BR-COM-04).
 
 ### COM-08 — Gửi và xử lý yêu cầu hỗ trợ (ticket bất đồng bộ)
-- **Actor**: người chơi (gửi), admin (xử lý). **Workflow**: user tạo ticket (chủ đề + nội dung) →
+- **Actor**: người chơi (gửi), admin (xử lý). **Workflow**: user tạo ticket (chủ đề + nội dung + 0–5 ảnh bằng chứng) →
   `open`; admin xem, phản hồi → `in_progress`; trao đổi bất đồng bộ; admin đóng → `resolved`/
   `closed`. **BR**: BR-COM-06. **Ngoài phạm vi**: chat realtime CSKH (đã loại; dùng ticket).
 
@@ -139,6 +139,7 @@ published ─(admin ẩn tạm COM-07)─> hidden ─(admin khôi phục)─> pu
 - `AC-COM-08-2` — Given ticket `open`, When admin phản hồi, Then `in_progress` + message hiện cho user.
 - `AC-COM-08-3` — Given player khác, When cố xem ticket không phải của mình, Then 403 (BR-COM-06).
 - `AC-COM-08-4` — Given admin giải quyết, When đóng, Then ticket `resolved`/`closed`.
+- `AC-COM-08-5` — Given player chọn từ 0 đến 5 ảnh JPEG/PNG/WebP đã được cấp quyền upload trong namespace ticket của chính họ, When tạo ticket, Then metadata được lưu theo đúng thứ tự và chỉ requester/admin xem được; ảnh thứ sáu hoặc object key ngoài namespace bị từ chối.
 
 ## 7. Ngoài phạm vi (toàn module)
 - Nhóm kín, DM, nội dung riêng tư (bất biến #9).

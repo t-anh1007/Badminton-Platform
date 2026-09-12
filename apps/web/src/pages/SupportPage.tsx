@@ -11,13 +11,16 @@ import {
   Toast,
 } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
+import { ImageUploadPicker, type UploadImageState } from '../components/CommunityComposer.js';
 import { formatDateTimeVi } from '../lib/formatters.js';
 import {
   addSupportTicketMessage,
+  authorizeTicketEvidence,
   createSupportTicket,
   getCommunitySession,
   getSupportTicket,
   listSupportTickets,
+  uploadAuthorizedFile,
   type SupportTicket,
   type SupportTicketDetail,
   type TicketStatus,
@@ -73,6 +76,8 @@ export function SupportPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [subject, setSubject] = useState('');
   const [ticketBody, setTicketBody] = useState('');
+  const [evidence, setEvidence] = useState<UploadImageState[]>([]);
+  const [evidencePickerVersion, setEvidencePickerVersion] = useState(0);
   const [replyBody, setReplyBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -126,12 +131,16 @@ export function SupportPage() {
   };
 
   const createTicket = async () => {
-    if (!subject.trim() || !ticketBody.trim()) return;
+    const evidencePending = evidence.some((image) => image.status === 'uploading');
+    const evidenceFailed = evidence.some((image) => image.status === 'error');
+    if (!subject.trim() || !ticketBody.trim() || evidencePending || evidenceFailed) return;
     setSubmitting(true);
     try {
-      const ticket = await createSupportTicket(subject.trim(), ticketBody.trim());
+      const ticket = await createSupportTicket(subject.trim(), ticketBody.trim(), evidence.map((image) => image.objectKey!));
       setSubject('');
       setTicketBody('');
+      setEvidence([]);
+      setEvidencePickerVersion((version) => version + 1);
       setCreateOpen(false);
       setNotice({ message: 'Đã gửi ticket hỗ trợ.', tone: 'success' });
       await loadTickets(ticket.id);
@@ -288,6 +297,9 @@ export function SupportPage() {
                 </p>
               </div>
               <div className="max-h-[440px] space-y-4 overflow-y-auto bg-canvas/60 p-4 sm:p-6">
+                {(detail.evidence?.length ?? 0) > 0 && <section aria-label="Ảnh bằng chứng" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {detail.evidence!.map((image, index) => <a key={image.objectKey} href={image.objectKey} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-line bg-surface"><img src={image.objectKey} alt={`Ảnh bằng chứng ${index + 1}`} className="h-32 w-full object-cover" /></a>)}
+                </section>}
                 {detail.messages.map((message) => {
                   const isMine = message.senderUserId === session.userId;
                   return (
@@ -374,11 +386,15 @@ export function SupportPage() {
           />
         </label>
         <p className="mt-1 text-right text-caption">{ticketBody.length} / 1.000</p>
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-medium">Ảnh bằng chứng <span className="font-normal text-ink-500">(không bắt buộc, tối đa 5)</span></p>
+          <ImageUploadPicker key={evidencePickerVersion} label="Thêm ảnh bằng chứng cho ticket" maxFiles={5} authorize={authorizeTicketEvidence} upload={uploadAuthorizedFile} onUploadedChange={setEvidence} />
+        </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button tone="secondary" onClick={() => setCreateOpen(false)}>
             Hủy
           </Button>
-          <Button disabled={submitting || !subject.trim() || !ticketBody.trim()} onClick={() => void createTicket()}>
+          <Button disabled={submitting || !subject.trim() || !ticketBody.trim() || evidence.some((image) => image.status !== 'uploaded')} onClick={() => void createTicket()}>
             {submitting ? 'Đang gửi…' : 'Gửi ticket'}
           </Button>
         </div>
