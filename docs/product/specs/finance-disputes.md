@@ -27,7 +27,7 @@ Ranh giới dòng tiền theo [ADR 0003](../../decisions/0003-multi-role-dual-wa
 
 | Ví | Nhận | Chi | Phân vùng |
 |---|---|---|---|
-| `personal` | `topup`, `refund` | `payment` | Một số dư duy nhất |
+| `personal` | `topup`, `refund` | `payment`, `payout` chỉ từ phần đủ điều kiện D52 | `available`, tập con `withdrawable`, và `reserved` khi chờ rút |
 | `business` | `release` (doanh thu ròng sau hoa hồng) | `payout` | `pending` → `available` → `reserved` |
 | `platform` | `commission` | bút toán đảo hoa hồng khi hoàn | Một số dư duy nhất |
 
@@ -57,6 +57,7 @@ toán ledger; chỉ khi tiền thật rời hệ thống mới ghi `payout`. Xem
 | BR-FIN-19 | **Không hoàn tác một khoản đã chi thật.** Yêu cầu rút chỉ chuyển sang `rejected` khi **chưa có bút toán `payout` nào** gắn với nó. Nếu tiền đã rời ngân hàng dù chỉ một phần, yêu cầu bắt buộc đi tiếp qua `partially_paid` rồi `paid`; phần chưa chi ở `reserved` được trả về `available`, còn phần đã chi không bao giờ được hoàn về ví. Vi phạm quy tắc này khiến chủ sân vừa giữ tiền ngoài ngân hàng vừa lấy lại số dư trong hệ thống. |
 | BR-FIN-18 | **Bảo toàn ở mức hệ thống.** Tổng tiền vào trừ tổng tiền ra theo `SEPAY_EVENT`, sau khi loại các sự kiện `out_of_scope`, luôn bằng tổng số dư của toàn bộ ví: mọi ví `personal`, mọi ví `business` cộng cả ba phân vùng, và ví `platform`. Đây là phép kiểm tra duy nhất chứng minh hệ thống không tạo ra hay đánh mất tiền. |
 | BR-FIN-16 | **Ví `business` có ba phân vùng: `pending`, `available`, `reserved`.** Các chuyển dịch hợp lệ là: `pending → available` (hết cửa sổ 24 giờ, không tranh chấp); `available → reserved` (tạo yêu cầu rút); `reserved → available` (hủy hoặc từ chối yêu cầu rút, hoặc trả lại phần dư sau chi một phần); `reserved → rời hệ thống` (chi thành công, ghi `payout`). Không có chuyển dịch nào khác. Ba chuyển dịch đầu là phân vùng nội bộ, **không sinh bút toán ledger** vì tổng tài sản không đổi; chỉ khi tiền thật rời hệ thống mới ghi `payout`. |
+| BR-FIN-20 | **Rút ví cá nhân theo nguồn sau D52.** `withdrawable` là tập con của `personal.available`, khởi tạo 0 cho mọi dữ liệu cũ; chỉ refund và phần chuyển dư phát sinh sau D52 làm tăng. Topup chủ động không tăng. Thanh toán dùng phần không đủ điều kiện trước, phần thiếu mới giảm `withdrawable`. Tạo yêu cầu rút giảm đồng thời `available` và `withdrawable`, tăng `reserved`; hủy/từ chối đảo đúng ba giá trị; payout chỉ giảm `reserved`. |
 
 ## 3. Trạng thái
 
@@ -388,8 +389,8 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | Dữ liệu vào | Số tiền, thông tin tài khoản nhận |
 | Dữ liệu ra | Yêu cầu rút ở trạng thái chờ |
 | Phụ thuộc | FIN-09 |
-| Trong phạm vi | Tạo và hủy yêu cầu rút |
-| Ngoài phạm vi | Rút tự động định kỳ, rút từ ví cá nhân |
+| Trong phạm vi | Tạo và hủy yêu cầu rút từ ví business; mở rộng D52 cho phần đủ điều kiện của ví personal |
+| Ngoài phạm vi | Rút tự động định kỳ; rút tiền nạp chủ động; suy ngược eligibility từ lịch sử trước D52 |
 | Sơ đồ cần vẽ | Sequence rút tiền và đối soát, dùng chung với FIN-11 |
 
 **Acceptance Criteria**
@@ -400,6 +401,9 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 - `AC-FIN-10-4` — **Given** một yêu cầu `pending` 600k, **When** chủ sân hủy nó, **Then** `reserved` về 0 và `available` trở lại 1.000k.
 - `AC-FIN-10-5` — **Given** người dùng chỉ có vai `player`, **When** gọi API yêu cầu rút, **Then** hệ thống từ chối vì không có ví kinh doanh.
 - `AC-FIN-10-6` — **Given** ví `business` có `available` 1.000k, **When** hai yêu cầu rút 600k được gửi **đồng thời**, **Then** đúng một yêu cầu được tạo, `reserved` bằng đúng 600k, và tổng `available + reserved` vẫn là 1.000k.
+- `AC-FIN-10-7` — **Given** ví personal có `available=140k`, `withdrawable=120k`, **When** player rút 100k, **Then** `available=40k`, `withdrawable=20k`, `reserved=100k`, và request mang `walletType=personal`.
+- `AC-FIN-10-8` — **Given** số dư personal đến từ topup chủ động, **When** player yêu cầu rút, **Then** hệ thống từ chối dù `available` đủ vì `withdrawable` không đủ.
+- `AC-FIN-10-9` — **Given** request personal còn pending, **When** player hủy hoặc Admin từ chối, **Then** phần còn lại trở lại đồng thời `available` và `withdrawable`; dữ liệu trước D52 không tự được phân loại lại.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC. `AC-FIN-10-6` là **kiểm thử đồng thời bắt buộc**, chứng minh hai yêu cầu không thể cùng chiếm một khoản tiền.
 
@@ -415,7 +419,7 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 | Điều kiện trước | Có `WITHDRAWAL_REQUEST(pending)` |
 | Sự kiện kích hoạt | Admin thực hiện chuyển khoản, hoặc từ chối yêu cầu |
 | Workflow chính | 1. Admin mở hàng đợi, xem thông tin tài khoản nhận và nội dung chuyển khoản hệ thống sinh sẵn → 2. Chuyển khoản tay từ tài khoản nền tảng → 3. SePay gửi webhook "tiền ra" → 4. Hệ thống khớp số tiền cộng nội dung → 5. Chuyển `paid`, **trừ số tiền khỏi `reserved`** và ghi bút toán `payout` — đây là lần duy nhất tiền rời khỏi ví, `available` không bị chạm tới lần thứ hai → 6. Phát `PayoutCompleted`, thông báo cho chủ sân |
-| Luồng thay thế | Từ chối yêu cầu kèm lý do bắt buộc — **chỉ khi chưa có bút toán `payout` nào** theo BR-FIN-19: `rejected`, số tiền chuyển từ `reserved` trở lại `available`, không sinh bút toán |
+| Luồng thay thế | **Chi từ tài khoản ngoài SePay (D51):** khi Admin xác nhận tiền đã tới đúng tài khoản nhận nhưng không có webhook, nhập mã tham chiếu/lý do bắt buộc và xác nhận lần hai. Hệ thống ghi `payout` đúng số tiền còn lại từ `reserved`, chuyển yêu cầu sang `paid`, phát thông báo/outbox và ghi audit; không tạo `SEPAY_EVENT` giả. Từ chối yêu cầu kèm lý do bắt buộc — **chỉ khi chưa có bút toán `payout` nào** theo BR-FIN-19: `rejected`, số tiền chuyển từ `reserved` trở lại `available`, không sinh bút toán. |
 | Luồng lỗi | Webhook "tiền ra" không khớp yêu cầu nào → không tự chuyển trạng thái, vào hàng chờ đối soát của FIN-14; Webhook trùng → bỏ qua; Admin chuyển sai số tiền → hệ thống **không tự khớp**, yêu cầu vẫn `pending` và sự kiện vào hàng chờ FIN-14 để gán tay; Thử từ chối yêu cầu đã chi một phần → từ chối theo BR-FIN-19 |
 | Business Rules | BR-FIN-01, BR-FIN-09, BR-FIN-11, BR-FIN-13, BR-FIN-19 |
 | Trạng thái liên quan | `WITHDRAWAL_REQUEST: pending → paid \| rejected` |
@@ -435,8 +439,9 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 - `AC-FIN-11-4` — **Given** Admin từ chối một yêu cầu 600k kèm lý do, **When** xác nhận, **Then** yêu cầu chuyển `rejected`, `reserved` về 0, `available` trở lại 1.000k, không bút toán nào được ghi, và một bản ghi vết kèm lý do được tạo.
 - `AC-FIN-11-5` — **Given** Admin bỏ trống lý do khi từ chối, **When** xác nhận, **Then** hệ thống từ chối thao tác.
 - `AC-FIN-11-6` — **Given** một yêu cầu rút 600k đã `paid`, **When** cộng tổng `available + reserved` cộng tổng các bút toán `payout`, **Then** kết quả bằng đúng tổng doanh thu ròng đã ghi nhận. Chứng minh tiền không bị trừ hai lần.
+- `AC-FIN-11-7` — **Given** Admin đã chuyển đủ tiền từ tài khoản ngoài SePay tới đúng tài khoản nhận, **When** nhập mã tham chiếu/lý do và xác nhận thủ công, **Then** yêu cầu chuyển `paid`, số tiền còn lại rời `reserved` bằng đúng một bút toán `payout`, không có `SEPAY_EVENT` giả, và audit append-only lưu actor cùng tham chiếu.
 
-**Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC. `AC-FIN-11-1` và `AC-FIN-11-6` cùng nhau chứng minh khoản rút chỉ bị trừ đúng một lần; `AC-FIN-11-3` chứng minh hệ thống không tự khớp sai.
+**Tiêu chí kiểm chứng:** kiểm thử tự động 7 AC. `AC-FIN-11-1` và `AC-FIN-11-6` cùng nhau chứng minh khoản rút chỉ bị trừ đúng một lần; `AC-FIN-11-3` chứng minh hệ thống không tự khớp sai; `AC-FIN-11-7` phủ đường chi xác nhận thủ công ngoài SePay.
 
 ---
 

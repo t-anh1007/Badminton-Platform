@@ -1,7 +1,7 @@
 ---
 type: decision-log
 status: living
-updated: 2026-08-22
+updated: 2026-09-12
 purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 
@@ -63,6 +63,8 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D48 | 2026-08-14 | Community lưu tối đa bốn metadata ảnh mỗi bài; Community và Venue xác thực object key theo namespace và chủ sở hữu trước khi lưu command. | COM-02..04, VEN-03 |
 | D49 | 2026-08-22 | Mỗi sân con có cấu hình lịch, giá, quy tắc đặt và **1–5 ảnh riêng**. Khi tạo cơ sở, chủ sân chọn thiết lập chung hoặc riêng; thiết lập chung chỉ là thao tác hàng loạt và vẫn lưu cấu hình vào từng sân. Người chơi thấy ảnh của sân con đang chọn khi đặt sân. | VEN-04..07, BOK-03, BOK-04 |
 | D50 | 2026-09-09 | **Tham gia kèo theo người giữ slot trước:** bỏ bước organizer duyệt. Player đầu tiên bấm tham gia trên kèo còn chỗ được chuyển thẳng sang `approved` và giữ slot 10 phút để trả phần phí còn lại; trong thời gian này người sau không thể tham gia. Hết hạn chưa trả thì nhả slot. Khi `PaymentCompleted` hợp lệ làm kèo đủ người, hệ thống settlement ngay để booking sân và kèo cùng chuyển `confirmed`. Kèo đang chờ thanh toán, `filled` và `confirmed` vẫn xuất hiện trong danh sách nhưng không mở thêm lượt tham gia; organizer và participant đã xác nhận đều xem được kèo từ lịch sử đặt sân với nhãn “Kèo đã tham gia”. Quyết định này supersede D44 về bước organizer duyệt. **PO duyệt 2026-09-09.** | MMP-01, MMP-04..06, F-03, FIN-05 |
+| D51 | 2026-09-12 | **Chi rút từ tài khoản ngoài SePay:** khi Admin đã chuyển đủ số tiền còn lại tới đúng tài khoản nhận nhưng tài khoản nguồn không gửi webhook SePay, Admin được xác nhận “Đã chuyển tiền” sau khi nhập mã tham chiếu/lý do bắt buộc và xác nhận lần hai. Hệ thống ghi đúng một `payout` từ `reserved`, chuyển yêu cầu sang `paid`, phát thông báo/outbox và lưu audit append-only; không tạo hoặc giả mạo `SEPAY_EVENT`. Nếu trước đó có khoản chi SePay một phần, giữ nguyên tham chiếu SePay đó. **PO duyệt 2026-09-12.** | FIN-11, FIN-14 |
+| D52 | 2026-09-12 | **Rút ví cá nhân có giới hạn nguồn:** player chỉ rút phần số dư đến từ refund hoặc khoản chuyển dư phát sinh sau khi triển khai D52; tiền chủ động nạp không được rút. Ví personal theo dõi `withdrawable` là tập con của `available`, thanh toán dùng tiền không đủ điều kiện trước. Yêu cầu tối thiểu 10.000đ, dùng hàng chờ Admin hiện có và tách theo `walletType`; dữ liệu lịch sử khởi tạo `withdrawable=0`, không suy ngược. **PO duyệt 2026-09-12.** | FIN-01, FIN-02, FIN-03, FIN-06, FIN-10, FIN-11 |
 
 ### Lý do đáng ghi nhớ
 
