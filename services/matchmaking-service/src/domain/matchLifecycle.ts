@@ -273,8 +273,14 @@ export async function cancelMatchesAtCutoff(
   });
   let cancelled = 0;
   for (const match of matches) {
-    const { result } = await cancelThroughVenue(venueBookingClient, match.id, 'cutoff', now);
-    if (result.decision === 'cancelled') cancelled += 1;
+    try {
+      const { result } = await cancelThroughVenue(venueBookingClient, match.id, 'cutoff', now);
+      if (result.decision === 'cancelled') cancelled += 1;
+    } catch (error) {
+      // One unavailable Venue booking must not prevent the scheduler from
+      // reconciling every other expired match in this sweep.
+      console.error('[matchmaking-service cutoff]', { matchId: match.id, error });
+    }
   }
   return cancelled;
 }
