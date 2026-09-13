@@ -97,7 +97,7 @@ export function createEmailSender(
 }
 
 export const emailSender = createEmailSender({
-  from: process.env.EMAIL_FROM ?? process.env.SMTP_FROM,
+  from: process.env.GMAIL_FROM ?? process.env.EMAIL_FROM ?? process.env.SMTP_FROM,
   gmailClientId: process.env.GMAIL_CLIENT_ID,
   gmailClientSecret: process.env.GMAIL_CLIENT_SECRET,
   gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN,
