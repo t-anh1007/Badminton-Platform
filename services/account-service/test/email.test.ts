@@ -2,34 +2,39 @@ import { describe, expect, it, vi } from 'vitest';
 import { createEmailSender } from '../src/lib/email.js';
 
 describe('EmailSender', () => {
-  it('sends transactional email through the Resend HTTPS API when configured', async () => {
+  it('sends transactional email through the Gmail HTTPS API when configured', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'email-1' }), { status: 200 }));
     const sender = createEmailSender(
       {
-        resendApiKey: 'resend-test-key',
-        from: 'COURTIN <noreply@example.com>',
+        from: 'sender@example.com',
       },
       request,
+      async () => 'gmail-test-token',
     );
 
     await sender.send('player@example.com', 'Mã xác minh', 'Mã của bạn là: 123456');
 
     expect(request).toHaveBeenCalledWith(
-      'https://api.resend.com/emails',
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
-          Authorization: 'Bearer resend-test-key',
+          Authorization: 'Bearer gmail-test-token',
           'Content-Type': 'application/json',
         }),
-        body: JSON.stringify({
-          from: 'COURTIN <noreply@example.com>',
-          to: ['player@example.com'],
-          subject: 'Mã xác minh',
-          text: 'Mã của bạn là: 123456',
-          html: '<p style="font-family:system-ui;font-size:15px;line-height:1.6">Mã của bạn là: 123456</p>',
-        }),
+        body: expect.stringContaining('raw'),
       }),
     );
+    const payload = JSON.parse(request.mock.calls[0]![1]!.body as string);
+    expect(Buffer.from(payload.raw, 'base64url').toString('utf8')).toBe([
+      'From: sender@example.com',
+      'To: player@example.com',
+      'Subject: =?UTF-8?B?TcOjIHjDoWMgbWluaA==?=',
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      'Mã của bạn là: 123456',
+    ].join('\r\n'));
   });
 });

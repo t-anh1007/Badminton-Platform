@@ -1,36 +1,70 @@
 import nodemailer, { type Transporter } from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
 
-/** Cổng gửi email — ưu tiên HTTP API ở production, giữ SMTP cho local/fallback. */
+/** Cổng gửi email — ưu tiên Gmail API qua HTTPS, giữ SMTP cho local/fallback. */
 export interface EmailSender {
   send(to: string, subject: string, body: string): Promise<void>;
 }
 
 export interface EmailConfig {
-  resendApiKey?: string;
   from?: string;
+  gmailClientId?: string;
+  gmailClientSecret?: string;
+  gmailRefreshToken?: string;
   smtpHost?: string;
   smtpPort?: number;
   smtpUser?: string;
   smtpPass?: string;
 }
 
-const htmlBody = (body: string) => `<p style="font-family:system-ui;font-size:15px;line-height:1.6">${body.replace(/\n/g, '<br/>')}</p>`;
+type GmailAccessTokenProvider = () => Promise<string>;
 
-export function createEmailSender(config: EmailConfig, request: typeof fetch = fetch): EmailSender {
+function encodeHeader(value: string) {
+  return /[^\x20-\x7E]/.test(value)
+    ? `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`
+    : value;
+}
+
+function createGmailAccessTokenProvider(config: EmailConfig): GmailAccessTokenProvider | null {
+  if (!config.gmailClientId || !config.gmailClientSecret || !config.gmailRefreshToken) return null;
+  const client = new OAuth2Client(config.gmailClientId, config.gmailClientSecret);
+  client.setCredentials({ refresh_token: config.gmailRefreshToken });
+  return async () => {
+    const { token } = await client.getAccessToken();
+    if (!token) throw new Error('Gmail API did not return an access token');
+    return token;
+  };
+}
+
+export function createEmailSender(
+  config: EmailConfig,
+  request: typeof fetch = fetch,
+  gmailAccessToken = createGmailAccessTokenProvider(config),
+): EmailSender {
   const from = config.from ?? config.smtpUser ?? 'noreply@courtin.local';
-  if (config.resendApiKey) {
+  if (gmailAccessToken) {
     return {
       async send(to, subject, body) {
-        const response = await request('https://api.resend.com/emails', {
+        const raw = Buffer.from([
+          `From: ${from}`,
+          `To: ${to}`,
+          `Subject: ${encodeHeader(subject)}`,
+          'MIME-Version: 1.0',
+          'Content-Type: text/plain; charset=UTF-8',
+          'Content-Transfer-Encoding: 8bit',
+          '',
+          body,
+        ].join('\r\n'), 'utf8').toString('base64url');
+        const response = await request('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${config.resendApiKey}`,
+            Authorization: `Bearer ${await gmailAccessToken()}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ from, to: [to], subject, text: body, html: htmlBody(body) }),
+          body: JSON.stringify({ raw }),
         });
         if (!response.ok) {
-          throw new Error(`Resend email API failed with status ${response.status}`);
+          throw new Error(`Gmail email API failed with status ${response.status}`);
         }
       },
     };
@@ -57,14 +91,16 @@ export function createEmailSender(config: EmailConfig, request: typeof fetch = f
         console.log(`[email:dev-stub] to=${to} subject="${subject}"\n${body}`);
         return;
       }
-      await transporter.sendMail({ from, to, subject, text: body, html: htmlBody(body) });
+      await transporter.sendMail({ from, to, subject, text: body });
     },
   };
 }
 
 export const emailSender = createEmailSender({
-  resendApiKey: process.env.RESEND_API_KEY,
   from: process.env.EMAIL_FROM ?? process.env.SMTP_FROM,
+  gmailClientId: process.env.GMAIL_CLIENT_ID,
+  gmailClientSecret: process.env.GMAIL_CLIENT_SECRET,
+  gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN,
   smtpHost: process.env.SMTP_HOST,
   smtpPort: Number(process.env.SMTP_PORT ?? 587),
   smtpUser: process.env.SMTP_USER,
