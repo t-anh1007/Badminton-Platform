@@ -55,9 +55,9 @@ export function MatchDetailPage() {
         : null,
   );
 
-  const load = async () => {
+  const load = async (showPageLoader = false) => {
     if (!id) return;
-    setLoading(true);
+    if (showPageLoader) setLoading(true);
     setError('');
     try {
       const next = await getMatchDetail(id);
@@ -65,11 +65,11 @@ export function MatchDetailPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể tải chi tiết kèo.');
     } finally {
-      setLoading(false);
+      if (showPageLoader) setLoading(false);
     }
   };
   useEffect(() => {
-    void load();
+    void load(true);
   }, [id]);
   useLiveDataRefresh(load);
   useEffect(() => {
@@ -301,17 +301,18 @@ export function MatchDetailPage() {
                 ? 'Chủ kèo đang chờ đặt cọc để mở kèo tìm đối.'
                 : detail.confirmedParticipants === 0
                   ? 'Chủ kèo đang chờ người chơi phù hợp tham gia.'
-                  : 'Organizer và người chơi đã xác nhận. Danh tính người tham gia được giữ riêng tư.'}
+                  : 'Organizer và người chơi đã xác nhận. Ảnh đại diện hiển thị theo thiết lập hồ sơ của từng người.'}
             </p>
             <div className="mt-4 flex -space-x-2">
               <Avatar label={detail.organizer.displayName} src={detail.organizer.avatarUrl} alt={`Ảnh đại diện ${detail.organizer.displayName}`} className="h-10 w-10 border-2 border-surface" />
-              {Array.from({ length: detail.confirmedParticipants }, (_, index) => (
-                <span
+              {detail.confirmedParticipantProfiles?.map((participant, index) => (
+                <Avatar
                   key={index}
-                  className="grid h-10 w-10 place-items-center rounded-full border-2 border-surface bg-brand-yellow text-xs font-bold text-brand-navy"
-                >
-                  ✓
-                </span>
+                  label={participant.displayName}
+                  src={participant.avatarUrl}
+                  alt={`Ảnh đại diện ${participant.displayName}`}
+                  className="h-10 w-10 border-2 border-surface"
+                />
               ))}
             </div>
           </SurfaceCard>

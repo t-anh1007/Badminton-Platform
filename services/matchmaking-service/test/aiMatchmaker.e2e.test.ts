@@ -74,6 +74,7 @@ async function createOpenMatch(skillMin: 'beginner' | 'intermediate' | 'advanced
       cutoffAt: new Date(Date.now() + 2 * 60 * 60_000),
       skillMin,
       skillMax: skillMin,
+      skillConfiguredAt: new Date(),
     },
   });
   matchIds.push(match.id);

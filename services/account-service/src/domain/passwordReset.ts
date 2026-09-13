@@ -39,8 +39,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
       'Mã đặt lại mật khẩu',
       `Mã đặt lại mật khẩu của bạn là: ${code}\n\nMã có hiệu lực trong ${RESET_CODE_TTL_MIN} phút.`,
     );
-  } catch {
-    // Nuốt lỗi gửi email có chủ đích.
+  } catch (err) {
+    // Không tiết lộ email có tồn tại qua response, nhưng phải giữ bằng chứng
+    // vận hành để lỗi nhà cung cấp email không bị biến thành thành công giả.
+    // eslint-disable-next-line no-console
+    console.error('[password-reset] Email send failed:', err instanceof Error ? err.message : err);
   }
 }
 
