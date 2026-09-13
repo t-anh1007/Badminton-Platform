@@ -93,7 +93,8 @@ export async function resendVerificationCode(email: string): Promise<void> {
 
   try {
     await emailSender.send(normalizedEmail, 'Mã xác minh tài khoản (gửi lại)', `Mã xác minh mới: ${code}`);
-  } catch {
-    // Nuốt lỗi gửi email có chủ đích, giống ACC-01.
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[verification-resend] Email send failed:', err instanceof Error ? err.message : err);
   }
 }
