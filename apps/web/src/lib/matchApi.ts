@@ -83,6 +83,11 @@ export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'
     tier: SkillTier | null;
   };
   confirmedParticipants: number;
+  confirmedParticipantProfiles?: Array<{
+    displayName: string;
+    avatarUrl: string | null;
+    identityVisibility: 'public' | 'hidden';
+  }>;
   actions: {
     canJoin: boolean;
     isOrganizer: boolean;

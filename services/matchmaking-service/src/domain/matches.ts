@@ -280,6 +280,17 @@ export async function getPublicMatchDetail(
     && join.approvedAt !== null
     && join.approvedAt.getTime() + JOIN_HOLD_MINUTES * 60_000 > now.getTime()
   ));
+  const confirmedJoins = reservedJoins.filter((join) => join.status === 'confirmed');
+  const confirmedParticipantProfiles = await Promise.all(
+    confirmedJoins.map(async (join) => {
+      const profile = await accountClient.getPublicMatchProfile(join.participantUserId);
+      return {
+        displayName: profile?.identityVisibility === 'public' ? profile.displayName : 'Người chơi',
+        avatarUrl: profile?.identityVisibility === 'public' ? profile.avatarUrl : null,
+        identityVisibility: profile?.identityVisibility ?? 'hidden',
+      };
+    }),
+  );
   const openSlots = match.capacity - 1 - reservedJoins.length;
   return {
     id: match.id,
@@ -307,7 +318,8 @@ export async function getPublicMatchDetail(
           }).tier
         : null,
     },
-    confirmedParticipants: reservedJoins.filter((join) => join.status === 'confirmed').length,
+    confirmedParticipants: confirmedJoins.length,
+    confirmedParticipantProfiles,
     paymentPending: reservedJoins.some((join) => join.status === 'approved'),
     actions: {
       canJoin: Boolean(
