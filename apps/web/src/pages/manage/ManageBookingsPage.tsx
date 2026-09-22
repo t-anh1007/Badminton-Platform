@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, EmptyState, Pagination, Skeleton, SurfaceCard } from '../../components/ui.js';
 import {
   getMyManagedVenues,
+  getProviderBookingDetail,
   getProviderBookings,
   type ManagedVenue,
+  type ProviderBookingDetail,
   type ProviderBookingFilters as ApiFilters,
   type ProviderBookingsResult,
 } from '../../lib/venueBookingApi.js';
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 import { ProviderBookingFilters } from './ProviderBookingFilters.js';
+import { ProviderBookingDetailDrawer } from './ProviderBookingDetailDrawer.js';
 import { ProviderBookingTable } from './ProviderBookingTable.js';
 import {
   readProviderBookingFilters,
@@ -18,6 +21,7 @@ import {
 } from './providerBookingView.js';
 
 const emptyFilters = () => readProviderBookingFilters(new URLSearchParams());
+const bookingIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const summaryItems = [
   { key: 'all', label: 'Tất cả booking', icon: '▦' },
@@ -47,6 +51,13 @@ export function ManageBookingsPage() {
   const [venues, setVenues] = useState<ManagedVenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [detail, setDetail] = useState<ProviderBookingDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [notice, setNotice] = useState('');
+  const detailRequestRef = useRef(0);
+  const selectedId = params.get('booking');
+  const validSelectedId = selectedId && bookingIdPattern.test(selectedId) ? selectedId : null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,14 +82,67 @@ export function ManageBookingsPage() {
     void load();
   }, [load]);
 
-  useLiveDataRefresh(load);
+  const closeBooking = useCallback(() => {
+    const next = new URLSearchParams(params);
+    next.delete('booking');
+    setParams(next, { replace: true });
+  }, [params, setParams]);
+
+  const loadDetail = useCallback(async () => {
+    if (!validSelectedId) return;
+    const requestId = ++detailRequestRef.current;
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const next = await getProviderBookingDetail(validSelectedId);
+      if (requestId !== detailRequestRef.current) return;
+      setDetail(next);
+    } catch (cause) {
+      if (requestId !== detailRequestRef.current) return;
+      const message = cause instanceof Error ? cause.message : 'Không thể tải chi tiết booking.';
+      if (message.toLocaleLowerCase('vi').includes('không tìm thấy booking')) {
+        setNotice('Booking này không còn khả dụng. Danh sách đã được cập nhật.');
+        closeBooking();
+      } else {
+        setDetail(null);
+        setDetailError(message);
+      }
+    } finally {
+      if (requestId === detailRequestRef.current) setDetailLoading(false);
+    }
+  }, [closeBooking, validSelectedId]);
+
+  useEffect(() => {
+    if (selectedId && !validSelectedId) {
+      closeBooking();
+      return;
+    }
+    if (!validSelectedId) {
+      detailRequestRef.current += 1;
+      setDetail(null);
+      setDetailError('');
+      setDetailLoading(false);
+      return;
+    }
+    setDetail(null);
+    void loadDetail();
+    return () => { detailRequestRef.current += 1; };
+  }, [selectedId, validSelectedId, closeBooking, loadDetail]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([load(), validSelectedId ? loadDetail() : Promise.resolve()]);
+  }, [load, loadDetail, validSelectedId]);
+
+  useLiveDataRefresh(refreshAll);
 
   const updateFilters = (next: ProviderBookingPageFilters) => {
-    setParams(writeProviderBookingFilters(next), { replace: true });
+    const query = writeProviderBookingFilters(next);
+    if (validSelectedId) query.set('booking', validSelectedId);
+    setParams(query, { replace: true });
   };
 
   const selectBooking = (id: string) => {
-    const next = writeProviderBookingFilters(filters);
+    const next = new URLSearchParams(params);
     next.set('booking', id);
     setParams(next, { replace: true });
   };
@@ -128,6 +192,8 @@ export function ManageBookingsPage() {
         </div>
       ) : null}
 
+      {notice ? <p role="status" className="rounded-2xl bg-warning-bg p-4 text-sm text-warning">{notice}</p> : null}
+
       <SurfaceCard className="overflow-hidden p-0 sm:p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-4 sm:px-5">
           <div>
@@ -165,6 +231,15 @@ export function ManageBookingsPage() {
           </div>
         ) : null}
       </SurfaceCard>
+
+      <ProviderBookingDetailDrawer
+        bookingId={validSelectedId}
+        detail={detail}
+        loading={detailLoading}
+        error={detailError}
+        onClose={closeBooking}
+        onRetry={() => void loadDetail()}
+      />
     </div>
   );
 }

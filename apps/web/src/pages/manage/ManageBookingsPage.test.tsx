@@ -75,4 +75,74 @@ describe('ManageBookingsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải booking.');
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeVisible();
   });
+
+  it('opens a query-addressable drawer and hides marketplace contact data', async () => {
+    const api = await import('../../lib/venueBookingApi.js');
+    vi.mocked(api.getProviderBookingDetail).mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      source: 'marketplace',
+      status: 'confirmed',
+      startAt: '2026-09-22T11:00:00.000Z',
+      endAt: '2026-09-22T13:00:00.000Z',
+      priceSnapshot: '240000',
+      holdExpiresAt: null,
+      cancellationReason: null,
+      matchDepositPaid: false,
+      customer: { label: 'Nguyễn Minh Anh' },
+      court: {
+        id: 'c1',
+        name: 'Sân 02',
+        venue: { id: 'v1', name: 'CLB Linh Xuân', address: 'Thủ Đức' },
+      },
+      cancellationRefundPercent: null,
+      courtChangedAt: null,
+    });
+    render(
+      <MemoryRouter initialEntries={['/manage/bookings']}>
+        <ManageBookingsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /Xem chi tiết booking/i }))[0]);
+    expect(await screen.findByRole('dialog', { name: 'Chi tiết booking' })).toBeVisible();
+    expect(screen.getByText('CLB Linh Xuân · Sân 02')).toBeVisible();
+    expect(screen.queryByText(/090/)).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('shows guest contact only for an internal booking and retries detail errors', async () => {
+    const api = await import('../../lib/venueBookingApi.js');
+    vi.mocked(api.getProviderBookingDetail)
+      .mockRejectedValueOnce(new Error('Không thể tải chi tiết.'))
+      .mockResolvedValueOnce({
+        id: '11111111-1111-4111-8111-111111111111',
+        source: 'internal',
+        status: 'confirmed',
+        startAt: '2026-09-22T11:00:00.000Z',
+        endAt: '2026-09-22T13:00:00.000Z',
+        priceSnapshot: '240000',
+        holdExpiresAt: null,
+        cancellationReason: null,
+        matchDepositPaid: false,
+        customer: { label: 'Khách tại quầy', guestContact: '0900000000' },
+        court: {
+          id: 'c1',
+          name: 'Sân 02',
+          venue: { id: 'v1', name: 'CLB Linh Xuân', address: 'Thủ Đức' },
+        },
+        cancellationRefundPercent: null,
+        courtChangedAt: null,
+      });
+    render(
+      <MemoryRouter initialEntries={['/manage/bookings?booking=11111111-1111-4111-8111-111111111111']}>
+        <ManageBookingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết.');
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại chi tiết' }));
+    expect(await screen.findByText('0900000000')).toBeVisible();
+  });
 });
