@@ -157,6 +157,55 @@ export const approveProvider = (id: string) => api<{ message: string }>(`/provid
 export const rejectProvider = (id: string, reason: string) => api<{ message: string }>(`/providers/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
 export interface AdminBookingsResult { items: AdminBookingRow[]; total: number; page: number; pageSize: number }
 
+export type ProviderBookingTimeScope = 'all' | 'past' | 'current' | 'future';
+export type ProviderBookingStatus = 'held' | 'confirmed' | 'completed' | 'cancelled';
+export interface ProviderBookingFilters {
+  query?: string;
+  venueId?: string;
+  courtId?: string;
+  status?: ProviderBookingStatus;
+  timeScope?: ProviderBookingTimeScope;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+export interface ProviderBookingRow {
+  id: string;
+  source: 'marketplace' | 'internal';
+  status: ProviderBookingStatus;
+  startAt: string;
+  endAt: string;
+  priceSnapshot: string;
+  holdExpiresAt: string | null;
+  cancellationReason: 'self' | 'provider_fault' | 'platform_admin' | null;
+  matchDepositPaid: boolean;
+  customer: { label: string; guestContact?: string };
+  court: { id: string; name: string; venue: { id: string; name: string; address: string } };
+}
+export interface ProviderBookingDetail extends ProviderBookingRow {
+  cancellationRefundPercent: number | null;
+  courtChangedAt: string | null;
+}
+export interface ProviderBookingsResult {
+  items: ProviderBookingRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: { all: number; completed: number; current: number; future: number };
+}
+
+export function getProviderBookings(filters: ProviderBookingFilters = {}) {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '' && value !== 'all') query.set(key, String(value));
+  });
+  return api<ProviderBookingsResult>(`/providers/me/bookings${query.size ? `?${query}` : ''}`);
+}
+
+export const getProviderBookingDetail = (id: string) =>
+  api<ProviderBookingDetail>(`/providers/me/bookings/${encodeURIComponent(id)}`);
+
 export const getAdminBookings = (filters: { query?: string; status?: string; from?: string; to?: string; page?: number; pageSize?: number } = {}) => {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, String(value)); });
