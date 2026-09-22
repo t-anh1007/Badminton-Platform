@@ -17,6 +17,13 @@ const shortcuts = [
     cta: 'Mở lịch',
   },
   {
+    to: '/manage/bookings',
+    icon: '📋',
+    title: 'Quản lý booking',
+    description: 'Tra cứu booking đã qua, đang diễn ra và sắp tới của các cơ sở.',
+    cta: 'Mở danh sách booking',
+  },
+  {
     to: '/manage/incidents',
     icon: '⚠️',
     title: 'Sự cố & tranh chấp',

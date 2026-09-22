@@ -29,6 +29,7 @@ import { ProviderOnboardingPage } from './pages/ProviderOnboardingPage';
 import { ManageLayout } from './manage/ManageLayout'; import { ManageOverviewPage } from './pages/manage/ManageOverviewPage'; import { ManageVenuesPage } from './pages/manage/ManageVenuesPage'; import { ManageVenueDetailPage } from './pages/manage/ManageVenueDetailPage'; import { ManageSchedulePage } from './pages/manage/ManageSchedulePage'; import { ManagePricingPage } from './pages/manage/ManagePricingPage';
 import { ManageCalendarPage } from './pages/manage/ManageCalendarPage'; import { ManageIncidentsPage } from './pages/manage/ManageIncidentsPage';
 import { ManageFinancePage } from './pages/manage/ManageFinancePage';
+import { ManageBookingsPage } from './pages/manage/ManageBookingsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationProvider } from './notifications/NotificationProvider';
 import { FooterInformationPage } from './pages/FooterInformationPage';
@@ -61,7 +62,7 @@ function App() {
           <Route path="/cancellation-policy" element={<FooterInformationPage />} />
           <Route path="/privacy" element={<FooterInformationPage />} />
           <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
-          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="finance" element={<ManageFinancePage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
+          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="bookings" element={<ManageBookingsPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="finance" element={<ManageFinancePage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
           <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminLayout />}><Route index element={<AdminOverviewPage />} /><Route path="accounts" element={<AdminAccountsPage />} /><Route path="providers" element={<AdminProvidersPage />} /><Route path="bookings" element={<AdminBookingsPage />} /><Route path="finance" element={<AdminFinancePage />} /><Route path="disputes" element={<AdminDisputesPage />} /><Route path="moderation" element={<AdminModerationPage />} /><Route path="evaluations" element={<AdminEvaluationsPage />} /><Route path="tickets" element={<AdminTicketsPage />} /></Route></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

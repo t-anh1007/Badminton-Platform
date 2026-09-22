@@ -12,7 +12,7 @@ export function resolveNotificationRoute(item: Pick<NotificationItem, 'actionKin
     case 'admin.moderation.review': return `/admin/moderation?report=${item.entityId}`;
     case 'admin.ticket.view': return `/admin/tickets?ticket=${item.entityId}`;
     case 'booking.pay': return `/booking?booking=${item.entityId}`;
-    case 'booking.view': return activeRole === 'provider' ? `/manage/calendar?booking=${item.entityId}` : activeRole === 'admin' ? `/admin/bookings?booking=${item.entityId}` : `/profile?tab=bookings&booking=${item.entityId}`;
+    case 'booking.view': return activeRole === 'provider' ? `/manage/bookings?booking=${item.entityId}` : activeRole === 'admin' ? `/admin/bookings?booking=${item.entityId}` : `/profile?tab=bookings&booking=${item.entityId}`;
     default: return null;
   }
 }
