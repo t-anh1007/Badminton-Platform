@@ -76,12 +76,23 @@ active
   ├─> winding_down
   ├─> scheduled_close
   └─> inactive
+
+winding_down ──> scheduled_close ──> inactive
+       │                 │
+       └──────────────> emergency ──> inactive
+                         ▲
+scheduled_close ─────────┘
 ```
 
 - `active`: nhận booking bình thường.
 - `winding_down`: không nhận cam kết mới, vẫn phục vụ cam kết hiện hữu.
 - `scheduled_close`: chỉ nhận booking kết thúc trước thời điểm đóng.
 - `inactive`: không nhận và không phục vụ booking mới.
+
+Chủ sân được chuyển chế độ sau khi đã xác nhận theo các chuyển đổi an toàn ở
+mục 6.4. `emergency` có hiệu lực ngay và là chế độ kết thúc: sau khi đã hủy các
+cam kết chưa hoàn thành, không được hạ về chế độ nhẹ hơn. Muốn kinh doanh lại
+sau đó phải dùng một thao tác kích hoạt lại riêng.
 
 ### 4.2. Trạng thái xử lý nghĩa vụ
 
@@ -107,6 +118,7 @@ Thiết kế dùng aggregate `OperationalShutdown` thay vì dùng lại `Closure
 - Phạm vi: một sân hoặc toàn bộ cơ sở.
 - Chế độ: `winding_down`, `scheduled`, `emergency`.
 - Thời điểm có hiệu lực.
+- Thời điểm dự kiến hoàn tất cam kết cuối cùng (`expectedInactiveAt`).
 - Lý do do chủ sân nhập.
 - Người tạo và thời điểm tạo.
 - Trạng thái vận hành.
@@ -141,6 +153,11 @@ Trước khi xác nhận, chủ sân thấy:
 Sau khi xác nhận, hệ thống chuyển phạm vi sang `winding_down` và chặn mọi cam
 kết sân mới.
 
+Hệ thống chụp `expectedInactiveAt` bằng thời điểm kết thúc muộn nhất của mọi
+cam kết hiện hữu. Client phải hiển thị ngày phục vụ cuối cùng trước khi chủ sân
+xác nhận. Nếu khoảng chờ quá dài, client đề xuất chuyển sang **Đóng cửa từ ngày
+đã chọn** thay vì để chủ sân hiểu nhầm rằng cơ sở sẽ đóng ngay.
+
 ### 6.2. Cam kết được tiếp tục
 
 - Checkout hold có trước thời điểm xác nhận được hoàn tất trong thời hạn tối đa
@@ -155,10 +172,47 @@ Các hold được giữ lại ở đây là cam kết hiện hữu, không đư
 Client chủ sân phải giải thích rằng tổng booking cuối cùng có thể tăng thêm từ
 những lượt đang thanh toán hoặc kèo đang chờ chốt.
 
+Không cam kết hiện hữu nào được gia hạn làm `expectedInactiveAt` trôi muộn hơn:
+
+- Checkout chỉ dùng phần thời gian còn lại của cửa sổ hiện tại, không được cấp
+  lại 10 phút mới.
+- Match giữ nguyên slot và `cutoffAt` đã có khi xác nhận winding down.
+- Không được đổi match sang một slot xa hơn hoặc gia hạn match hold vượt cutoff
+  đã chụp.
+
 ### 6.3. Hoàn tất
 
 Sau khi không còn hold/kèo có thể sinh booking và booking cuối cùng đã kết thúc,
 phạm vi tự chuyển sang `inactive`. Chế độ này không tạo hoàn tiền.
+
+Nếu đã qua `expectedInactiveAt` mà phạm vi chưa thể chuyển `inactive`, hệ thống
+tự rà các hold/kèo quá hạn. Trạng thái còn treo sau retry chuyển sang
+`needs_attention` để Admin hỗ trợ; client chủ sân hiển thị **Một số lịch đặt cần
+được hệ thống hỗ trợ xử lý**.
+
+### 6.4. Chuyển chế độ sau khi đã xác nhận
+
+Chủ sân không bị khóa vĩnh viễn vào lựa chọn ban đầu:
+
+- `winding_down -> scheduled_close`: chọn ngày đóng; mọi cam kết giao với hoặc
+  sau ngày đó được hủy và hoàn theo mục 7.
+- `winding_down -> emergency`: hủy ngay mọi cam kết chưa kết thúc theo mục 8.
+- `scheduled_close -> emergency`: thời điểm đóng chuyển thành ngay lập tức; xử
+  lý bổ sung các cam kết chưa bị ảnh hưởng bởi lịch cũ.
+- `scheduled_close -> winding_down`: bỏ ngày đóng cố định và phục vụ hết những
+  cam kết còn lại; booking đã hủy hoặc đã hoàn theo lịch cũ không được phục hồi.
+- `scheduled_close -> scheduled_close`: được đổi ngày; nếu chuyển sớm hơn thì
+  xử lý thêm booking mới bị ảnh hưởng, nếu chuyển muộn hơn thì không phục hồi
+  booking đã hủy trước đó.
+
+Mọi chuyển chế độ phải hiển thị lại số booking bị ảnh hưởng, tổng tiền phải
+hoàn và hậu quả không thể đảo ngược trước khi xác nhận. Chỉ các booking mới bị
+ảnh hưởng bởi lần chuyển chế độ được tạo cancellation/refund/notification;
+booking đã xử lý giữ nguyên kết quả và không được xử lý lần hai.
+
+Sau khi `emergency` đã có hiệu lực, không cho chuyển về `winding_down` hoặc
+`scheduled_close`. Khi sự cố kết thúc, kích hoạt lại là một hành động mới và
+không phục hồi booking, match, JOIN hoặc bút toán cũ.
 
 ## 7. Luồng 2 — Đóng cửa từ ngày đã chọn
 
@@ -363,6 +417,8 @@ Booking nội bộ không được tính vào tổng tiền hoàn.
 - Chỉ chủ sở hữu phạm vi hoặc Admin được tạo shutdown.
 - Lý do bắt buộc đối với emergency; scheduled cần ngày và xác nhận hậu quả.
 - Ghi audit actor, scope, mode, effectiveAt, reason và thống kê trước/sau.
+- Mỗi lần chuyển chế độ ghi mode cũ, mode mới, cutoff cũ/mới, số booking mới bị
+  ảnh hưởng và tổng nghĩa vụ hoàn tăng thêm.
 - Nếu tài khoản chủ sân bị khóa trong lúc xử lý, tác vụ hệ thống vẫn tiếp tục;
   chủ sân mất quyền thao tác và Admin có thể tiếp quản.
 - Bulk cancellation không dùng một distributed transaction dài. Từng booking
@@ -397,6 +453,8 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 | Winding down | Ngừng nhận lịch đặt mới |
 | Scheduled | Đóng cửa từ ngày đã chọn |
 | Emergency | Ngừng hoạt động ngay do sự cố |
+| Expected inactive time | Dự kiến ngừng hoạt động hoàn toàn vào [ngày, giờ] |
+| Mode transition | Thay đổi cách ngừng hoạt động |
 | Resolution processing | Đang xử lý các lịch đặt bị ảnh hưởng |
 | Refund processing | Đang hoàn tiền cho khách |
 | Needs attention | Một số khoản hoàn cần được hỗ trợ |
@@ -417,6 +475,9 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 | Một số booking chưa xử lý xong | Một số lịch đặt đang được hệ thống tiếp tục xử lý. |
 | Refund cần Admin | Khoản hoàn đang được hỗ trợ xử lý. Quyền lợi của khách vẫn được giữ nguyên. |
 | Thao tác lặp | Yêu cầu này đã được ghi nhận trước đó. |
+| Chuyển sang đóng theo ngày | Các lịch từ ngày đã chọn sẽ bị hủy và được hoàn 100%. |
+| Chuyển sang đóng ngay | Mọi lịch chưa kết thúc sẽ bị hủy và được hoàn 100%. |
+| Đổi sang ngày muộn hơn | Các lịch đã hủy trước đó sẽ không được khôi phục. |
 
 ## 16. Xung đột nghiệp vụ và cách giải quyết
 
@@ -431,6 +492,7 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 | Booking nội bộ | Không có user để notification/refund | Hủy không refund; chủ sân tự liên hệ khách |
 | Refund bất đồng bộ | Booking cancelled chưa chứng minh tiền đã vào ví | Tách thông báo hủy và thông báo đã nhận tiền |
 | Lịch đóng thay đổi | Booking đã hủy không thể phục hồi an toàn | Không phục hồi; người chơi đặt lại |
+| Winding down kéo dài | Cam kết hiện hữu có thể dàn trải nhiều ngày | Hiển thị `expectedInactiveAt`, không cho cam kết cũ gia hạn vượt mốc, cho phép chuyển chế độ |
 | API trực tiếp | Ẩn search không đủ chặn booking | Kiểm shutdown/cutoff tại mọi command boundary |
 
 ## 17. Acceptance criteria cấp thiết kế
@@ -461,6 +523,14 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
     trạng thái cần Admin hỗ trợ.
 14. Toàn bộ thông điệp client dùng ngôn ngữ nghiệp vụ trong mục 15 và không lộ
     thuật ngữ kỹ thuật.
+15. Trước khi xác nhận winding down, client hiển thị thời điểm phục vụ cuối cùng;
+    không hold hoặc match hiện hữu nào được gia hạn làm mốc này trôi muộn hơn.
+16. Chuyển từ winding down sang scheduled close chỉ hủy/hoàn các booking bị
+    cutoff mới ảnh hưởng; các booking đã xử lý không bị xử lý lần hai.
+17. Chuyển scheduled close sang ngày muộn hơn hoặc winding down không phục hồi
+    booking, match, JOIN, notification hay bút toán đã kết thúc.
+18. Chuyển sang emergency xử lý ngay mọi booking chưa kết thúc; emergency đã có
+    hiệu lực không được hạ về chế độ nhẹ hơn.
 
 ## 18. Bằng chứng cần có trước khi tuyên bố hoàn thành
 
@@ -475,6 +545,10 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 - Test scheduled cutoff tại đúng 00:00 múi giờ Việt Nam và booking giao ranh
   giới.
 - Test retry/idempotency và item `needs_attention`.
+- Test `expectedInactiveAt` không trôi muộn khi checkout/match hiện hữu hoàn tất.
+- Test mọi chuyển chế độ hợp lệ, cancellation/refund tăng thêm và không xử lý
+  trùng booking đã hoàn thành.
+- Test từ chối hạ `emergency` đã có hiệu lực về chế độ nhẹ hơn.
 - Test API trực tiếp không vượt qua shutdown.
 - Test client copy không hiển thị raw enum/mã kỹ thuật.
 
