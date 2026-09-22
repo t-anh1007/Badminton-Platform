@@ -1,0 +1,78 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { ManageBookingsPage } from './ManageBookingsPage.js';
+import { getProviderBookings } from '../../lib/venueBookingApi.js';
+
+vi.mock('../../lib/venueBookingApi.js', () => ({
+  getMyManagedVenues: vi.fn().mockResolvedValue([{
+    id: 'v1',
+    name: 'CLB Linh Xuân',
+    courts: [{ id: 'c1', name: 'Sân 02' }],
+  }]),
+  getProviderBookings: vi.fn().mockResolvedValue({
+    items: [{
+      id: '11111111-1111-4111-8111-111111111111',
+      source: 'marketplace',
+      status: 'confirmed',
+      startAt: '2026-09-22T11:00:00.000Z',
+      endAt: '2026-09-22T13:00:00.000Z',
+      priceSnapshot: '240000',
+      holdExpiresAt: null,
+      cancellationReason: null,
+      matchDepositPaid: false,
+      customer: { label: 'Nguyễn Minh Anh' },
+      court: {
+        id: 'c1',
+        name: 'Sân 02',
+        venue: { id: 'v1', name: 'CLB Linh Xuân', address: 'Thủ Đức' },
+      },
+    }],
+    total: 1,
+    page: 1,
+    pageSize: 20,
+    summary: { all: 128, completed: 96, current: 3, future: 29 },
+  }),
+  getProviderBookingDetail: vi.fn(),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe('ManageBookingsPage', () => {
+  it('renders summary, provider-owned rows, and writes filters to the request', async () => {
+    render(
+      <MemoryRouter initialEntries={['/manage/bookings']}>
+        <ManageBookingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Quản lý booking' })).toBeVisible();
+    expect(screen.getByText('128')).toBeVisible();
+    expect(screen.getAllByText('Nguyễn Minh Anh')[0]).toBeVisible();
+    expect(screen.getAllByText('240.000đ')[0]).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Cơ sở'), { target: { value: 'v1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sắp tới' }));
+
+    await waitFor(() => expect(getProviderBookings).toHaveBeenLastCalledWith(expect.objectContaining({
+      venueId: 'v1',
+      timeScope: 'future',
+      page: 1,
+    })));
+  });
+
+  it('shows a recoverable list error', async () => {
+    vi.mocked(getProviderBookings).mockRejectedValueOnce(new Error('Không thể tải booking.'));
+    render(
+      <MemoryRouter>
+        <ManageBookingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải booking.');
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeVisible();
+  });
+});
