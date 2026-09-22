@@ -506,14 +506,24 @@ cách ngừng** khi chuyển chế độ còn hợp lệ. Cùng modal được d
 từng sân, nhưng phạm vi phải được ghi rõ trong tiêu đề và phần tóm tắt.
 
 Phía người chơi, notification hủy dẫn tới booking tương ứng trong mục **Đã
-hủy**. Thẻ booking hiển thị tối thiểu:
+hủy**. Notification chỉ hiển thị tóm tắt đủ nhận biết: mã booking nghiệp vụ,
+tên cơ sở/sân và ngày giờ chơi.
 
-- Tên cơ sở và sân.
+Thẻ booking mặc định ở trạng thái thu gọn, chỉ hiển thị tên cơ sở/sân, ngày giờ
+chơi, giá trị đã thanh toán, lý do trạng thái hủy và trạng thái **Đang hoàn
+tiền** hoặc **Đã hoàn tiền**. Khi người chơi bấm **Xem chi tiết booking**, thẻ
+mới xổ xuống các trường:
+
 - Địa chỉ cơ sở.
 - Ngày và khung giờ chơi.
+- **Ngày đặt**: thời điểm booking được tạo (`Booking.createdAt`), tách biệt với
+  ngày giờ chơi.
 - Mã booking nghiệp vụ, cho phép chọn/copy.
-- Giá trị đã thanh toán, mức hoàn, lý do hủy.
-- Trạng thái **Đang hoàn tiền** hoặc **Đã hoàn tiền**.
+- Mức hoàn và lý do hủy.
+
+Nút mở chi tiết phải đổi thành **Ẩn chi tiết booking** khi đang mở, công bố
+trạng thái mở/đóng cho công nghệ hỗ trợ và không làm lộ vùng chi tiết khi thẻ
+đang thu gọn.
 
 Notification hủy và notification hoàn tất là hai dòng riêng. Cả hai dùng cùng
 `Booking.businessCode` đang hiển thị trong drawer booking phía chủ sân để người
@@ -574,6 +584,10 @@ chơi, chủ sân và đội hỗ trợ đối chiếu một bản ghi duy nhấ
 19. Notification và thẻ booking đã hủy phía người chơi hiển thị đúng
     `Booking.businessCode`, địa chỉ, ngày và khung giờ; drawer phía chủ sân hiển
     thị cùng mã đó, còn UUID không xuất hiện trên client.
+20. Thẻ booking đã hủy mặc định thu gọn; chỉ sau khi bấm **Xem chi tiết
+    booking** mới hiển thị địa chỉ, `Booking.createdAt` dưới nhãn **Ngày đặt**,
+    mã booking, lịch chơi, mức hoàn và lý do hủy. Nút phản ánh đúng trạng thái
+    mở/đóng cho công nghệ hỗ trợ.
 
 ## 18. Bằng chứng cần có trước khi tuyên bố hoàn thành
 
@@ -596,6 +610,9 @@ chơi, chủ sân và đội hỗ trợ đối chiếu một bản ghi duy nhấ
 - Test client copy không hiển thị raw enum/mã kỹ thuật.
 - Test notification, booking card và provider booking detail cùng hiển thị một
   `Booking.businessCode`; route và quyền vẫn dùng UUID nội bộ.
+- Test thẻ booking đã hủy không hiển thị vùng chi tiết trước thao tác mở; sau
+  thao tác hiển thị đúng `Booking.createdAt`, `businessCode`, địa chỉ, lịch
+  chơi, mức hoàn và lý do hủy; thao tác đóng ẩn lại vùng chi tiết.
 
 ## 19. Cập nhật có thẩm quyền cần thực hiện trước code
 
