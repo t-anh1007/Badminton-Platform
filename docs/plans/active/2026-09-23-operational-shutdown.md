@@ -261,7 +261,7 @@ direct API guards and retry idempotency.
 
 - [x] Business design and high-fidelity mockups approved.
 - [x] Isolated worktree and branch verified.
-- [ ] Task 1 — authoritative product documents.
+- [x] Task 1 — authoritative product documents.
 - [ ] Task 2 — required notifications.
 - [ ] Task 3 — persistence, preview and guards.
 - [ ] Task 4 — cancellation processor and projection.

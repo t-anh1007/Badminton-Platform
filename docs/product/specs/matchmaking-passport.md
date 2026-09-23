@@ -98,6 +98,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | `JoinApproved` | matchmaking | finance (mở khoản chờ phí FIN-05) |
 | `MatchConfirmed` | matchmaking | finance (gom phí → thanh toán booking) |
 | `MatchCancelled` | matchmaking | finance (hoàn phí về ví cá nhân) |
+| `BookingCancelled` do ngừng hoạt động | venue-booking | matchmaking (hủy kèo/JOIN theo `bookingId`, thông báo bắt buộc) |
 | `BookingConfirmed` | venue-booking | matchmaking (đánh dấu kèo confirmed) |
 | `BookingCompleted` | venue-booking | matchmaking (mở đánh giá MMP-10) |
 | `PaymentCompleted` | finance | matchmaking (xác nhận chỗ đã trả phí) |
@@ -202,6 +203,10 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
   áp `policySnapshot` bậc thang GĐ1 của booking; mỗi người nhận cùng tỷ lệ trên đúng phần đã góp
   theo D33. D37 floor phần participant và giao phần dư làm tròn cho organizer để tổng hoàn khớp
   booking. KHÔNG hủy tự do, không P2P và tổng hoàn không vượt tổng góp.
+- `AC-MMP-08-4` — Given booking gắn với kèo bị đóng cửa theo ngày hoặc ngừng ngay do sự cố, When
+  matchmaking nhận `BookingCancelled`, Then kèo chưa kết thúc chuyển `cancelled`, JOIN
+  `approved|confirmed` chuyển terminal phù hợp, organizer và những người tham gia bị ảnh hưởng
+  nhận thông báo bắt buộc đúng một lần, kể cả khi đã tắt thông báo kèo.
 
 ### MMP-09 — Khai báo trình độ chuẩn hóa
 - **Actor**: người chơi. **Workflow**: chọn 1 trong 5 bậc (Mới chơi/Y/TB/TB+/BC) → hệ thống khởi
