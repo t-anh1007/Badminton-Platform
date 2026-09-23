@@ -20,6 +20,14 @@ export type ServiceName = (typeof SERVICES)[number];
  * Không chứa URL tự do hoặc dữ liệu nhạy cảm; account-service là nơi dựng inbox. */
 export const notificationCategories = ['booking', 'finance', 'match', 'dispute', 'support', 'security', 'community'] as const;
 export const notificationActionKinds = ['booking.view', 'booking.pay', 'match.view', 'dispute.view', 'support.view', 'withdrawal.view', 'admin.dispute.review', 'admin.withdrawal.review', 'admin.provider.review', 'admin.moderation.review', 'admin.ticket.view'] as const;
+export const requiredNotificationKinds = [
+  'booking.shutdown_scheduled',
+  'booking.shutdown_emergency',
+  'match.shutdown_scheduled',
+  'match.shutdown_emergency',
+  'finance.shutdown_refund_completed',
+  'finance.shutdown_refund_needs_attention',
+] as const;
 export const userNotificationRequestedSchema = z.object({
   recipient: z.discriminatedUnion('type', [
     z.object({ type: z.literal('user'), userId: z.string().uuid(), targetRole: z.enum(['player', 'provider', 'admin']) }).strict(),
@@ -34,7 +42,14 @@ export const userNotificationRequestedSchema = z.object({
   entityId: z.string().uuid().nullable().default(null),
   actionKind: z.enum(notificationActionKinds).nullable().default(null),
   actionExpiresAt: z.string().datetime().nullable().default(null),
-}).strict();
+  deliveryPolicy: z.enum(['preference_based', 'required']).default('preference_based'),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/).nullable().default(null),
+}).strict().superRefine((payload, context) => {
+  if (payload.deliveryPolicy === 'required'
+    && !(requiredNotificationKinds as readonly string[]).includes(payload.kind)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['deliveryPolicy'], message: 'Required delivery is not allowed for this notification kind' });
+  }
+});
 export type UserNotificationRequestedPayload = z.infer<typeof userNotificationRequestedSchema>;
 
 /** Danh tính tài khoản "Test demo / Vãng lai" — cố định để cổng đăng nhập demo

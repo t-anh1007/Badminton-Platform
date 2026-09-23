@@ -262,7 +262,8 @@ direct API guards and retry idempotency.
 - [x] Business design and high-fidelity mockups approved.
 - [x] Isolated worktree and branch verified.
 - [x] Task 1 — authoritative product documents.
-- [ ] Task 2 — required notifications.
+- [x] Task 2 — required notifications (contract, whitelist and preference gate;
+  database integration proof remains pending because local PostgreSQL is down).
 - [ ] Task 3 — persistence, preview and guards.
 - [ ] Task 4 — cancellation processor and projection.
 - [ ] Task 5 — finance and matchmaking consumers.
@@ -280,10 +281,10 @@ direct API guards and retry idempotency.
 
 ## Validation
 
-- Focused proof: pending TDD cycles listed above.
+- Focused proof: account `notificationPolicy.test.ts` red on missing fields and
+  delivery gate, then 3/3 green; account typecheck passed.
 - Integration or end-to-end proof: pending cross-service shutdown scenario.
-- Repository-required checks: `git diff --check`; broader typecheck/build only
-  after the focused implementation is complete and validation scope is confirmed.
+- Repository-required checks: `git diff --check`; account typecheck passed.
 
 ## Result
 
