@@ -161,6 +161,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .expect(201);
 
     expect(assertOwnedObject).toHaveBeenCalledTimes(5);
+    expect(created.body.businessCode).toMatch(/^HT-\d{8}$/);
     expect(created.body.evidence.map((image: { objectKey: string }) => image.objectKey)).toEqual(objectKeys.map((key) => `https://storage.test/signed/${key}`));
     await request(appWithStorage)
       .post('/tickets')
@@ -307,7 +308,10 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', author.authorization)
       .send({ body: 'Bài hợp lệ' })
       .expect(201)
-      .expect(({ body }) => expect(body.status).toBe('published'));
+      .expect(({ body }) => {
+        expect(body.status).toBe('published');
+        expect(body.businessCode).toMatch(/^BV-\d{8}$/);
+      });
 
     const locked = player();
     await handleAccountLocked('account-unlock-v2', {
@@ -386,6 +390,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', other.authorization)
       .send({ body: 'Bình luận hợp lệ' })
       .expect(201);
+    expect(comment.body.businessCode).toMatch(/^BL-\d{8}$/);
     await request(app)
       .get(`/posts/${post.body.id}`)
       .expect(200)
@@ -430,7 +435,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', author.authorization)
       .send({ body: 'Cần kiểm duyệt' })
       .expect(201);
-    await request(app)
+    const report = await request(app)
       .post('/reports')
       .set('Authorization', reporter.authorization)
       .send({
@@ -439,6 +444,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
         reason: 'Nội dung vi phạm',
       })
       .expect(201);
+    expect(report.body.businessCode).toMatch(/^BC-\d{8}$/);
     expect(await prisma.post.findUniqueOrThrow({ where: { id: post.body.id } })).toMatchObject({ status: 'published' });
     expect(
       await prisma.outbox.findFirstOrThrow({

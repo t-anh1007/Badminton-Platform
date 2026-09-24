@@ -133,6 +133,7 @@ type ManagedVenueEntity = Prisma.VenueGetPayload<{ include: typeof managedVenueI
 async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorageClient) {
   return {
     id: venue.id,
+    businessCode: venue.businessCode,
     name: venue.name,
     address: venue.address,
     lat: venue.lat,
@@ -141,6 +142,7 @@ async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorage
     images: await resolveImageEntries(venue.images, storage),
     courts: await Promise.all(venue.courts.map(async (court) => ({
       id: court.id,
+      businessCode: court.businessCode,
       name: court.name,
       active: court.active,
       images: await resolveImageEntries(court.images, storage),

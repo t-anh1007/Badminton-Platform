@@ -120,11 +120,20 @@ export async function listOwnPosts(authorUserId: string) {
   });
 }
 
+async function attachReportTargetCodes<T extends { targetType: string; targetId: string }>(reports: T[]) {
+  const [posts, comments] = await Promise.all([
+    prisma.post.findMany({ where: { id: { in: reports.filter((row) => row.targetType === 'post').map((row) => row.targetId) } }, select: { id: true, businessCode: true } }),
+    prisma.comment.findMany({ where: { id: { in: reports.filter((row) => row.targetType === 'comment').map((row) => row.targetId) } }, select: { id: true, businessCode: true } }),
+  ]);
+  const codes = new Map([...posts, ...comments].map((row) => [row.id, row.businessCode]));
+  return reports.map((row) => ({ ...row, targetCode: codes.get(row.targetId) ?? null }));
+}
+
 export async function listOwnReports(reporterUserId: string) {
-  return prisma.report.findMany({
+  return attachReportTargetCodes(await prisma.report.findMany({
     where: { reporterUserId },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 }
 
 export async function getPublishedPost(postId: string) {
@@ -279,10 +288,10 @@ export async function createReport(
 }
 
 export async function listOpenReports() {
-  return prisma.report.findMany({
+  return attachReportTargetCodes(await prisma.report.findMany({
     where: { status: 'open' },
     orderBy: { createdAt: 'asc' },
-  });
+  }));
 }
 
 export async function moderateReport(reportId: string, adminUserId: string, action: ModerationAction, reason: string) {

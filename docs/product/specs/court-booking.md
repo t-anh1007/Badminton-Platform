@@ -36,6 +36,7 @@ approved: 2026-08-05
 | BR-BOK-10 | Người chơi chỉ xem và hủy được booking của chính mình. Nhà cung cấp chỉ thao tác được trên booking thuộc cơ sở của mình. Kiểm tra ở tầng API. |
 | BR-BOK-11 | Không tạo được hold hay booking cho khoảng thời gian đã trôi qua. |
 | BR-BOK-12 | Booking nội bộ (`source=internal`, VEN-09) không thuộc phạm vi BOK-08 và BOK-09; người chơi không thấy và không hủy được nó. |
+| BR-BOK-14 | Trước khi tạo hold/booking marketplace, hệ thống kiểm tra lịch cá nhân từ booking và kèo đang hoạt động. Nếu chồng lấn thì cảnh báo và yêu cầu xác nhận tường minh trước khi tiếp tục; không hard-block vì người chơi có thể đặt hộ (D54). |
 
 ## 3. Trạng thái
 
@@ -217,6 +218,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 - `AC-BOK-05-3` — **Given** booking 18h–20h bắc qua khung giá 100k/giờ và 150k/giờ, **When** hệ thống tính tiền, **Then** tổng hiển thị là 250k.
 - `AC-BOK-05-4` — **Given** khoảng chọn 19h–21h nhưng 20h–20h30 đã có booking, **When** người chơi xác nhận lựa chọn, **Then** hệ thống từ chối và chỉ ra đoạn bị vướng.
 - `AC-BOK-05-5` — **Given** khách chưa đăng nhập, **When** chọn một khung giờ, **Then** hệ thống điều hướng sang đăng nhập và giữ nguyên lựa chọn sau khi quay lại.
+- `AC-BOK-05-6` — **Given** player đã có booking hoặc kèo hoạt động giao thời gian với slot đang chọn, **When** xác nhận đặt sân hoặc tạo kèo, **Then** chưa tạo hold, hiển thị lịch trùng và chỉ tiếp tục sau khi player xác nhận tường minh.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 5 AC.
 

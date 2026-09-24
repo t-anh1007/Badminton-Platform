@@ -77,4 +77,43 @@ describe('G6 HTTP contract', () => {
     expect(preflight.status).toBe(204);
     expect(preflight.headers['access-control-allow-origin']).toBe('http://localhost:5173');
   });
+
+  it('phân trang minh bạch tài chính theo đúng provider và che tài khoản ngân hàng', async () => {
+    const userId = randomUUID();
+    const venueId = randomUUID();
+    for (let index = 0; index < 3; index += 1) {
+      await recordBookingRevenue(randomUUID(), {
+        bookingId: randomUUID(), businessUserId: userId, venueId, gross: '200000',
+        endAt: new Date(Date.now() - index * 60_000).toISOString(), source: 'marketplace',
+      });
+    }
+    await recordBookingRevenue(randomUUID(), {
+      bookingId: randomUUID(), businessUserId: randomUUID(), venueId: randomUUID(), gross: '900000',
+      endAt: new Date().toISOString(), source: 'marketplace',
+    });
+    await prisma.withdrawalRequest.create({
+      data: { sellerUserId: userId, walletType: 'business', amount: 10000n, transferCode: `WD${randomUUID().replace(/-/g, '').slice(0, 12)}`, bankCode: 'VCB', bankAccountNumber: '0123456789', bankAccountName: 'OWNER' },
+    });
+    const auth = { Authorization: `Bearer ${token(userId, ['provider'])}` };
+    const page = await request(app).get('/providers/me/financial-transparency?page=2&pageSize=2').set(auth);
+    expect(page.status).toBe(200);
+    expect(page.body.transactions).toMatchObject({ total: 3, page: 2, pageSize: 2 });
+    expect(page.body.transactions.items).toHaveLength(1);
+    expect(page.body.summary.gross).toBe('600000');
+
+    const withdrawals = await request(app).get('/providers/me/withdrawal-transparency?page=1&pageSize=20').set(auth);
+    expect(withdrawals.status).toBe(200);
+    expect(withdrawals.body.items[0]).toMatchObject({ bankAccountMasked: '•••• 6789' });
+    expect(JSON.stringify(withdrawals.body)).not.toContain('0123456789');
+  });
+
+  it('Admin xem tổng quan và giao dịch ngân hàng theo phân trang chuẩn COURTIN', async () => {
+    const adminId = randomUUID();
+    const response = await request(app).get('/admin/financial-transparency?page=1&pageSize=2')
+      .set('Authorization', `Bearer ${token(adminId, ['admin'])}`);
+    expect(response.status).toBe(200);
+    expect(response.body.transactions).toMatchObject({ page: 1, pageSize: 2 });
+    expect(response.body.transactions.items.length).toBeLessThanOrEqual(2);
+    expect(response.body.summary).toEqual(expect.objectContaining({ bankMovement: expect.any(String), allocatedMovement: expect.any(String), difference: expect.any(String) }));
+  });
 });

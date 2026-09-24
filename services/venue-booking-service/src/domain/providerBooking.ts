@@ -20,6 +20,7 @@ export interface ProviderBookingFilters {
 
 export interface ProviderBookingRow {
   id: string;
+  businessCode: string;
   source: 'marketplace' | 'internal';
   status: BookingStatus;
   startAt: Date;
@@ -87,6 +88,7 @@ function baseWhere(
   if (query) {
     filters.push({
       OR: [
+        { businessCode: { contains: query, mode: 'insensitive' } },
         { id: { contains: query, mode: 'insensitive' } },
         { guestName: { contains: query, mode: 'insensitive' } },
         { court: { name: { contains: query, mode: 'insensitive' } } },
@@ -114,6 +116,7 @@ function projectBooking(
   const internal = booking.source === 'internal';
   return {
     id: booking.id,
+    businessCode: booking.businessCode,
     source: booking.source,
     status: booking.status,
     startAt: booking.startAt,

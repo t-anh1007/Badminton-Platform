@@ -83,6 +83,7 @@ enum CancellationReason {
 }
 
 model Provider {
+  businessCode String @unique @default(dbgenerated("('NCC-'::text || lpad((nextval('providers_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String         @id @default(uuid())
   userId  String
   orgName String
@@ -114,6 +115,7 @@ model Provider {
 }
 
 model Venue {
+  businessCode String @unique @default(dbgenerated("('CS-'::text || lpad((nextval('venues_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id         String   @id @default(uuid())
   providerId String
   provider   Provider @relation(fields: [providerId], references: [id])
@@ -130,6 +132,7 @@ model Venue {
 }
 
 model Court {
+  businessCode String @unique @default(dbgenerated("('SAN-'::text || lpad((nextval('courts_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String  @id @default(uuid())
   venueId String
   venue   Venue   @relation(fields: [venueId], references: [id])
@@ -221,6 +224,7 @@ model Hold {
 }
 
 model Booking {
+  businessCode String @unique @default(dbgenerated("('BK-'::text || lpad((nextval('bookings_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String @id @default(uuid())
   /// Idempotency key for converting a player hold into a marketplace booking.
   /// Nullable for internal and pre-existing bookings; unique when present.

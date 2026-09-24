@@ -63,6 +63,7 @@ enum SkillTier {
 }
 
 model Match {
+  businessCode String @unique @default(dbgenerated("('KEO-'::text || lpad((nextval('matches_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id              String      @id @default(uuid())
   organizerUserId String
   bookingId       String      @unique

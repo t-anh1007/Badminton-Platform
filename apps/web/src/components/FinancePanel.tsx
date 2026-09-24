@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, TextInput } from './ui';
+import { Button, SelectInput, TextInput } from './ui';
 import { MetricCard } from './courtin/MetricCard';
 import { OperationsTable } from './courtin/OperationsTable';
 import { cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWallets, getMyWithdrawals, type RevenueRow, type WalletRow, type WithdrawalRow } from '../lib/financeApi';
 import { formatDateTimeVi, formatMoneyVnd, parseDateFieldVi } from '../lib/formatters.js';
+import { getMyManagedVenues, type ManagedVenue } from '../lib/venueBookingApi.js';
 
 const money = formatMoneyVnd;
 
@@ -12,6 +13,7 @@ export function FinancePanel() {
   const [businessWallet, setBusinessWallet] = useState<WalletRow | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
+  const [venues, setVenues] = useState<ManagedVenue[]>([]);
   const [filters, setFilters] = useState({ venueId: '', from: '', to: '' });
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ amount: '100000', bankCode: '', bankAccountNumber: '', bankAccountName: '' });
@@ -19,7 +21,8 @@ export function FinancePanel() {
     const from = filters.from ? parseDateFieldVi(filters.from) : undefined;
     const to = filters.to ? parseDateFieldVi(filters.to) : undefined;
     if ((filters.from && !from) || (filters.to && !to)) { setMessage('Ngày phải theo định dạng dd/MM/yyyy.'); return Promise.resolve(); }
-    return getMyWallets().then(async (wallets) => {
+    return Promise.all([getMyWallets(), getMyManagedVenues()]).then(async ([wallets, managedVenues]) => {
+    setVenues(managedVenues);
     const business = wallets.find((wallet) => wallet.walletType === 'business') ?? null;
     setBusinessWallet(business);
     if (!business) { setRows([]); setWithdrawals([]); setLoaded(true); return; }
@@ -48,12 +51,12 @@ export function FinancePanel() {
       <div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Đang chờ 24 giờ" value={money(businessWallet?.pending ?? '0')} /><MetricCard label="Có thể rút" value={money(businessWallet?.available ?? '0')} tone="navy" /><MetricCard label="Đang giữ cho yêu cầu rút" value={money(businessWallet?.reserved ?? '0')} tone="yellow" /></div>
       <div className="mt-4">
         <form className="mb-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); reload(); }}>
-          <TextInput aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })} placeholder="Venue ID" />
+          <SelectInput aria-label="Lọc cơ sở" value={filters.venueId} onChange={(e) => setFilters({ ...filters, venueId: e.target.value })}><option value="">Tất cả cơ sở</option>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.businessCode ?? 'Chưa có mã'} · {venue.name}</option>)}</SelectInput>
           <TextInput aria-label="Từ ngày" inputMode="numeric" placeholder="dd/MM/yyyy" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
           <TextInput aria-label="Đến ngày" inputMode="numeric" placeholder="dd/MM/yyyy" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
           <Button type="submit" size="sm">Lọc doanh thu</Button>
         </form>
-        <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingId}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : formatDateTimeVi(row.releaseAt)}</td></tr>)}</OperationsTable>
+        <OperationsTable caption="Doanh thu theo booking" columns={['Booking', 'Gộp', 'Đã hoàn', 'Hoa hồng', 'Ròng', 'Đáo hạn']}>{rows.map((row) => <tr key={row.bookingId} className="text-ink-700"><td className="px-5 py-3 text-figures">{row.bookingCode ?? 'Chưa có mã'}</td><td className="px-5 py-3 text-figures">{money(row.gross)}</td><td className="px-5 py-3 text-figures">{money(BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission))}</td><td className="px-5 py-3 text-figures">{money(row.commission)}</td><td className="px-5 py-3 text-figures">{money(row.net)}</td><td className="px-5 py-3">{row.disputeOpen ? 'Hoãn do tranh chấp' : row.releasedAt ? 'Khả dụng' : formatDateTimeVi(row.releaseAt)}</td></tr>)}</OperationsTable>
       </div>
       <form onSubmit={submit} className="mt-4 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2">
         <TextInput aria-label="Số tiền rút" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="Tối thiểu 100.000đ" />

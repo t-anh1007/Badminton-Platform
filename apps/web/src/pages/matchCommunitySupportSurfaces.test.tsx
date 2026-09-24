@@ -6,7 +6,7 @@ import { PassportPage } from './PassportPage.js'
 import { CommunityPage } from './CommunityPage.js'
 import { CommunityDetailPage } from './CommunityDetailPage.js'
 import { SupportPage } from './SupportPage.js'
-import { cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin } from '../lib/matchApi.js'
+import { cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin } from '../lib/matchApi.js'
 import { createMatchJoinSepayIntent, payMatchJoinBalance, payMatchOrganizerContributionBalance } from '../lib/financeApi.js'
 import { submitMatchEvaluation } from '../lib/passportApi.js'
 import {
@@ -20,7 +20,7 @@ import {
 } from '../lib/communityApi.js'
 
 vi.mock('../lib/matchApi.js', () => ({
-  getMatchDetail: vi.fn(), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}), abandonMatch: vi.fn().mockResolvedValue({}), abandonMatchJoin: vi.fn().mockResolvedValue({}),
+  getMatchDetail: vi.fn(), getMyScheduleConflicts: vi.fn().mockResolvedValue({ conflicts: [] }), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}), abandonMatch: vi.fn().mockResolvedValue({}), abandonMatchJoin: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../lib/financeApi.js', () => ({
   payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
@@ -61,6 +61,7 @@ const detail = (actions: Record<string, unknown>) => ({
 
 beforeEach(() => {
   localStorage.setItem('accessToken', 'token')
+  vi.mocked(getMyScheduleConflicts).mockResolvedValue({ conflicts: [] })
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear() })
@@ -109,6 +110,22 @@ it('requests a match join only when MatchDetail.actions allows it', async () => 
   await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1'))
 })
 
+it('warns about an overlapping schedule before reserving a match slot', async () => {
+  vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: true, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: null }) as never)
+  vi.mocked(getMyScheduleConflicts).mockResolvedValue({ conflicts: [{
+    kind: 'booking', role: 'booker', startAt: '2026-08-15T09:00:00Z', endAt: '2026-08-15T10:00:00Z',
+    court: { id: 'c2', name: 'Sân 2' }, venue: { id: 'v2', name: 'Cơ sở đã đặt', address: 'Quận 3' },
+  }] } as never)
+  render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Tham gia kèo' }))
+
+  const warning = await screen.findByRole('dialog', { name: 'Cảnh báo trùng lịch' })
+  expect(requestMatchJoin).not.toHaveBeenCalled()
+  expect(within(warning).getByText(/Cơ sở đã đặt/)).toBeInTheDocument()
+  fireEvent.click(within(warning).getByRole('button', { name: 'Vẫn tiếp tục' }))
+  await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1'))
+})
+
 it('keeps a reserved match visible but disables joining while another player pays', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue({ ...detail({ canJoin: false, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: null }), openSlots: 0, paymentPending: true } as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
@@ -120,10 +137,10 @@ it('shows participant payment/withdraw controls only from ownJoin state', async 
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: false, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: { id: 'own-join', status: 'approved', approvedAt: new Date().toISOString() } }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Thanh toán phần còn lại' }))
-  fireEvent.click(within(screen.getByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Thanh toán số dư' }))
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Thanh toán số dư' }))
   await waitFor(() => expect(payMatchJoinBalance).toHaveBeenCalledWith('match-1', 'own-join'))
   fireEvent.click(screen.getByRole('button', { name: 'Thanh toán phần còn lại' }))
-  fireEvent.change(screen.getByLabelText('Cách thanh toán'), { target: { value: 'sepay' } })
+  fireEvent.change(await screen.findByLabelText('Cách thanh toán'), { target: { value: 'sepay' } })
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Tạo mã SePay' }))
   await waitFor(() => expect(createMatchJoinSepayIntent).toHaveBeenCalledWith('match-1', 'own-join'))
   expect(await screen.findByText('KLTJOIN01')).toBeInTheDocument()

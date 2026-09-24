@@ -6,6 +6,7 @@ import { vietnamDateEndExclusiveInstant, vietnamDateStartInstant } from '../lib/
 export interface CalendarEntry {
   /** Chỉ có ở booking (để quản lý/xem chi tiết); hold không mang id. */
   id?: string;
+  businessCode?: string;
   courtId: string;
   kind: 'booking' | 'hold';
   source?: 'marketplace' | 'internal';
@@ -71,6 +72,7 @@ export async function getUnifiedCalendar(
       .filter((b) => b.status === 'confirmed')
       .map((b) => ({
         id: b.id,
+        businessCode: b.businessCode,
         courtId: b.courtId,
         kind: 'booking' as const,
         source: b.source,

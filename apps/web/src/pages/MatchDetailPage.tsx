@@ -1,9 +1,10 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type SkillTier } from '../lib/matchApi';
+import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier } from '../lib/matchApi';
 import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js';
 import {
   createMatchOrganizerContributionSepayIntent,
@@ -15,6 +16,7 @@ import {
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { SepayPayBox } from '../components/SepayPayBox.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
+import { ScheduleConflictWarning } from '../components/ScheduleConflictWarning.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -35,6 +37,7 @@ export function MatchDetailPage() {
   const [confirmAction, setConfirmAction] = useState<'withdraw' | 'cancel' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'sepay'>('balance');
   const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
+  const [scheduleWarning, setScheduleWarning] = useState<{ conflicts: ScheduleConflict[]; action: 'join' | 'payment' } | null>(null);
   const [sepay, setSepay] = useState<{
     matchCode: string;
     amount: string;
@@ -224,12 +227,32 @@ export function MatchDetailPage() {
     );
   const join = detail.actions.ownJoin;
   const isFull = detail.openSlots <= 0;
-  const requestJoin = () => {
+  const executeScheduleAction = (action: 'join' | 'payment') => {
+    if (action === 'payment') {
+      setPaymentOptionsOpen(true);
+      return;
+    }
+    void mutate(() => requestMatchJoin(detail.id), 'Đã giữ slot 10 phút. Hãy thanh toán để xác nhận chỗ; kèo và booking sân sẽ được chốt tại hạn tìm đối.');
+  };
+  const checkScheduleBefore = async (action: 'join' | 'payment') => {
     if (!window.localStorage.getItem('accessToken')) {
       navigate('/auth');
       return;
     }
-    void mutate(() => requestMatchJoin(detail.id), 'Đã giữ slot 10 phút. Hãy thanh toán phần còn lại để xác nhận kèo và booking sân.');
+    try {
+      const result = await getMyScheduleConflicts({
+        startAt: detail.startAt,
+        endAt: detail.endAt,
+        excludeMatchId: detail.id,
+      });
+      if (result.conflicts.length > 0) {
+        setScheduleWarning({ conflicts: result.conflicts, action });
+        return;
+      }
+      executeScheduleAction(action);
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Không thể kiểm tra lịch hiện tại.');
+    }
   };
 
   return (
@@ -246,7 +269,7 @@ export function MatchDetailPage() {
                 <p className="courtin-kicker">Chi tiết kèo</p>
                 <h1 className="mt-1 text-h1">
                   {detail.venue.name} · {detail.court.name}
-                </h1>
+                </h1><BusinessCode code={detail.businessCode} label="Mã kèo" />
               </div>
               <Badge tone={detail.status === 'confirmed' || detail.status === 'completed' ? 'success' : detail.status === 'awaiting_deposit' || isFull ? 'warning' : 'success'}>
                 {detail.status === 'completed' ? 'Đã hoàn thành' : detail.status === 'confirmed' ? 'Đã xác nhận' : detail.status === 'awaiting_deposit' ? 'Chờ đặt cọc' : detail.paymentPending ? 'Đang chờ thanh toán' : isFull ? 'Đã đầy' : `Còn ${detail.openSlots} chỗ`}
@@ -346,17 +369,17 @@ export function MatchDetailPage() {
             ) : join?.status === 'approved' ? (
               <>
                 <p className="font-semibold">Bạn đang giữ một chỗ</p>
-                <p className="text-sm text-ink-500">Hoàn tất thanh toán để xác nhận kèo. Hạn giữ chỗ sẽ hiển thị trong bước thanh toán.</p>
+                <p className="text-sm text-ink-500">Hoàn tất thanh toán để xác nhận chỗ. Kèo và booking sân được chốt tại hạn tìm đối.</p>
               </>
             ) : join?.status === 'confirmed' ? (
               <>
-                <p className="font-semibold">Kèo đã tham gia · Đã xác nhận</p>
-                <p className="text-sm text-ink-500">Booking sân đã xác nhận. Rút kèo tuân theo cutoff và trạng thái booking.</p>
+                <p className="font-semibold">{detail.status === 'confirmed' ? 'Kèo đã tham gia · Đã xác nhận' : 'Đã thanh toán · Chờ chốt kèo'}</p>
+                <p className="text-sm text-ink-500">{detail.status === 'confirmed' ? 'Booking sân đã xác nhận. Rút kèo tuân theo cutoff và trạng thái booking.' : 'Bạn có thể rút và nhận hoàn 100% trước hạn tìm đối; chỗ sẽ mở lại cho người khác.'}</p>
               </>
             ) : (
               <>
                 <p className="font-semibold">{detail.paymentPending ? 'Đang có người thanh toán' : isFull ? 'Kèo đã đủ người' : 'Tham gia và thanh toán'}</p>
-                <p className="text-sm text-ink-500">Người bấm trước được giữ slot 10 phút; thanh toán đủ sẽ xác nhận ngay kèo và booking sân.</p>
+                <p className="text-sm text-ink-500">Người bấm trước được giữ slot 10 phút; thanh toán xác nhận chỗ, còn kèo và booking sân được chốt tại hạn tìm đối.</p>
               </>
             )}
           </div>
@@ -382,7 +405,7 @@ export function MatchDetailPage() {
                 </Button>
               </>
             ) : join?.status === 'approved' ? (
-              <Button disabled={remaining <= 0} onClick={() => setPaymentOptionsOpen(true)}>
+              <Button disabled={remaining <= 0} onClick={() => void checkScheduleBefore('payment')}>
                 Thanh toán phần còn lại
               </Button>
             ) : join ? (
@@ -392,7 +415,7 @@ export function MatchDetailPage() {
             ) : (
               <Button
                 disabled={isFull || (!detail.actions.canJoin && Boolean(window.localStorage.getItem('accessToken')))}
-                onClick={requestJoin}
+                onClick={() => void checkScheduleBefore('join')}
               >
                 {window.localStorage.getItem('accessToken') ? 'Tham gia kèo' : 'Đăng nhập để tham gia'}
               </Button>
@@ -428,6 +451,15 @@ export function MatchDetailPage() {
           </Button>
         </div>
       </Modal>
+      <ScheduleConflictWarning
+        conflicts={scheduleWarning?.conflicts ?? []}
+        onClose={() => setScheduleWarning(null)}
+        onContinue={() => {
+          const action = scheduleWarning?.action;
+          setScheduleWarning(null);
+          if (action) executeScheduleAction(action);
+        }}
+      />
       <Modal
         open={paymentOptionsOpen}
         title="Chọn phương thức thanh toán"

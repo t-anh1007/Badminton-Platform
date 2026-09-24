@@ -110,6 +110,7 @@ export async function getOwnProfile(userId: string, resolveStorage?: StorageReso
     // nó chứa passwordHash và có thể lộ thêm field nội bộ khi model đổi.
     select: {
       id: true,
+      businessCode: true,
       email: true,
       phone: true,
       roles: true,

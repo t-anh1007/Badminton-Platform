@@ -15,6 +15,7 @@ vi.mock('../../lib/accountApi.js', () => ({
 }))
 
 vi.mock('../../lib/financeApi.js', () => ({
+  getAdminFinancialTransparency: vi.fn().mockResolvedValue({ summary: { customerPayments: '500000', ownerPending: '100000', ownerAvailable: '300000', reservedPayout: '100000', paidPayout: '0', platformRevenue: '50000', bankMovement: '500000', allocatedMovement: '500000', difference: '0' }, transactions: { items: [], total: 0, page: 1, pageSize: 20 } }),
   getAdminWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', sellerUserId: 'u1', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'RUT-2026-001', bankCode: 'VCB', bankAccountNumber: '***1234', bankAccountName: 'NGUYEN VAN A', createdAt: '2026-08-15T00:00:00Z', processedAt: null }, { id: 'w2', sellerUserId: 'u2', amount: '300000', paidAmount: '100000', status: 'partially_paid', transferCode: 'RUT-2026-002', bankCode: 'ACB', bankAccountNumber: '***5678', bankAccountName: 'TRAN VAN B', createdAt: '2026-08-16T00:00:00Z', processedAt: null }]),
   getReconciliationQueue: vi.fn().mockResolvedValue([{ id: 'rc1', direction: 'in', amount: '100000', rawRef: 'SEPAY-LONG-REFERENCE-001', receivedAt: '2026-08-15T00:00:00Z' }, { id: 'rc2', direction: 'out', amount: '200000', rawRef: 'BANK-LONG-REFERENCE-002', receivedAt: '2026-08-15T01:00:00Z' }]),
   rejectWithdrawal: vi.fn().mockResolvedValue({}), finalizePartialWithdrawal: vi.fn().mockResolvedValue({}), confirmManualWithdrawalPayout: vi.fn().mockResolvedValue({}),
@@ -40,6 +41,27 @@ vi.mock('../../lib/communityApi.js', () => ({
 }))
 
 afterEach(() => { cleanup(); vi.clearAllMocks() })
+
+it('navigates between the three admin finance sections with in-page links', async () => {
+  render(<AdminFinancePage />)
+
+  const bank = await screen.findByRole('link', { name: 'Giao dịch ngân hàng và đối soát' })
+  const withdrawals = screen.getByRole('link', { name: 'Yêu cầu rút tiền' })
+  const reconciliation = screen.getByRole('link', { name: 'Đối soát' })
+
+  expect(screen.getByRole('navigation', { name: 'Điều hướng tài chính' })).toHaveClass('sticky')
+  expect(bank).toHaveAttribute('href', '#finance-bank-reconciliation')
+  expect(withdrawals).toHaveAttribute('href', '#finance-withdrawals')
+  expect(reconciliation).toHaveAttribute('href', '#finance-reconciliation')
+  expect(bank).toHaveAttribute('aria-current', 'page')
+  expect(document.getElementById('finance-bank-reconciliation')).toBeInTheDocument()
+  expect(document.getElementById('finance-withdrawals')).toBeInTheDocument()
+  expect(document.getElementById('finance-reconciliation')).toBeInTheDocument()
+
+  fireEvent.click(withdrawals)
+  expect(withdrawals).toHaveAttribute('aria-current', 'page')
+  expect(bank).not.toHaveAttribute('aria-current')
+})
 
 it('requires a reason and confirmation before rejecting a withdrawal', async () => {
   render(<AdminFinancePage />)
@@ -90,7 +112,8 @@ it('filters and sorts the finance operation queues', async () => {
 
   fireEvent.change(screen.getByLabelText('Lọc hướng tiền'), { target: { value: 'out' } })
   expect(screen.getAllByText('200.000đ').length).toBeGreaterThan(0)
-  expect(screen.queryByText('100.000đ')).not.toBeInTheDocument()
+  expect(screen.queryByText('SEPAY-LONG-REFERENCE-001')).not.toBeInTheDocument()
+  expect(screen.getByText('BANK-LONG-REFERENCE-002')).toBeInTheDocument()
 })
 
 it('opens reconciliation controls only for the selected event and uses selectable targets', async () => {

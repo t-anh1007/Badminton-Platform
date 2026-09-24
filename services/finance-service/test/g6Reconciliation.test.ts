@@ -39,6 +39,7 @@ describe('FIN-14 — đối soát giao dịch chưa khớp', () => {
     await handleIncomingTransfer({ externalRef, amount: 200000n, rawRef: `UNKNOWN-${randomUUID()}` });
     const event = await prisma.sepayEvent.findUniqueOrThrow({ where: { externalRef } });
     expect(event.status).toBe('unmatched');
+    expect(event.businessCode).toMatch(/^GD-\d{8}$/);
     expect((await listUnmatchedEvents()).some((row) => row.id === event.id)).toBe(true);
     expect((await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } })).available).toBe(0n);
 
@@ -162,6 +163,7 @@ describe('FIN-14 — đối soát giao dịch chưa khớp', () => {
       await recordBookingRevenue(randomUUID(), { bookingId: directBookingId, businessUserId: directBusinessUserId, venueId: randomUUID(), gross: '200000', endAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), source: 'marketplace' });
       await refundCancelledBooking(randomUUID(), { bookingId: balanceBookingId, userId: balanceUserId, businessUserId: balanceBusinessUserId, gross: '200000', refundPercent: 50, reason: 'self' });
       const dispute = await createDispute(directUserId, { bookingId: directBookingId, reason: 'Dịch vụ không đúng', contactPhone: '0901234567', evidence: ['proof'] });
+      expect(dispute.businessCode).toMatch(/^KN-\d{8}$/);
       await resolveDispute(adminId, dispute.id, { decision: 'partial_refund', amount: 80000n, reason: 'Hoàn theo bằng chứng' });
 
       const withdrawal = await createWithdrawal(directBusinessUserId, { amount: 100000n, ...bank });

@@ -101,6 +101,7 @@ async function findRecentCompletedMatches(userId: string) {
     take: 20,
     select: {
       id: true,
+      businessCode: true,
       bookingId: true,
       completedAt: true,
       organizerUserId: true,
@@ -120,6 +121,7 @@ async function findRecentCompletedMatches(userId: string) {
     peerUserIds.delete(userId);
     return {
       id: match.id,
+      businessCode: match.businessCode,
       bookingId: match.bookingId,
       completedAt: match.completedAt,
       evaluationCandidates: [...peerUserIds].map((peerUserId) => ({

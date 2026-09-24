@@ -5,12 +5,13 @@ import { BookingCancellationPanel } from './BookingCancellationPanel.js'
 import { BookingCard } from './BookingCard.js'
 
 vi.mock('../lib/venueBookingApi.js', () => ({ getBookingDetail: vi.fn(), cancelMyBooking: vi.fn() }))
-const booking = (id: string, status = 'confirmed') => ({ id, courtId: `c-${id}`, startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', status, priceSnapshot: '180000', court: { name: `Sân ${id}`, venue: { name: 'Nhà thi đấu' } } })
+const booking = (id: string, status = 'confirmed') => ({ id, businessCode: `BK-${id.padStart(8, '0')}`, courtId: `c-${id}`, startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', status, priceSnapshot: '180000', court: { name: `Sân ${id}`, venue: { name: 'Nhà thi đấu' } } })
 afterEach(cleanup)
 beforeEach(() => vi.clearAllMocks())
 
 it('renders the refund preview inside its booking and hides all cancellation actions once cancelled', () => {
   const view = render(<BookingCard booking={booking('1')} preview={50} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
+  expect(screen.getByText('BK-00000001')).toBeInTheDocument()
   expect(screen.getByText('Bạn sẽ được hoàn 50% — 90.000đ.')).toBeInTheDocument()
   view.rerender(<BookingCard booking={booking('1', 'cancelled')} preview={50} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
   expect(screen.queryByRole('button', { name: /hủy|hoàn/i })).not.toBeInTheDocument()

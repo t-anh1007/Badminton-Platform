@@ -1,12 +1,11 @@
 import { shouldRequeue } from '@khoaluantn/eventbus';
 import type { Channel, ConsumeMessage } from 'amqplib';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { connectRabbitMQ } from '@khoaluantn/eventbus';
 import type {
   BookingConfirmedPayload,
   BookingCompletedPayload,
-  MatchConfirmedPayload,
   MatchFeePaymentCompletedPayload,
   MatchFeeRefundRequestedPayload,
   MatchCancelledPayload,
@@ -20,6 +19,7 @@ import { writeMatchOutcomeNotifications } from './notificationOutbox.js';
 import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
 import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
+import { requestFundingIfReadyInTransaction } from '../domain/matchSettlement.js';
 
 const QUEUE_NAME = 'matchmaking.match-lifecycle';
 
@@ -50,51 +50,6 @@ function eventIdOf(message: ConsumeMessage): string {
   return `${type}:${createHash('sha256').update(message.content).digest('hex')}`;
 }
 
-async function requestFundingIfReady(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  matchId: string,
-  context: VenueMatchContext,
-  now: Date,
-) {
-  const match = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
-  if (
-    match.status !== 'filled'
-    || !match.organizerContributionPaidAt
-    || match.fundingRequestedAt
-  ) return;
-  if (context.status !== 'held' || context.bookingId !== match.bookingId) {
-    throw new Error('Filled match booking is not held for settlement');
-  }
-  const participantCount = await tx.join.count({ where: { matchId, status: 'confirmed' } });
-  if (participantCount !== match.capacity - 1) return;
-  const bookingPrice = BigInt(context.priceSnapshot);
-  const participantFees = match.feePerSlot * BigInt(participantCount);
-  const organizerContribution = bookingPrice - participantFees;
-  if (organizerContribution <= 0n || participantFees + organizerContribution !== bookingPrice) {
-    throw new Error('Match funding violates D29 conservation');
-  }
-  const attemptId = randomUUID();
-  await tx.match.update({
-    where: { id: match.id },
-    data: { fundingRequestedAt: now, settlementAttemptId: attemptId },
-  });
-  await writeOutbox(tx, {
-    aggregateType: 'Match',
-    aggregateId: match.id,
-    eventType: 'MatchConfirmed',
-    payload: {
-      matchId: match.id,
-      bookingId: match.bookingId,
-      attemptId,
-      venueRevision: match.settlementVenueRevision,
-      participantCount,
-      participantFees: participantFees.toString(),
-      organizerContribution: organizerContribution.toString(),
-      bookingPrice: bookingPrice.toString(),
-    } satisfies MatchConfirmedPayload,
-  });
-}
-
 export async function handleMatchFeePaymentCompleted(
   eventId: string,
   raw: MatchFeePaymentCompletedPayload,
@@ -116,7 +71,14 @@ export async function handleMatchFeePaymentCompleted(
   if (payload.role === 'organizer' && matchSnapshot.status === 'awaiting_deposit') {
     if (!matchSnapshot.deadlineAt) throw new Error('awaiting_deposit match missing deadlineAt');
     try {
-      await venueBookingClient.activateMatchHold(payload.bookingId, payload.userId, matchSnapshot.deadlineAt);
+      // Keep a small venue-owned grace after the business cutoff so the
+      // scheduler can atomically settle or cancel without losing the hold to
+      // timer jitter at the exact cutoff instant.
+      await venueBookingClient.activateMatchHold(
+        payload.bookingId,
+        payload.userId,
+        new Date(matchSnapshot.deadlineAt.getTime() + 5 * 60_000),
+      );
     } catch (err) {
       if (err instanceof Error && /failed with 409/.test(err.message)) depositTooLate = true;
       else throw err;
@@ -210,7 +172,7 @@ export async function handleMatchFeePaymentCompleted(
         });
       }
     }
-    await requestFundingIfReady(tx, match.id, context, now);
+    await requestFundingIfReadyInTransaction(tx, match.id, context, now);
     await tx.processedEvent.create({ data: { eventId } });
   });
 }

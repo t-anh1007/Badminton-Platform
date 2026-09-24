@@ -45,6 +45,7 @@ enum TicketSenderRole {
 }
 
 model Post {
+  businessCode String @unique @default(dbgenerated("('BV-'::text || lpad((nextval('posts_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id           String        @id @default(uuid())
   authorUserId String
   body         String
@@ -75,6 +76,7 @@ model PostImage {
 }
 
 model Comment {
+  businessCode String @unique @default(dbgenerated("('BL-'::text || lpad((nextval('comments_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id           String        @id @default(uuid())
   postId       String
   authorUserId String
@@ -88,6 +90,7 @@ model Comment {
 }
 
 model Report {
+  businessCode String @unique @default(dbgenerated("('BC-'::text || lpad((nextval('reports_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id             String           @id @default(uuid())
   reporterUserId String
   targetType     ReportTargetType
@@ -102,6 +105,7 @@ model Report {
 }
 
 model Ticket {
+  businessCode String @unique @default(dbgenerated("('HT-'::text || lpad((nextval('tickets_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id              String       @id @default(uuid())
   requesterUserId String
   subject         String

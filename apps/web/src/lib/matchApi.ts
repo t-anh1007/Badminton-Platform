@@ -51,7 +51,16 @@ export interface MatchCourt {
   id: string;
   name: string;
 }
+export interface ScheduleConflict {
+  kind: 'match' | 'booking';
+  role: 'organizer' | 'participant' | 'booker';
+  startAt: string;
+  endAt: string;
+  court: MatchCourt;
+  venue: Pick<MatchVenue, 'id' | 'name' | 'address'>;
+}
 export interface MatchRow {
+  businessCode?: string;
   id: string;
   status: 'open' | 'filled' | 'confirmed';
   paymentPending: boolean;
@@ -132,6 +141,11 @@ export const configureMatchSkillRange = (id: string, input: { skillMin: SkillTie
     body: JSON.stringify(input),
   });
 export const getMyConfirmedMatches = () => api<{ matches: MyConfirmedMatch[] }>('/matches/me/history');
+export function getMyScheduleConflicts(input: { startAt: string; endAt: string; excludeMatchId?: string }) {
+  const query = new URLSearchParams({ startAt: input.startAt, endAt: input.endAt });
+  if (input.excludeMatchId) query.set('excludeMatchId', input.excludeMatchId);
+  return api<{ conflicts: ScheduleConflict[] }>(`/matches/me/schedule-conflicts?${query}`);
+}
 export async function waitForMatchOpen(id: string, options: { attempts?: number; intervalMs?: number } = {}) {
   const attempts = options.attempts ?? 20;
   const intervalMs = options.intervalMs ?? 1_000;
@@ -144,6 +158,7 @@ export async function waitForMatchOpen(id: string, options: { attempts?: number;
   throw new Error('Khoản cọc đang được xác nhận. Vui lòng chờ thêm hoặc thử kiểm tra lại.');
 }
 export interface MyConfirmedMatch {
+  businessCode?: string;
   id: string;
   status: 'confirmed' | 'completed';
   participationRole: 'organizer' | 'participant';

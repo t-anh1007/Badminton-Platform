@@ -10,6 +10,7 @@ import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type Authentica
 import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
 import { listAdminEvaluations, reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
+import { findPlayerScheduleConflicts } from '../domain/scheduleConflicts.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -78,6 +79,11 @@ const evaluationSchema = z.object({
 }).strict();
 
 const evaluationReviewSchema = z.object({ decision: z.enum(['approve', 'reject']) }).strict();
+const scheduleConflictSchema = z.object({
+  startAt: z.coerce.date(),
+  endAt: z.coerce.date(),
+  excludeMatchId: z.string().uuid().optional(),
+}).refine((input) => input.startAt < input.endAt, { message: 'startAt must be before endAt' });
 
 export function createMatchRouter(
   venueBookingClient: VenueBookingClient,
@@ -141,6 +147,19 @@ export function createMatchRouter(
     const matchId = z.string().uuid().parse(req.params.matchId);
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(201).json(await requestJoin(matchId, userId));
+  }));
+  router.get('/me/schedule-conflicts', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = scheduleConflictSchema.parse(req.query);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json({
+      conflicts: await findPlayerScheduleConflicts(
+        venueBookingClient,
+        userId,
+        input.startAt,
+        input.endAt,
+        input.excludeMatchId,
+      ),
+    });
   }));
   router.get('/me/history', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const userId = (req as AuthenticatedRequest).user!.id;

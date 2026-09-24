@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cancelMyBooking, createBooking, createHold, getCourtAvailability, getVenueDetail, selectSlot } from '../lib/venueBookingApi.js'
-import { createMatch, MatchApiError } from '../lib/matchApi.js'
+import { createMatch, getMyScheduleConflicts, MatchApiError } from '../lib/matchApi.js'
 import { BookingPage } from './BookingPage.js'
 
 vi.mock('../lib/venueBookingApi.js', () => ({
@@ -17,7 +17,7 @@ vi.mock('../lib/venueBookingApi.js', () => ({
 vi.mock('../lib/financeApi.js', () => ({ createBookingSepayIntent: vi.fn(), payBookingBalance: vi.fn() }))
 vi.mock('../lib/matchApi.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/matchApi.js')>()
-  return { MATCH_MIN_LEAD_HOURS: actual.MATCH_MIN_LEAD_HOURS, MatchApiError: actual.MatchApiError, createMatch: vi.fn() }
+  return { MATCH_MIN_LEAD_HOURS: actual.MATCH_MIN_LEAD_HOURS, MatchApiError: actual.MatchApiError, createMatch: vi.fn(), getMyScheduleConflicts: vi.fn() }
 })
 vi.mock('../components/MatchDepositCheckout.js', () => ({ MatchDepositCheckout: () => <div>Cọc tạo kèo (50%)</div> }))
 
@@ -37,6 +37,7 @@ beforeEach(() => {
     durationMinutes: body.durationMinutes,
     totalPrice: body.durationMinutes === 60 ? '360000' : '180000',
   }))
+  vi.mocked(getMyScheduleConflicts).mockResolvedValue({ conflicts: [] })
 })
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -117,7 +118,7 @@ it('guards concurrent creation and reuses the pending hold after match creation 
   const findButton = await screen.findByRole('button', { name: 'TÌM ĐỐI THỦ' })
   fireEvent.click(findButton)
   fireEvent.click(findButton)
-  expect(createHold).toHaveBeenCalledTimes(1)
+  await waitFor(() => expect(createHold).toHaveBeenCalledTimes(1))
   resolveHold({ id: 'hold-race', courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z', expiresAt: '2026-08-14T02:10:00.000Z' })
   expect(await screen.findByRole('alert')).toHaveTextContent('Tạo kèo thất bại')
   fireEvent.click(screen.getByRole('button', { name: 'TÌM ĐỐI THỦ' }))
@@ -168,6 +169,25 @@ it('disables finding an opponent for slots less than 24 hours away without holdi
   expect(screen.getByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
   fireEvent.click(findButton)
   expect(createHold).not.toHaveBeenCalled()
+})
+
+it('warns about an overlapping schedule before creating a booking and continues only after acknowledgement', async () => {
+  vi.mocked(getMyScheduleConflicts).mockResolvedValue({ conflicts: [{
+    kind: 'match', role: 'organizer', startAt: '2026-08-15T06:00:00.000Z', endAt: '2026-08-15T07:00:00.000Z',
+    court: { id: 'other-court', name: 'Sân 2' }, venue: { id: 'other-venue', name: 'Nhà thi đấu Quận 3', address: 'Quận 3' },
+  }] } as never)
+  vi.mocked(createHold).mockResolvedValue({ id: 'hold-after-warning', courtId: 'c1', startAt: '2026-08-15T06:00:00.000Z', endAt: '2026-08-15T07:00:00.000Z', expiresAt: '2026-08-15T02:10:00.000Z' })
+  vi.mocked(createBooking).mockResolvedValue({ id: 'booking-after-warning', courtId: 'c1', startAt: '2026-08-15T06:00:00.000Z', endAt: '2026-08-15T07:00:00.000Z', status: 'held', priceSnapshot: '360000' })
+  render(<MemoryRouter initialEntries={['/booking?venueId=v1']}><BookingPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:00 - 06:30' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Chọn 06:30 - 07:00' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'XÁC NHẬN' }))
+
+  const warning = await screen.findByRole('dialog', { name: 'Cảnh báo trùng lịch' })
+  expect(createHold).not.toHaveBeenCalled()
+  expect(within(warning).getByText(/Nhà thi đấu Quận 3/)).toBeInTheDocument()
+  fireEvent.click(within(warning).getByRole('button', { name: 'Vẫn tiếp tục' }))
+  await waitFor(() => expect(createBooking).toHaveBeenCalledWith('hold-after-warning'))
 })
 
 it('rechecks the 24-hour match lead when the action is clicked after the page was left open', async () => {

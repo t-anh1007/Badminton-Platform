@@ -29,6 +29,36 @@ describe('matchmaking booking context contract', () => {
     const response = await request(app).get('/players/me/match-sources').set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`);
     expect(response.status).toBe(200); expect(response.body.bookings).toHaveLength(1); expect(response.body.bookings[0].court.venue.name).toBe('Venue nguồn');
   });
+
+  it('returns booking display references only to an authenticated internal caller', async () => {
+    const providerId = randomUUID();
+    providerIds.push(providerId);
+    const booking = await prisma.booking.create({
+      data: {
+        userId: randomUUID(), source: 'marketplace', status: 'confirmed', priceSnapshot: 200000n,
+        startAt: new Date(Date.now() + 3_600_000), endAt: new Date(Date.now() + 7_200_000),
+        court: { create: { name: 'Sân mã nghiệp vụ', venue: { create: {
+          name: 'Cơ sở mã nghiệp vụ', address: 'Q1', lat: 10, lng: 106,
+          provider: { create: { id: providerId, userId: randomUUID(), orgName: 'Provider code' } },
+        } } } },
+      },
+    });
+    bookingIds.push(booking.id);
+    const priorToken = process.env.INTERNAL_SERVICE_TOKEN;
+    process.env.INTERNAL_SERVICE_TOKEN = 'booking-reference-test-secret';
+    try {
+      await request(app).post('/internal/bookings/references').send({ bookingIds: [booking.id] }).expect(401);
+      const response = await request(app)
+        .post('/internal/bookings/references')
+        .set('x-internal-service-token', 'booking-reference-test-secret')
+        .send({ bookingIds: [booking.id] })
+        .expect(200);
+      expect(response.body.references).toEqual([{ id: booking.id, businessCode: booking.businessCode }]);
+    } finally {
+      if (priorToken === undefined) delete process.env.INTERNAL_SERVICE_TOKEN;
+      else process.env.INTERNAL_SERVICE_TOKEN = priorToken;
+    }
+  });
   it('D40: rejects an unauthenticated mutation of the venue-owned match-resolution command', async () => {
     const providerId = randomUUID();
     providerIds.push(providerId);

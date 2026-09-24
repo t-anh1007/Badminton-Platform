@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -85,10 +86,8 @@ function PostCard({
             <Avatar label={avatarLabel(post.authorDisplayName)} src={post.authorAvatarUrl} alt={`Ảnh đại diện ${authorLabel(post.authorDisplayName)}`} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink-900">{authorLabel(post.authorDisplayName)}</p>
-              <p className="text-caption">
-                {formatDate(post.createdAt)}
-                {post.editedAt ? ' · đã chỉnh sửa' : ''}
-              </p>
+              <p className="text-caption">{formatDate(post.createdAt)}{post.editedAt ? ' · đã chỉnh sửa' : ''}</p>
+              <BusinessCode code={post.businessCode} label="Mã bài viết" />
             </div>
           </div>
           {isOwner && (
@@ -382,9 +381,10 @@ export function CommunityPage() {
                         const status = reportStatus[report.status];
                         return (
                           <div key={report.id} className="flex items-center justify-between gap-2 text-xs">
-                            <span className="truncate">
-                              {report.targetType === 'post' ? 'Bài viết đã báo cáo' : 'Bình luận đã báo cáo'}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate">{report.targetType === 'post' ? 'Bài viết đã báo cáo' : 'Bình luận đã báo cáo'}</p>
+                              <BusinessCode code={report.businessCode} label="Mã báo cáo" />
+                            </div>
                             <Badge tone={status.tone}>{status.label}</Badge>
                           </div>
                         );
@@ -495,7 +495,7 @@ export function CommunityPage() {
                             to={`/support?ticket=${ticket.id}`}
                             className="block rounded-xl border border-line p-3 hover:border-green-100 hover:bg-green-50"
                           >
-                            <p className="line-clamp-1 text-sm font-medium">{ticket.subject}</p>
+                            <p className="line-clamp-1 text-sm font-medium">{ticket.subject}</p><BusinessCode code={ticket.businessCode} label="Mã hỗ trợ" />
                             <div className="mt-2">
                               <Badge tone={status.tone}>{status.label}</Badge>
                             </div>
@@ -549,7 +549,7 @@ export function CommunityPage() {
                       to={`/support?ticket=${ticket.id}`}
                       className="flex items-center justify-between gap-3 rounded-xl border border-line p-3"
                     >
-                      <span className="truncate text-sm font-medium">{ticket.subject}</span>
+                      <div className="min-w-0"><p className="truncate text-sm font-medium">{ticket.subject}</p><BusinessCode code={ticket.businessCode} label="Mã hỗ trợ" /></div>
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </Link>
                   );

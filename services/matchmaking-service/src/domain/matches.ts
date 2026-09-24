@@ -203,6 +203,7 @@ export async function findPublicMatches(
       return [
         {
           id: match.id,
+          businessCode: match.businessCode,
           status: match.status,
           paymentPending: match.joins.some((join) => join.status === 'approved'),
           organizerUserId: match.organizerUserId,
@@ -294,6 +295,7 @@ export async function getPublicMatchDetail(
   const openSlots = match.capacity - 1 - reservedJoins.length;
   return {
     id: match.id,
+    businessCode: match.businessCode,
     status: match.status,
     capacity: match.capacity,
     openSlots,
@@ -436,6 +438,7 @@ export async function listMyConfirmedMatches(venueBookingClient: VenueBookingCli
     if (!context) return [];
     return [{
       id: match.id,
+      businessCode: match.businessCode,
       status: match.status,
       participationRole: match.organizerUserId === userId ? 'organizer' as const : 'participant' as const,
       participationLabel: 'Kèo đã tham gia',

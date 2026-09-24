@@ -17,6 +17,7 @@ describe('ACC-01 — Đăng ký tài khoản', () => {
     expect(user.verified).toBe(false);
     expect(user.status).toBe('active');
     expect(user.roles).toEqual(['player']);
+    expect(user.businessCode).toMatch(/^ND-\d{8}$/);
 
     const verification = await prisma.verification.findFirst({ where: { userId } });
     expect(verification).not.toBeNull();

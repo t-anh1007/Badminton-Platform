@@ -8,6 +8,7 @@ import {
 } from '../src/lib/matchLifecycleEventConsumer.js';
 import { prisma } from '../src/lib/prisma.js';
 import { cancelMatchByOrganizer, cancelMatchesAtCutoff, withdrawJoin } from '../src/domain/matchLifecycle.js';
+import { requestJoin } from '../src/domain/matches.js';
 
 class FakeVenueClient implements VenueBookingClient {
   readonly contexts = new Map<string, VenueMatchContext>();
@@ -118,7 +119,7 @@ afterAll(async () => {
 });
 
 describe('MMP-06 — match fee payment events', () => {
-  it('AC-MMP-06-1/4: paid join confirms, organizer contribution requests exact booking settlement', async () => {
+  it('keeps a fully paid match held until its matchmaking cutoff', async () => {
     const match = await fixture(2);
     const participantUserId = randomUUID();
     const join = await prisma.join.create({
@@ -146,11 +147,12 @@ describe('MMP-06 — match fee payment events', () => {
       paymentPayload(match, { joinId: null, userId: match.organizerUserId, role: 'organizer' }),
       venueClient,
     );
-    const fundingEvent = await prisma.outbox.findFirstOrThrow({
+    expect(await prisma.outbox.count({
       where: { aggregateId: match.id, eventType: 'MatchConfirmed' },
-    });
-    expect(fundingEvent.payload).toMatchObject({
-      participantFees: '50000', organizerContribution: '50000', bookingPrice: '100000',
+    })).toBe(0);
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({
+      status: 'filled',
+      fundingRequestedAt: null,
     });
   });
 
@@ -222,7 +224,16 @@ describe('MMP-06 — match fee payment events', () => {
 describe('MMP-07/08 — withdrawal and cancellation', () => {
   it('AC-MMP-07-1/3: pre-cutoff withdrawal on a held booking refunds and reopens a filled match', async () => {
     const match = await fixture(2);
-    await prisma.match.update({ where: { id: match.id }, data: { status: 'filled' } });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { status: 'filled', skillMin: 'beginner', skillMax: 'advanced', skillConfiguredAt: new Date() },
+    });
+    await prisma.outbox.create({
+      data: {
+        aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCreated',
+        payload: { matchId: match.id, bookingId: match.bookingId },
+      },
+    });
     const participantUserId = randomUUID();
     const join = await prisma.join.create({
       data: {
@@ -242,6 +253,8 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
     expect(await prisma.outbox.count({
       where: { aggregateId: join.id, eventType: 'MatchFeeRefundRequested' },
     })).toBe(1);
+    const replacement = await requestJoin(match.id, randomUUID());
+    expect(replacement.status).toBe('approved');
   });
 
   it('AC-MMP-07-2: withdrawal from cutoff onward does not refund while the match continues', async () => {
@@ -333,6 +346,36 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
     expect(await prisma.outbox.findFirstOrThrow({
       where: { aggregateId: match.id, eventType: 'MatchCancelled' },
     })).toMatchObject({ payload: expect.objectContaining({ reason: 'cutoff' }) });
+  });
+
+  it('settles a fully paid match at cutoff instead of cancelling it', async () => {
+    const match = await fixture(2);
+    const cutoffAt = new Date(Date.now() - 1_000);
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { status: 'filled', organizerContributionPaidAt: new Date(), cutoffAt },
+    });
+    await prisma.join.create({
+      data: {
+        matchId: match.id,
+        participantUserId: randomUUID(),
+        status: 'confirmed',
+        approvedAt: new Date(cutoffAt.getTime() - 60_000),
+        feePaidAt: new Date(cutoffAt.getTime() - 30_000),
+      },
+    });
+
+    await cancelMatchesAtCutoff(new Date(), venueClient);
+
+    const fundingEvent = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: match.id, eventType: 'MatchConfirmed' },
+    });
+    expect(fundingEvent.payload).toMatchObject({
+      participantFees: '50000', organizerContribution: '50000', bookingPrice: '100000',
+    });
+    expect(await prisma.outbox.count({
+      where: { aggregateId: match.id, eventType: 'MatchCancelled' },
+    })).toBe(0);
   });
 
   it('AC-MMP-08-3: confirmed match cancellation carries the GĐ1 booking refund percentage', async () => {

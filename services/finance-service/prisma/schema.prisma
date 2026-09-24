@@ -155,6 +155,7 @@ model PaymentIntent {
 }
 
 model SepayEvent {
+  businessCode String @unique @default(dbgenerated("('GD-'::text || lpad((nextval('sepay_events_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id          String         @id @default(uuid())
   direction   SepayDirection
   amount      BigInt
@@ -284,6 +285,7 @@ model FinanceAudit {
 }
 
 model Dispute {
+  businessCode String @unique @default(dbgenerated("('KN-'::text || lpad((nextval('disputes_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id              String        @id @default(uuid())
   refType         String
   refId           String

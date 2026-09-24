@@ -13,7 +13,9 @@ No route, API, data contract, payment rule, or approval behavior changes.
 
 ## Layout and visual system
 
-Place the rail below the page introduction and above the financial overview. Use
+Place the rail below the page introduction and above the financial overview. It
+remains sticky below the global navigation while the admin scrolls through the
+finance page, so any section can be reached without returning to the top. Use
 the established `SegmentedControl` treatment: canvas container, thin `line`
 border, pill-shaped items, `brand-navy` active item with white text, and muted
 inactive labels. The entire control remains one horizontal row. Its outer
@@ -26,7 +28,8 @@ Typography follows the active COURTIN authority:
 - Currency and references: Geist Mono.
 
 Each content section uses the existing surface-card/table vocabulary and gains
-a stable anchor target with scroll offset suitable for the application chrome.
+a stable anchor target with enough scroll offset for both the global header and
+the sticky finance rail.
 
 ## Interaction and accessibility
 

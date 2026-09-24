@@ -464,6 +464,8 @@ export async function listAdminBookings(input: { query?: string; status?: Bookin
   if (query) {
     filters.push({
       OR: [
+        { businessCode: { contains: query, mode: 'insensitive' } },
+        { id: { contains: query, mode: 'insensitive' } },
         { court: { name: { contains: query, mode: 'insensitive' } } },
         { court: { venue: { name: { contains: query, mode: 'insensitive' } } } },
       ],
@@ -482,7 +484,41 @@ export async function listAdminBookings(input: { query?: string; status?: Bookin
     prisma.booking.count({ where }),
     prisma.booking.findMany({ where, include: { court: { include: { venue: true } } }, skip: (input.page - 1) * input.pageSize, take: input.pageSize, orderBy: { startAt: 'desc' } }),
   ]);
-  return { total, page: input.page, pageSize: input.pageSize, items: bookings.map(b => ({ id: b.id, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, holdExpiresAt: b.holdExpiresAt, matchDepositPaid: b.status === 'held' && !!b.holdId && paidMatchHoldIds.includes(b.holdId), player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name, address: b.court.venue.address } } })) };
+  return { total, page: input.page, pageSize: input.pageSize, items: bookings.map(b => ({ id: b.id, businessCode: b.businessCode, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, holdExpiresAt: b.holdExpiresAt, matchDepositPaid: b.status === 'held' && !!b.holdId && paidMatchHoldIds.includes(b.holdId), player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name, address: b.court.venue.address } } })) };
+}
+
+export async function findPlayerScheduleConflicts(
+  userId: string,
+  startAt: Date,
+  endAt: Date,
+  excludeBookingIds: string[] = [],
+) {
+  const now = new Date();
+  const bookings = await prisma.booking.findMany({
+    where: {
+      userId,
+      id: excludeBookingIds.length ? { notIn: excludeBookingIds } : undefined,
+      startAt: { lt: endAt },
+      endAt: { gt: startAt },
+      OR: [
+        { status: 'confirmed' },
+        { status: 'held', holdExpiresAt: { gt: now } },
+      ],
+    },
+    include: { court: { include: { venue: true } } },
+    orderBy: { startAt: 'asc' },
+  });
+  return bookings.map((booking) => ({
+    bookingId: booking.id,
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    court: { id: booking.court.id, name: booking.court.name },
+    venue: {
+      id: booking.court.venue.id,
+      name: booking.court.venue.name,
+      address: booking.court.venue.address,
+    },
+  }));
 }
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */

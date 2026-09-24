@@ -6,6 +6,7 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { writeMatchOutcomeNotifications } from '../lib/notificationOutbox.js';
 import { prisma } from '../lib/prisma.js';
+import { requestMatchFundingAtCutoff } from './matchSettlement.js';
 
 type CancelReason = 'organizer' | 'cutoff';
 type ResolutionAction = 'withdraw' | 'cancel';
@@ -274,6 +275,7 @@ export async function cancelMatchesAtCutoff(
   let cancelled = 0;
   for (const match of matches) {
     try {
+      if (await requestMatchFundingAtCutoff(venueBookingClient, match.id, now)) continue;
       const { result } = await cancelThroughVenue(venueBookingClient, match.id, 'cutoff', now);
       if (result.decision === 'cancelled') cancelled += 1;
     } catch (error) {

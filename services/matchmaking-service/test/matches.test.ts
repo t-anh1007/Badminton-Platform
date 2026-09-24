@@ -10,6 +10,10 @@ import { releaseExpiredApprovedJoins, startJoinExpiryScheduler } from '../src/do
 
 class FakeVenueBookingClient implements VenueBookingClient {
   readonly contexts = new Map<string, VenueMatchContext>();
+  readonly bookingConflicts: Array<{
+    bookingId: string; startAt: string; endAt: string;
+    court: { id: string; name: string }; venue: { id: string; name: string; address: string };
+  }> = [];
 
   async getMatchContext(bookingId: string): Promise<VenueMatchContext | null> {
     return this.contexts.get(bookingId) ?? null;
@@ -24,6 +28,10 @@ class FakeVenueBookingClient implements VenueBookingClient {
 
   async cancelConfirmedBooking(): Promise<{ refundPercent: number }> {
     return { refundPercent: 50 };
+  }
+
+  async getPlayerScheduleConflicts() {
+    return this.bookingConflicts;
   }
 }
 
@@ -138,6 +146,7 @@ beforeEach(async () => {
     });
   }
   venueBookingClient.contexts.clear();
+  venueBookingClient.bookingConflicts.length = 0;
   accountClient.displayNames.clear();
 });
 
@@ -166,6 +175,33 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe('player schedule conflict warnings', () => {
+  it('combines active match participation with owned booking conflicts', async () => {
+    const userId = randomUUID();
+    const match = await createMatch({ capacity: 2 });
+    await prisma.match.update({ where: { id: match.id }, data: { organizerUserId: userId } });
+    const matchContext = venueBookingClient.contexts.get(match.bookingId)!;
+    venueBookingClient.bookingConflicts.push({
+      bookingId: randomUUID(),
+      startAt: matchContext.startAt,
+      endAt: matchContext.endAt,
+      court: { id: randomUUID(), name: 'Sân đặt riêng' },
+      venue: { id: randomUUID(), name: 'Cơ sở B', address: 'Quận 3' },
+    });
+
+    const response = await request(app)
+      .get('/matches/me/schedule-conflicts')
+      .query({ startAt: matchContext.startAt, endAt: matchContext.endAt })
+      .set('Authorization', `Bearer ${playerToken(userId)}`)
+      .expect(200);
+
+    expect(response.body.conflicts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'match', role: 'organizer', startAt: matchContext.startAt }),
+      expect.objectContaining({ kind: 'booking', role: 'booker', venue: expect.objectContaining({ name: 'Cơ sở B' }) }),
+    ]));
+  });
+});
+
 describe('MMP-01 — public match search', () => {
   it('D50: keeps open and filled matches visible in the public list', async () => {
     await Promise.all([createMatch({}), createMatch({}), createMatch({}), createMatch({ status: 'filled' })]);
@@ -173,6 +209,7 @@ describe('MMP-01 — public match search', () => {
     const response = await request(app).get('/matches').expect(200);
 
     expect(response.body.matches).toHaveLength(4);
+    expect(response.body.matches.every((match: { businessCode?: string }) => /^KEO-\d{8}$/.test(match.businessCode ?? ''))).toBe(true);
     expect(response.body.matches.filter((match: { status: string }) => match.status === 'filled')).toHaveLength(1);
   });
 

@@ -25,6 +25,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface RevenueRow {
   bookingId: string;
+  bookingCode?: string | null;
   venueId: string;
   gross: string;
   net: string;
@@ -47,6 +48,36 @@ export interface WithdrawalRow {
   rejectionReason?: string | null;
   createdAt?: string;
   processedAt?: string | null;
+}
+export interface FinancePage<T> { items: T[]; total: number; page: number; pageSize: number }
+export interface ProviderTransparencyRow {
+  bookingId: string;
+  bookingCode?: string | null; venueId: string; gross: string; net: string; commission: string;
+  endAt: string; releaseAt: string; releasedAt: string | null;
+  status: 'pending' | 'available' | 'disputed' | 'cancelled';
+  payment: null | {
+    businessCode?: string | null; method: 'balance' | 'sepay'; provider: string; amount: string; providerReference: string | null;
+    confirmedAt: string | null; reconciliationStatus: string; senderAccount: string | null; collectionAccount: string | null;
+  };
+}
+export interface ProviderTransparencyResult {
+  summary: { available: string; pending: string; reserved: string; gross: string; net: string; commission: string };
+  transactions: FinancePage<ProviderTransparencyRow>;
+}
+export interface ProviderWithdrawalTransparencyRow {
+  id: string; amount: string; paidAmount: string; status: string; transferCode: string; bankCode: string;
+  bankAccountName: string; bankAccountMasked: string | null; createdAt: string; processedAt: string | null;
+  bankTransactionCode?: string | null; providerReference: string | null; bankConfirmedAt: string | null;
+}
+export interface AdminTransparencyResult {
+  summary: {
+    customerPayments: string; ownerPending: string; ownerAvailable: string; reservedPayout: string;
+    paidPayout: string; platformRevenue: string; bankMovement: string; allocatedMovement: string; difference: string;
+  };
+  transactions: FinancePage<{
+    id: string; businessCode?: string; direction: 'in' | 'out'; amount: string; provider: string; providerReference: string | null;
+    receivedAt: string; status: string; businessReference: string | null; matchedType: string | null; allocatedAmount: string;
+  }>;
 }
 
 export type FinanceUiScope = 'wallet' | 'revenue' | 'ledger' | 'withdrawals';
@@ -95,6 +126,7 @@ export async function streamMyFinance(
   }
 }
 export interface ReconciliationRow {
+  businessCode?: string;
   id: string;
   direction: 'in' | 'out';
   amount: string;
@@ -127,14 +159,17 @@ export interface WalletLedgerResult {
 }
 export interface DisputeEligibleRow {
   bookingId: string;
+  bookingCode?: string | null;
   venueId: string;
   gross: string;
   endAt: string;
   deadlineAt: string;
 }
 export interface DisputeRow {
+  businessCode?: string;
   id: string;
   bookingId: string;
+  bookingCode?: string | null;
   raiserUserId: string;
   reason: string;
   contactPhone: string | null;
@@ -214,6 +249,15 @@ export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: s
   );
   return api<RevenueRow[]>(`/providers/me/revenue${query.size ? `?${query}` : ''}`);
 };
+export const getMyFinancialTransparency = (filters: {
+  venueId?: string; from?: string; to?: string; status?: string; page: number; pageSize: number;
+}) => {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value !== '' && value !== undefined) query.set(key, String(value)); });
+  return api<ProviderTransparencyResult>(`/providers/me/financial-transparency?${query}`);
+};
+export const getMyWithdrawalTransparency = (page: number, pageSize: number) =>
+  api<FinancePage<ProviderWithdrawalTransparencyRow>>(`/providers/me/withdrawal-transparency?page=${page}&pageSize=${pageSize}`);
 export const getMyWithdrawals = () => api<WithdrawalRow[]>('/providers/me/withdrawals');
 export const createWithdrawal = (body: {
   amount: string;
@@ -231,6 +275,8 @@ export const createPersonalWithdrawal = (body: { amount: string; bankCode: strin
   api<WithdrawalRow>('/players/me/withdrawals', { method: 'POST', body: JSON.stringify(body) });
 export const cancelMyPersonalWithdrawal = (id: string) => api(`/players/me/withdrawals/${id}/cancel`, { method: 'POST' });
 export const getAdminWithdrawals = () => api<WithdrawalRow[]>('/admin/withdrawals');
+export const getAdminFinancialTransparency = (page: number, pageSize: number) =>
+  api<AdminTransparencyResult>(`/admin/financial-transparency?page=${page}&pageSize=${pageSize}`);
 export const rejectWithdrawal = (id: string, reason: string) =>
   api(`/admin/withdrawals/${id}/reject`, {
     method: 'POST',

@@ -21,10 +21,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 export interface CommunityReport {
+  businessCode?: string;
   id: string;
   reporterUserId: string;
   targetType: 'post' | 'comment';
   targetId: string;
+  targetCode?: string | null;
   reason: string;
   status: 'open' | 'actioned' | 'dismissed';
   createdAt: string;

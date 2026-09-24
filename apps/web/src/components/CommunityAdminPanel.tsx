@@ -1,3 +1,4 @@
+import { BusinessCode } from './BusinessCode.js';
 import { useEffect, useState } from 'react';
 import { getOpenCommunityReports, moderateCommunityReport, restoreCommunityContent, type CommunityReport } from '../lib/communityAdminApi';
 import { Badge, Button, EmptyState, Modal, TextArea } from './ui';
@@ -82,7 +83,7 @@ export function CommunityAdminPanel() {
                     <Badge tone="warning">{report.status}</Badge>
                     <Badge>{report.targetType}</Badge>
                   </div>
-                  <p className="mt-2 font-medium">{report.reason}</p>
+                  <p className="mt-2 font-medium">{report.reason}</p><BusinessCode code={report.businessCode} label="Mã báo cáo" /><BusinessCode code={report.targetCode} label={report.targetType === 'post' ? 'Mã bài viết' : 'Mã bình luận'} />
                   <p className="text-caption">{formatDateTimeVi(report.createdAt)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">

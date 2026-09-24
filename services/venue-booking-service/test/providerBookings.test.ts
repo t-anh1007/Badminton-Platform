@@ -70,6 +70,7 @@ describe('provider booking management', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.items.map((item: { id: string }) => item.id).sort()).toEqual([online.id, walkIn.id].sort());
+    expect(response.body.items.find((item: { id: string }) => item.id === online.id).businessCode).toBe(online.businessCode);
     expect(response.body.items.find((item: { id: string }) => item.id === walkIn.id).customer)
       .toEqual({ label: 'Khách tại quầy', guestContact: '0900000000' });
   });
@@ -162,6 +163,12 @@ describe('provider booking management', () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ total: 1, page: 1, pageSize: 1 });
     expect(response.body.items.map((item: { id: string }) => item.id)).toEqual([matching.id]);
+
+    const codeResponse = await request(app)
+      .get('/providers/me/bookings')
+      .query({ query: matching.businessCode })
+      .set('Authorization', `Bearer ${signTestAccessToken(owner.userId, ['player', 'provider'])}`);
+    expect(codeResponse.body.items.map((item: { id: string }) => item.id)).toEqual([matching.id]);
   });
 
   it('includes paid match holds and enriches marketplace display names without exposing contact', async () => {

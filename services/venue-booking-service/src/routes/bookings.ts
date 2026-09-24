@@ -1,12 +1,21 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { activateMatchHold, createBookingFromHold, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { prisma } from '../lib/prisma.js';
+import { activateMatchHold, createBookingFromHold, findPlayerScheduleConflicts, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
 export const bookingRouter = Router();
+// Read-only metadata for authorized service callers; existing UUID routes stay unchanged.
+bookingRouter.post('/internal/bookings/references', requireInternalService, h(async (req, res) => {
+  const { bookingIds } = z.object({ bookingIds: z.array(z.string().uuid()).min(1).max(500) }).strict().parse(req.body);
+  const references = await prisma.booking.findMany({
+    where: { id: { in: bookingIds } }, select: { id: true, businessCode: true },
+  });
+  res.json({ references });
+}));
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
   const input = z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'completed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);
   const result = await listAdminBookings(input);
@@ -67,6 +76,25 @@ bookingRouter.post(
   h(async (req, res) => {
     const { bookingIds } = z.object({ bookingIds: z.array(z.string().uuid()).min(1).max(500) }).parse(req.body);
     res.status(200).json({ contexts: await getMatchContexts(bookingIds) });
+  }),
+);
+
+bookingRouter.get(
+  '/internal/players/schedule-conflicts',
+  requireInternalService,
+  h(async (req, res) => {
+    const input = z.object({
+      userId: z.string().uuid(),
+      startAt: z.coerce.date(),
+      endAt: z.coerce.date(),
+      excludeBookingId: z.union([z.string().uuid(), z.array(z.string().uuid())]).optional(),
+    }).refine((value) => value.startAt < value.endAt, { message: 'startAt must be before endAt' }).parse(req.query);
+    const excluded = input.excludeBookingId
+      ? Array.isArray(input.excludeBookingId) ? input.excludeBookingId : [input.excludeBookingId]
+      : [];
+    res.status(200).json({
+      conflicts: await findPlayerScheduleConflicts(input.userId, input.startAt, input.endAt, excluded),
+    });
   }),
 );
 

@@ -1,3 +1,4 @@
+import { BusinessCode } from '../../components/BusinessCode.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, EmptyState, SurfaceCard, TextInput } from '../../components/ui';
@@ -347,7 +348,7 @@ export function ManageVenuesPage() {
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-4">
-                      <strong className="text-ink-900">{venue.name}</strong>
+                      <strong className="text-ink-900">{venue.name}</strong><BusinessCode code={venue.businessCode} label="Mã cơ sở" />
                       {venueStopped && <span className="mt-2 w-fit rounded-full bg-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-600">Cơ sở đã ngừng hoạt động</span>}
                       {!venueStopped && inactiveCourts.length > 0 && <span className="mt-2 text-xs font-medium text-danger">Đã ngừng: {inactiveCourts.map((court) => court.name).join(', ')}</span>}
                       <p className="mt-1 text-sm text-ink-500">{venue.address}</p>

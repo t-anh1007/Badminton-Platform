@@ -5,16 +5,17 @@ import { writeOutbox } from '../lib/outbox.js';
 
 export async function listAdminAccounts(input: { query?: string; status?: 'active' | 'locked' }) {
   const query = input.query?.trim();
-  return prisma.user.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(query ? { OR: [{ email: { contains: query, mode: 'insensitive' } }, { playerProfile: { displayName: { contains: query, mode: 'insensitive' } } }] } : {}) }, include: { playerProfile: { select: { displayName: true } } }, orderBy: { createdAt: 'desc' }, take: 50 }).then(rows => rows.map(row => ({ id: row.id, email: row.email, displayName: row.playerProfile?.displayName ?? null, status: row.status, roles: row.roles })));
+  return prisma.user.findMany({ where: { ...(input.status ? { status: input.status } : {}), ...(query ? { OR: [{ businessCode: { contains: query, mode: 'insensitive' } }, { email: { contains: query, mode: 'insensitive' } }, { playerProfile: { displayName: { contains: query, mode: 'insensitive' } } }] } : {}) }, include: { playerProfile: { select: { displayName: true } } }, orderBy: { createdAt: 'desc' }, take: 50 }).then(rows => rows.map(row => ({ id: row.id, businessCode: row.businessCode, email: row.email, displayName: row.playerProfile?.displayName ?? null, status: row.status, roles: row.roles })));
 }
 
 export async function getAdminAccountIdentities(userIds: string[]) {
   if (userIds.length === 0) return [];
   return prisma.user.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, email: true, playerProfile: { select: { displayName: true } } },
+    select: { id: true, businessCode: true, email: true, playerProfile: { select: { displayName: true } } },
   }).then((rows) => rows.map((row) => ({
     id: row.id,
+    businessCode: row.businessCode,
     email: row.email,
     displayName: row.playerProfile?.displayName ?? null,
   })));

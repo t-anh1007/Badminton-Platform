@@ -102,7 +102,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
           <div className="mt-5 space-y-5">
             <section className="rounded-2xl bg-canvas p-4">
               <p className="text-caption text-ink-500">Mã booking</p>
-              <p className="mt-1 break-all font-mono text-sm text-ink-900">{detail.id}</p>
+              <p className="mt-1 break-all font-mono text-sm text-ink-900">{detail.businessCode ?? 'Chưa có mã'}</p>
               <Badge className="mt-3" tone={providerBookingBadgeTone(detail.status)}>
                 {providerBookingStatusLabel(detail.status, detail.matchDepositPaid)}
               </Badge>

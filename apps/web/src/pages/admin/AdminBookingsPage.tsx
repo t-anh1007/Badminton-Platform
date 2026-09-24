@@ -1,3 +1,4 @@
+import { BusinessCode } from '../../components/BusinessCode.js';
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
 import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
@@ -93,7 +94,7 @@ export function AdminBookingsPage() {
             className="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
-              <p className="font-bold">{row.court.venue.name} · {row.court.name}</p>
+              <p className="font-bold">{row.court.venue.name} · {row.court.name}</p><BusinessCode code={row.businessCode} label="Mã booking" />
               <p className="mt-1 text-sm text-ink-700">{row.player.label}</p>
               <p className="text-sm text-ink-500">
                 {formatDateTimeVi(row.startAt)} · {formatMoneyVnd(row.priceSnapshot)}
@@ -137,7 +138,7 @@ export function AdminBookingsPage() {
           <div><dt className="text-ink-500">Giá trị booking</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
           <div><dt className="text-ink-500">Trạng thái</dt><dd>{detail.status === 'held' && detail.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : detail.status}</dd></div>
           {detail.holdExpiresAt && <div><dt className="text-ink-500">Giữ chỗ đến</dt><dd>{formatDateTimeVi(detail.holdExpiresAt)}</dd></div>}
-          <div><dt className="text-ink-500">Mã booking</dt><dd className="break-all text-xs">{detail.id}</dd></div>
+          <div><dt className="text-ink-500">Mã booking</dt><dd className="break-all text-xs">{detail.businessCode ?? 'Chưa có mã'}</dd></div>
         </dl>}
       </Modal>
     </>

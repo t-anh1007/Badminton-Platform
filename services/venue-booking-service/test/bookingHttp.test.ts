@@ -121,3 +121,44 @@ describe('BOK-07/08 qua HTTP — BigInt serialize (lỗi P1 Codex: res.json(bigi
     expect(cancelled.body.booking.terminalStatus).toBe('cancelled');
   });
 });
+
+describe('player schedule conflict snapshot', () => {
+  it('returns only active owned bookings that overlap the requested interval', async () => {
+    const userId = fakeUserId();
+    const provider = await createApprovedProvider();
+    const { court } = await makeCourtSearchable(provider.id, undefined, 120000);
+    const startAt = new Date(Date.now() + 30 * 3600_000);
+    const overlapping = await prisma.booking.create({
+      data: {
+        courtId: court.id, userId, source: 'marketplace', status: 'confirmed',
+        startAt, endAt: new Date(startAt.getTime() + 3600_000), priceSnapshot: 120000n,
+        policySnapshot: { tiers: [{ minHoursBeforeStart: 0, refundPercent: 0 }] },
+      },
+    });
+    await prisma.booking.create({
+      data: {
+        courtId: court.id, userId, source: 'marketplace', status: 'confirmed',
+        startAt: new Date(startAt.getTime() + 2 * 3600_000), endAt: new Date(startAt.getTime() + 3 * 3600_000),
+        priceSnapshot: 120000n, policySnapshot: { tiers: [{ minHoursBeforeStart: 0, refundPercent: 0 }] },
+      },
+    });
+    const previousToken = process.env.INTERNAL_SERVICE_TOKEN;
+    process.env.INTERNAL_SERVICE_TOKEN = 'schedule-conflict-test-secret';
+
+    const response = await request(app)
+      .get('/internal/players/schedule-conflicts')
+      .set('x-internal-service-token', 'schedule-conflict-test-secret')
+      .query({
+        userId,
+        startAt: new Date(startAt.getTime() + 15 * 60_000).toISOString(),
+        endAt: new Date(startAt.getTime() + 45 * 60_000).toISOString(),
+      });
+    if (previousToken === undefined) delete process.env.INTERNAL_SERVICE_TOKEN;
+    else process.env.INTERNAL_SERVICE_TOKEN = previousToken;
+
+    expect(response.status).toBe(200);
+    expect(response.body.conflicts).toEqual([
+      expect.objectContaining({ bookingId: overlapping.id, startAt: startAt.toISOString() }),
+    ]);
+  });
+});

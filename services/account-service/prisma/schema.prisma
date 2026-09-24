@@ -55,6 +55,7 @@ enum NotificationPriority {
 }
 
 model User {
+  businessCode String @unique @default(dbgenerated("('ND-'::text || lpad((nextval('users_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id           String   @id @default(uuid())
   email        String   @unique
   phone        String?

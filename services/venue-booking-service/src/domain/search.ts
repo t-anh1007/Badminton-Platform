@@ -13,6 +13,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 export interface VenueSearchResult {
   venueId: string;
+  businessCode?: string;
   name: string;
   lat: number;
   lng: number;
@@ -80,6 +81,7 @@ export async function searchVenues(
 
     results.push({
       venueId: venue.id,
+      businessCode: venue.businessCode,
       name: venue.name,
       lat: venue.lat,
       lng: venue.lng,

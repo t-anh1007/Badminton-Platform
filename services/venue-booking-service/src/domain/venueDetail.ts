@@ -19,6 +19,7 @@ export async function getVenueDetail(venueId: string) {
 
   return {
     id: venue.id,
+    businessCode: venue.businessCode,
     name: venue.name,
     address: venue.address,
     lat: venue.lat,
@@ -30,6 +31,7 @@ export async function getVenueDetail(venueId: string) {
     // thiểu trước khi validate — tránh gọi select-slot với 1 slot dưới min.
     courts: venue.courts.filter((c) => c.active).map((c) => ({
       id: c.id,
+      businessCode: c.businessCode,
       name: c.name,
       images: c.images,
       bookingRule: c.bookingRule

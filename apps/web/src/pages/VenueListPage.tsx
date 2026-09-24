@@ -4,6 +4,7 @@ import { Badge, Button, EmptyState, SelectInput, SurfaceCard, TextInput } from '
 import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { searchVenues, type VenueSearchRow } from '../lib/venueBookingApi';
+import { BusinessCode } from '../components/BusinessCode.js';
 import { formatMoneyVnd } from '../lib/formatters.js';
 import { VenuesMap } from '../components/map/VenuesMap';
 import { ipLocate, reverseGeocode } from '../lib/geocoding';
@@ -263,7 +264,8 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
     const normalizedFilter = nameFilter.trim().toLocaleLowerCase('vi-VN');
     const filtered = normalizedFilter.length === 0
       ? venues
-      : venues.filter((venue) => venue.name.toLocaleLowerCase('vi-VN').includes(normalizedFilter));
+      : venues.filter((venue) => [venue.name, venue.businessCode]
+        .some((value) => value?.toLocaleLowerCase('vi-VN').includes(normalizedFilter)));
     return [...filtered].sort((left, right) => (
       sortOrder === 'distance'
         ? left.distanceKm - right.distanceKm
@@ -312,7 +314,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
               </div>
               <div>
                 <label htmlFor="venue-name" className="mb-1.5 block text-caption">Tên sân</label>
-                <TextInput id="venue-name" list="venue-name-suggestions" autoComplete="off" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tìm theo tên sân" />
+                <TextInput id="venue-name" list="venue-name-suggestions" autoComplete="off" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Tên hoặc mã cơ sở" />
                 <datalist id="venue-name-suggestions">
                   {venues.map((venue) => <option key={venue.venueId} value={venue.name}>{venue.address}</option>)}
                 </datalist>
@@ -461,6 +463,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
                       <div className="flex flex-1 flex-col p-5">
                         <p className="text-caption text-brand-navy">Sân cầu lông</p>
                         <h2 className="mt-1 text-h3 text-ink-900">{venue.name}</h2>
+                        <BusinessCode code={venue.businessCode} label="Mã cơ sở" />
                         <p className="mt-2 text-sm leading-6 text-ink-500">{venue.address}</p>
                         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-sm">
                           <span className="text-figures text-ink-700">~{venue.distanceKm.toFixed(1)} km</span>

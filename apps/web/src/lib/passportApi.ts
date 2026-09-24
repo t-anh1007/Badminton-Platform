@@ -42,6 +42,7 @@ export interface OwnPassport extends PublicPassport {
   flaggedEvaluationCount: number;
   recentMatches: Array<{
     id: string;
+    businessCode?: string;
     bookingId: string;
     completedAt: string;
     evaluationCandidates: Array<{ userId: string; submitted: boolean }>;

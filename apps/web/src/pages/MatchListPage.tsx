@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { QuickMatchPanel } from '../components/QuickMatchPanel';
@@ -419,7 +420,7 @@ export function MatchListPage() {
                   <p className="text-caption">
                     {match.capacity === 2 ? 'Kèo đơn' : 'Kèo đôi'} · {match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang chờ thanh toán' : match.openSlots > 0 ? 'Mở' : 'Đầy'}
                   </p>
-                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2>
+                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2><BusinessCode code={match.businessCode} label="Mã kèo" />
                 </div>
                 <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ slot' : `Còn ${match.openSlots} chỗ`}</Badge>
               </div>
