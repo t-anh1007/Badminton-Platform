@@ -815,7 +815,7 @@ Expected: no observable behavior changes from the extraction; initial and retry 
 
 **Interfaces:** Uses the existing `playwright.config.ts`, `scripts/e2e-services.ts`, isolated schemas, real HTTP services, and RabbitMQ outbox/consumer path.
 
-- [ ] **Step 1: Add the Playwright owner/player flow**
+- [x] **Step 1: Add the Playwright owner/player flow**
 
 The test must seed one provider, one player, one venue/court, one confirmed paid booking, and one internal booking. It must then:
 
@@ -845,11 +845,11 @@ test('provider scheduled close cancels and player sees the matching refunded boo
 
 Also assert the provider sees “Bạn cần tự thông báo cho khách” for the internal booking.
 
-- [ ] **Step 2: Add the Playwright Admin emergency flow**
+- [x] **Step 2: Add the Playwright Admin emergency flow**
 
 Seed an active booking where `startAt < now < endAt`; enter through `/admin/bookings`, choose the court, complete emergency shutdown with a reason, and assert the booking is cancelled/refunded without exposing a technical error.
 
-- [ ] **Step 3: Prove live-broker idempotency**
+- [x] **Step 3: Prove live-broker idempotency**
 
 Let the real outbox relay publish cancellation and refund-completion messages. Redeliver the same broker message ID once and assert:
 
@@ -864,7 +864,7 @@ expect(await accountPrisma.notification.count({
 
 For a match booking, assert one refund per funded contribution and no organizer-only duplicate.
 
-- [ ] **Step 4: Rehearse additive migration and application rollback on isolated databases**
+- [x] **Step 4: Rehearse additive migration and application rollback on isolated databases**
 
 Using only disposable test database names, prove:
 
@@ -875,7 +875,7 @@ Using only disposable test database names, prove:
 
 Record exact database names, commands, exit codes, and cleanup results in this plan. Do not run against the existing local development database.
 
-- [ ] **Step 5: Run validation only after the user approves the command list**
+- [x] **Step 5: Run validation only after the user approves the command list**
 
 Proposed focused commands:
 
@@ -913,7 +913,7 @@ Expected: all commands exit 0; no duplicate ledger entries, notifications, shutd
 - [x] Task 8 Playwright owner/player, Admin, held-match, and broker-redelivery scenarios run; 3/3 passed on the disposable environment.
 - [x] Task 8 isolated migration upgrade/rollback rehearsal recorded.
 - [x] All focused tests, typechecks, and Playwright/broker E2E executed and passing on the approved disposable environment.
-- [ ] Final cleanup remains incomplete: a temporary baseline worktree directory remains, and misconfigured earlier test attempts may have left fixtures in the default `khoaluantn` DB. No cleanup was attempted there.
+- [x] Default `khoaluantn` was migrated and validated after explicit user approval; identifiable operational-shutdown test fixtures and the temporary operational worktree were removed.
 
 ## Decisions
 
@@ -932,7 +932,8 @@ Expected: all commands exit 0; no duplicate ledger entries, notifications, shutd
 - Browser proof: all three owner/player, Admin emergency, and held-match scenarios passed.
 - Migration/rollback proof: fresh and upgrade deployments passed on the disposable DB; previous-application compatibility and preservation of shutdown/refund data were verified.
 - Repository checks: four service typechecks, Web build, and `git diff --check` passed; the Web build retains its existing large-chunk warning.
-- Environment incident and cleanup limitations are recorded in the Task 8 run record below; no migration ran on the default local DB and no data was deleted from it.
+- The initial isolated run's environment incident and cleanup limitation are preserved in the Task 8 run record below; the later approved default-environment follow-up supersedes that limitation.
+- Follow-up default-environment validation applied the Account and Venue shutdown migrations to `khoaluantn`, then passed Venue 67/67, Finance 24/24, Matchmaking 34/34, Account 1/1, Web 20/20, four backend typechecks, and the Web production build. All three Playwright scenarios passed on the default DB; the owner/player scenario was rerun after routing Account calls through the Vite proxy.
 
 ## Task 8 Run Record (2026-09-24)
 
@@ -943,7 +944,8 @@ Expected: all commands exit 0; no duplicate ledger entries, notifications, shutd
 - Previous application revision `b379769` started against the upgraded schema (`/health` returned `ok`; `GET /venues/<fixture-id>` returned the venue and its court). Read-only counts before/after remained 3 venues, 4 business-coded bookings, 3 shutdowns, 4 shutdown items and 10 refund ledger entries.
 - Cleanup: the exact disposable DB and RabbitMQ vhost were deleted and verified absent. `git worktree remove --force` for `ai-notes/operational-shutdown-baseline` failed with exit 255 because a directory remained; worktree registration was removed, but leftover files/junction cleanup is unresolved.
 - Environment incident: earlier test attempts inherited `.env` and targeted `khoaluantn`, failing on missing `holdPurposeSnapshot`/`createdAt` columns. Test helpers create fixtures before those failures, so rows may remain. A later Matchmaking attempt also kept its Venue URL on the default DB. No migrations were run there and no rows were deleted; exact cleanup requires user direction because those rows cannot be safely distinguished from concurrent local data.
+- Default-environment follow-up: with explicit user approval, `20260923100000_shutdown_notification_contract`, `20260923110000_operational_shutdown`, and `20260924121000_shutdown_refund_completion_marker` deployed successfully to `khoaluantn`. Focused suites and browser flows passed as recorded above. Eleven `shutdown-...@example.test` users, four E2E providers/venues, six bookings, associated shutdown/match/finance/outbox data, and a failed Finance preview fixture were deleted by exact test markers; verification returned zero remaining users, venues, providers, and `preview-%` contributions. No production database was touched.
 
 ## Result
 
-Implementation and Task 8 validation gates are complete on the approved disposable environment. The plan remains active because cleanup is not fully resolved: a temporary baseline directory remains after Git cleanup failed, and fixture rows may have been written to the default local database by two misconfigured test attempts. No migrations were applied to the default local DB, production was not touched, and no changes were committed or pushed.
+Implementation and Task 8 validation gates are complete on both the isolated rehearsal environment and the explicitly approved default local `khoaluantn` database. The implementation is merged into `TuanAnh`; identifiable test fixtures and the temporary operational worktree were removed. Production was not touched and nothing was pushed.

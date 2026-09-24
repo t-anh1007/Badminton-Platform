@@ -22,7 +22,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export interface BookingSummary {
-  businessCode?: string;
   id: string;
   businessCode?: string;
   createdAt?: string;
@@ -221,7 +220,6 @@ export interface ProviderBookingFilters {
   pageSize?: number;
 }
 export interface ProviderBookingRow {
-  businessCode?: string;
   id: string;
   businessCode: string;
   source: 'marketplace' | 'internal';

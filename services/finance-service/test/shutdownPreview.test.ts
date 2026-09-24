@@ -54,6 +54,7 @@ describe('shutdown refund preview', () => {
         [checkoutBookingId]: '400000', [matchBookingId]: '100000', [unpaidBookingId]: '0',
       });
     } finally {
+      await prisma.matchContribution.deleteMany({ where: { matchId } });
       await prisma.matchFunding.deleteMany({ where: { matchId } });
       await prisma.paymentIntent.deleteMany({ where: { refId: checkoutBookingId } });
     }

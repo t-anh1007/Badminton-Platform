@@ -56,7 +56,7 @@ describe('ManageBookingsPage', () => {
     });
     render(<MemoryRouter initialEntries={['/manage/bookings']}><ManageBookingsPage /></MemoryRouter>);
 
-    expect(await screen.findByText('Bạn cần tự thông báo cho khách')).toBeVisible();
+    expect(await screen.findAllByText('Bạn cần tự thông báo cho khách')).toHaveLength(2);
   });
 
   it('renders summary, provider-owned rows, and writes filters to the request', async () => {

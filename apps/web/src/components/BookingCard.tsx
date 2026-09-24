@@ -46,7 +46,7 @@ export function BookingCard({ booking, preview, busy = false, cancellable = true
       <div>
         <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? 'Sân'}</p>
         <p className="mt-1 text-sm text-ink-500">{formatBookingRange(booking.startAt, booking.endAt)}</p>
-        <BusinessCode code={booking.businessCode} label="Mã booking" />
+        {!cancelled && <BusinessCode code={booking.businessCode} label="Mã booking" />}
         {cancelled && <p className="mt-1 text-xs font-bold text-danger">Lịch đặt đã hủy</p>}
         {held && <p className="mt-1 text-xs font-semibold text-ink-500">{booking.matchDepositPaid ? 'Đang giữ chỗ · đã đặt cọc' : 'Đang giữ chỗ · chưa thanh toán'}</p>}
       </div>
