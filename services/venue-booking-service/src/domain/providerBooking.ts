@@ -29,6 +29,7 @@ export interface ProviderBookingRow {
   holdExpiresAt: Date | null;
   cancellationReason: CancellationReason | null;
   matchDepositPaid: boolean;
+  manualCustomerNotificationRequired: boolean;
   customer: { label: string; guestContact?: string };
   court: { id: string; name: string; venue: { id: string; name: string; address: string } };
 }
@@ -38,7 +39,10 @@ export interface ProviderBookingDetail extends ProviderBookingRow {
   courtChangedAt: Date | null;
 }
 
-const bookingInclude = { court: { include: { venue: true } } } satisfies Prisma.BookingInclude;
+const bookingInclude = {
+  court: { include: { venue: true } },
+  shutdownItems: { select: { id: true }, take: 1 },
+} satisfies Prisma.BookingInclude;
 type LoadedProviderBooking = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 function visibleBookingWhere(paidMatchHoldIds: string[]): Prisma.BookingWhereInput {
@@ -127,6 +131,7 @@ function projectBooking(
     matchDepositPaid: booking.status === 'held'
       && booking.holdId !== null
       && paidMatchHoldIds.has(booking.holdId),
+    manualCustomerNotificationRequired: internal && booking.status === 'cancelled' && booking.shutdownItems.length > 0,
     customer: {
       label: internal
         ? (booking.guestName ?? 'Khách vãng lai')

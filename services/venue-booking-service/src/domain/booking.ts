@@ -5,8 +5,10 @@ import { CANCELLATION_POLICY, getRefundPercentageFromSnapshot } from './cancella
 import { venueMatchContextSchema } from '@khoaluantn/shared';
 import type { MatchBookingResolutionPayload, MatchCancelledPayload } from '@khoaluantn/shared';
 import { writeOutbox } from '../lib/outbox.js';
-import type { BookingStatus, Prisma } from '@prisma/client';
+import type { BookingStatus, Prisma, ShutdownItemStatus } from '@prisma/client';
 import { vietnamDateEndExclusiveInstant, vietnamDateStartInstant } from '../lib/vietnamTime.js';
+import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
 
 /** BOK-07 bước 1 — Tạo `BOOKING(status=held)` gắn với một hold hợp lệ, chốt
  * `priceSnapshot` + `policySnapshot` (BR-BOK-06), rồi xóa hold. Phương thức
@@ -33,6 +35,8 @@ export async function createBookingFromHold(userId: string, holdId: string) {
     if (hold.expiresAt.getTime() <= Date.now()) {
       throw new AppError('HOLD_EXPIRED', 'Lượt giữ chỗ đã hết hạn.', 409);
     }
+    await lockCourtSchedule(tx, hold.courtId);
+    await assertCourtAcceptsCommitment(tx, hold.courtId, hold.endAt, hold.createdAt);
 
     const priceSnapshot = await calculateBookingPrice(hold.courtId, hold.startAt, hold.endAt);
 
@@ -46,6 +50,7 @@ export async function createBookingFromHold(userId: string, holdId: string) {
     return tx.booking.create({
       data: {
         holdId,
+        holdPurposeSnapshot: hold.purpose,
         courtId: hold.courtId,
         startAt: hold.startAt,
         endAt: hold.endAt,
@@ -72,10 +77,10 @@ function isStillPayable(booking: { status: string; holdExpiresAt: Date | null })
  * `held` quá hạn -> `cancelled` NGAY tại đây (self-healing, cùng kiểu với
  * reap hold ở G3) để câu trả lời luôn phản ánh trạng thái mới nhất. */
 export async function getPaymentStatus(bookingId: string) {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { shutdownItems: { select: { id: true }, take: 1 } } });
   if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
 
-  if (booking.status === 'held' && !isStillPayable(booking)) {
+  if (booking.status === 'held' && !isStillPayable(booking) && booking.shutdownItems.length === 0) {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
     booking.status = 'cancelled';
   }
@@ -85,7 +90,7 @@ export async function getPaymentStatus(bookingId: string) {
     userId: booking.userId,
     status: booking.status,
     gross: booking.priceSnapshot.toString(),
-    stillPayable: isStillPayable(booking),
+    stillPayable: isStillPayable(booking) && booking.shutdownItems.length === 0,
   };
 }
 
@@ -94,11 +99,11 @@ export async function getPaymentStatus(bookingId: string) {
 export async function getMatchContext(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: { include: { venue: true } } },
+    include: { court: { include: { venue: true } }, shutdownItems: { select: { id: true }, take: 1 } },
   });
   if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
 
-  if (booking.status === 'held' && !isStillPayable(booking)) {
+  if (booking.status === 'held' && !isStillPayable(booking) && booking.shutdownItems.length === 0) {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
     booking.status = 'cancelled';
   }
@@ -106,7 +111,7 @@ export async function getMatchContext(bookingId: string) {
   return venueMatchContextSchema.parse({
     bookingId: booking.id,
     ownerUserId: booking.userId,
-    status: booking.status,
+    status: booking.shutdownItems.length > 0 && booking.status === 'held' ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),
     startAt: booking.startAt.toISOString(),
     endAt: booking.endAt.toISOString(),
@@ -127,11 +132,12 @@ export async function getMatchContext(bookingId: string) {
 export async function getMatchContexts(bookingIds: string[]) {
   const bookings = await prisma.booking.findMany({
     where: { id: { in: bookingIds } },
-    include: { court: { include: { venue: true } } },
+    include: { court: { include: { venue: true } }, shutdownItems: { select: { id: true }, take: 1 } },
   });
   const now = new Date();
   const expiredIds = bookings
-    .filter((booking) => booking.status === 'held' && (!booking.holdExpiresAt || booking.holdExpiresAt <= now))
+    .filter((booking) => booking.status === 'held' && booking.shutdownItems.length === 0
+      && (!booking.holdExpiresAt || booking.holdExpiresAt <= now))
     .map((booking) => booking.id);
   if (expiredIds.length > 0) {
     await prisma.booking.updateMany({ where: { id: { in: expiredIds }, status: 'held' }, data: { status: 'cancelled' } });
@@ -140,7 +146,7 @@ export async function getMatchContexts(bookingIds: string[]) {
   const byId = new Map(bookings.map((booking) => [booking.id, venueMatchContextSchema.parse({
     bookingId: booking.id,
     ownerUserId: booking.userId,
-    status: expired.has(booking.id) ? 'cancelled' : booking.status,
+    status: expired.has(booking.id) || (booking.status === 'held' && booking.shutdownItems.length > 0) ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),
     startAt: booking.startAt.toISOString(),
     endAt: booking.endAt.toISOString(),
@@ -174,6 +180,8 @@ export async function activateMatchHold(userId: string, bookingId: string, deadl
     if (booking.status !== 'held') {
       throw new AppError('BOOKING_NOT_HELD', 'Booking kèo không còn ở trạng thái giữ.', 409);
     }
+    await lockCourtSchedule(tx, booking.courtId);
+    await assertCourtAcceptsCommitment(tx, booking.courtId, booking.endAt, booking.createdAt);
     // Idempotent: đã gia hạn tới đúng deadline này rồi.
     if (booking.holdExpiresAt && booking.holdExpiresAt.getTime() === deadlineAt.getTime()) {
       return booking;
@@ -185,8 +193,15 @@ export async function activateMatchHold(userId: string, bookingId: string, deadl
     if (!hold || hold.expiresAt.getTime() <= Date.now()) {
       throw new AppError('MATCH_DEPOSIT_TOO_LATE', 'Cửa sổ giữ chỗ đã hết trước khi cọc về; slot đã nhả.', 409);
     }
+    if (deadlineAt > hold.expiresAt) {
+      const venueId = (await tx.court.findUniqueOrThrow({ where: { id: booking.courtId } })).venueId;
+      const winding = await tx.operationalShutdown.findFirst({ where: { endedAt: null, mode: 'winding_down', OR: [
+        { scopeType: 'court', scopeId: booking.courtId }, { scopeType: 'venue', scopeId: venueId },
+      ] } });
+      if (winding) throw new AppError('COURT_SHUTTING_DOWN', 'Sân không gia hạn lượt giữ chỗ sau khi ngừng nhận lịch mới.', 409);
+    }
     await tx.hold.update({ where: { id: hold.id }, data: { purpose: 'match', expiresAt: deadlineAt } });
-    return tx.booking.update({ where: { id: bookingId }, data: { holdExpiresAt: deadlineAt } });
+    return tx.booking.update({ where: { id: bookingId }, data: { holdExpiresAt: deadlineAt, holdPurposeSnapshot: 'match' } });
   });
 }
 
@@ -194,7 +209,7 @@ export async function activateMatchHold(userId: string, bookingId: string, deadl
  * slot trở lại khả dụng (không còn hold VÀ không còn booking held chặn chỗ). */
 export async function reapExpiredHeldBookings(): Promise<number> {
   const result = await prisma.booking.updateMany({
-    where: { status: 'held', holdExpiresAt: { lte: new Date() } },
+    where: { status: 'held', holdExpiresAt: { lte: new Date() }, shutdownItems: { none: { status: { in: ['identified', 'cancellation_processing', 'needs_attention'] } } } },
     data: { status: 'cancelled' },
   });
   return result.count;
@@ -202,7 +217,7 @@ export async function reapExpiredHeldBookings(): Promise<number> {
 
 export async function completeEndedBookings(now = new Date()): Promise<number> {
   const candidates = await prisma.booking.findMany({
-    where: { status: 'confirmed', endAt: { lte: now } },
+    where: { status: 'confirmed', endAt: { lte: now }, shutdownItems: { none: { status: { in: ['identified', 'cancellation_processing', 'needs_attention'] } } } },
     select: { id: true },
   });
   let completed = 0;
@@ -255,6 +270,10 @@ export async function resolveMatchBooking(command: MatchBookingResolutionCommand
       } as MatchBookingResolutionPayload;
     }
 
+    // Serialize with shutdown's court cutoff before accepting a settlement.
+    const target = await tx.booking.findUnique({ where: { id: command.bookingId }, select: { courtId: true } });
+    if (!target) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    await lockCourtSchedule(tx, target.courtId);
     // Lock by booking, not command. Different commands racing over the same
     // physical slot must serialize into one winning transition.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${command.bookingId}, 0))`;
@@ -281,7 +300,17 @@ export async function resolveMatchBooking(command: MatchBookingResolutionCommand
     let venueRevision = booking.matchSettlementRevision;
     let winningAttemptId = booking.matchSettlementAttemptId;
     const exactRevision = booking.matchSettlementRevision === command.venueRevision;
-    const heldAndPayable = booking.status === 'held' && isStillPayable(booking);
+    const hold = booking.holdId ? await tx.hold.findUnique({ where: { id: booking.holdId } }) : null;
+    let shutdownAllowsSettlement = true;
+    if (command.action === 'settle') {
+      try {
+        await assertCourtAcceptsCommitment(tx, booking.courtId, booking.endAt, hold?.createdAt ?? booking.createdAt);
+      } catch (error) {
+        if (!(error instanceof AppError) || error.code !== 'COURT_SHUTTING_DOWN') throw error;
+        shutdownAllowsSettlement = false;
+      }
+    }
+    const heldAndPayable = booking.status === 'held' && isStillPayable(booking) && shutdownAllowsSettlement;
 
     if (command.action === 'settle') {
       if (heldAndPayable && exactRevision) {
@@ -403,28 +432,40 @@ export async function releaseHeldMatchBooking(eventId: string, payload: MatchCan
 }
 
 /** BOK-08 — booking của chính người chơi (không gồm booking nội bộ, AC-08-5). */
+function playerShutdownRefundStatus(status?: ShutdownItemStatus) {
+  if (!status) return null;
+  if (status === 'refunded') return 'completed';
+  if (status === 'cancelled_unpaid') return 'not_paid';
+  if (status === 'needs_attention') return 'needs_attention';
+  return 'processing';
+}
+
 export async function listMyBookings(userId: string) {
   // Scheduler có thể chưa kịp chạy giữa lúc hold hết hạn và người chơi mở Hồ
   // sơ. Tự chữa tại read boundary để booking checkout hết hạn không bị hiển thị
   // như một lịch đặt sân còn hiệu lực.
   await prisma.booking.updateMany({
-    where: { userId, status: 'held', holdExpiresAt: { lte: new Date() } },
+    where: { userId, status: 'held', holdExpiresAt: { lte: new Date() }, shutdownItems: { none: {} } },
     data: { status: 'cancelled' },
   });
   const bookings = await prisma.booking.findMany({
     where: { userId, source: 'marketplace' },
     orderBy: { startAt: 'desc' },
-    include: { court: { include: { venue: true } } },
+    include: { court: { include: { venue: true } }, shutdownItems: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } } },
   });
   const holdIds = bookings.flatMap((booking) => booking.holdId ? [booking.holdId] : []);
   const paidMatchHoldIds = new Set((await prisma.hold.findMany({
     where: { id: { in: holdIds }, purpose: 'match' },
     select: { id: true },
   })).map((hold) => hold.id));
-  const projectedBookings = bookings.map((booking) => ({
-    ...booking,
-    matchDepositPaid: booking.status === 'held' && !!booking.holdId && paidMatchHoldIds.has(booking.holdId),
-  }));
+  const projectedBookings = bookings.map((booking) => {
+    const { shutdownItems, ...publicBooking } = booking;
+    return {
+      ...publicBooking,
+      shutdownRefundStatus: playerShutdownRefundStatus(shutdownItems[0]?.status),
+      matchDepositPaid: booking.status === 'held' && !!booking.holdId && paidMatchHoldIds.has(booking.holdId),
+    };
+  });
   // Booking bị hủy khi còn là hold chưa thanh toán không phải lịch sử giao dịch
   // của người chơi. Vẫn giữ bản ghi hết hạn tự động ở DB để đối soát kỹ thuật,
   // nhưng không đưa vào bất kỳ tab lịch sử nào.
@@ -435,8 +476,8 @@ export async function listMyBookings(userId: string) {
   ));
   const now = Date.now();
   return {
-    upcoming: visibleBookings.filter((b) => b.startAt.getTime() >= now),
-    past: visibleBookings.filter((b) => b.startAt.getTime() < now),
+    upcoming: visibleBookings.filter((b) => b.status !== 'cancelled' && b.startAt.getTime() >= now),
+    past: visibleBookings.filter((b) => b.status === 'cancelled' || b.startAt.getTime() < now),
   };
 }
 
@@ -484,7 +525,7 @@ export async function listAdminBookings(input: { query?: string; status?: Bookin
     prisma.booking.count({ where }),
     prisma.booking.findMany({ where, include: { court: { include: { venue: true } } }, skip: (input.page - 1) * input.pageSize, take: input.pageSize, orderBy: { startAt: 'desc' } }),
   ]);
-  return { total, page: input.page, pageSize: input.pageSize, items: bookings.map(b => ({ id: b.id, businessCode: b.businessCode, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, holdExpiresAt: b.holdExpiresAt, matchDepositPaid: b.status === 'held' && !!b.holdId && paidMatchHoldIds.includes(b.holdId), player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { name: b.court.name, venue: { name: b.court.venue.name, address: b.court.venue.address } } })) };
+  return { total, page: input.page, pageSize: input.pageSize, items: bookings.map(b => ({ id: b.id, businessCode: b.businessCode, status: b.status, startAt: b.startAt, endAt: b.endAt, priceSnapshot: b.priceSnapshot, holdExpiresAt: b.holdExpiresAt, matchDepositPaid: b.status === 'held' && !!b.holdId && paidMatchHoldIds.includes(b.holdId), player: { label: b.userId ? 'Người chơi đã đăng nhập' : (b.guestName ?? 'Khách vãng lai') }, court: { id: b.court.id, name: b.court.name, venue: { id: b.court.venue.id, name: b.court.venue.name, address: b.court.venue.address } } })) };
 }
 
 export async function findPlayerScheduleConflicts(
@@ -523,7 +564,9 @@ export async function findPlayerScheduleConflicts(
 
 /** AC-08-2/3/4: chi tiết một booking — CHỈ chủ booking mới xem được. */
 export async function getMyBookingDetail(userId: string, bookingId: string) {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { court: { include: { venue: true } } } });
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: {
+    court: { include: { venue: true } }, shutdownItems: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
+  } });
   if (!booking || booking.source !== 'marketplace') {
     throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
   }
@@ -535,6 +578,8 @@ export async function getMyBookingDetail(userId: string, bookingId: string) {
   return {
     booking: {
       ...booking,
+      shutdownItems: undefined,
+      shutdownRefundStatus: playerShutdownRefundStatus(booking.shutdownItems[0]?.status),
       terminalStatus: booking.status === 'confirmed' || booking.status === 'cancelled' ? booking.status : null,
     },
     expectedRefundPercent: getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart),

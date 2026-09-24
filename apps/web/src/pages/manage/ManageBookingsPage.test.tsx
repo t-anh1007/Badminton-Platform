@@ -13,6 +13,7 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
   getProviderBookings: vi.fn().mockResolvedValue({
     items: [{
       id: '11111111-1111-4111-8111-111111111111',
+      businessCode: 'BK-00001234',
       source: 'marketplace',
       status: 'confirmed',
       startAt: '2026-09-22T11:00:00.000Z',
@@ -21,6 +22,7 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
       holdExpiresAt: null,
       cancellationReason: null,
       matchDepositPaid: false,
+      manualCustomerNotificationRequired: false,
       customer: { label: 'Nguyễn Minh Anh' },
       court: {
         id: 'c1',
@@ -42,6 +44,21 @@ afterEach(() => {
 });
 
 describe('ManageBookingsPage', () => {
+  it('shows the provider follow-up only for a shutdown-cancelled internal booking', async () => {
+    vi.mocked(getProviderBookings).mockResolvedValueOnce({
+      items: [{
+        id: '22222222-2222-4222-8222-222222222222', businessCode: 'BK-00001235', source: 'internal', status: 'cancelled',
+        startAt: '2026-09-22T11:00:00.000Z', endAt: '2026-09-22T13:00:00.000Z', priceSnapshot: '240000',
+        holdExpiresAt: null, cancellationReason: 'provider_fault', matchDepositPaid: false,
+        manualCustomerNotificationRequired: true, customer: { label: 'Khách tại quầy' },
+        court: { id: 'c1', name: 'Sân 02', venue: { id: 'v1', name: 'CLB Linh Xuân', address: 'Thủ Đức' } },
+      }], total: 1, page: 1, pageSize: 20, summary: { all: 1, completed: 0, current: 0, future: 0 },
+    });
+    render(<MemoryRouter initialEntries={['/manage/bookings']}><ManageBookingsPage /></MemoryRouter>);
+
+    expect(await screen.findByText('Bạn cần tự thông báo cho khách')).toBeVisible();
+  });
+
   it('renders summary, provider-owned rows, and writes filters to the request', async () => {
     render(
       <MemoryRouter initialEntries={['/manage/bookings']}>
@@ -80,6 +97,7 @@ describe('ManageBookingsPage', () => {
     const api = await import('../../lib/venueBookingApi.js');
     vi.mocked(api.getProviderBookingDetail).mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
+      businessCode: 'BK-00001234',
       source: 'marketplace',
       status: 'confirmed',
       startAt: '2026-09-22T11:00:00.000Z',
@@ -88,6 +106,7 @@ describe('ManageBookingsPage', () => {
       holdExpiresAt: null,
       cancellationReason: null,
       matchDepositPaid: false,
+      manualCustomerNotificationRequired: false,
       customer: { label: 'Nguyễn Minh Anh' },
       court: {
         id: 'c1',
@@ -118,6 +137,7 @@ describe('ManageBookingsPage', () => {
       .mockRejectedValueOnce(new Error('Không thể tải chi tiết.'))
       .mockResolvedValueOnce({
         id: '11111111-1111-4111-8111-111111111111',
+        businessCode: 'BK-00001234',
         source: 'internal',
         status: 'confirmed',
         startAt: '2026-09-22T11:00:00.000Z',
@@ -126,6 +146,7 @@ describe('ManageBookingsPage', () => {
         holdExpiresAt: null,
         cancellationReason: null,
         matchDepositPaid: false,
+        manualCustomerNotificationRequired: false,
         customer: { label: 'Khách tại quầy', guestContact: '0900000000' },
         court: {
           id: 'c1',

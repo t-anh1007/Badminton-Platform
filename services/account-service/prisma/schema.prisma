@@ -138,6 +138,7 @@ model Notification {
   priority        NotificationPriority
   entityType      String?
   entityId        String?
+  bookingBusinessCode String?
   actionKind      String?
   actionExpiresAt DateTime?
   sourceEventId   String

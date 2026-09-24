@@ -1,9 +1,10 @@
 import { BusinessCode } from '../../components/BusinessCode.js';
 import { useEffect, useState } from 'react'
 import { Badge, Button, EmptyState, Modal, SelectInput, TextArea, TextInput } from '../../components/ui'
-import { cancelAdminBooking, getAdminBookings, type AdminBookingRow } from '../../lib/venueBookingApi'
+import { cancelAdminBooking, getAdminBookings, getOperationalShutdown, type AdminBookingRow, type OperationalShutdownScope, type OperationalShutdownStatus } from '../../lib/venueBookingApi'
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js'
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js'
+import { OperationalShutdownDialog } from '../manage/OperationalShutdownDialog.js'
 
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
@@ -15,6 +16,8 @@ export function AdminBookingsPage() {
   const [detail, setDetail] = useState<AdminBookingRow | null>(null)
   const [reason, setReason] = useState('')
   const [message, setMessage] = useState('')
+  const [shutdownTarget, setShutdownTarget] = useState<{ scope: OperationalShutdownScope; id: string; label: string } | null>(null)
+  const [shutdownStatus, setShutdownStatus] = useState<OperationalShutdownStatus | null>(null)
 
   const load = async (nextPage = page) => {
     try {
@@ -44,6 +47,17 @@ export function AdminBookingsPage() {
       setTarget(null)
       setReason('')
       await load()
+    } catch (cause) {
+      setMessage((cause as Error).message)
+    }
+  }
+
+  const openShutdown = async (scope: OperationalShutdownScope, id: string, label: string) => {
+    try {
+      setShutdownStatus(await getOperationalShutdown(scope, id))
+      setShutdownTarget({ scope, id, label })
+      setDetail(null)
+      setMessage('')
     } catch (cause) {
       setMessage((cause as Error).message)
     }
@@ -138,9 +152,20 @@ export function AdminBookingsPage() {
           <div><dt className="text-ink-500">Giá trị booking</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
           <div><dt className="text-ink-500">Trạng thái</dt><dd>{detail.status === 'held' && detail.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : detail.status}</dd></div>
           {detail.holdExpiresAt && <div><dt className="text-ink-500">Giữ chỗ đến</dt><dd>{formatDateTimeVi(detail.holdExpiresAt)}</dd></div>}
-          <div><dt className="text-ink-500">Mã booking</dt><dd className="break-all text-xs">{detail.businessCode ?? 'Chưa có mã'}</dd></div>
+          <div><dt className="text-ink-500">Mã booking</dt><dd className="font-semibold">{detail.businessCode}</dd></div>
         </dl>}
+        {detail && <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
+          <Button tone="danger" onClick={() => void openShutdown('court', detail.court.id, detail.court.name)}>Ngừng hoạt động sân</Button>
+          <Button tone="danger" onClick={() => void openShutdown('venue', detail.court.venue.id, detail.court.venue.name)}>Ngừng hoạt động cơ sở</Button>
+        </div>}
       </Modal>
+
+      {shutdownTarget && <OperationalShutdownDialog
+        target={shutdownTarget}
+        current={shutdownStatus}
+        onClose={() => setShutdownTarget(null)}
+        onDone={async () => { setShutdownTarget(null); await load(); }}
+      />}
     </>
   )
 }

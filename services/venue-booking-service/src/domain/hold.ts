@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
 
 const HOLD_DURATION_MS = 10 * 60_000; // BR-BOK-02
 
@@ -59,6 +60,10 @@ export async function createHold(userId: string, input: CreateHoldInput) {
       // theo user ngăn tab sau xóa hold đang là nền của booking tab trước.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`checkout:${userId}`}, 0))`;
       await lockCourtSchedule(tx, input.courtId);
+      await assertCourtAcceptsCommitment(tx, input.courtId, input.endAt);
+      if (!(await tx.court.findUniqueOrThrow({ where: { id: input.courtId } })).active) {
+        throw new AppError('COURT_INACTIVE', 'Sân đã ngừng hoạt động.', 409);
+      }
 
       // Reap hold hết hạn của CHÍNH sân này — giữ đúng nghĩa cho EXCLUDE
       // constraint vô điều kiện (xem migration): mọi dòng còn lại trong bảng
@@ -144,14 +149,26 @@ export async function promoteHoldToMatch(userId: string, holdId: string, deadlin
     if (!hold || hold.userId !== userId) {
       throw new AppError('HOLD_NOT_FOUND', 'Không tìm thấy lượt giữ chỗ của bạn.', 404);
     }
+    await lockCourtSchedule(tx, hold.courtId);
+    await assertCourtAcceptsCommitment(tx, hold.courtId, hold.endAt, hold.createdAt);
     if (hold.purpose === 'match') return hold;
+    if (await tx.operationalShutdown.count({ where: {
+      endedAt: null, mode: 'winding_down', OR: [
+        { scopeType: 'court', scopeId: hold.courtId },
+        { scopeType: 'venue', scopeId: (await tx.court.findUniqueOrThrow({ where: { id: hold.courtId } })).venueId },
+      ],
+    } }) > 0) {
+      throw new AppError('COURT_SHUTTING_DOWN', 'Sân không nhận thêm kèo mới.', 409);
+    }
     if (hold.expiresAt.getTime() <= Date.now()) {
       throw new AppError('HOLD_EXPIRED', 'Lượt giữ chỗ đã hết hạn.', 409);
     }
-    return tx.hold.update({
+    const promoted = await tx.hold.update({
       where: { id: holdId },
       data: { purpose: 'match', expiresAt: deadlineAt },
     });
+    await tx.booking.updateMany({ where: { holdId }, data: { holdPurposeSnapshot: 'match' } });
+    return promoted;
   });
 }
 

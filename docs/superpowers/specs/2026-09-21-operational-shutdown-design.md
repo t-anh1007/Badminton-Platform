@@ -271,7 +271,8 @@ Nội dung client đề xuất:
 **Nội dung:**
 
 > Cơ sở [Tên cơ sở] sẽ ngừng hoạt động từ [ngày]. Lịch đặt [ngày, giờ, sân]
-> của bạn đã được hủy. Bạn được hoàn 100% giá trị đã thanh toán.
+> có mã [Mã booking] của bạn đã được hủy. Bạn được hoàn 100% giá trị đã thanh
+> toán.
 
 **Trạng thái tiền:**
 
@@ -284,6 +285,12 @@ Khi finance xác nhận hoàn tất, gửi thông báo thứ hai:
 **Nội dung:**
 
 > [Số tiền] đã được hoàn vào Số dư COURTIN cho lịch đặt [ngày, giờ].
+
+Thông báo và màn booking đã hủy phải giúp người chơi nhận ra đúng lịch bằng
+`Booking.businessCode`, tên cơ sở, tên sân, địa chỉ cơ sở, ngày và khung giờ
+chơi. Mã hiển thị dùng đúng mã nghiệp vụ `BK-` + 8 chữ số đã được Venue cấp và
+cũng xuất hiện trong danh sách/chi tiết booking phía chủ sân; không tạo mã mới
+ở client và không hiển thị UUID nội bộ.
 
 Notification dùng khóa idempotency gồm shutdown, booking, người nhận và loại
 thông báo để redelivery không tạo thông báo trùng.
@@ -339,7 +346,7 @@ Nội dung client đề xuất:
 **Nội dung:**
 
 > Sân/cơ sở không thể tiếp tục phục vụ do sự cố. Lịch đặt [ngày, giờ, sân] của
-> bạn đã được hủy và được hoàn 100% giá trị đã thanh toán.
+> bạn, mã [Mã booking], đã được hủy và được hoàn 100% giá trị đã thanh toán.
 
 Không hiển thị mã lỗi, tên event hoặc tên service cho người chơi.
 
@@ -399,6 +406,11 @@ thiểu gồm:
 Không dùng category `security` cho sự kiện vận hành. Notification hủy và
 notification hoàn tiền là hai kết quả khác nhau; client không được tuyên bố đã
 nhận tiền chỉ vì booking đã hủy.
+
+Payload notification hủy và hoàn tiền phải mang `bookingId` để điều hướng cùng
+`bookingBusinessCode` để hiển thị. `bookingBusinessCode` chỉ là mã đối chiếu,
+không thay UUID trong route, authorization, idempotency hoặc liên kết liên
+service.
 
 ## 12. Booking nội bộ
 
@@ -479,6 +491,44 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 | Chuyển sang đóng ngay | Mọi lịch chưa kết thúc sẽ bị hủy và được hoàn 100%. |
 | Đổi sang ngày muộn hơn | Các lịch đã hủy trước đó sẽ không được khôi phục. |
 
+### 15.4. Giao diện đã duyệt
+
+Phía chủ sân giữ nguyên trang chi tiết cơ sở hiện hành. Nút ngừng hoạt động mở
+modal ba bước theo đúng component và token COURTIN:
+
+1. Chọn một trong ba cách ngừng hoạt động.
+2. Xem số lịch bị ảnh hưởng, tổng tiền dự kiến hoàn, lịch tiếp tục phục vụ và
+   thời điểm phục vụ cuối.
+3. Xác nhận hậu quả không thể đảo ngược.
+
+Sau khi xác nhận, trang chi tiết hiển thị banner trạng thái và nút **Thay đổi
+cách ngừng** khi chuyển chế độ còn hợp lệ. Cùng modal được dùng cho cả cơ sở và
+từng sân, nhưng phạm vi phải được ghi rõ trong tiêu đề và phần tóm tắt.
+
+Phía người chơi, notification hủy dẫn tới booking tương ứng trong mục **Đã
+hủy**. Notification chỉ hiển thị tóm tắt đủ nhận biết: mã booking nghiệp vụ,
+tên cơ sở/sân và ngày giờ chơi.
+
+Thẻ booking mặc định ở trạng thái thu gọn, chỉ hiển thị tên cơ sở/sân, ngày giờ
+chơi, giá trị đã thanh toán, lý do trạng thái hủy và trạng thái **Đang hoàn
+tiền** hoặc **Đã hoàn tiền**. Khi người chơi bấm **Xem chi tiết booking**, thẻ
+mới xổ xuống các trường:
+
+- Địa chỉ cơ sở.
+- Ngày và khung giờ chơi.
+- **Ngày đặt**: thời điểm booking được tạo (`Booking.createdAt`), tách biệt với
+  ngày giờ chơi.
+- Mã booking nghiệp vụ, cho phép chọn/copy.
+- Mức hoàn và lý do hủy.
+
+Nút mở chi tiết phải đổi thành **Ẩn chi tiết booking** khi đang mở, công bố
+trạng thái mở/đóng cho công nghệ hỗ trợ và không làm lộ vùng chi tiết khi thẻ
+đang thu gọn.
+
+Notification hủy và notification hoàn tất là hai dòng riêng. Cả hai dùng cùng
+`Booking.businessCode` đang hiển thị trong drawer booking phía chủ sân để người
+chơi, chủ sân và đội hỗ trợ đối chiếu một bản ghi duy nhất.
+
 ## 16. Xung đột nghiệp vụ và cách giải quyết
 
 | Nguồn hiện hành | Xung đột | Quyết định thiết kế |
@@ -531,6 +581,13 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
     booking, match, JOIN, notification hay bút toán đã kết thúc.
 18. Chuyển sang emergency xử lý ngay mọi booking chưa kết thúc; emergency đã có
     hiệu lực không được hạ về chế độ nhẹ hơn.
+19. Notification và thẻ booking đã hủy phía người chơi hiển thị đúng
+    `Booking.businessCode`, địa chỉ, ngày và khung giờ; drawer phía chủ sân hiển
+    thị cùng mã đó, còn UUID không xuất hiện trên client.
+20. Thẻ booking đã hủy mặc định thu gọn; chỉ sau khi bấm **Xem chi tiết
+    booking** mới hiển thị địa chỉ, `Booking.createdAt` dưới nhãn **Ngày đặt**,
+    mã booking, lịch chơi, mức hoàn và lý do hủy. Nút phản ánh đúng trạng thái
+    mở/đóng cho công nghệ hỗ trợ.
 
 ## 18. Bằng chứng cần có trước khi tuyên bố hoàn thành
 
@@ -551,6 +608,11 @@ trước, booking confirmed vẫn bị hủy 100% theo shutdown.
 - Test từ chối hạ `emergency` đã có hiệu lực về chế độ nhẹ hơn.
 - Test API trực tiếp không vượt qua shutdown.
 - Test client copy không hiển thị raw enum/mã kỹ thuật.
+- Test notification, booking card và provider booking detail cùng hiển thị một
+  `Booking.businessCode`; route và quyền vẫn dùng UUID nội bộ.
+- Test thẻ booking đã hủy không hiển thị vùng chi tiết trước thao tác mở; sau
+  thao tác hiển thị đúng `Booking.createdAt`, `businessCode`, địa chỉ, lịch
+  chơi, mức hoàn và lý do hủy; thao tác đóng ẩn lại vùng chi tiết.
 
 ## 19. Cập nhật có thẩm quyền cần thực hiện trước code
 

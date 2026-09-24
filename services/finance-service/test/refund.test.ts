@@ -4,6 +4,7 @@ import { prisma } from '../src/lib/prisma.js';
 import { randomUUID } from 'node:crypto';
 import { recordBookingRevenue } from '../src/domain/revenue.js';
 import { getOrCreateWallet } from '../src/domain/wallet.js';
+import { creditLatePayment } from '../src/domain/latePayment.js';
 
 type BookingCancelledPayload = {
   bookingId: string;
@@ -13,6 +14,8 @@ type BookingCancelledPayload = {
   refundPercent: number;
   reason: 'self' | 'provider_fault' | 'platform_admin';
   cancellationNote?: string;
+  shutdownId?: string;
+  bookingBusinessCode?: string;
 };
 
 const handleBookingCancelled = (eventConsumer as unknown as {
@@ -184,6 +187,69 @@ describe('FIN-07/08 — consumer BookingCancelled', () => {
     for (const entry of original) {
       expect(await prisma.ledgerEntry.findUnique({ where: { id: entry.id } })).toMatchObject(entry);
     }
+  });
+
+  it('emits required shutdown refund completion with the same booking business code after ledger commit', async () => {
+    const fixture = await setupConfirmedFinance();
+    const shutdownId = randomUUID();
+    const bookingBusinessCode = 'BK-00004217';
+    const eventId = randomUUID();
+
+    await handleBookingCancelled(eventId, {
+      ...fixture,
+      gross: fixture.gross.toString(),
+      refundPercent: 100,
+      reason: 'provider_fault',
+      shutdownId,
+      bookingBusinessCode,
+    });
+
+    const completion = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateType: 'Booking', aggregateId: fixture.bookingId, eventType: 'BookingRefundCompleted' },
+    });
+    const notification = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: `shutdown.refund:${fixture.bookingId}:${fixture.userId}`, eventType: 'UserNotificationRequested' },
+    });
+    expect(completion.payload).toEqual({ bookingId: fixture.bookingId, shutdownId });
+    expect(notification.payload).toMatchObject({
+      bookingBusinessCode,
+      deliveryPolicy: 'required',
+      kind: 'finance.shutdown_refund_completed',
+      recipient: { userId: fixture.userId },
+    });
+    expect(await prisma.ledgerEntry.count({ where: { refId: fixture.bookingId, type: 'refund' } })).toBe(3);
+  });
+
+  it('returns a shutdown late payment to COURTIN Balance and notifies once', async () => {
+    const userId = randomUUID();
+    const bookingId = randomUUID();
+    const shutdownId = randomUUID();
+    const bookingBusinessCode = 'BK-00004220';
+    const eventId = randomUUID();
+
+    await creditLatePayment(eventId, {
+      bookingId, userId, amount: '200000', shutdownId, bookingBusinessCode,
+    });
+    await creditLatePayment(eventId, {
+      bookingId, userId, amount: '200000', shutdownId, bookingBusinessCode,
+    });
+
+    const wallet = await prisma.wallet.findFirstOrThrow({ where: { userId, walletType: 'personal' } });
+    expect(wallet.available).toBe(200000n);
+    expect(await prisma.ledgerEntry.count({ where: { walletId: wallet.id, refType: 'late_payment', refId: bookingId } })).toBe(1);
+    expect(await prisma.outbox.count({
+      where: { aggregateType: 'Booking', aggregateId: bookingId, eventType: 'BookingRefundCompleted' },
+    })).toBe(1);
+    const notification = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: `shutdown.late-payment-return:${bookingId}:${userId}`, eventType: 'UserNotificationRequested' },
+    });
+    expect(notification.payload).toMatchObject({
+      bookingBusinessCode,
+      deliveryPolicy: 'required',
+      kind: 'finance.shutdown_refund_completed',
+      recipient: { type: 'user', userId },
+    });
+    expect((notification.payload as { body: string }).body).toContain('200.000');
   });
 
   it('payload malformed không được mặc định thành provider_fault và không chạm ví', async () => {

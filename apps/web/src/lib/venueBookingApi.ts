@@ -24,6 +24,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export interface BookingSummary {
   businessCode?: string;
   id: string;
+  businessCode?: string;
+  createdAt?: string;
+  cancellationReason?: 'self' | 'provider_fault' | 'platform_admin' | null;
+  cancellationRefundPercent?: number | null;
+  shutdownRefundStatus?: 'processing' | 'completed' | 'needs_attention' | 'not_paid' | null;
   courtId: string;
   startAt: string;
   endAt: string;
@@ -118,9 +123,35 @@ export interface ManagedCourt {
   businessCode?: string; id: string; name: string; active: boolean; images: Array<{ objectKey: string; url: string }>; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue {
   businessCode?: string; id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
+export type OperationalShutdownMode = 'winding_down' | 'scheduled_close' | 'emergency';
+export type OperationalShutdownScope = 'venue' | 'court';
+export interface OperationalShutdownInput { mode: OperationalShutdownMode; closeDate?: string; reason?: string }
+export interface OperationalShutdownPreview {
+  affectedMarketplace: number;
+  affectedMatch: number;
+  affectedInternal: number;
+  activeCheckoutHolds: number;
+  activeMatchHolds: number;
+  existingConfirmedBookings: number;
+  continuingBookings: number;
+  closeAt: string | null;
+  estimatedRefund: string;
+  estimatedRefundExcludesUnsettledMatches: boolean;
+  expectedInactiveAt: string | null;
+  effectiveAt: string | null;
+  previewToken: string;
+}
+export interface OperationalShutdownStatus {
+  id: string;
+  mode: OperationalShutdownMode;
+  operationalStatus: 'winding_down' | 'scheduled_close' | 'inactive';
+  resolutionStatus: 'not_required' | 'processing' | 'completed' | 'needs_attention';
+  effectiveAt: string | null;
+  expectedInactiveAt: string | null;
+  counts: Record<string, number>;
+}
 export interface VenueUploadAuthorization { objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string }
-export interface AdminBookingRow {
-  businessCode?: string; id: string; status: string; startAt: string; endAt: string; priceSnapshot: string; holdExpiresAt: string | null; matchDepositPaid: boolean; player: { label: string }; court: { name: string; venue: { name: string; address: string } } }
+export interface AdminBookingRow { id: string; businessCode: string; status: string; startAt: string; endAt: string; priceSnapshot: string; holdExpiresAt: string | null; matchDepositPaid: boolean; player: { label: string }; court: { id: string; name: string; venue: { id: string; name: string; address: string } } }
 
 export function searchVenues(params: { lat: number; lng: number; radiusKm?: number; minPrice?: number; maxPrice?: number; sortBy?: 'distance' | 'price'; date?: string; startMinute?: number; endMinute?: number }) {
   const query = new URLSearchParams();
@@ -144,6 +175,16 @@ export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
 export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
 export const getMyManagedVenues = () => api<ManagedVenue[]>('/providers/me/venues');
 export const getMyManagedVenue = (id: string) => api<ManagedVenue>(`/providers/me/venues/${id}`);
+export const getOperationalShutdown = (scope: OperationalShutdownScope, id: string) =>
+  api<OperationalShutdownStatus | null>(`/operational-shutdowns/${scope}/${id}`);
+export const previewOperationalShutdown = (scope: OperationalShutdownScope, id: string, input: OperationalShutdownInput) =>
+  api<OperationalShutdownPreview>(`/operational-shutdowns/${scope}/${id}/preview`, { method: 'POST', body: JSON.stringify(input) });
+export const confirmOperationalShutdown = (scope: OperationalShutdownScope, id: string, input: OperationalShutdownInput, previewToken: string) =>
+  api<{ shutdown: OperationalShutdownStatus; preview: OperationalShutdownPreview }>(`/operational-shutdowns/${scope}/${id}/confirm`, {
+    method: 'POST', body: JSON.stringify({ ...input, previewToken }),
+  });
+export const reactivateOperationalShutdown = (scope: OperationalShutdownScope, id: string) =>
+  api<{ status: 'active'; restoredCourtCount: number }>(`/operational-shutdowns/${scope}/${id}/reactivate`, { method: 'POST' });
 export const authorizeVenueImage = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') => api<VenueUploadAuthorization>('/providers/me/uploads', { method: 'POST', body: JSON.stringify({ mimeType }) });
 export async function uploadVenueImage(authorization: VenueUploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> { onProgress?.(0); const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file }); if (!response.ok) throw new Error('Không thể tải ảnh cơ sở lên.'); onProgress?.(100) }
 export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
@@ -182,6 +223,7 @@ export interface ProviderBookingFilters {
 export interface ProviderBookingRow {
   businessCode?: string;
   id: string;
+  businessCode: string;
   source: 'marketplace' | 'internal';
   status: ProviderBookingStatus;
   startAt: string;
@@ -190,6 +232,7 @@ export interface ProviderBookingRow {
   holdExpiresAt: string | null;
   cancellationReason: 'self' | 'provider_fault' | 'platform_admin' | null;
   matchDepositPaid: boolean;
+  manualCustomerNotificationRequired: boolean;
   customer: { label: string; guestContact?: string };
   court: { id: string; name: string; venue: { id: string; name: string; address: string } };
 }

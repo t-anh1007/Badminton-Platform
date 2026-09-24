@@ -13,6 +13,7 @@ export type NotificationDto = {
   priority: NotificationPriority;
   entityType: string | null;
   entityId: string | null;
+  bookingBusinessCode: string | null;
   actionKind: string | null;
   actionExpiresAt: string | null;
   readAt: string | null;
@@ -36,7 +37,7 @@ function toDto(row: Notification): NotificationDto {
   return {
     id: row.id, targetRole: row.targetRole, category: row.category, kind: row.kind,
     title: row.title, body: row.body, priority: row.priority,
-    entityType: row.entityType, entityId: row.entityId, actionKind: row.actionKind,
+    entityType: row.entityType, entityId: row.entityId, bookingBusinessCode: row.bookingBusinessCode, actionKind: row.actionKind,
     actionExpiresAt: row.actionExpiresAt?.toISOString() ?? null,
     readAt: row.readAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString(),
   };
@@ -121,6 +122,10 @@ export async function saveNotificationPreference(userId: string, input: Preferen
   return { targetRole: preference.targetRole, category: preference.category, enabled: input.category === 'security' ? true : preference.enabled };
 }
 
+export function notificationDeliveryAllowed(payload: UserNotificationRequestedPayload, preferenceEnabled: boolean): boolean {
+  return payload.deliveryPolicy === 'required' || payload.category === 'security' || preferenceEnabled;
+}
+
 export async function projectNotification(sourceEventId: string, payload: UserNotificationRequestedPayload) {
   const recipients = payload.recipient.type === 'user'
     ? [{ userId: payload.recipient.userId, targetRole: payload.recipient.targetRole }]
@@ -132,14 +137,13 @@ export async function projectNotification(sourceEventId: string, payload: UserNo
     const preference = await prisma.notificationPreference.findUnique({
       where: { userId_targetRole_category: { userId: recipient.userId, targetRole: recipient.targetRole, category: payload.category } },
     });
-    const enabled = payload.category === 'security' ? true : preference?.enabled ?? defaultEnabled(payload.category, recipient.targetRole);
-    if (!enabled) continue;
+    if (!notificationDeliveryAllowed(payload, preference?.enabled ?? defaultEnabled(payload.category, recipient.targetRole))) continue;
     const row = await prisma.notification.upsert({
       where: { sourceEventId_userId_targetRole: { sourceEventId, userId: recipient.userId, targetRole: recipient.targetRole } },
       create: {
         userId: recipient.userId, targetRole: recipient.targetRole, category: payload.category, kind: payload.kind,
         title: payload.title, body: payload.body, priority: payload.priority, entityType: payload.entityType,
-        entityId: payload.entityId, actionKind: payload.actionKind, actionExpiresAt: payload.actionExpiresAt ? new Date(payload.actionExpiresAt) : null,
+        entityId: payload.entityId, bookingBusinessCode: payload.bookingBusinessCode, actionKind: payload.actionKind, actionExpiresAt: payload.actionExpiresAt ? new Date(payload.actionExpiresAt) : null,
         sourceEventId,
       },
       update: {},

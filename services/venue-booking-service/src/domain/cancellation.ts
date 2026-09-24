@@ -3,6 +3,7 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { getRefundPercentageFromSnapshot } from './cancellationPolicy.js';
 import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
 import { vietnamDateIdentifier, vietnamMinuteOfDay, vietnamWeekday } from '../lib/vietnamTime.js';
 
 function operationalWindow(startAt: Date, endAt: Date) {
@@ -37,9 +38,13 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   }
   if (booking.status === 'held') {
     return prisma.$transaction(async (tx) => {
+      await lockCourtSchedule(tx, booking.courtId);
       // Cùng lock với PaymentCompleted: rời checkout và webhook cạnh tranh
       // nguyên tử, thao tác thắng trước quyết định trạng thái cuối.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
+      if (await tx.operationalShutdownItem.findFirst({ where: { bookingId } })) {
+        throw new AppError('SHUTDOWN_CANCELLATION_IN_PROGRESS', 'Lịch đặt này đang được sân xử lý hủy và hoàn tiền.', 409);
+      }
       const removed = await tx.booking.deleteMany({
         where: { id: booking.id, status: 'held' },
       });
@@ -62,6 +67,10 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
   const refundPercent = getRefundPercentageFromSnapshot(booking.policySnapshot, hoursUntilStart);
 
   return prisma.$transaction(async (tx) => {
+    await lockCourtSchedule(tx, booking.courtId);
+    if (await tx.operationalShutdownItem.findFirst({ where: { bookingId: booking.id } })) {
+      throw new AppError('SHUTDOWN_CANCELLATION_IN_PROGRESS', 'Lịch đặt này đang được sân xử lý hủy và hoàn tiền.', 409);
+    }
     const updated = await tx.booking.updateMany({
       where: { id: booking.id, status: 'confirmed' },
       data: { status: 'cancelled', cancellationReason: 'self', cancellationRefundPercent: refundPercent },
@@ -139,6 +148,10 @@ export async function changeBookingCourt(providerUserId: string, bookingId: stri
   const booking = await getProviderBooking(providerUserId, bookingId);
   return prisma.$transaction(async (tx) => {
     await lockCourtSchedule(tx, replacementCourtId);
+    await assertCourtAcceptsCommitment(tx, replacementCourtId, booking.endAt);
+    if (await tx.operationalShutdownItem.findFirst({ where: { bookingId } })) {
+      throw new AppError('SHUTDOWN_CANCELLATION_IN_PROGRESS', 'Lịch đặt này đang được sân xử lý hủy và hoàn tiền.', 409);
+    }
     const window = operationalWindow(booking.startAt, booking.endAt);
     const replacement = await tx.court.findFirst({
       where: {
@@ -194,6 +207,10 @@ async function cancelBookingWithReason(
   cancellationNote: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    await lockCourtSchedule(tx, booking.courtId);
+    if (await tx.operationalShutdownItem.findFirst({ where: { bookingId: booking.id } })) {
+      throw new AppError('SHUTDOWN_CANCELLATION_IN_PROGRESS', 'Lịch đặt này đang được sân xử lý hủy và hoàn tiền.', 409);
+    }
     const updated = await tx.booking.updateMany({
       where: { id: booking.id, status: 'confirmed' },
       data: { status: 'cancelled', cancellationReason: reason, cancellationRefundPercent: 100 },
