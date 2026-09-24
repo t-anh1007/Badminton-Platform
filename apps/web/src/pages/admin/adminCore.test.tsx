@@ -5,10 +5,10 @@ import { AdminProvidersPage } from './AdminProvidersPage.js'
 import { AdminBookingsPage } from './AdminBookingsPage.js'
 import { AdminOverviewPage } from './AdminOverviewPage.js'
 import { getAdminAccounts, lockAdminAccount, unlockAdminAccount } from '../../lib/accountApi.js'
-import { cancelAdminBooking, getAdminBookings, rejectProvider } from '../../lib/venueBookingApi.js'
+import { cancelAdminBooking, getAdminBookings, getOperationalShutdown, rejectProvider } from '../../lib/venueBookingApi.js'
 
 vi.mock('../../lib/accountApi.js', () => ({ getAdminAccounts: vi.fn().mockResolvedValue([{ id: 'u1', email: 'player@example.com', displayName: 'Người chơi A', status: 'active', roles: ['player'] }]), lockAdminAccount: vi.fn().mockResolvedValue({}), unlockAdminAccount: vi.fn().mockResolvedValue({}) }))
-vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', userId: 'user-internal-id', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue({ items: [{ id: 'b1', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', player: { label: 'Người chơi đã đăng nhập' }, court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu A', address: 'Quận 1' } } }], total: 1, page: 1, pageSize: 20 }), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
+vi.mock('../../lib/venueBookingApi.js', () => ({ getAdminProviders: vi.fn().mockResolvedValue([{ id: 'p1', userId: 'user-internal-id', orgName: 'Nhà sân A', status: 'pending' }]), approveProvider: vi.fn().mockResolvedValue({}), rejectProvider: vi.fn().mockResolvedValue({}), getAdminBookings: vi.fn().mockResolvedValue({ items: [{ id: 'b1', businessCode: 'BK-00001001', status: 'confirmed', startAt: '2026-08-15T08:00:00Z', endAt: '2026-08-15T09:00:00Z', priceSnapshot: '180000', holdExpiresAt: null, matchDepositPaid: false, player: { label: 'Người chơi đã đăng nhập' }, court: { id: 'c1', name: 'Sân 1', venue: { id: 'v1', name: 'Nhà thi đấu A', address: 'Quận 1' } } }], total: 1, page: 1, pageSize: 20 }), getOperationalShutdown: vi.fn().mockResolvedValue(null), cancelAdminBooking: vi.fn().mockResolvedValue({}) }))
 vi.mock('../../lib/systemHealthApi.js', () => ({ getSystemHealth: vi.fn().mockResolvedValue([{ key: 'account', label: 'Tài khoản', state: 'available' }, { key: 'finance', label: 'Tài chính', state: 'degraded' }, { key: 'community', label: 'Cộng đồng', state: 'unreachable' }]) }))
 afterEach(cleanup)
 
@@ -54,6 +54,16 @@ it('cancels a displayed booking without exposing its raw id as the label', async
   fireEvent.change(screen.getByLabelText('Lý do hủy booking'), { target: { value: 'Sự cố nền tảng' } })
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy' }))
   await waitFor(() => expect(cancelAdminBooking).toHaveBeenCalledWith('b1', 'Sự cố nền tảng'))
+})
+
+it('lets Admin open the same shutdown flow for the exact court or venue', async () => {
+  render(<AdminBookingsPage />)
+  await screen.findByText('Nhà thi đấu A · Sân 1')
+  fireEvent.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Chi tiết booking' })).getByRole('button', { name: 'Ngừng hoạt động sân' }))
+
+  expect(await screen.findByRole('dialog', { name: 'Ngừng hoạt động · Sân 1' })).toBeInTheDocument()
+  expect(getOperationalShutdown).toHaveBeenCalledWith('court', 'c1')
 })
 
 it('sends all selected booking filters to the admin queue', async () => {

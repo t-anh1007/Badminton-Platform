@@ -44,6 +44,66 @@ const bookingConfirmedSchema = z.object({
   source: z.enum(['marketplace', 'internal']),
 }).passthrough();
 
+const shutdownCancellationSchema = z.object({
+  bookingId: z.string().uuid(),
+  shutdownId: z.string().uuid(),
+  mode: z.enum(['scheduled_close', 'emergency']),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/),
+  wasConfirmed: z.boolean(),
+}).strict();
+
+export async function handleShutdownBookingCancellation(eventId: string, raw: unknown) {
+  const payload = shutdownCancellationSchema.parse(raw);
+  const match = await prisma.match.findUnique({ where: { bookingId: payload.bookingId } });
+  if (!match) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${match.id}, 0))`;
+    if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
+    const current = await tx.match.findUniqueOrThrow({ where: { id: match.id } });
+    if (current.status === 'cancelled') {
+      if (!payload.wasConfirmed) {
+        const paidJoins = await tx.join.findMany({ where: { matchId: match.id, feePaidAt: { not: null } }, select: { id: true } });
+        await writeOutbox(tx, { aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled', payload: {
+          matchId: match.id, bookingId: payload.bookingId, reason: 'shutdown',
+          paidJoinIds: paidJoins.map((join) => join.id), refundPercent: 100,
+          shutdownId: payload.shutdownId, bookingBusinessCode: payload.bookingBusinessCode,
+        } satisfies MatchCancelledPayload });
+      }
+      await tx.processedEvent.create({ data: { eventId } });
+      return;
+    }
+    const joins = await tx.join.findMany({
+      where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
+      select: { id: true, participantUserId: true, status: true, feePaidAt: true },
+    });
+    const kind = payload.mode === 'emergency' ? 'match.shutdown_emergency' : 'match.shutdown_scheduled';
+    const notificationUserIds = joins
+      .filter((join) => join.status === 'approved' || join.status === 'confirmed')
+      .map((join) => join.participantUserId);
+    for (const userId of new Set([current.organizerUserId, ...notificationUserIds])) {
+      await writeOutbox(tx, { aggregateType: 'Notification', aggregateId: `${kind}:${match.id}:${userId}`,
+        eventType: 'UserNotificationRequested', payload: {
+          recipient: { type: 'user', userId, targetRole: 'player' },
+          category: 'match', kind, deliveryPolicy: 'required', bookingBusinessCode: payload.bookingBusinessCode,
+          title: 'Kèo đã được hủy',
+          body: `Sân của kèo gắn với lịch đặt ${payload.bookingBusinessCode} đã ngừng hoạt động. Khoản đã thanh toán sẽ được hoàn 100%.`,
+          priority: 'update', entityType: 'match', entityId: match.id,
+          actionKind: 'match.view', actionExpiresAt: null,
+        },
+      });
+    }
+    await tx.join.updateMany({ where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' } });
+    await tx.match.update({ where: { id: match.id }, data: { status: 'cancelled' } });
+    await writeOutbox(tx, { aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled', payload: {
+      matchId: match.id, bookingId: payload.bookingId,
+      reason: payload.wasConfirmed ? 'confirmed_booking_policy' : 'shutdown',
+      paidJoinIds: joins.filter((join) => join.feePaidAt).map((join) => join.id),
+      refundPercent: 100, shutdownId: payload.shutdownId, bookingBusinessCode: payload.bookingBusinessCode,
+    } satisfies MatchCancelledPayload });
+    await tx.processedEvent.create({ data: { eventId } });
+  });
+}
+
 function eventIdOf(message: ConsumeMessage): string {
   const type = message.fields.routingKey;
   if (message.properties.messageId) return `${type}:${message.properties.messageId}`;
@@ -372,6 +432,8 @@ async function consumeMessage(
       await handleBookingCompletedForMatch(eventIdOf(message), envelope.payload as BookingCompletedPayload);
     } else if (envelope.type === 'MatchBookingResolved') {
       await handleMatchBookingResolved(eventIdOf(message), envelope.payload as MatchBookingResolutionPayload);
+    } else if (envelope.type === 'ShutdownBookingCancellationRequested') {
+      await handleShutdownBookingCancellation(eventIdOf(message), envelope.payload);
     }
     channel.ack(message);
   } catch (error) {
@@ -397,6 +459,7 @@ export async function bootstrapMatchLifecycleEventConsumption(
   await channel.bindQueue(queueName, 'domain-events', 'MatchSettlementFailed');
   await channel.bindQueue(queueName, 'domain-events', 'BookingCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'MatchBookingResolved');
+  await channel.bindQueue(queueName, 'domain-events', 'ShutdownBookingCancellationRequested');
   const inFlight = new Set<Promise<void>>();
   const { consumerTag } = await channel.consume(queueName, (message) => {
     const task = consumeMessage(channel, message, venueBookingClient);

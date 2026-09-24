@@ -58,9 +58,11 @@ const matchConfirmedSchema = z.object({
 const matchCancelledSchema = z.object({
   matchId: z.string().uuid(),
   bookingId: z.string().uuid(),
-  reason: z.enum(['organizer', 'cutoff', 'confirmed_booking_policy']),
+  reason: z.enum(['organizer', 'cutoff', 'confirmed_booking_policy', 'shutdown']),
   paidJoinIds: z.array(z.string().uuid()),
   refundPercent: z.number().int().min(0).max(100).optional(),
+  shutdownId: z.string().uuid().optional(),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/).optional(),
 }).strict();
 
 const refundRequestedSchema = z.object({
@@ -372,6 +374,31 @@ async function refundCollectingFunding(
   });
 }
 
+async function writeHeldShutdownRefundOutcome(
+  tx: Prisma.TransactionClient,
+  payload: z.infer<typeof matchCancelledSchema>,
+  refundedContributions: Array<{ id: string; userId: string; amount: bigint }>,
+) {
+  if (payload.reason !== 'shutdown' || !payload.shutdownId) return;
+  if (await tx.outbox.findFirst({ where: { aggregateType: 'Booking', aggregateId: payload.bookingId, eventType: 'BookingRefundCompleted' } })) return;
+  await writeOutbox(tx, { aggregateType: 'Booking', aggregateId: payload.bookingId,
+    eventType: 'BookingRefundCompleted', payload: { bookingId: payload.bookingId, shutdownId: payload.shutdownId },
+  });
+  for (const contribution of refundedContributions) {
+    await writeOutbox(tx, { aggregateType: 'Notification', aggregateId: `shutdown.refund:${contribution.id}`,
+      eventType: 'UserNotificationRequested', payload: {
+        recipient: { type: 'user', userId: contribution.userId, targetRole: 'player' },
+        category: 'finance', kind: 'finance.shutdown_refund_completed', deliveryPolicy: 'required',
+        bookingBusinessCode: payload.bookingBusinessCode ?? null,
+        title: 'Bạn đã nhận được tiền hoàn',
+        body: `${contribution.amount.toString()}đ đã được hoàn vào Số dư COURTIN cho lịch đặt ${payload.bookingBusinessCode ?? ''}.`,
+        priority: 'update', entityType: 'booking', entityId: payload.bookingId,
+        actionKind: 'booking.view', actionExpiresAt: null,
+      },
+    });
+  }
+}
+
 /** D39 phase 1: finance verifies every reserved contribution, records only a
  * local `settling` intent, then asks Venue to atomically decide. No reserve or
  * contribution ledger entry is consumed at this stage. */
@@ -563,6 +590,7 @@ export async function handleMatchCancelled(eventId: string, raw: MatchCancelledP
       include: { contributions: true },
     });
     if (!funding) {
+      await writeHeldShutdownRefundOutcome(tx, payload, []);
       await markProcessed(tx, eventId);
       return;
     }
@@ -574,7 +602,12 @@ export async function handleMatchCancelled(eventId: string, raw: MatchCancelledP
       throw new Error('MatchCancelled awaits D39 settlement resolution');
     }
     if (funding.status === 'collecting' || funding.status === 'settling') {
+      const paid = funding.contributions.filter((contribution) => contribution.status === 'paid');
       await refundCollectingFunding(tx, funding, now);
+      await writeHeldShutdownRefundOutcome(tx, payload, paid);
+    } else if (funding.status === 'cancelled') {
+      await writeHeldShutdownRefundOutcome(tx, payload,
+        funding.contributions.filter((contribution) => contribution.status === 'refunded'));
     } else if (funding.status === 'settled' && payload.reason !== 'confirmed_booking_policy') {
       throw new Error('Settled match can only cancel through booking policy');
     }

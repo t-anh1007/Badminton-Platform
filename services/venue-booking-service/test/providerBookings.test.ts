@@ -74,6 +74,46 @@ describe('provider booking management', () => {
       .toEqual({ label: 'Khách tại quầy', guestContact: '0900000000' });
   });
 
+  it('marks only shutdown-cancelled internal bookings for customer follow-up', async () => {
+    const owner = await createApprovedProvider();
+    const { venue, court } = await createVenueWithCourt(owner.id);
+    const affected = await createBooking(court.id, {
+      userId: null,
+      source: 'internal',
+      guestName: 'Khách bị ảnh hưởng',
+      status: 'cancelled',
+      cancellationReason: 'provider_fault',
+    });
+    const ordinary = await createBooking(court.id, {
+      userId: null,
+      source: 'internal',
+      guestName: 'Khách của lịch hủy thường',
+      status: 'cancelled',
+      cancellationReason: 'provider_fault',
+    });
+    const now = new Date();
+    const shutdown = await prisma.operationalShutdown.create({
+      data: {
+        scopeType: 'venue', scopeId: venue.id, mode: 'emergency', modeStartedAt: now,
+        operationalStatus: 'inactive', resolutionStatus: 'completed', effectiveAt: now,
+        expectedInactiveAt: now, createdByUserId: owner.userId, originallyActiveCourtIds: [court.id],
+      },
+    });
+    await prisma.operationalShutdownItem.create({
+      data: { shutdownId: shutdown.id, bookingId: affected.id, mode: 'emergency', effectiveAt: now, status: 'cancelled_no_platform_refund' },
+    });
+
+    const response = await request(app)
+      .get('/providers/me/bookings')
+      .set('Authorization', `Bearer ${signTestAccessToken(owner.userId, ['player', 'provider'])}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items.find((item: { id: string }) => item.id === affected.id))
+      .toMatchObject({ manualCustomerNotificationRequired: true });
+    expect(response.body.items.find((item: { id: string }) => item.id === ordinary.id))
+      .toMatchObject({ manualCustomerNotificationRequired: false });
+  });
+
   it('does not reveal another provider booking through the detail endpoint', async () => {
     const owner = await createApprovedProvider();
     const other = await createApprovedProvider();

@@ -2,6 +2,7 @@ import { AppError } from '../lib/errors.js';
 import { isDurationAllowed } from './bookingRule.js';
 import { calculateBookingPrice } from './pricing.js';
 import { findConflictingRange } from './slotAvailability.js';
+import { canOfferCourtSlot } from './operationalShutdown.js';
 
 export interface SlotSelectionResult {
   courtId: string;
@@ -28,6 +29,9 @@ export async function selectSlot(
   }
 
   const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
+  if (!(await canOfferCourtSlot(courtId, endAt))) {
+    throw new AppError('COURT_SHUTTING_DOWN', 'Sân không nhận lịch đặt cho khung giờ này.', 409);
+  }
 
   const conflict = await findConflictingRange(courtId, startAt, endAt);
   if (conflict) {

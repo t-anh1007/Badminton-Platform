@@ -38,6 +38,27 @@ it('labels a match hold with a paid organizer deposit clearly', () => {
   expect(screen.queryByText('Đang giữ chỗ · chưa thanh toán')).not.toBeInTheDocument()
 })
 
+it('reveals cancelled-booking details only on request, using the provider booking code', () => {
+  const cancelled = {
+    ...booking('1', 'cancelled'), businessCode: 'BK-00001234', createdAt: '2026-08-01T10:00:00Z',
+    cancellationReason: 'provider_fault' as const, cancellationRefundPercent: 100,
+    shutdownRefundStatus: 'completed' as const,
+    court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu', address: '12 Nguyễn Trãi, Quận 1' } },
+  }
+  render(<BookingCard booking={cancelled} preview={null} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
+  const toggle = screen.getByRole('button', { name: 'Xem chi tiết booking' })
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByText('BK-00001234')).not.toBeInTheDocument()
+  expect(screen.queryByText('12 Nguyễn Trãi, Quận 1')).not.toBeInTheDocument()
+  fireEvent.click(toggle)
+  expect(screen.getByRole('button', { name: 'Ẩn chi tiết booking' })).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByText('BK-00001234')).toBeInTheDocument()
+  expect(screen.getByText('12 Nguyễn Trãi, Quận 1')).toBeInTheDocument()
+  expect(screen.getByText('Ngày đặt:')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Ẩn chi tiết booking' }))
+  expect(screen.queryByText('BK-00001234')).not.toBeInTheDocument()
+})
+
 it('keys previews per booking, clears stale selection and reloads both lists after cancellation', async () => {
   vi.mocked(getBookingDetail).mockResolvedValueOnce({ booking: booking('1'), expectedRefundPercent: 50, courtChangeNote: null }).mockResolvedValueOnce({ booking: booking('2'), expectedRefundPercent: 100, courtChangeNote: null })
   vi.mocked(cancelMyBooking).mockResolvedValue({ status: 'cancelled', refundPercent: 100 }); const onChanged = vi.fn().mockResolvedValue(undefined)

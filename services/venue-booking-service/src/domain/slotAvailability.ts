@@ -1,10 +1,12 @@
 import { prisma } from '../lib/prisma.js';
+import { canOfferCourtSlot } from './operationalShutdown.js';
 
 /** Kiểm tra một khoảng [startAt,endAt) trên một sân có TRỐNG hoàn toàn không —
  * không booking confirmed, không hold chưa hết hạn nào chồng lấn. Dùng chung
  * cho BOK-02 (lọc), BOK-04 (lịch trống), BOK-05 (xác nhận chọn slot), BOK-06
  * (giữ chỗ). */
 export async function isRangeFree(courtId: string, startAt: Date, endAt: Date): Promise<boolean> {
+  if (!(await canOfferCourtSlot(courtId, endAt))) return false;
   const now = new Date();
   const [booking, hold] = await Promise.all([
     prisma.booking.findFirst({

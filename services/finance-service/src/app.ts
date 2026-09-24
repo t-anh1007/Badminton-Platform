@@ -7,6 +7,7 @@ import { env } from './lib/env.js';
 import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
 import { createFinanceRealtimeRouter } from './routes/financeRealtime.js';
+import { internalShutdownRouter } from './routes/internalShutdown.js';
 
 const SERVICE_NAME = 'finance-service';
 
@@ -42,6 +43,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient; 
   const resolveObjectStorage = () => dependencies?.objectStorage ?? createObjectStorageClientFromEnv();
   app.use('/', createFinanceOperationsRouter(resolveObjectStorage));
   app.use('/', createFinanceRealtimeRouter(dependencies?.financeRealtimeHub ?? new FinanceRealtimeHub()));
+  app.use('/internal', internalShutdownRouter);
 
   return app;
 }

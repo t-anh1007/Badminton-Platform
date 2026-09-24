@@ -8,7 +8,6 @@ type Props = {
   onSelect: (id: string) => void;
 };
 
-const shortId = (id: string) => id.slice(0, 8).toUpperCase();
 const sourceLabel = (source: ProviderBookingRow['source']) => source === 'internal' ? 'Tại quầy' : 'Trực tuyến';
 
 function StatusBadge({ row }: { row: ProviderBookingRow }) {
@@ -39,7 +38,8 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
               <tr key={row.id} className="group hover:bg-canvas/70">
                 <td className="border-b border-line px-4 py-4 align-top">
                   <p className="font-bold text-brand-navy">{row.court.venue.name}</p>
-                  <p className="mt-1 text-ink-500">{row.court.name} · #{shortId(row.id)}</p>
+                  <p className="mt-1 text-ink-500">{row.court.name} · {row.businessCode}</p>
+                  {row.manualCustomerNotificationRequired && <p className="mt-2 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
                 </td>
                 <td className="border-b border-line px-4 py-4 align-top">
                   <p className="font-semibold text-ink-900">{row.customer.label}</p>
@@ -57,7 +57,7 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
                   <Button
                     tone="ghost"
                     size="sm"
-                    aria-label={`Xem chi tiết booking ${shortId(row.id)}`}
+                    aria-label={`Xem chi tiết booking ${row.businessCode}`}
                     onClick={() => onSelect(row.id)}
                   >
                     Xem
@@ -75,7 +75,8 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-bold text-brand-navy">{row.court.venue.name}</p>
-                <p className="mt-1 text-sm text-ink-500">{row.court.name} · #{shortId(row.id)}</p>
+                <p className="mt-1 text-sm text-ink-500">{row.court.name} · {row.businessCode}</p>
+                {row.manualCustomerNotificationRequired && <p className="mt-2 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
               </div>
               <StatusBadge row={row} />
             </div>
@@ -88,7 +89,7 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
               tone="secondary"
               size="sm"
               className="mt-4 w-full"
-              aria-label={`Xem chi tiết booking ${shortId(row.id)}`}
+              aria-label={`Xem chi tiết booking ${row.businessCode}`}
               onClick={() => onSelect(row.id)}
             >
               Xem chi tiết

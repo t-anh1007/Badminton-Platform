@@ -4,7 +4,7 @@ Date: 2026-09-23
 
 ## Status
 
-Active
+Complete
 
 ## Outcome
 
@@ -181,9 +181,9 @@ item from refund processing to `refunded`.
 **Behavior:** finance preserves current append-only reversals, then emits one
 `BookingRefundCompleted` and required refund notification per credited user.
 Matchmaking consumes shutdown cancellation for any non-terminal match linked by
-`bookingId`, cancels the match, withdraws `approved|confirmed` JOINs and emits
-required notifications to organizer and affected players. Redelivery produces
-no duplicate state, ledger entry or notification.
+`bookingId`, cancels the match, withdraws `pending|approved|confirmed` JOINs and
+notifies the organizer and affected players. Redelivery produces no duplicate
+state, ledger entry or notification.
 
 **Focused proof:**
 
@@ -232,14 +232,17 @@ npm test --workspace @khoaluantn/web -- BookingCard.test.tsx OperationalShutdown
 
 **Files:**
 
-- Add or extend a focused RabbitMQ integration test under the owning service
+- Add `services/matchmaking-service/test/operationalShutdownLifecycle.test.ts`
+- Add account notification projection coverage
 - Update this plan's Progress, Validation and Result sections
 - Move this file to `docs/plans/completed/` only after proof passes
 
-**Proof:** scheduled and emergency cancellation, active booking exception,
-internal booking no-refund, marketplace ledger conservation, match contributor
-refund, disabled-preference delivery, business-code consistency, mode changes,
-direct API guards and retry idempotency.
+**Proof:** fresh isolated service schemas and persisted outbox payloads are
+passed through the Venue, Matchmaking, Finance and Account consumer functions.
+The integration covers emergency cancellation, an active booking, match
+contributor refunds, required notification delivery, booking-code consistency,
+consumer replay idempotency and refund completion projection. Live RabbitMQ
+delivery and browser-level end-to-end behavior remain separate runtime checks.
 
 ## Risks And Recovery
 
@@ -262,14 +265,17 @@ direct API guards and retry idempotency.
 - [x] Business design and high-fidelity mockups approved.
 - [x] Isolated worktree and branch verified.
 - [x] Task 1 — authoritative product documents.
-- [x] Task 2 — required notifications (contract, whitelist and preference gate;
-  database integration proof remains pending because local PostgreSQL is down).
-- [ ] Task 3 — persistence, preview and guards.
-- [ ] Task 4 — cancellation processor and projection.
-- [ ] Task 5 — finance and matchmaking consumers.
-- [ ] Task 6 — provider interface.
-- [ ] Task 7 — player disclosure.
-- [ ] Task 8 — cross-service proof and completion record.
+- [x] Task 2 — required notification contract, whitelist, preference override
+  and persisted/idempotent player notification.
+- [x] Task 3 — persistence, preview, business-code/hold-purpose snapshots and
+  command guards.
+- [x] Task 4 — cancellation processor, retries, status projection and refund
+  completion handling.
+- [x] Task 5 — Finance and Matchmaking cancellation/refund consumers.
+- [x] Task 6 — provider three-step shutdown interface.
+- [x] Task 7 — player booking disclosure with the exact shared business code.
+- [x] Task 8 — fresh-schema consumer integration, recovery record and impact
+  review.
 
 ## Decisions
 
@@ -278,14 +284,36 @@ direct API guards and retry idempotency.
 - 2026-09-23: Preserve UUIDs as technical identities; display only persisted
   `Booking.businessCode` from the approved standard-ID work.
 - 2026-09-23: Treat **Ngày đặt** as `Booking.createdAt`, not the play date.
+- 2026-09-24: Persist the original hold purpose on each booking so expired
+  checkout holds cannot be mistaken for paid match holds after cleanup, and
+  previews continue to count match bookings correctly.
+- 2026-09-24: Keep integration databases ephemeral; the pre-existing local
+  database has migration-history drift and was not modified.
 
 ## Validation
 
-- Focused proof: account `notificationPolicy.test.ts` red on missing fields and
-  delivery gate, then 3/3 green; account typecheck passed.
-- Integration or end-to-end proof: pending cross-service shutdown scenario.
-- Repository-required checks: `git diff --check`; account typecheck passed.
+- Fresh isolated migrations passed for Account (6), Venue (12), Finance (13)
+  and Matchmaking (10); the Venue shutdown migration also passed from scratch.
+- Focused tests passed: Venue policy 6/6, Venue shutdown DB scenarios 5/5,
+  Finance refund and match-fee 21/21, Account notification policy/projection
+  4/4, Matchmaking lifecycle 33/33, and Web shutdown/booking views 12/12,
+  including the last-service-time banner after early auto-closure.
+- Cross-service consumer test passed from Venue cancellation outbox through
+  Matchmaking cancellation and Finance contributor refunds back to Venue
+  refund-completion projection; duplicate event handling remained idempotent.
+- Typecheck passed for Venue, Finance, Matchmaking, Account and Web; Prisma
+  schema validation and `git diff --check` passed.
+- At initial completion, live broker redelivery and browser end-to-end
+  interaction had not been exercised; event consumer payloads and replay
+  behavior were exercised directly. Follow-up Playwright/broker proof later
+  passed 3/3 in the isolated environment; see the [2026-09-24 review-fixes
+  plan](../active/2026-09-24-operational-shutdown-review-fixes.md) for its
+  migration/rollback evidence and remaining cleanup caveats.
 
 ## Result
 
-Pending implementation and executable proof.
+Approved operational shutdown flows are implemented across service APIs,
+durable cancellation/refund processing, required notifications, provider UI
+and player booking history. Fresh-database migrations and focused cross-service
+proof passed. No migration was applied to the existing local database, no
+production action was taken, and no changes were committed or pushed.

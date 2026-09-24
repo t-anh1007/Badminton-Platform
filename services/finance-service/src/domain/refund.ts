@@ -2,6 +2,8 @@ import { prisma } from '../lib/prisma.js';
 import { COMMISSION_RATE_PERCENT } from '../lib/constants.js';
 import { postLedgerEntry } from './wallet.js';
 import { z } from 'zod';
+import { writeOutbox } from '../lib/outbox.js';
+import type { Prisma } from '@prisma/client';
 
 export interface BookingCancelledPayload {
   bookingId: string;
@@ -11,6 +13,8 @@ export interface BookingCancelledPayload {
   refundPercent: number;
   reason: 'self' | 'provider_fault' | 'platform_admin';
   cancellationNote?: string;
+  shutdownId?: string;
+  bookingBusinessCode?: string;
 }
 
 const bookingCancelledSchema = z.object({
@@ -21,7 +25,34 @@ const bookingCancelledSchema = z.object({
   refundPercent: z.number().int().min(0).max(100),
   reason: z.enum(['self', 'provider_fault', 'platform_admin']),
   cancellationNote: z.string().optional(),
+  shutdownId: z.string().uuid().optional(),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/).optional(),
 });
+
+async function writeShutdownRefundCompletion(
+  tx: Prisma.TransactionClient,
+  payload: z.infer<typeof bookingCancelledSchema>,
+  recipients: Array<{ userId: string; amount: bigint }>,
+) {
+  if (!payload.shutdownId) return;
+  if (await tx.outbox.findFirst({ where: { aggregateType: 'Booking', aggregateId: payload.bookingId, eventType: 'BookingRefundCompleted' } })) return;
+  await writeOutbox(tx, { aggregateType: 'Booking', aggregateId: payload.bookingId,
+    eventType: 'BookingRefundCompleted', payload: { bookingId: payload.bookingId, shutdownId: payload.shutdownId },
+  });
+  for (const recipient of recipients.filter((item) => item.amount > 0n)) {
+    await writeOutbox(tx, { aggregateType: 'Notification', aggregateId: `shutdown.refund:${payload.bookingId}:${recipient.userId}`,
+      eventType: 'UserNotificationRequested', payload: {
+        recipient: { type: 'user', userId: recipient.userId, targetRole: 'player' },
+        category: 'finance', kind: 'finance.shutdown_refund_completed', deliveryPolicy: 'required',
+        bookingBusinessCode: payload.bookingBusinessCode ?? null,
+        title: 'Bạn đã nhận được tiền hoàn',
+        body: `${recipient.amount.toString()}đ đã được hoàn vào Số dư COURTIN cho lịch đặt ${payload.bookingBusinessCode ?? ''}.`,
+        priority: 'update', entityType: 'booking', entityId: payload.bookingId,
+        actionKind: 'booking.view', actionExpiresAt: null,
+      },
+    });
+  }
+}
 
 /** FIN-07/08 — đảo đúng phần doanh thu và hoa hồng mà G4 đã ghi. Mọi thay đổi
  * là bút toán mới; không sửa/xóa bút toán gốc (BR-FIN-01/14/15). */
@@ -53,6 +84,10 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
     // the Rabbit delivery unprocessed and therefore safely retryable.
     if (matchFunding?.status === 'settling') {
       throw new Error('Match BookingCancelled awaits D39 settlement resolution');
+    }
+    if (matchFunding?.status === 'cancelled') {
+      await tx.processedEvent.create({ data: { eventId } });
+      return;
     }
     if (matchFunding?.status === 'settled') {
       const [business, platform] = await Promise.all([
@@ -95,10 +130,11 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
         const participantTotal = participantRefunds.reduce((sum, item) => sum + item.amount, 0n);
         const organizerRefund = refundGross - participantTotal;
         if (organizerRefund < 0n) throw new Error('D37 refund allocation is negative');
-        for (const allocation of [
+        const allocations = [
           ...participantRefunds,
           { contribution: organizer, amount: organizerRefund },
-        ]) {
+        ];
+        for (const allocation of allocations) {
           if (allocation.amount > 0n) {
             const personal = await getOrCreatePersonalWallet(tx, allocation.contribution.userId);
             await postLedgerEntry(tx, {
@@ -134,6 +170,9 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
           where: { bookingId: payload.bookingId },
           data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal }, cancelledAt: new Date() },
         });
+        await writeShutdownRefundCompletion(tx, payload, allocations.map((allocation) => ({
+          userId: allocation.contribution.userId, amount: allocation.amount,
+        })));
       } else {
         await tx.bookingRevenue.updateMany({ where: { bookingId: payload.bookingId }, data: { cancelledAt: new Date() } });
       }
@@ -225,6 +264,7 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
         where: { bookingId: payload.bookingId },
         data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal }, cancelledAt: new Date() },
       });
+      await writeShutdownRefundCompletion(tx, payload, [{ userId: payload.userId, amount: refundGross }]);
     } else {
       // Refund 0% vẫn là booking đã hủy và tuyệt đối không được mở tranh chấp
       // sau giờ chơi để nhận thêm một khoản hoàn lần hai.

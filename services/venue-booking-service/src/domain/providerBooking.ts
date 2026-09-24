@@ -20,6 +20,7 @@ export interface ProviderBookingFilters {
 
 export interface ProviderBookingRow {
   id: string;
+  businessCode: string;
   source: 'marketplace' | 'internal';
   status: BookingStatus;
   startAt: Date;
@@ -28,6 +29,7 @@ export interface ProviderBookingRow {
   holdExpiresAt: Date | null;
   cancellationReason: CancellationReason | null;
   matchDepositPaid: boolean;
+  manualCustomerNotificationRequired: boolean;
   customer: { label: string; guestContact?: string };
   court: { id: string; name: string; venue: { id: string; name: string; address: string } };
 }
@@ -37,7 +39,10 @@ export interface ProviderBookingDetail extends ProviderBookingRow {
   courtChangedAt: Date | null;
 }
 
-const bookingInclude = { court: { include: { venue: true } } } satisfies Prisma.BookingInclude;
+const bookingInclude = {
+  court: { include: { venue: true } },
+  shutdownItems: { select: { id: true }, take: 1 },
+} satisfies Prisma.BookingInclude;
 type LoadedProviderBooking = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 function visibleBookingWhere(paidMatchHoldIds: string[]): Prisma.BookingWhereInput {
@@ -87,6 +92,7 @@ function baseWhere(
   if (query) {
     filters.push({
       OR: [
+        { businessCode: { contains: query, mode: 'insensitive' } },
         { id: { contains: query, mode: 'insensitive' } },
         { guestName: { contains: query, mode: 'insensitive' } },
         { court: { name: { contains: query, mode: 'insensitive' } } },
@@ -114,6 +120,7 @@ function projectBooking(
   const internal = booking.source === 'internal';
   return {
     id: booking.id,
+    businessCode: booking.businessCode,
     source: booking.source,
     status: booking.status,
     startAt: booking.startAt,
@@ -124,6 +131,7 @@ function projectBooking(
     matchDepositPaid: booking.status === 'held'
       && booking.holdId !== null
       && paidMatchHoldIds.has(booking.holdId),
+    manualCustomerNotificationRequired: internal && booking.status === 'cancelled' && booking.shutdownItems.length > 0,
     customer: {
       label: internal
         ? (booking.guestName ?? 'Khách vãng lai')

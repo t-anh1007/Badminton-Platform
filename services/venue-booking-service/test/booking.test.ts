@@ -4,6 +4,7 @@ import { prisma } from '../src/lib/prisma.js';
 import { createHold } from '../src/domain/hold.js';
 import { activateMatchHold, createBookingFromHold, reapExpiredHeldBookings, listMyBookings, getMyBookingDetail } from '../src/domain/booking.js';
 import { handlePaymentCompleted } from '../src/lib/eventConsumer.js';
+import { confirmOperationalShutdown, previewOperationalShutdown } from '../src/domain/operationalShutdown.js';
 import { createApprovedProvider, createVenueWithCourt, makeCourtSearchable, fakeUserId } from './helpers.js';
 
 afterAll(async () => {
@@ -78,6 +79,31 @@ describe('BOK-07 — Tạo booking đặt sân', () => {
     expect((tooLateRows[0]!.payload as { amount: string }).amount).toBe(booking.priceSnapshot.toString());
     const confirmedRows = await prisma.outbox.findMany({ where: { aggregateId: booking.id, eventType: 'BookingConfirmed' } });
     expect(confirmedRows).toHaveLength(0);
+  });
+
+  it('attaches shutdown identity to PaymentTooLate when payment arrives after shutdown cancellation', async () => {
+    const { booking, provider, court } = await setupHeldBooking();
+    const input = { mode: 'emergency' as const, reason: 'Sự cố vận hành' };
+    const actor = { userId: provider.userId, roles: ['provider'] };
+    const preview = await previewOperationalShutdown(actor, { type: 'court', id: court.id }, input, {
+      getPaidAmounts: async (bookingIds) => Object.fromEntries(bookingIds.map((id) => [id, '0'])),
+    });
+    await confirmOperationalShutdown(actor, { type: 'court', id: court.id }, input, preview.previewToken);
+
+    await handlePaymentCompleted(randomUUID(), { bookingId: booking.id });
+
+    const latePayment = await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: booking.id, eventType: 'PaymentTooLate' },
+    });
+    const shutdown = await prisma.operationalShutdown.findFirstOrThrow({
+      where: { scopeType: 'court', scopeId: court.id, endedAt: null },
+    });
+    expect(latePayment.payload).toMatchObject({
+      bookingId: booking.id,
+      shutdownId: shutdown.id,
+      bookingBusinessCode: booking.businessCode,
+      amount: booking.priceSnapshot.toString(),
+    });
   });
 
   it('AC-BOK-07-3: booking vừa confirmed giá 250k, chủ sân đổi biểu giá ngay sau đó -> priceSnapshot vẫn 250k', async () => {

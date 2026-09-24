@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { calculateBookingPrice } from './pricing.js';
+import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
 
 async function getOwnedCourtOrThrow(userId: string, courtId: string) {
   const court = await prisma.court.findUniqueOrThrow({
@@ -34,46 +36,25 @@ export async function createInternalBooking(userId: string, input: CreateInterna
     throw new AppError('GUEST_INFO_REQUIRED', 'Cần tên và số liên hệ của khách.', 400);
   }
 
-  // Ràng buộc bất biến #4 (chống đặt trùng) — kiểm tra booking confirmed trùng slot.
-  const overlappingBooking = await prisma.booking.findFirst({
-    where: {
-      courtId: court.id,
-      status: 'confirmed',
-      startAt: { lt: input.endAt },
-      endAt: { gt: input.startAt },
-    },
-  });
-  if (overlappingBooking) {
-    throw new AppError('SLOT_ALREADY_BOOKED', 'Slot đã có booking xác nhận.', 409);
-  }
-
-  // AC-VEN-09-3: slot đang có HOLD chưa hết hạn của người chơi khác -> từ chối.
-  const overlappingHold = await prisma.hold.findFirst({
-    where: {
-      courtId: court.id,
-      expiresAt: { gt: new Date() },
-      startAt: { lt: input.endAt },
-      endAt: { gt: input.startAt },
-    },
-  });
-  if (overlappingHold) {
-    throw new AppError('SLOT_ON_HOLD', 'Slot đang được giữ chỗ bởi người chơi khác.', 409);
-  }
-
   const priceSnapshot = await calculateBookingPrice(court.id, input.startAt, input.endAt);
-
-  return prisma.booking.create({
-    data: {
-      courtId: court.id,
-      startAt: input.startAt,
-      endAt: input.endAt,
-      userId: null,
-      guestName: input.guestName,
-      guestContact: input.guestContact,
-      source: 'internal',
-      status: 'confirmed',
-      priceSnapshot,
-    },
+  return prisma.$transaction(async (tx) => {
+    await lockCourtSchedule(tx, court.id);
+    await assertCourtAcceptsCommitment(tx, court.id, input.endAt);
+    if (!(await tx.court.findUniqueOrThrow({ where: { id: court.id } })).active) {
+      throw new AppError('COURT_INACTIVE', 'Sân đã ngừng hoạt động.', 409);
+    }
+    const overlappingBooking = await tx.booking.findFirst({ where: {
+      courtId: court.id, status: 'confirmed', startAt: { lt: input.endAt }, endAt: { gt: input.startAt },
+    } });
+    if (overlappingBooking) throw new AppError('SLOT_ALREADY_BOOKED', 'Slot đã có booking xác nhận.', 409);
+    const overlappingHold = await tx.hold.findFirst({ where: {
+      courtId: court.id, expiresAt: { gt: new Date() }, startAt: { lt: input.endAt }, endAt: { gt: input.startAt },
+    } });
+    if (overlappingHold) throw new AppError('SLOT_ON_HOLD', 'Slot đang được giữ chỗ bởi người chơi khác.', 409);
+    return tx.booking.create({ data: {
+      courtId: court.id, startAt: input.startAt, endAt: input.endAt, userId: null,
+      guestName: input.guestName, guestContact: input.guestContact, source: 'internal', status: 'confirmed', priceSnapshot,
+    } });
   });
 }
 

@@ -131,9 +131,11 @@ export interface MatchConfirmedPayload {
 export interface MatchCancelledPayload {
   matchId: string;
   bookingId: string;
-  reason: 'organizer' | 'cutoff' | 'confirmed_booking_policy';
+  reason: 'organizer' | 'cutoff' | 'confirmed_booking_policy' | 'shutdown';
   paidJoinIds: string[];
   refundPercent?: number;
+  shutdownId?: string;
+  bookingBusinessCode?: string;
 }
 
 export interface MatchFeePaymentCompletedPayload {

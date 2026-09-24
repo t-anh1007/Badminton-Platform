@@ -7,6 +7,7 @@ import { prisma } from '../src/lib/prisma.js';
 import type { VenueBookingClient, VenueMatchContext } from '../src/clients/venueBooking.js';
 import type { AccountClient } from '../src/clients/account.js';
 import { releaseExpiredApprovedJoins, startJoinExpiryScheduler } from '../src/domain/joins.js';
+import { handleShutdownBookingCancellation } from '../src/lib/matchLifecycleEventConsumer.js';
 
 class FakeVenueBookingClient implements VenueBookingClient {
   readonly contexts = new Map<string, VenueMatchContext>();
@@ -43,6 +44,7 @@ const bookingIds: string[] = [];
 const createdMatchIds: string[] = [];
 const passportUserIds: string[] = [];
 const eventAggregateIds: string[] = [];
+const shutdownEventIds: string[] = [];
 
 function playerToken(userId: string): string {
   return jwt.sign(
@@ -142,6 +144,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  await prisma.processedEvent.deleteMany({ where: { eventId: { in: shutdownEventIds } } });
   await prisma.outbox.deleteMany({
     where: { aggregateId: { in: eventAggregateIds } },
   });
@@ -164,6 +167,49 @@ afterAll(async () => {
     where: { userId: { in: passportUserIds } },
   });
   await prisma.$disconnect();
+});
+
+describe('operational shutdown match cancellation', () => {
+  it('withdraws every active join but notifies only the organizer and approved participants', async () => {
+    const match = await createMatch({ status: 'filled', organizerContributionPaidAt: new Date() });
+    const joinUsers = ['pending', 'approved', 'confirmed', 'rejected'].map(() => randomUUID());
+    const statuses = ['pending', 'approved', 'confirmed', 'rejected'] as const;
+    const joins = await Promise.all(statuses.map((status, index) => prisma.join.create({
+      data: {
+        matchId: match.id,
+        participantUserId: joinUsers[index]!,
+        status,
+        ...(status === 'approved' || status === 'confirmed' ? { feePaidAt: new Date() } : {}),
+      },
+    })));
+    const eventId = randomUUID();
+    shutdownEventIds.push(eventId);
+    const notifiedUsers = [match.organizerUserId, ...joinUsers.slice(1, 3)];
+    const notificationIds = notifiedUsers.map((userId) => `match.shutdown_emergency:${match.id}:${userId}`);
+    eventAggregateIds.push(...notificationIds);
+    const payload = {
+      bookingId: match.bookingId,
+      shutdownId: randomUUID(),
+      mode: 'emergency' as const,
+      bookingBusinessCode: 'BK-00004219',
+      wasConfirmed: false,
+    };
+
+    await handleShutdownBookingCancellation(eventId, payload);
+    await handleShutdownBookingCancellation(eventId, payload);
+
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'cancelled' });
+    const storedJoins = await prisma.join.findMany({ where: { id: { in: joins.map((join) => join.id) } }, orderBy: { id: 'asc' } });
+    expect(storedJoins.map((join) => join.status).sort()).toEqual(['rejected', 'withdrawn', 'withdrawn', 'withdrawn'].sort());
+    expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } })).toBe(1);
+    const notifications = await prisma.outbox.findMany({ where: { aggregateId: { in: notificationIds }, eventType: 'UserNotificationRequested' } });
+    expect(notifications).toHaveLength(3);
+    expect(notifications.map((item) => (item.payload as { bookingBusinessCode: string }).bookingBusinessCode))
+      .toEqual(Array(3).fill(payload.bookingBusinessCode));
+    const cancellation = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } });
+    expect((cancellation.payload as { paidJoinIds: string[] }).paidJoinIds.sort())
+      .toEqual([joins[1]!.id, joins[2]!.id].sort());
+  });
 });
 
 describe('MMP-01 — public match search', () => {

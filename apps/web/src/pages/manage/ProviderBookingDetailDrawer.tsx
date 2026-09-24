@@ -102,7 +102,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
           <div className="mt-5 space-y-5">
             <section className="rounded-2xl bg-canvas p-4">
               <p className="text-caption text-ink-500">Mã booking</p>
-              <p className="mt-1 break-all font-mono text-sm text-ink-900">{detail.id}</p>
+              <p className="mt-1 text-sm font-bold text-brand-navy">{detail.businessCode}</p>
               <Badge className="mt-3" tone={providerBookingBadgeTone(detail.status)}>
                 {providerBookingStatusLabel(detail.status, detail.matchDepositPaid)}
               </Badge>
@@ -112,6 +112,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
               <h3 className="text-h3">Thông tin ca đặt</h3>
               <p className="mt-2 font-semibold">{detail.court.venue.name} · {detail.court.name}</p>
               <p className="text-sm text-ink-500">{detail.court.venue.address}</p>
+              {detail.manualCustomerNotificationRequired && <p className="mt-3 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
               <p className="mt-3 text-sm">{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</p>
               <p className="mt-1 text-sm text-ink-500">{detail.source === 'internal' ? 'Booking tại quầy' : 'Đặt qua COURTIN'}</p>
               {detail.courtChangedAt ? <p className="mt-2 text-sm text-warning">Đã đổi sân lúc {formatDateTimeVi(detail.courtChangedAt)}</p> : null}

@@ -22,6 +22,7 @@ const matchIds: string[] = [];
 const eventIds: string[] = [];
 const userIds: string[] = [];
 const sepayExternalRefs: string[] = [];
+const shutdownOutboxAggregateIds: string[] = [];
 
 async function setupFunding(capacity = 4, price = 200000n) {
   const matchId = randomUUID();
@@ -86,7 +87,10 @@ afterAll(async () => {
     },
   });
   await prisma.outbox.deleteMany({
-    where: { OR: [{ aggregateId: { in: contributionIds } }, { aggregateId: { in: matchIds } }] },
+    where: { OR: [
+      { aggregateId: { in: contributionIds } }, { aggregateId: { in: matchIds } },
+      { aggregateId: { in: shutdownOutboxAggregateIds } },
+    ] },
   });
   await prisma.processedEvent.deleteMany({ where: { eventId: { in: eventIds } } });
   const sepayEvents = await prisma.sepayEvent.findMany({
@@ -244,6 +248,59 @@ describe('FIN-05 — match contribution ledger', () => {
     expect(await prisma.matchContribution.count({
       where: { matchId: fixture.matchId, status: 'refunded' },
     })).toBe(fixture.capacity - 1);
+  });
+
+  it('shutdown cancellation refunds paid match contributors and emits completion once', async () => {
+    const fixture = await setupFunding(3, 210000n);
+    const contributors = [
+      { userId: fixture.organizerUserId, contribution: await getOrganizerContribution(fixture.matchId) },
+      ...fixture.participants.map(({ userId, contribution }) => ({ userId, contribution })),
+    ];
+    for (const contributor of contributors) {
+      await seedPersonalBalance(contributor.userId, contributor.contribution.amount);
+      await payMatchContributionWithBalance(contributor.userId, contributor.contribution.id);
+    }
+    const shutdownId = randomUUID();
+    const bookingBusinessCode = 'BK-00004218';
+    const eventId = `MatchCancelled:${randomUUID()}`;
+    eventIds.push(eventId);
+    shutdownOutboxAggregateIds.push(fixture.bookingId, ...contributors.map(({ contribution }) => `shutdown.refund:${contribution.id}`));
+
+    await handleMatchCancelled(eventId, {
+      matchId: fixture.matchId,
+      bookingId: fixture.bookingId,
+      reason: 'shutdown',
+      paidJoinIds: fixture.participants.map(({ joinId }) => joinId),
+      refundPercent: 100,
+      shutdownId,
+      bookingBusinessCode,
+    });
+
+    expect(await prisma.matchFunding.findUniqueOrThrow({ where: { matchId: fixture.matchId } }))
+      .toMatchObject({ status: 'cancelled' });
+    for (const contributor of contributors) {
+      const wallet = await prisma.wallet.findFirstOrThrow({ where: { userId: contributor.userId, walletType: 'personal' } });
+      expect(wallet.available).toBe(contributor.contribution.amount);
+    }
+    expect(await prisma.outbox.findFirstOrThrow({
+      where: { aggregateType: 'Booking', aggregateId: fixture.bookingId, eventType: 'BookingRefundCompleted' },
+    })).toMatchObject({ payload: { bookingId: fixture.bookingId, shutdownId } });
+    expect(await prisma.outbox.count({
+      where: { aggregateId: { in: contributors.map(({ contribution }) => `shutdown.refund:${contribution.id}`) }, eventType: 'UserNotificationRequested' },
+    })).toBe(contributors.length);
+
+    await handleMatchCancelled(eventId, {
+      matchId: fixture.matchId,
+      bookingId: fixture.bookingId,
+      reason: 'shutdown',
+      paidJoinIds: fixture.participants.map(({ joinId }) => joinId),
+      refundPercent: 100,
+      shutdownId,
+      bookingBusinessCode,
+    });
+    expect(await prisma.outbox.count({
+      where: { aggregateType: 'Booking', aggregateId: fixture.bookingId, eventType: 'BookingRefundCompleted' },
+    })).toBe(1);
   });
 
   it('AC-FIN-05-5: a pre-cutoff withdrawal refunds only that participant', async () => {

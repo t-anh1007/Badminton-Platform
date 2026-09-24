@@ -9,6 +9,7 @@ import { bookingRouter } from './routes/bookings.js';
 import { providerBookingRouter } from './routes/providerBookings.js';
 import { env } from './lib/env.js';
 import { createVenueUploadRouter } from './routes/uploads.js';
+import { operationalShutdownRouter } from './routes/operationalShutdown.js';
 import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'venue-booking-service';
@@ -46,6 +47,7 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient }
   app.use('/', createDiscoveryRouter(() => dependencies?.objectStorage ?? createObjectStorageClientFromEnv()));
   app.use('/', bookingRouter);
   app.use('/', providerBookingRouter);
+  app.use('/operational-shutdowns', operationalShutdownRouter);
 
   return app;
 }
