@@ -23,7 +23,7 @@ plugin.
 
 | Nhu cầu | Skill | Khi dùng |
 |---|---|---|
-| Làm rõ ý tưởng | `$brainstorm` | Phỏng vấn và chuẩn hóa ý tưởng thô trước URD/PRD |
+| Làm rõ ý tưởng | `superpowers:brainstorming` | Làm rõ ý định, thiết kế và xin duyệt trước triển khai |
 | Đặc tả nghiệp vụ | `$usecase` | Xác định phạm vi, viết hoặc review Use Case bằng tiếng Việt |
 | Khảo sát repo brownfield | `$onboard-repository` | Chỉ khi được yêu cầu map/onboard repository; lượt đầu read-only |
 | Kiểm toán khảo sát repo | `$audit-onboarding-proposal` | Review độc lập proposal onboarding; read-only |
