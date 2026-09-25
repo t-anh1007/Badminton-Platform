@@ -151,6 +151,17 @@ export interface MatchConfirmedPayload {
   participantFees: string;
   organizerContribution: string;
   bookingPrice: string;
+  /** Kèo cạnh tranh v2; thiếu ⇒ nguồn hold, tổng góp = bookingPrice. */
+  sourceType?: 'hold' | 'paid_booking';
+  resultReserve?: string;
+  totalContribution?: string;
+}
+
+/** Finance phát đúng một lần khi phần tiền sân của kèo đã chốt (cả hai nguồn). */
+export interface MatchFundingCompletedPayload {
+  matchId: string;
+  bookingId: string;
+  sourceType: 'hold' | 'paid_booking';
 }
 
 export interface MatchCancelledPayload {

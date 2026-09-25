@@ -636,10 +636,10 @@ model MatchContribution {
 
 Backfill legacy funding with `sourceType=hold`, `totalContribution=bookingPrice`, `resultReserve=0`, and `resultReserveStatus=none`.
 
-- [ ] Add a migration-level test for legacy and new rows.
-- [ ] Apply schema and migration; do not rename existing tables or enums unrelated to match funding.
-- [ ] Generate Finance Prisma client and validate schema.
-- [ ] Run focused schema/funding tests. Expected: legacy FIN-05 fixtures still load.
+- [x] Add a migration-level test for legacy and new rows.
+- [x] Apply schema and migration; do not rename existing tables or enums unrelated to match funding.
+- [x] Generate Finance Prisma client and validate schema.
+- [x] Run focused schema/funding tests. Expected: legacy FIN-05 fixtures still load.
 
 **Depends on:** Task 2. **Blocks:** Tasks 7–9, 14.
 
@@ -676,12 +676,12 @@ paid_booking source:
   every other player = pending cash contribution
 ```
 
-- [ ] Add failing tests for both sources, singles/doubles, replay, overpayment, expired slot payment, and wrong team snapshot.
-- [ ] Replace the old `sum == P` assertion with `sum == totalContribution == P + resultReserve`.
-- [ ] Create the organizer's virtual paid contribution only for `paid_booking`; never create a payment intent for it.
-- [ ] Store team side on every contribution and retain existing balance/SePay collection for cash contributions.
-- [ ] Make all late/extra match receipts credit personal `available` with equal `withdrawableDelta`; never re-fund a terminal match.
-- [ ] Run focused Finance tests. Expected: platform `reserved` equals actual cash received, and paid-booking organizer creates no reserve ledger entry.
+- [x] Add failing tests for both sources, singles/doubles, replay, overpayment, expired slot payment, and wrong team snapshot.
+- [x] Replace the old `sum == P` assertion with `sum == totalContribution == P + resultReserve`.
+- [x] Create the organizer's virtual paid contribution only for `paid_booking`; never create a payment intent for it.
+- [x] Store team side on every contribution and retain existing balance/SePay collection for cash contributions.
+- [x] Make all late/extra match receipts credit personal `available` with equal `withdrawableDelta`; never re-fund a terminal match.
+- [x] Run focused Finance tests. Expected: platform `reserved` equals actual cash received, and paid-booking organizer creates no reserve ledger entry.
 
 **Depends on:** Tasks 5, 6. **Blocks:** Tasks 8, 9, 14.
 
@@ -725,13 +725,13 @@ if (funding.sourceType === 'hold') {
 
 Emit one idempotent `MatchFundingCompleted` event for both branches; Matchmaking uses it to move `filled -> confirmed`. Do not overload `BookingConfirmed` for paid-booking reuse.
 
-- [ ] Add tests that record counts and sums of `BookingRevenue`, commission ledger entries, booking settlement ledger entries, owner rebalance entries, and platform reserved before/after replay.
-- [ ] Update Matchmaking cutoff payload with source and reserve snapshots.
-- [ ] Keep the current D39 venue fence unchanged for hold sources.
-- [ ] Add the paid-booking branch in Finance under the existing advisory lock and `ProcessedEvent` guard.
-- [ ] Credit owner rebalance with `withdrawableDelta` and a unique reference `matchOwnerRebalance:<matchId>`.
-- [ ] Consume `MatchFundingCompleted` idempotently in Matchmaking.
-- [ ] Run focused and chain tests. Expected: paid-booking case has zero new booking settlement/revenue/commission rows and one rebalance; hold case still confirms the booking once.
+- [x] Add tests that record counts and sums of `BookingRevenue`, commission ledger entries, booking settlement ledger entries, owner rebalance entries, and platform reserved before/after replay.
+- [x] Update Matchmaking cutoff payload with source and reserve snapshots.
+- [x] Keep the current D39 venue fence unchanged for hold sources.
+- [x] Add the paid-booking branch in Finance under the existing advisory lock and `ProcessedEvent` guard.
+- [x] Credit owner rebalance with `withdrawableDelta` and a unique reference `matchOwnerRebalance:<matchId>`.
+- [x] Consume `MatchFundingCompleted` idempotently in Matchmaking.
+- [x] Run focused and chain tests. Expected: paid-booking case has zero new booking settlement/revenue/commission rows and one rebalance; hold case still confirms the booking once.
 
 **Depends on:** Tasks 3, 5, 7. **Blocks:** Tasks 9, 11, 14, 26.
 
@@ -758,12 +758,12 @@ Emit one idempotent `MatchFundingCompleted` event for both branches; Matchmaking
 
 **Allocation rule:** For a booking cancelled before final result, calculate each team's refund as `(resultReserve + bookingRefundGross) / 2`, split across team members, then put every integer remainder on the organizer entry. This returns the entire reserve and applies booking policy to `P` only.
 
-- [ ] Add failing tests for underfilled hold, underfilled paid booking, organizer cancellation before/after cutoff, 0/50/100% booking refund, odd VND, and replay.
-- [ ] Branch cutoff cancellation: hold cancels/releases booking; paid booking cancels only the match layer and refunds cash participants.
-- [ ] Allow organizer cancel only before cutoff. After cutoff return a business error directing users to incident declaration.
-- [ ] Replace the old ratio-based confirmed cancellation allocation with the exact 50:50 team rule above.
+- [x] Add failing tests for underfilled hold, underfilled paid booking, organizer cancellation before/after cutoff, 0/50/100% booking refund, odd VND, and replay.
+- [x] Branch cutoff cancellation: hold cancels/releases booking; paid booking cancels only the match layer and refunds cash participants.
+- [x] Allow organizer cancel only before cutoff. After cutoff return a business error directing users to incident declaration.
+- [x] Replace the old ratio-based confirmed cancellation allocation with the exact 50:50 team rule above.
 - [ ] Verify result dispute does not modify `BookingRevenue`, business pending revenue, or commission.
-- [ ] Run focused tests. Expected: every ledger sum balances and paid booking remains confirmed when only the match layer closes.
+- [x] Run focused tests. Expected: every ledger sum balances and paid booking remains confirmed when only the match layer closes.
 
 **Depends on:** Task 8. **Blocks:** Task 14 and final finance verification.
 
@@ -1624,6 +1624,13 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - 2026-09-25: Task 5 `MatchFundingView` returns `organizerContribution`, `organizerRefundAtLock` and `organizerRefundWithdrawable` only to the organizer (null for others) because BR-CM-61 keeps personal contributions/refunds private; everyone sees the regular slot amount and their own amount due. Legacy matches without `bookingPrice` return `funding: null`. Skill range is locked at creation (`skillConfiguredAt = now`); the legacy `PATCH /skill-range` stays for old matches. Quick Match accept and legacy organizer approval, which carry no team choice, place the player on the side with room, B first. Legacy joins without `teamSide` count as team B. `MatchCreated`/`JoinApproved` gained optional v2 fields so old events still parse.
 - 2026-09-25: Callers still on the old create body are updated by their owning tasks: `finance-service/test/matchFee.e2e.test.ts` (Task 7), `matchmaking-service/test/matchServiceChain.e2e.test.ts` (Task 8), and Web `MatchListPage`/`BookingPage` plus their tests (Task 23).
 - 2026-09-25: G1 review fixes. (1) `actions.canPay` requires `cutoffAt > now` and an open match for a participant JOIN, or `awaiting_deposit` for the organizer; a JOIN still inside its 10-minute hold after cutoff can no longer pay. (2) `updateVenue` rejects `MISSING_PROVINCE` when a legacy venue without a province is edited without one; venues that already have a province keep partial PATCH. (3) Screen 07 in the durable preview drops the seven-day movement badge and the Thay đổi column, keeping only the current rank.
+- 2026-09-25: Task 7 guards `refundPaidContribution` so a `booking_payment` organizer contribution is never refunded as cash (it never entered `platform.reserved`); cancelling a paid-booking match layer refunds only cash participants. All late or extra match-fee receipts now go through `creditLateMatchFee`/`creditAdditionalMatchFeeReceipt` with `withdrawableDelta` (BR-CM-16).
+- 2026-09-25: Baseline red: `finance-service/test/matchFee.e2e.test.ts` (gated by `RUN_P2_FIN_E2E=1`) fails 11/11 with `expected 400 to be 201` on match creation. It already failed before G1 (the pre-v2 `createMatch` required `holdId` and returned 422 for its `bookingId` body) and it still models D44 organizer approval and organizer-pays-last. Task 7 proof is `matchFee.test.ts` 12/12; the e2e suite is rewritten to the v2 model in Task 14, which also lists it.
+- 2026-09-25: Task 8 paid-booking cutoff: Finance `handleMatchConfirmed` settles locally (no `MatchSettlementRequested`, no Venue call) only when an uncancelled `BookingRevenue` with `gross = P` exists, otherwise it throws so the event is retried/quarantined for Admin. The owner rebalance is two ledger entries with `refType = matchOwnerRebalance`, `refId = matchId` (platform reserved debit, personal credit with `withdrawableDelta`); idempotency comes from the processed-event guard plus the `settled` status. Both branches set `resultReserveStatus = locked` (or `none` for 5:5) and emit `MatchFundingCompleted`; Matchmaking moves `filled` to `confirmed` on it, and the hold branch still also reacts to `BookingConfirmed`.
+- 2026-09-25: `matchServiceChain.e2e.test.ts` (gated by `RUN_P2_SERVICE_E2E=1`) was stale before v2 (capacity 4 singles-only, unauthenticated read of an awaiting-deposit match, UTC pricing that produced price 0 near midnight Vietnam time). It now uses the Task 5 body, reads as the organizer, and pins the slot to 10:00 Vietnam time; it passes 1/1 with the gate on.
+- 2026-09-25: Task 9 paid-booking matches close only the match layer locally (organizer cancel before cutoff, underfilled cutoff) and never call Venue; paid-booking participant withdrawal before cutoff is local with a full refund request and is rejected after cutoff (`JOIN_LOCKED_AT_CUTOFF`). Hold-source withdrawal keeps the existing D39 Venue path. Organizer cancellation after cutoff returns `MATCH_LOCKED_USE_INCIDENT` for both sources (the legacy D33 crash-recovery intent still completes first). Booking cancellation of a settled match uses `allocateMatchCancellationRefund`: (booking refund per policy + locked reserve) split 50:50 by team, floor per member, all remainders to the organizer; the reserve leaves `platform.reserved` as `refType = matchResultReserve` and `resultReserveStatus` becomes `refunded`. The old D37/D33 tests were rewritten to the D56 rule.
+- 2026-09-25: The Task 9 step "result dispute does not modify BookingRevenue" has no code to exercise until disputes exist; it is verified in Tasks 13-14.
+- 2026-09-25: G2 review fixes. (1) `refundCancelledBooking` skips a `cancelled` funding only for the hold source; a closed paid-booking match layer falls through to the ordinary owner refund. (2) Paid-booking settlement and booking cancellation share one lock order (`matchId` then `hashtext(bookingId)`); the settlement re-reads `BookingRevenue` after both locks, so exactly one of rebalance or ordinary owner refund happens. (3) A new withdrawal after cutoff is rejected for both sources (`JOIN_LOCKED_AT_CUTOFF`); only a D39 withdraw command persisted before cutoff may still resolve. (4) `BookingConfirmed` confirms only hold-source matches; paid-booking matches wait for `MatchFundingCompleted`. The old D32 after-cutoff withdrawal test was rewritten to BR-CM-07.
 
 ## Validation
 

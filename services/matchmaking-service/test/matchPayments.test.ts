@@ -257,7 +257,8 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
     expect(replacement.status).toBe('approved');
   });
 
-  it('AC-MMP-07-2: withdrawal from cutoff onward does not refund while the match continues', async () => {
+  // BR-CM-07 thay D32: sau hạn chốt kèo không rút tự do (roster khóa).
+  it('BR-CM-07: a new withdrawal from cutoff onward is rejected and the roster stays locked', async () => {
     const match = await fixture(3);
     const cutoff = new Date(Date.now() - 1_000);
     await prisma.match.update({ where: { id: match.id }, data: { cutoffAt: cutoff } });
@@ -266,9 +267,9 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
       data: { matchId: match.id, participantUserId, status: 'confirmed', approvedAt: new Date(), feePaidAt: new Date() },
     });
 
-    const result = await withdrawJoin(venueClient, match.id, join.id, participantUserId, new Date());
-
-    expect(result).toMatchObject({ status: 'withdrawn', refunded: false });
+    await expect(withdrawJoin(venueClient, match.id, join.id, participantUserId, new Date()))
+      .rejects.toMatchObject({ code: 'JOIN_LOCKED_AT_CUTOFF' });
+    expect(await prisma.join.findUniqueOrThrow({ where: { id: join.id } })).toMatchObject({ status: 'confirmed' });
     expect(await prisma.outbox.count({
       where: { aggregateId: join.id, eventType: 'MatchFeeRefundRequested' },
     })).toBe(0);
@@ -378,17 +379,132 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
     })).toBe(0);
   });
 
-  it('AC-MMP-08-3: confirmed match cancellation carries the GĐ1 booking refund percentage', async () => {
+  // D56/BR-CM-21 thay D33: sau hạn chốt kèo chủ kèo không hủy kèo; mọi vấn đề đi qua luồng sự cố.
+  it('BR-CM-21: organizer cannot cancel a locked match and is directed to the incident flow', async () => {
     const match = await fixture(2);
     const context = venueClient.contexts.get(match.bookingId)!;
     venueClient.contexts.set(match.bookingId, { ...context, status: 'confirmed' });
     await prisma.match.update({ where: { id: match.id }, data: { status: 'confirmed', fundingRequestedAt: new Date() } });
 
-    await cancelMatchByOrganizer(venueClient, match.id, match.organizerUserId, 'Bearer test');
+    await expect(cancelMatchByOrganizer(venueClient, match.id, match.organizerUserId, 'Bearer test'))
+      .rejects.toMatchObject({ code: 'MATCH_LOCKED_USE_INCIDENT' });
+    expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } })).toBe(0);
+  });
+});
 
-    const event = await prisma.outbox.findFirstOrThrow({
-      where: { aggregateId: match.id, eventType: 'MatchCancelled' },
+describe('Competitive matches v2 — paid-booking cutoff (Task 8)', () => {
+  it('emits one MatchConfirmed with the reserve snapshot for a filled paid booking and confirms on MatchFundingCompleted', async () => {
+    const { requestMatchFundingAtCutoff } = await import('../src/domain/matchSettlement.js');
+    const { handleMatchFundingCompleted } = await import('../src/lib/matchLifecycleEventConsumer.js');
+    const bookingId = randomUUID(); const organizerUserId = randomUUID();
+    const startAt = new Date(Date.now() + 30 * 3_600_000);
+    const match = await prisma.match.create({ data: {
+      bookingId, organizerUserId, capacity: 4, feePerSlot: 60000n, status: 'filled', sourceType: 'paid_booking',
+      discipline: 'doubles', ratio: 'six_four', mode: 'ranked', bookingPrice: 200001n, startAt, endAt: new Date(startAt.getTime() + 3_600_000),
+      organizerContributionPaidAt: new Date(), skillConfiguredAt: new Date(), cutoffAt: new Date(Date.now() - 1_000),
+    } });
+    matchIds.push(match.id);
+    await prisma.join.createMany({ data: (['A', 'B', 'B'] as const).map((teamSide) => ({ matchId: match.id, participantUserId: randomUUID(), status: 'confirmed' as const, teamSide })) });
+    venueClient.contexts.set(bookingId, {
+      bookingId, ownerUserId: organizerUserId, status: 'confirmed', priceSnapshot: '200001', startAt: startAt.toISOString(),
+      endAt: new Date(startAt.getTime() + 3_600_000).toISOString(), holdExpiresAt: null,
+      court: { id: randomUUID(), name: 'Sân 1' }, venue: { id: randomUUID(), name: 'V', address: 'A', lat: 1, lng: 1 },
+      providerUserId: randomUUID(), provinceCode: 'ho-chi-minh',
     });
-    expect(event.payload).toMatchObject({ reason: 'confirmed_booking_policy', refundPercent: 50 });
+
+    expect(await requestMatchFundingAtCutoff(venueClient, match.id, new Date())).toBe(true);
+    expect(await requestMatchFundingAtCutoff(venueClient, match.id, new Date())).toBe(true);
+    const events = await prisma.outbox.findMany({ where: { aggregateId: match.id, eventType: 'MatchConfirmed' } });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({
+      sourceType: 'paid_booking', bookingPrice: '200001', resultReserve: '40000', totalContribution: '240001',
+      participantFees: '180000', organizerContribution: '60001', participantCount: 3,
+    });
+
+    const eventId = `MatchFundingCompleted:${randomUUID()}`; eventIds.push(eventId);
+    const payload = { matchId: match.id, bookingId, sourceType: 'paid_booking' as const };
+    await handleMatchFundingCompleted(eventId, payload);
+    await handleMatchFundingCompleted(eventId, payload);
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'confirmed' });
+    expect(await prisma.outbox.count({ where: { eventType: 'UserNotificationRequested', aggregateId: { startsWith: `match.confirmed:${match.id}` } } })).toBeGreaterThan(0);
+  });
+});
+
+describe('Competitive matches v2 — paid-booking match layer closes without touching the booking (Task 9)', () => {
+  async function paidMatch(status: 'open' | 'filled', cutoffOffsetMs: number) {
+    const bookingId = randomUUID(); const organizerUserId = randomUUID();
+    const startAt = new Date(Date.now() + 30 * 3_600_000);
+    const match = await prisma.match.create({ data: {
+      bookingId, organizerUserId, capacity: 4, feePerSlot: 60000n, status, sourceType: 'paid_booking', discipline: 'doubles',
+      ratio: 'six_four', bookingPrice: 200001n, startAt, endAt: new Date(startAt.getTime() + 3_600_000),
+      organizerContributionPaidAt: new Date(), skillConfiguredAt: new Date(), cutoffAt: new Date(Date.now() + cutoffOffsetMs),
+    } });
+    matchIds.push(match.id);
+    const join = await prisma.join.create({ data: { matchId: match.id, participantUserId: randomUUID(), status: 'confirmed', teamSide: 'B', feePaidAt: new Date() } });
+    venueClient.contexts.set(bookingId, {
+      bookingId, ownerUserId: organizerUserId, status: 'confirmed', priceSnapshot: '200001', startAt: startAt.toISOString(),
+      endAt: new Date(startAt.getTime() + 3_600_000).toISOString(), holdExpiresAt: null,
+      court: { id: randomUUID(), name: 'Sân 1' }, venue: { id: randomUUID(), name: 'V', address: 'A', lat: 1, lng: 1 },
+      providerUserId: randomUUID(), provinceCode: 'ho-chi-minh',
+    });
+    return { match, join };
+  }
+  function countingVenue(bookingId: string) {
+    let calls = 0;
+    const original = venueClient.resolveMatchBooking.bind(venueClient);
+    venueClient.resolveMatchBooking = (...args: Parameters<typeof original>) => { if (args[1] === bookingId) calls += 1; return original(...args); };
+    return { calls: () => calls, restore: () => { venueClient.resolveMatchBooking = original; } };
+  }
+
+  it('AC-CM-07: an underfilled paid booking at cutoff closes only the match layer and refunds paid participants', async () => {
+    const { match, join } = await paidMatch('open', -1_000);
+    const spy = countingVenue(match.bookingId);
+    try {
+      await cancelMatchesAtCutoff(new Date(), venueClient);
+      expect(spy.calls()).toBe(0);
+    } finally { spy.restore(); }
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'cancelled' });
+    const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } });
+    expect(event.payload).toMatchObject({ reason: 'cutoff', paidJoinIds: [join.id] });
+    expect(venueClient.contexts.get(match.bookingId)!.status).toBe('confirmed');
+  });
+
+  it('BR-CM-21: organizer cancels a paid-booking match before cutoff locally and the booking stays confirmed', async () => {
+    const { match } = await paidMatch('open', 3_600_000);
+    const spy = countingVenue(match.bookingId);
+    try {
+      await cancelMatchByOrganizer(venueClient, match.id, match.organizerUserId, 'Bearer test');
+      expect(spy.calls()).toBe(0);
+    } finally { spy.restore(); }
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'cancelled' });
+    expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } })).toBe(1);
+  });
+
+  it('BR-CM-07: a paid participant withdraws with a full refund before cutoff and cannot withdraw after it', async () => {
+    const before = await paidMatch('filled', 3_600_000);
+    const result = await withdrawJoin(venueClient, before.match.id, before.join.id, before.join.participantUserId);
+    expect(result).toMatchObject({ status: 'withdrawn', refunded: true });
+    expect(await prisma.outbox.count({ where: { aggregateId: before.join.id, eventType: 'MatchFeeRefundRequested' } })).toBe(1);
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: before.match.id } })).toMatchObject({ status: 'open' });
+
+    const after = await paidMatch('filled', -1_000);
+    await expect(withdrawJoin(venueClient, after.match.id, after.join.id, after.join.participantUserId))
+      .rejects.toMatchObject({ code: 'JOIN_LOCKED_AT_CUTOFF' });
+  });
+});
+
+describe('G2 fix — a late BookingConfirmed does not confirm a paid-booking match', () => {
+  it('keeps a filled paid-booking match waiting for MatchFundingCompleted', async () => {
+    const bookingId = randomUUID();
+    const match = await prisma.match.create({ data: {
+      bookingId, organizerUserId: randomUUID(), capacity: 2, feePerSlot: 100000n, status: 'filled', sourceType: 'paid_booking',
+      bookingPrice: 200000n, fundingRequestedAt: new Date(), organizerContributionPaidAt: new Date(), cutoffAt: new Date(Date.now() - 1_000),
+    } });
+    matchIds.push(match.id);
+    const eventId = `BookingConfirmed:${randomUUID()}`; eventIds.push(eventId);
+    await handleBookingConfirmedForMatch(eventId, {
+      bookingId, businessUserId: randomUUID(), gross: '200000', venueId: randomUUID(), endAt: new Date().toISOString(), source: 'marketplace',
+    });
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'filled' });
   });
 });

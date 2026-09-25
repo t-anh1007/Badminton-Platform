@@ -54,6 +54,27 @@ async function writeShutdownRefundCompletion(
   }
 }
 
+type SettledContribution = { id: string; userId: string; role: string; teamSide: string | null; createdAt: Date };
+
+/**
+ * BR-CM-15/20: chia `total` 50:50 giữa hai đội rồi chia đều trong đội bằng floor. Mọi phần lẻ VND
+ * dồn cho chủ kèo (đội A), nên tổng luôn khớp tuyệt đối. Contribution cũ không có đội: chủ kèo là A,
+ * người tham gia là B.
+ */
+export function allocateMatchCancellationRefund(contributions: SettledContribution[], total: bigint) {
+  const organizer = contributions.find((item) => item.role === 'organizer');
+  if (!organizer) throw new Error('MatchFunding thiếu organizer contribution');
+  const side = (item: SettledContribution) => item.teamSide ?? (item.role === 'organizer' ? 'A' : 'B');
+  const perTeam = total / 2n;
+  const allocations = contributions.map((contribution) => {
+    const team = contributions.filter((item) => side(item) === side(contribution));
+    return { contribution, amount: perTeam / BigInt(team.length) };
+  });
+  const remainder = total - allocations.reduce((sum, item) => sum + item.amount, 0n);
+  allocations.find((item) => item.contribution.id === organizer.id)!.amount += remainder;
+  return allocations;
+}
+
 /** FIN-07/08 — đảo đúng phần doanh thu và hoa hồng mà G4 đã ghi. Mọi thay đổi
  * là bút toán mới; không sửa/xóa bút toán gốc (BR-FIN-01/14/15). */
 export async function refundCancelledBooking(eventId: string, rawPayload: unknown): Promise<void> {
@@ -67,7 +88,11 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
   const commissionReversal = (refundGross * COMMISSION_RATE_PERCENT) / 100n;
   const businessReversal = refundGross - commissionReversal;
 
+  // Ánh xạ bookingId -> matchId là bất biến nên đọc được trước khi khóa. Mọi luồng chạm cùng kèo
+  // khóa theo thứ tự matchId rồi bookingId (như settlePaidBookingFunding) để quyết định nguyên tử.
+  const fundedMatch = await prisma.matchFunding.findUnique({ where: { bookingId: payload.bookingId }, select: { matchId: true } });
   await prisma.$transaction(async (tx) => {
+    if (fundedMatch) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${fundedMatch.matchId}, 0))`;
     // Serialize every cancellation for the booking, including a redelivery that
     // accidentally arrives with a different event id.
     await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${payload.bookingId}))) AS booking_lock`;
@@ -85,7 +110,9 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
     if (matchFunding?.status === 'settling') {
       throw new Error('Match BookingCancelled awaits D39 settlement resolution');
     }
-    if (matchFunding?.status === 'cancelled') {
+    // Nguồn hold bị hủy: booking đã được nhả, không còn tiền booking để hoàn. Nguồn booking đã thanh toán
+    // chỉ đóng lớp kèo; booking trở lại booking thường nên đi tiếp luồng hoàn booking của chủ booking.
+    if (matchFunding?.status === 'cancelled' && matchFunding.sourceType === 'hold') {
       await tx.processedEvent.create({ data: { eventId } });
       return;
     }
@@ -108,32 +135,29 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
       ]);
       const released = releaseEntries.reduce((sum, entry) => sum + entry.amount, 0n);
       const commissioned = commissionEntries.reduce((sum, entry) => sum + entry.amount, 0n);
+      // Booking đã thanh toán trước khi thành kèo không có bút toán settlement từ platform.reserved.
       if (
         matchFunding.bookingPrice !== gross
         || releaseEntries.length !== 1
         || commissionEntries.length !== 1
         || released + commissioned !== gross
-        || !settlement
+        || (matchFunding.sourceType === 'hold' && !settlement)
       ) throw new Error('Match BookingCancelled không khớp settlement/doanh thu gốc');
       if (business.pending < businessReversal || platform.available < commissionReversal) {
         throw new Error('Match BookingCancelled sẽ làm số dư tài chính âm');
       }
 
-      if (refundGross > 0n) {
-        const participants = matchFunding.contributions.filter((item) => item.role === 'participant' && item.status === 'settled');
-        const organizer = matchFunding.contributions.find((item) => item.role === 'organizer' && item.status === 'settled');
-        if (!organizer) throw new Error('MatchFunding thiếu organizer contribution');
-        const participantRefunds = participants.map((item) => ({
-          contribution: item,
-          amount: (item.amount * BigInt(effectivePercent)) / 100n,
-        }));
-        const participantTotal = participantRefunds.reduce((sum, item) => sum + item.amount, 0n);
-        const organizerRefund = refundGross - participantTotal;
-        if (organizerRefund < 0n) throw new Error('D37 refund allocation is negative');
-        const allocations = [
-          ...participantRefunds,
-          { contribution: organizer, amount: organizerRefund },
-        ];
+      // BR-CM-19/20: hoàn đủ tiền giữ chờ kết quả; phần booking hoàn theo chính sách. Tổng chia 50:50 giữa hai đội.
+      const reserveRefund = matchFunding.resultReserveStatus === 'locked' ? matchFunding.resultReserve : 0n;
+      if (refundGross + reserveRefund > 0n) {
+        const settled = matchFunding.contributions.filter((item) => item.status === 'settled');
+        const allocations = allocateMatchCancellationRefund(settled, refundGross + reserveRefund);
+        if (reserveRefund > 0n) {
+          await postLedgerEntry(tx, {
+            walletId: platform.id, amount: -reserveRefund, type: 'refund',
+            refType: 'matchResultReserve', refId: matchFunding.matchId, field: 'reserved',
+          });
+        }
         for (const allocation of allocations) {
           if (allocation.amount > 0n) {
             const personal = await getOrCreatePersonalWallet(tx, allocation.contribution.userId);
@@ -151,21 +175,23 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
             data: { status: 'refunded', refundedAt: new Date() },
           });
         }
-        await postLedgerEntry(tx, {
-          walletId: business.id,
-          amount: -businessReversal,
-          type: 'refund',
-          refType: 'booking',
-          refId: payload.bookingId,
-          field: 'pending',
-        });
-        await postLedgerEntry(tx, {
-          walletId: platform.id,
-          amount: -commissionReversal,
-          type: 'refund',
-          refType: 'booking',
-          refId: payload.bookingId,
-        });
+        if (refundGross > 0n) {
+          await postLedgerEntry(tx, {
+            walletId: business.id,
+            amount: -businessReversal,
+            type: 'refund',
+            refType: 'booking',
+            refId: payload.bookingId,
+            field: 'pending',
+          });
+          await postLedgerEntry(tx, {
+            walletId: platform.id,
+            amount: -commissionReversal,
+            type: 'refund',
+            refType: 'booking',
+            refId: payload.bookingId,
+          });
+        }
         await tx.bookingRevenue.updateMany({
           where: { bookingId: payload.bookingId },
           data: { net: { decrement: businessReversal }, commission: { decrement: commissionReversal }, cancelledAt: new Date() },
@@ -177,7 +203,11 @@ export async function refundCancelledBooking(eventId: string, rawPayload: unknow
         await tx.bookingRevenue.updateMany({ where: { bookingId: payload.bookingId }, data: { cancelledAt: new Date() } });
       }
       await tx.matchFunding.update({
-        where: { matchId: matchFunding.matchId }, data: { status: 'cancelled', cancelledAt: new Date() },
+        where: { matchId: matchFunding.matchId },
+        data: {
+          status: 'cancelled', cancelledAt: new Date(),
+          ...(reserveRefund > 0n ? { resultReserveStatus: 'refunded' as const } : {}),
+        },
       });
       await tx.processedEvent.create({ data: { eventId } });
       return;

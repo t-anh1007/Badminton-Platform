@@ -11,6 +11,7 @@ import type {
   MatchCancelledPayload,
   MatchBookingResolutionPayload,
   MatchSettlementTooLatePayload,
+  MatchFundingCompletedPayload,
 } from '@khoaluantn/shared';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import { HttpVenueBookingClient } from '../clients/venueBooking.js';
@@ -237,6 +238,27 @@ export async function handleMatchFeePaymentCompleted(
   });
 }
 
+/** Finance đã chốt phần tiền sân (hold: sau khi Venue xác nhận; booking đã thanh toán: sau khi hoàn chênh lệch).
+ * Idempotent: kèo đã confirmed qua BookingConfirmed thì không đổi gì. */
+export async function handleMatchFundingCompleted(eventId: string, raw: MatchFundingCompletedPayload, now = new Date()) {
+  const payload = z.object({
+    matchId: z.string().uuid(), bookingId: z.string().uuid(), sourceType: z.enum(['hold', 'paid_booking']),
+  }).strict().parse(raw);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.matchId}, 0))`;
+    if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
+    const match = await tx.match.findUnique({ where: { id: payload.matchId } });
+    if (match && match.bookingId === payload.bookingId && match.status === 'filled' && match.fundingRequestedAt) {
+      await tx.match.update({ where: { id: match.id }, data: { status: match.completedAt ? 'completed' : 'confirmed' } });
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
+        title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất phần tiền kèo trước hạn chốt kèo.',
+      });
+    }
+    await tx.processedEvent.create({ data: { eventId, processedAt: now } });
+  });
+}
+
 export async function handleBookingConfirmedForMatch(
   eventId: string,
   raw: BookingConfirmedPayload,
@@ -247,7 +269,9 @@ export async function handleBookingConfirmedForMatch(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.bookingId}, 0))`;
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
     const match = await tx.match.findUnique({ where: { bookingId: payload.bookingId } });
-    if (match && match.status === 'filled' && (match.fundingRequestedAt || match.feePerSlot === 0n)) {
+    // Kèo từ booking đã thanh toán chỉ xác nhận bằng MatchFundingCompleted (sau khi hoàn chênh lệch);
+    // BookingConfirmed của booking gốc có thể đến trễ và không nói gì về funding của kèo.
+    if (match && match.sourceType === 'hold' && match.status === 'filled' && (match.fundingRequestedAt || match.feePerSlot === 0n)) {
       await tx.match.update({
         where: { id: match.id },
         data: { status: match.completedAt ? 'completed' : 'confirmed' },
@@ -388,6 +412,8 @@ async function consumeMessage(
         eventIdOf(message),
         envelope.payload as BookingConfirmedPayload,
       );
+    } else if (envelope.type === 'MatchFundingCompleted') {
+      await handleMatchFundingCompleted(eventIdOf(message), envelope.payload as MatchFundingCompletedPayload);
     } else if (envelope.type === 'MatchSettlementFailed') {
       await handleMatchSettlementFailed(eventIdOf(message), envelope.payload as MatchSettlementTooLatePayload);
     } else if (envelope.type === 'BookingCompleted') {
@@ -419,6 +445,7 @@ export async function bootstrapMatchLifecycleEventConsumption(
   await channel.bindQueue(queueName, 'domain-events', 'PaymentCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'BookingConfirmed');
   await channel.bindQueue(queueName, 'domain-events', 'MatchSettlementFailed');
+  await channel.bindQueue(queueName, 'domain-events', 'MatchFundingCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'BookingCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'MatchBookingResolved');
   await channel.bindQueue(queueName, 'domain-events', 'ShutdownBookingCancellationRequested');

@@ -43,6 +43,26 @@ enum MatchFundingStatus {
   cancelled
 }
 
+/// Kèo cạnh tranh v2: nguồn tiền sân của kèo.
+enum MatchFundingSource {
+  hold
+  paid_booking
+}
+
+/// Vòng đời phần tiền giữ chờ kết quả (competitive-matches.md §10.2).
+enum ResultReserveStatus {
+  none
+  locked
+  released
+  refunded
+}
+
+/// cash: người chơi nộp qua số dư/SePay; booking_payment: phần chủ kèo đã trả bằng booking hiện có.
+enum MatchContributionSource {
+  cash
+  booking_payment
+}
+
 enum MatchContributionRole {
   participant
   organizer
@@ -319,6 +339,16 @@ model MatchFunding {
   bookingPrice          BigInt
   organizerContribution BigInt
   cutoffAt              DateTime
+  sourceType            MatchFundingSource @default(hold)
+  discipline            String             @default("singles")
+  ratio                 String             @default("5:5")
+  /// bookingPrice + resultReserve; bằng tổng contribution của cả kèo.
+  totalContribution     BigInt
+  resultReserve         BigInt             @default(0)
+  resultReserveStatus   ResultReserveStatus @default(none)
+  /// Nguồn booking đã thanh toán: phần chủ kèo trả dư được hoàn vào ví cá nhân lúc chốt kèo.
+  organizerRebalance    BigInt             @default(0)
+  resultFinalizedAt     DateTime?
   status                MatchFundingStatus @default(collecting)
   settlementAttemptId   String?
   settlementVenueRevision Int @default(0)
@@ -338,6 +368,9 @@ model MatchContribution {
   joinId          String?                 @unique
   userId          String
   role            MatchContributionRole
+  /// Đội; null cho contribution trước v2.
+  teamSide        String?
+  source          MatchContributionSource @default(cash)
   amount          BigInt
   status          MatchContributionStatus @default(pending)
   expiresAt       DateTime?
