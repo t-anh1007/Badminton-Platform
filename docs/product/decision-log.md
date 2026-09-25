@@ -1,7 +1,7 @@
 ---
 type: decision-log
 status: living
-updated: 2026-09-21
+updated: 2026-09-25
 purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các giai đoạn sản phẩm.
 ---
 
@@ -68,6 +68,8 @@ purpose: Nhật ký quyết định, giả định và mâu thuẫn xuyên các 
 | D53 | 2026-09-21 | **Chỉ settlement kèo tại `cutoffAt`:** participant trả đủ trước cutoff làm kèo `filled`, nhưng booking vẫn `held` và các contribution vẫn ở `reserved`. Participant rút trước cutoff được hoàn 100% và kèo trở lại `open`. Tại cutoff, kèo đủ người/tiền mới phát `MatchConfirmed` để settlement; kèo thiếu người/tiền bị hủy và hoàn. Venue giữ thêm grace kỹ thuật 5 phút sau cutoff để scheduler chốt nguyên tử. Quyết định này thay phần “settlement ngay” của D50 và khiến D36 chỉ còn là bảo vệ race/booking đã thực sự confirmed, không phải luồng thông thường trước cutoff. **PO duyệt 2026-09-21.** | MMP-06, MMP-07, MMP-08, FIN-05 |
 | D54 | 2026-09-21 | **Cảnh báo lịch cá nhân chồng lấn, không cấm tuyệt đối:** trước khi tạo booking/tạo kèo hoặc giữ slot/thanh toán tham gia kèo, hệ thống tổng hợp booking `held/confirmed` và kèo đang hoạt động của player. Nếu thời gian giao nhau, UI dừng thao tác, liệt kê lịch trùng và chỉ tiếp tục sau xác nhận tường minh “Vẫn tiếp tục”. Không hard-block vì player có thể đặt hộ người khác. **PO duyệt 2026-09-21.** | BOK-05..07, MMP-02, MMP-04..06 |
 | D55 | 2026-09-23 | **Ngừng hoạt động sân/cơ sở theo ba chế độ:** (1) ngừng nhận lịch mới nhưng phục vụ hết cam kết hiện hữu; (2) đóng từ 00:00 ngày đã chọn theo giờ Việt Nam, hủy ngay và hoàn 100% booking có `endAt > effectiveAt`; (3) ngừng ngay do sự cố, hủy và hoàn 100% mọi booking có `endAt > now`, kể cả ca đang diễn ra. Có thể chuyển chế độ theo hướng an toàn; booking đã hủy không được phục hồi; emergency có hiệu lực là terminal. Thông báo hủy/hoàn tiền là bắt buộc. Không đổi sân thay thế hoặc chia sẻ số điện thoại. Quyết định này supersede D5 **chỉ** cho thao tác ngừng hoạt động; chỉnh lịch/ngày nghỉ thông thường vẫn bị D5 chặn. **PO duyệt 2026-09-23.** | VEN-04, VEN-05, BOK-06..10, FIN-06, FIN-08, MMP-07..08 |
+| D56 | 2026-09-25 | **Kèo cạnh tranh v2 — PO duyệt:** spec `specs/competitive-matches.md` áp dụng cho nguồn hold/booking đã trả, singles/doubles, ratio 5:5/6:4/7:3, result reserve rút được, kết quả có ảnh, 12 giờ khai báo; bản khai hợp lệ đầu tiên mở 12 giờ phản hồi/khiếu nại; nếu không có bản khai thì mở thêm 12 giờ khai sự cố. Booking đã thanh toán reuse settlement/revenue/commission hiện hữu; cutoff không settlement `P` hoặc ghi commission lần hai. Provider chỉ đề xuất non-binding, Admin quyết định cuối; có rating đơn/đôi, BXH theo kỳ, badge và thưởng Admin. Không Court Credit/XP riêng. D56 supersede D28, D29, D33, D37 và phần tự khai lại của D26/D47; giữ D39/D40/D52/D53. **Đặc biệt: hết SLA Admin không auto-settle theo đề xuất provider hoặc bất kỳ fallback nào.** | MMP-02, MMP-06..11, FIN-05, F-01, F-09..11 |
+| D57 | 2026-09-25 | **Làm rõ rounding và rolling 7 ngày của D56 — PO duyệt:** nếu đội nhận tiền không có chủ kèo, phần lẻ VND giao cho thành viên gia nhập đội đó sớm nhất theo thứ tự JOIN hiện có; không tạo cơ chế chia phần lẻ mới. Chống lặp rating dùng `finalizedAt`: kết quả được chốt chính thức trước chiếm suất trước; kết quả cùng opponent/opponent-pair được chốt sau trong khoảng nhỏ hơn 7 ngày không tính rating/BXH/badge, còn chênh đúng 7 ngày vẫn đủ điều kiện. | MMP-06..11, FIN-05, F-01 |
 
 ### Lý do đáng ghi nhớ
 

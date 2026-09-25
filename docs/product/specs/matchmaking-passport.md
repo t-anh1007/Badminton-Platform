@@ -4,11 +4,16 @@ module: matchmaking-passport
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-08
+updated: 2026-09-25
 source: docs/SCOPE_BASELINE.md §2.5, docs/product/phasing.md §4, docs/architecture/system-architecture.md §6.3
 ---
 
 # Functional Spec — `matchmaking-passport` (MMP + F-01/02/03/04/07)
+
+> **Authority update 2026-09-25:** các rule về tạo/funding kèo, kết quả,
+> khai trình độ, rating đơn/đôi, BXH, badge và thưởng đã được thay thế/mở rộng bởi
+> [`competitive-matches.md`](competitive-matches.md) theo D56. Nội dung cũ dưới
+> đây chỉ còn hiệu lực khi không mâu thuẫn với spec mới.
 
 11 UC nền + 5 tính năng mới, Giai đoạn 2. Service: `matchmaking-service` (schema `matchmaking`,
 schema-per-service D17 — không FK/query xuyên schema, chỉ giao tiếp qua API/event).

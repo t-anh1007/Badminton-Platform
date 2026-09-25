@@ -1,8 +1,8 @@
 ---
 type: phasing
 status: approved
-updated: 2026-08-05
-approved: 2026-08-05
+updated: 2026-09-25
+approved: 2026-09-25
 owner: Tuan Anh (PO)
 builds_on: docs/SCOPE_BASELINE.md
 ---
@@ -29,6 +29,7 @@ lại từ `SCOPE_BASELINE.md`.
 | 2026-08-09 | Chèn **Giai đoạn 2.5 — Tinh chỉnh UI/UX theo Playo.co** giữa GĐ2 và GĐ3 (mục 4B). **0 UC nền mới** — chỉ re-skin/re-layout `apps/web` theo playo.co. Phần "UI/UX Polish" của GĐ3 (P3-M4) thu hẹp tương ứng. | D-UI1 (PO, phiên này) — xem `PLAN_PHASE2.5.md`, `docs/design/` |
 | 2026-08-13 | Chuyển visual authority của Phase 2.5 sang file Figma COURTIN `FHuhhmlhPSl8gOUuUx7az2`; Playo/ACTL chỉ còn là lịch sử. Không đổi UC, vai trò, API, service hoặc scope chức năng. | D45 — PO |
 | 2026-08-14 | Bổ sung delivery UI/UX đã duyệt: shell theo context role, payment terminal dùng hạn hold backend, khai trình độ cooldown 7 ngày và tối đa bốn ảnh Community có ownership storage. | D46–D48 — PO |
+| 2026-09-25 | Phê duyệt kèo cạnh tranh 5:5/6:4/7:3, kết quả có bằng chứng, rating đơn/đôi, BXH theo kỳ và chương trình thưởng Admin. Bổ sung F-09..11; spec hợp nhất tại `specs/competitive-matches.md`. | D56 — PO |
 
 > D1 thay thế cách diễn đạt "lát cắt dọc mỏng" ở [ADR 0001](../decisions/0001-tech-stack.md)
 > và [ADR 0002](../decisions/0002-tech-stack-microservices.md). Hai ADR đó vẫn đúng về
@@ -70,11 +71,11 @@ chuyển sang hệ mã module, để tránh lệch tham chiếu với tài liệ
 | Giai đoạn | Module | Số chức năng | Vai trò |
 |---|---|---:|---|
 | **GĐ1** | account-access, venue-scheduling, court-booking, finance-disputes | **40** | Nền tảng + hành trình đặt sân trả tiền hoàn chỉnh |
-| **GĐ2** | matchmaking-passport, community-support, ai, + `FIN-05` | **22 UC + 5 tính năng mới** | Cộng đồng, ghép kèo, lớp AI — điểm nhấn bảo vệ |
+| **GĐ2** | matchmaking-passport, community-support, ai, + `FIN-05` | **22 UC + 8 tính năng mới** | Cộng đồng, ghép kèo, cạnh tranh, BXH, thưởng và lớp AI |
 | **GĐ2.5** | `apps/web` (frontend) | **0 UC nền** | Tinh chỉnh UI/UX toàn bộ trang theo playo.co (~90–100%). Chỉ FE + docs design, không đụng service/API. Xem mục 4B. |
 | **GĐ3** | — | **0 UC nền** | Hoàn thiện, kiểm thử, tài liệu, bàn giao. `F-05` nếu tái kích hoạt. |
 
-Tổng: 62 UC nền (40 + 22) + 5 tính năng mới được chấp nhận + 1 hoãn. Trong đó 61 UC đến từ
+Tổng: 62 UC nền (40 + 22) + 8 tính năng mới được chấp nhận + 1 hoãn. Trong đó 61 UC đến từ
 `SCOPE_BASELINE` và 1 UC (`FIN-14`) được bổ sung ngày 2026-08-05 theo D15.
 
 ---
@@ -179,6 +180,9 @@ mới phải được PO duyệt riêng và ghi vào bảng này.
 | F-03 | Ghép kèo live (Tìm nhanh + lấp chỗ) | GĐ2 | Ngôi sao demo. Tái dùng cơ chế hold 10 phút và chống đặt trùng của GĐ1. | MMP-04, MMP-05, MMP-06 |
 | F-04 | Gom nhóm lẻ cân bằng | GĐ2 | Bài toán tối ưu, giá trị học thuật. Discovery mục 10 xếp "nên có". | MMP-01, F-01 |
 | F-07 | Trợ lý đánh giá công bằng | GĐ2 | Rẻ, chống lạm dụng, giữ Passport sạch. | MMP-10 |
+| F-09 | Kèo cạnh tranh và kết quả có bằng chứng | GĐ2 | Hoàn thiện cam kết 5:5/6:4/7:3, tỷ số, khiếu nại và settlement kết quả. | MMP-02, MMP-06..08, FIN-05 |
+| F-10 | BXH theo kỳ, rating đơn/đôi và badge | GĐ2 | Biến kết quả ranked thành tiến trình cạnh tranh công khai, tách đơn/đôi. | MMP-09, MMP-11, F-01 |
+| F-11 | Chương trình thưởng Admin | GĐ2 | Admin treo tiền theo tiêu chí hệ thống; hệ thống tính, Admin duyệt và chuyển thủ công. | F-10, FIN-11 |
 
 ### 4.4. Tính năng hoãn
 

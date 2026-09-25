@@ -4,12 +4,17 @@ module: finance-disputes
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-09
+updated: 2026-09-25
 extends: docs/product/specs/finance-disputes.md
 source: docs/product/phasing.md §4.2, docs/architecture/system-architecture.md §6.3
 ---
 
 # Functional Spec (phụ lục GĐ2) — FIN-05 Thanh toán phí tham gia kèo
+
+> **Authority update 2026-09-25:** mô hình chia đều đúng `P` dưới đây đã được
+> thay thế bởi contribution + result reserve 5:5/6:4/7:3 trong
+> [`competitive-matches.md`](competitive-matches.md) theo D56. Các bất biến
+> ledger, idempotency, fencing và service ownership không mâu thuẫn vẫn giữ.
 
 Phụ lục cho `finance-disputes.md` (GĐ1). FIN-05 là chức năng GĐ1 duy nhất có phụ thuộc ngược nên
 dời sang GĐ2 (D2, phasing §4.2): `finance-service` consume sự kiện của `matchmaking-service`.
