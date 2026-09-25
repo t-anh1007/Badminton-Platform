@@ -18,14 +18,17 @@ export async function suggestAiMatches(
   filters: AiMatchSearchFilters,
   matchmakerClient?: MatchmakerExplanationClient,
 ) {
-  const passport = await prisma.passport.findUnique({ where: { userId: playerUserId } });
-  if (!passport) {
+  const passports = new Map((await prisma.passport.findMany({ where: { userId: playerUserId } }))
+    .map((passport) => [passport.discipline, passport]));
+  if (passports.size === 0) {
     throw new AppError(409, 'PASSPORT_REQUIRED', 'Create a Passport before requesting match suggestions.');
   }
 
+  // Chỉ gợi ý kèo thuộc loại hình người chơi đã có Passport (BR-CM-44).
   const matches = (await findPublicMatches(venueBookingClient, { ...filters, skill: undefined }))
-    .filter((match) => match.organizerUserId !== playerUserId);
+    .filter((match) => match.organizerUserId !== playerUserId && passports.has(match.discipline));
   const entries = matches.map((match) => {
+    const passport = passports.get(match.discipline)!;
     const skillMin = match.skillMin ?? match.skillMax;
     const skillMax = match.skillMax ?? match.skillMin;
     const targetRating = skillMin && skillMax

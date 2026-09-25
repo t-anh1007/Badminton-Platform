@@ -49,6 +49,7 @@ export async function listPendingJoins(matchId: string, organizerUserId: string)
   });
   const passports = await prisma.passport.findMany({
     where: {
+      discipline: match.discipline,
       userId: {
         in: [match.organizerUserId, ...joins.map((join) => join.participantUserId)],
       },

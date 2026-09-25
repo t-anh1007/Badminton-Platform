@@ -76,6 +76,7 @@ import {
   removePost,
   restoreContent,
   setTicketStatus,
+  decideRatingCorrection,
 } from '../domain/community.js';
 import { requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
@@ -105,13 +106,29 @@ const moderationBody = z
   })
   .strict();
 const restorationBody = z.object({ reason: z.string().trim().min(1).max(1_000) }).strict();
+const skillTierSchema = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const ticketBody = z
   .object({
     subject: z.string().trim().min(1).max(120),
     body: z.string().trim().min(1).max(1_000),
     evidence: z.array(z.string().min(1).max(500)).max(5).optional(),
+    type: z.enum(['general', 'rating_correction']).default('general'),
+    metadata: z.object({
+      discipline: z.enum(['singles', 'doubles']),
+      requestedTier: skillTierSchema,
+    }).strict().optional(),
   })
-  .strict();
+  .strict()
+  .refine((input) => (input.type === 'rating_correction') === (input.metadata !== undefined), {
+    message: 'metadata is required exactly for rating_correction tickets', path: ['metadata'],
+  });
+const correctionDecisionBody = z.object({
+  decision: z.enum(['approve', 'reject']),
+  approvedTier: skillTierSchema.optional(),
+  reason: z.string().trim().min(1).max(1_000),
+}).strict().refine((input) => input.decision === 'approve' || input.approvedTier === undefined, {
+  message: 'approvedTier only applies to approval', path: ['approvedTier'],
+});
 const ticketStatus = z.object({ status: z.enum(['resolved', 'closed']) }).strict();
 const pagination = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -317,6 +334,7 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
             input.body,
             input.evidence ?? [],
             input.evidence?.length ? resolveObjectStorage?.() : undefined,
+            input.metadata,
           );
       res.status(201).json(await attachTicketEvidenceUrls(resolveObjectStorage, ticket));
     }),
@@ -346,6 +364,15 @@ export function createCommunityRouter(accountEligibilityClient: AccountEligibili
             body,
           ),
         );
+    }),
+  );
+  router.post(
+    '/tickets/:ticketId/rating-correction-decision',
+    requireAuth,
+    requireAdmin,
+    withErrorHandling(async (req, res) => {
+      const input = correctionDecisionBody.parse(req.body);
+      res.status(200).json(await decideRatingCorrection(uuid.parse(req.params.ticketId), (req as AuthenticatedRequest).user!.id, input));
     }),
   );
   router.post(

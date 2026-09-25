@@ -1036,11 +1036,11 @@ Migrate every existing Passport to `singles`. `PUT /passports/me/declaration` re
 
 The own-Passport response exposes business-ready stability fields for screen 06 without exposing raw formulas: each discipline returns `rating`, `matchesPlayed`, `ratingStability: 'high_uncertainty' | 'established'`, and `leaderboardVisible`. React maps these values to approved Vietnamese labels and never displays the raw `sigma` value. Paginated match history is added by Task 18 after rated results exist; do not keep embedding an unbounded `recentMatches` array in `GET /passports/me`.
 
-- [ ] Replace old cooldown/re-declaration tests with first-declaration-only tests per discipline and concurrent duplicate declaration.
-- [ ] Write migration SQL that preserves every existing rating/RD/sigma/matchesPlayed value as singles.
-- [ ] Change all Prisma lookups to composite IDs and extend `RatingPeriodReady` with discipline.
-- [ ] Keep `rating.ts` Glicko-2 math and D26 constants unchanged.
-- [ ] Run Passport/rating tests. Expected: declaring doubles never changes singles and legacy rating is preserved.
+- [x] Replace old cooldown/re-declaration tests with first-declaration-only tests per discipline and concurrent duplicate declaration.
+- [x] Write migration SQL that preserves every existing rating/RD/sigma/matchesPlayed value as singles.
+- [x] Change all Prisma lookups to composite IDs and extend `RatingPeriodReady` with discipline.
+- [x] Keep `rating.ts` Glicko-2 math and D26 constants unchanged.
+- [x] Run Passport/rating tests. Expected: declaring doubles never changes singles and legacy rating is preserved.
 
 **Depends on:** Task 4. **Blocks:** Tasks 16–20, 24.
 
@@ -1074,11 +1074,11 @@ POST /tickets/:ticketId/rating-correction-decision
 
 Approval emits `RatingCorrectionApproved { ticketId, userId, discipline, approvedTier, adminUserId }`. Matchmaking consumes idempotently: zero matches resets to the tier center; any played matches uses existing `redeclarationRating` and preserves RD/sigma, capped at ±50.
 
-- [ ] Add failing tests for requester ownership, wrong ticket type/status, required reason, duplicate decision, zero-match reset, played bounded shift, and event replay.
-- [ ] Add only the structured fields needed to the existing Ticket; do not build a second ticket system.
-- [ ] Emit the event in the same transaction that resolves the ticket.
-- [ ] Consume through the existing Matchmaking event infrastructure and store ticket/admin IDs in an audit row.
-- [ ] Run focused Community and Passport tests. Expected: no API lets the player directly alter an existing declared discipline.
+- [x] Add failing tests for requester ownership, wrong ticket type/status, required reason, duplicate decision, zero-match reset, played bounded shift, and event replay.
+- [x] Add only the structured fields needed to the existing Ticket; do not build a second ticket system.
+- [x] Emit the event in the same transaction that resolves the ticket.
+- [x] Consume through the existing Matchmaking event infrastructure and store ticket/admin IDs in an audit row.
+- [x] Run focused Community and Passport tests. Expected: no API lets the player directly alter an existing declared discipline.
 
 **Depends on:** Tasks 2, 15. **Blocks:** final Passport UI.
 
@@ -1114,11 +1114,11 @@ The Admin list returns `{ items, total, page, pageSize }`; each item contains `i
 
 Region may be set exactly once per season and is required before creating/joining a ranked match. Friendly matches do not require it.
 
-- [ ] Add failing tests for overlap, exact boundary adjacency, one active season, paginated Admin list fields/counts, first region selection, second selection rejection, and invalid province.
-- [ ] Add schema/migration and transactional season functions.
-- [ ] Add player/Admin routes with current role middleware.
-- [ ] Add ranked create/join guard to Task 5 flow; do not block friendly play.
-- [ ] Run focused tests. Expected: season rollover preserves Passport but starts empty season stats/eligibility.
+- [x] Add failing tests for overlap, exact boundary adjacency, one active season, paginated Admin list fields/counts, first region selection, second selection rejection, and invalid province.
+- [x] Add schema/migration and transactional season functions.
+- [x] Add player/Admin routes with current role middleware.
+- [x] Add ranked create/join guard to Task 5 flow; do not block friendly play.
+- [x] Run focused tests. Expected: season rollover preserves Passport but starts empty season stats/eligibility.
 
 **Depends on:** Tasks 2, 5, 15. **Blocks:** Tasks 18–20, 24–25.
 
@@ -1203,15 +1203,15 @@ interface PassportMatchHistoryResponse {
 
 Do not add historical-rank snapshots for the decorative seven-day movement shown in the mockup. Screen 07 pins the current viewer row and current rank only; a movement badge renders only if a future authoritative contract supplies it.
 
-- [ ] Add tests for friendly/no-result exclusion, singles/doubles independence, doubles aggregate opponent rating/RD, replay, own-teammate changes, same opposing pair with `finalizedAt` inside/exactly at seven days, RabbitMQ delivery order differing from `finalizedAt`, and an older match by `endAt` finalized after a newer match.
-- [ ] Add tests for five-result eligibility, RD 199.999/200, province match count, crossing 1600 immediately, public-field allowlist, and ties.
-- [ ] Add API tests for leaderboard pagination, pinned viewer data, and independent paginated singles/doubles match history with nullable non-rated `ratingDelta`.
-- [ ] Extend the existing Matchmaking Account client with the existing Account endpoint `POST /internal/players/public-display-names`; enrich one leaderboard page plus the viewer row in the route response. Do not copy account profile data into rating/season tables.
-- [ ] Reuse `updateRating`; for doubles pass one result whose opponent rating/RD are arithmetic means of the two opponent states.
-- [ ] Update Passport, `MatchRatingChange`, `RatedEncounter`, and `SeasonStat` in one user-scoped transaction under advisory lock.
-- [ ] Start a weekly UTC scheduler that calls `updateRating(state, [])` once per missed whole seven-day period and caps RD at 350; persist `lastAgedAt` so replay is a no-op.
-- [ ] Query leaderboards from persisted season stats/passports; do not maintain a cache or new search index.
-- [ ] Run focused tests. Expected: one result changes each user once, extra encounters remain visible but do not affect rating/BXH/streak/badge.
+- [x] Add tests for friendly/no-result exclusion, singles/doubles independence, doubles aggregate opponent rating/RD, replay, own-teammate changes, same opposing pair with `finalizedAt` inside/exactly at seven days, RabbitMQ delivery order differing from `finalizedAt`, and an older match by `endAt` finalized after a newer match.
+- [x] Add tests for five-result eligibility, RD 199.999/200, province match count, crossing 1600 immediately, public-field allowlist, and ties.
+- [x] Add API tests for leaderboard pagination, pinned viewer data, and independent paginated singles/doubles match history with nullable non-rated `ratingDelta`.
+- [x] Extend the existing Matchmaking Account client with the existing Account endpoint `POST /internal/players/public-display-names`; enrich one leaderboard page plus the viewer row in the route response. Do not copy account profile data into rating/season tables.
+- [x] Reuse `updateRating`; for doubles pass one result whose opponent rating/RD are arithmetic means of the two opponent states.
+- [x] Update Passport, `MatchRatingChange`, `RatedEncounter`, and `SeasonStat` in one user-scoped transaction under advisory lock.
+- [x] Start a weekly UTC scheduler that calls `updateRating(state, [])` once per missed whole seven-day period and caps RD at 350; persist `lastAgedAt` so replay is a no-op.
+- [x] Query leaderboards from persisted season stats/passports; do not maintain a cache or new search index.
+- [x] Run focused tests. Expected: one result changes each user once, extra encounters remain visible but do not affect rating/BXH/streak/badge.
 
 **Depends on:** Tasks 12–15 and 17. **Blocks:** Tasks 19–20, 24–25.
 
@@ -1234,11 +1234,11 @@ Do not add historical-rank snapshots for the decorative seven-day movement shown
 
 **Badge keys:** `WIN_STREAK_5`, `WIN_STREAK_10`, `WIN_STREAK_15`, continuing for every multiple of five; `TOP_10`; `KING_OF_COURT`. Unique key is `[userId, discipline, seasonId, badgeType, scope, provinceCode]`.
 
-- [ ] Add tests for each streak threshold, loss reset, friendly/no-result/anti-farm exclusion, season close Top 10, rank 1, tie ranks, and replay.
-- [ ] Award streak badges inside the successful rated-result transaction.
-- [ ] Award Top 10/King only when season close locks final eligible rankings.
-- [ ] Return badges from own/public Passport using business labels, not raw enum values.
-- [ ] Run focused tests. Expected: badges persist across later seasons and never write finance/rating fields.
+- [x] Add tests for each streak threshold, loss reset, friendly/no-result/anti-farm exclusion, season close Top 10, rank 1, tie ranks, and replay.
+- [x] Award streak badges inside the successful rated-result transaction.
+- [x] Award Top 10/King only when season close locks final eligible rankings.
+- [x] Return badges from own/public Passport using business labels, not raw enum values.
+- [x] Run focused tests. Expected: badges persist across later seasons and never write finance/rating fields.
 
 **Depends on:** Task 18. **Blocks:** Task 24.
 
@@ -1281,11 +1281,11 @@ Published fields `criterion`, scope, discipline, band, province, start/end, and 
 
 All four criteria use only rated results whose Match `endAt` is inside the inclusive interval `[program.startAt, program.endAt]`. `ending_rating` is the user's last persisted `ratingAfter` at or before `program.endAt`; the program band check uses that same ending rating, so a player who crosses 1600 during the program competes in the upper band at finalization.
 
-- [ ] Add failing tests for the exact create payload, funding-source metadata, paginated Admin list, public detail/countdown/viewer projection, invalid date/season range, no tiers, mutation after publish, permitted cancellation, all four criteria, crossing 1600, pending result wait, multi-position tie split, and Admin final approval.
-- [ ] Add schema and domain using SeasonStat/MatchRatingChange only; do not add a generic rules engine.
-- [ ] Add public/Admin routes and a scheduler for scheduled->active->reconciling transitions.
-- [ ] On final approval emit one `RewardAwardsFinalized` event with seven-day claim deadlines.
-- [ ] Run focused tests. Expected: Admin cannot manually alter calculated scores/ranks/winners.
+- [x] Add failing tests for the exact create payload, funding-source metadata, paginated Admin list, public detail/countdown/viewer projection, invalid date/season range, no tiers, mutation after publish, permitted cancellation, all four criteria, crossing 1600, pending result wait, multi-position tie split, and Admin final approval.
+- [x] Add schema and domain using SeasonStat/MatchRatingChange only; do not add a generic rules engine.
+- [x] Add public/Admin routes and a scheduler for scheduled->active->reconciling transitions.
+- [x] On final approval emit one `RewardAwardsFinalized` event with seven-day claim deadlines.
+- [x] Run focused tests. Expected: Admin cannot manually alter calculated scores/ranks/winners.
 
 **Depends on:** Tasks 17–18. **Blocks:** Tasks 21, 25.
 
@@ -1324,12 +1324,12 @@ Player information input is exactly `{ recipientName, email, phone, address, ban
 
 No wallet or ledger entry is created because Admin pays from separate marketing/sponsor funds.
 
-- [ ] Add tests for event replay, paginated Admin list/detail, owner-only player detail/submission, the exact information fields, all required fields, exact seven-day boundary, no reallocation after cancellation, seven-day payout deadline, proof ownership/checksum, duplicate transaction reference, and paid immutability.
-- [ ] Consume `RewardAwardsFinalized` idempotently and create payout rows.
-- [ ] Use `finance/rewards` private storage namespace for proof; only Admin and the winning owner may read the resulting record, and bank fields never enter public APIs.
-- [ ] Add a scheduler that cancels `awaiting_information` only after claim deadline; `ready_to_pay` remains due/overdue and is never auto-cancelled.
-- [ ] Mark paid only after a second-confirmation request containing transaction reference and committed proof.
-- [ ] Run focused Finance tests. Expected: expired claim is cancelled permanently; successful payout has reference/proof and no match-fund mutation.
+- [x] Add tests for event replay, paginated Admin list/detail, owner-only player detail/submission, the exact information fields, all required fields, exact seven-day boundary, no reallocation after cancellation, seven-day payout deadline, proof ownership/checksum, duplicate transaction reference, and paid immutability.
+- [x] Consume `RewardAwardsFinalized` idempotently and create payout rows.
+- [x] Use `finance/rewards` private storage namespace for proof; only Admin and the winning owner may read the resulting record, and bank fields never enter public APIs.
+- [x] Add a scheduler that cancels `awaiting_information` only after claim deadline; `ready_to_pay` remains due/overdue and is never auto-cancelled.
+- [x] Mark paid only after a second-confirmation request containing transaction reference and committed proof.
+- [x] Run focused Finance tests. Expected: expired claim is cancelled permanently; successful payout has reference/proof and no match-fund mutation.
 
 **Depends on:** Tasks 2 and 20. **Blocks:** Task 25 and final E2E.
 
@@ -1644,6 +1644,14 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - 2026-09-26 (PO): Approved one claim per player per case (RESULT_CLAIM_EXISTS); a wrong claim is corrected through objection/incident. viewerMoney.heldForResult is the viewer's own share of the result reserve = floor(viewer contribution * resultReserve / totalContribution), replacing the whole-match reserve from the T11 note.
 - 2026-09-26: Finance v2 e2e adds the D39 race: a withdrawal persisted before cutoff and the cutoff settlement both reach Venue at revision 0; the withdrawal wins, the participant is refunded, the stale settlement is held_revoked, funding returns to collecting and the next cutoff sweep cancels the underfilled match with full refunds and no BookingRevenue/settlement ledger. RUN_P2_FIN_E2E=1 matchFee.e2e 4/4.
 - 2026-09-26 G3 Codex review fixes: (1) Admin preview returns previewToken = HMAC(JWT_SECRET, admin, case, version, outcome, reason); POST admin-decision additionally requires previewToken and rejects any other outcome/reason/admin with RESULT_PREVIEW_MISMATCH (PO chose option a; preview stays read-only). (2) Evidence upload is allowed before a result case exists for the locked roster of a confirmed/completed match, so pre/during-match incidents can attach evidence. (3) result_evidence.objectKey is globally unique (migration 20260926101000_result_evidence_object_unique); one object belongs to one case, so retention can never delete another case's binary. (4) JoinApprovedPayload.joinedAt (optional) carries the authoritative JOIN time; Finance stores MatchContribution.joinedAt (migration 20260926100000_contribution_joined_at) and orders remainders by it, falling back to createdAt for legacy rows. (5) objectionOpenUntil = teamGraceDeadlineAt ?? objectionDeadlineAt and is the single deadline used by the API, DTO and finalizer. (6) Player result-case view adds finalOutcome (case outcome when final) independent of claims. (7) Retention/deadline/review sweeps accept optional matchIds so tests stay inside their fixtures.
+- T15: Passport PK is (userId, discipline); migration 20260925104000_dual_passports backfills every row as singles (default then dropped). A second self-declaration per discipline returns 409 LEVEL_ALREADY_DECLARED (cooldown removed; redeclarationRating stays in rating.ts for Task 16 corrections). RatingPeriodReady.discipline defaults to singles for events already queued. GET /passports/me returns { singles, doubles, canDeclare, evaluation fields, recentMatches } where each discipline view exposes declaredTier, tier, rounded rating, matchesPlayed, ratingStability (RD >= 200 = high_uncertainty) and leaderboardVisible (RD < 200; season eligibility arrives in Task 19); sigma/RD are not returned. recentMatches (already capped at 20) stays until Task 18 replaces it with paginated history, because the evaluation UI depends on it. Public Passport returns per-discipline { tier, matchesPlayed } only. Match detail, pending JOIN compatibility and AI suggestions read the Passport of the match discipline; AI only suggests disciplines the player has declared. Stale tests fixed on the way: aiMatchmaker.e2e join now sends teamSide and seeds MatchCreated (red since the G1 join contract, not previously run).
+- T16: Ticket gains type (general|rating_correction), metadata {discipline, requestedTier} (required exactly for rating_correction) and a one-time correctionDecision JSON {decision, approvedTier, reason, adminUserId, decidedAt}; the decision also resolves the ticket, posts the reason as an admin message and notifies the requester. approvedTier defaults to requestedTier and is rejected on reject. community-service now depends on @khoaluantn/shared for the payload type. The community migration excludes a pre-existing, unrelated account_locks default drift that prisma migrate diff reports. Matchmaking consumes RatingCorrectionApproved on the existing rating queue; idempotency is the unique PassportCorrection.ticketId audit row (ticket, admin, tier, previous/new rating, matchesPlayed). If the player has no Passport for that discipline the approval creates it at the approved tier center (same as the zero-match reset).
+- T17: Season status is derived (scheduled/active/closing from startAt/endAt, closed from closedAt) instead of a stored enum; POST close is allowed only after endAt. Overlap is rejected under a global advisory lock with half-open intervals (exact adjacency allowed); a started season cannot move startAt. SeasonStat holds per-season counters (matchesPlayed, wins, provinceMatches, current/longest win streak, ratingGain) for Tasks 18-20. Admin list eligiblePlayerCount = distinct users with >= 5 season results and RD < 200 in some discipline. The ranked region guard (SEASON_REGION_REQUIRED) runs at ranked create (before the hold is converted) and ranked join, but only while a season is active; with no active season ranked play is not blocked because no region can be chosen. /competition is served under the existing /api/matchmaking gateway prefix.
+- T18: reserveRatedResults runs inside the shared writeResultFinal transaction (match lock held), takes user advisory locks in sorted userId order, writes RatedEncounter (rated=false when an earlier rated encounter with the same opponentKey has finalizedAt within the last 7 days, exact 7 days allowed, or when a player lacks the discipline Passport) and emits RatingPeriodReady only for rated players with the opponent snapshot (doubles: arithmetic mean rating/RD). The consumer applies Passport + MatchRatingChange + SeasonStat in one user-locked transaction, skips non-rated encounters, and is idempotent by the unique MatchRatingChange as well as ProcessedEvent. Season stats go to the season whose [startAt, endAt) contains the match endAt; provinceMatches counts matches whose venue province equals the locked season province. Leaderboard ranks use RANK() over rounded rating (ties share a rank), eligibility = >= 5 season results and RD < 200 (+5 province matches for province scope), band from the current rating. Passport.lastAgedAt drives RD aging (null -> set without backfill; each rated result resets it); the aging sweep runs hourly and applies whole missed 7-day periods. AccountClient gains getPublicDisplayNames (existing internal endpoint); hidden identities show 'Người chơi'. GET /passports/me/matches covers final winner outcomes only (win/loss); scoreLabel is from the viewer side and empty when the result came from an Admin decision without a claim; recentMatches stays on /passports/me until the web switches (Task 23).
+- T19: PlayerBadge stores badgeType as the plan key string (WIN_STREAK_n, TOP_10, KING_OF_COURT), scope global|province and provinceCode '' for global so the unique key never contains NULL. Streak badges come from the season win streak inside the rated-result transaction (non-rated results never reach it, so friendly/NO_RESULT/over-limit are excluded). closeSeason awards TOP_10 (RANK() <= 10, ties included) and KING_OF_COURT (rank 1, ties included) for every discipline x band x (global + each chosen province) using the shared rankedBoardSql CTE, idempotent via skipDuplicates and the early return for closed seasons. Passport APIs return { label, disciplineLabel, seasonName, provinceName, awardedAt } without raw enum values.
+- T20: Program status is stored and advanced by a 60s sweep (scheduled->active at startAt, active->reconciling after endAt, reconciling->awaiting_admin_approval once no ranked match of that discipline with endAt inside the window lacks a final result, computing RewardAward rows at that moment). Publish requires a future startAt; there is no update endpoint, so published fields are immutable. Cancel: draft/scheduled directly; running requires a reason and notifies every player with a rated result in the window (emailPolicy required). Participants = players with >= 1 rated result whose Match.endAt is in [startAt, endAt]; band and province scope use the ending rating / locked season province; most_wins, largest_rating_gain and longest_streak require a positive score, ending_rating does not. MatchRatingChange gains won (set by the rating consumer) for win/streak criteria. RewardAwardsFinalizedPayload gains programName and per-award rank so Finance can label payouts; the claim deadline is approval time + 7 days. Public list excludes drafts; public detail returns countdown inputs, criterionLabel and the viewer's provisional rank/score while active or later.
+- T21: RewardPayout (unique awardId and transactionReference) is created from RewardAwardsFinalized with the program name and rank label; no wallet or ledger row is ever written. Information is accepted while now < claimDeadlineAt (at the deadline the claim is lost) and may be corrected while ready_to_pay; the first submission sets payoutDeadlineAt = +7 days. A 60s scheduler cancels only awaiting_information rows at/after the claim deadline with a notification; ready_to_pay rows are never auto-cancelled and the Admin view flags them overdue. Proof uploads use the private finance/rewards namespace with a signed checksum (<= 5 MB, owner = uploading Admin); mark-paid requires confirm:true, a transaction reference and a committed proof whose storage checksum exists, and paid rows reject any further mark-paid. Only the winning owner (player detail) and Admins receive a signed proof URL; bank fields exist only in Finance.
+- 2026-09-26 G4 Codex review fixes: (1+3) countPendingRatedWork = ranked matches in the window without a final result plus rated encounters without a MatchRatingChange; reward programs stay reconciling and closeSeason returns 409 SEASON_RESULTS_PENDING while it is non-zero. (2) ending_rating takes the most recently written ratingAfter (MatchRatingChange.createdAt) among in-window results; streaks keep match endAt order. (4) closeSeason snapshots finalRating/finalRd onto SeasonStat before awarding badges; leaderboards use COALESCE(snapshot, live Passport), so closed seasons never move (migration 20260926102000_g4_review_fixes). (5) RatedEncounter stores the reserved result (opponent rating/RD snapshot, score); a RatingPeriodReady event only triggers draining every unapplied rated encounter of that user/discipline in finalizedAt order, so rating chains and streak badges no longer depend on RabbitMQ delivery order. (6) GET /rewards/admin/programs/:id returns the stored awards (user, display name, rank, score, amount, total) before approve-final. (7) allocatePrizes drops zero-amount shares (the pool is still fully allocated), so Finance never receives a 0 award. (8) leaderboardVisible = RD < 200 and >= 5 results in the active season.
 
 ## Validation
 

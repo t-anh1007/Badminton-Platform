@@ -12,6 +12,7 @@ import {
   RATIO_FROM_DB, allocateResultReserve, calculateMatchFunding, losingSide, objectionOpenUntil, type MatchOutcome,
 } from './matchRules.js';
 import { participantIdentity } from './matches.js';
+import { reserveRatedResults } from './ratedResults.js';
 import { DECLARATION_WINDOW_MS, adminReviewNotification, lockMatch, openResultDispute, resultTeams } from './matchResults.js';
 import { inspectResultEvidence, insertResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
 
@@ -31,8 +32,11 @@ export async function writeResultFinal(tx: Tx, resultCase: MatchResultCase, outc
     aggregateType: 'Match', aggregateId: resultCase.matchId, eventType: 'MatchResultFinalized',
     payload: { matchId: resultCase.matchId, decisionId, outcome, finalizedAt: now.toISOString() } satisfies MatchResultFinalizedPayload,
   });
-  const match = await tx.match.findUniqueOrThrow({ where: { id: resultCase.matchId }, select: { id: true, organizerUserId: true } });
+  const match = await tx.match.findUniqueOrThrow({
+    where: { id: resultCase.matchId }, select: { id: true, organizerUserId: true, mode: true, discipline: true },
+  });
   const teams = await resultTeams(tx, match);
+  await reserveRatedResults(tx, match, teams, outcome, now);
   await writeResultNotification(tx, {
     recipients: Object.values(teams).flat().map((userId) => ({ type: 'user' as const, userId, targetRole: 'player' as const })),
     kind: 'match.result.final', title: 'Kết quả kèo đã chốt',

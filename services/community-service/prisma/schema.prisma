@@ -39,6 +39,12 @@ enum TicketStatus {
   closed
 }
 
+/// BR-CM-53: ticket sửa khai báo trình độ dùng chung hệ thống ticket hiện có.
+enum TicketType {
+  general
+  rating_correction
+}
+
 enum TicketSenderRole {
   player
   admin
@@ -110,6 +116,11 @@ model Ticket {
   requesterUserId String
   subject         String
   status          TicketStatus @default(open)
+  type            TicketType   @default(general)
+  /// rating_correction: { discipline, requestedTier }.
+  metadata        Json?
+  /// Quyết định Admin một lần: { decision, approvedTier, reason, adminUserId, decidedAt }.
+  correctionDecision Json?
   createdAt       DateTime     @default(now()) @db.Timestamptz(3)
   messages        TicketMessage[]
   evidence        TicketImage[]

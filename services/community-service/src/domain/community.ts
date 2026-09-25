@@ -1,3 +1,4 @@
+import type { RatingCorrectionApprovedPayload } from '@khoaluantn/shared';
 import type { AccountEligibilityClient } from '../clients/account.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
@@ -378,6 +379,9 @@ export async function restoreContent(targetType: ReportTarget, targetId: string,
   });
 }
 
+export type RatingCorrectionRequest = { discipline: 'singles' | 'doubles'; requestedTier: SkillTierName };
+type SkillTierName = RatingCorrectionApprovedPayload['approvedTier'];
+
 export async function createTicket(
   accountClient: AccountEligibilityClient,
   requesterUserId: string,
@@ -385,12 +389,16 @@ export async function createTicket(
   body: string,
   evidence: string[] = [],
   storage?: ObjectStorageClient,
+  ratingCorrection?: RatingCorrectionRequest,
 ) {
   await requireEligiblePlayer(accountClient, requesterUserId);
   const verifiedEvidence = await assertOwnedTicketEvidence(storage, requesterUserId, evidence);
   return prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.create({
-      data: { requesterUserId, subject, evidence: { create: verifiedEvidence.map((objectKey, position) => ({ objectKey, position })) } },
+      data: {
+        requesterUserId, subject,
+        ...(ratingCorrection && { type: 'rating_correction' as const, metadata: ratingCorrection }),
+        evidence: { create: verifiedEvidence.map((objectKey, position) => ({ objectKey, position })) } },
       include: { evidence: { orderBy: { position: 'asc' } } },
     });
     await tx.ticketMessage.create({
@@ -462,6 +470,60 @@ export async function addTicketMessage(
         : { recipient: { type: 'role', targetRole: 'admin' }, category: 'support', kind: 'support.replied', title: 'Khách hàng vừa phản hồi yêu cầu hỗ trợ', body: ticket.subject, priority: 'action_required', entityType: 'ticket', entityId: ticket.id, actionKind: 'admin.ticket.view', actionExpiresAt: null },
     });
     return message;
+  });
+}
+
+/**
+ * BR-CM-54: Admin quyết định ticket sửa khai báo đúng một lần, bắt buộc lý do. Duyệt thì phát
+ * RatingCorrectionApproved trong cùng transaction giải quyết ticket; Matchmaking áp dụng có giới hạn.
+ */
+export async function decideRatingCorrection(
+  ticketId: string,
+  adminUserId: string,
+  input: { decision: 'approve' | 'reject'; approvedTier?: SkillTierName; reason: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${ticketId}, 0))`;
+    const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
+    if (ticket.type !== 'rating_correction') {
+      throw new AppError(409, 'TICKET_NOT_RATING_CORRECTION', 'Ticket này không phải yêu cầu sửa khai báo trình độ.');
+    }
+    if (ticket.correctionDecision !== null) {
+      throw new AppError(409, 'RATING_CORRECTION_DECIDED', 'Yêu cầu này đã được quyết định.');
+    }
+    if (ticket.status === 'resolved' || ticket.status === 'closed') {
+      throw new AppError(409, 'TICKET_CLOSED', 'Ticket đã được giải quyết hoặc đóng.');
+    }
+    const request = ticket.metadata as RatingCorrectionRequest;
+    const approvedTier = input.decision === 'approve' ? input.approvedTier ?? request.requestedTier : null;
+    const decidedAt = new Date();
+    await tx.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        status: 'resolved',
+        correctionDecision: { decision: input.decision, approvedTier, reason: input.reason, adminUserId, decidedAt: decidedAt.toISOString() },
+      },
+    });
+    await tx.ticketMessage.create({ data: { ticketId, senderUserId: adminUserId, senderRole: 'admin', body: input.reason } });
+    if (approvedTier) {
+      await writeOutbox(tx, {
+        aggregateType: 'Ticket', aggregateId: ticket.id, eventType: 'RatingCorrectionApproved',
+        payload: {
+          ticketId: ticket.id, userId: ticket.requesterUserId, discipline: request.discipline, approvedTier, adminUserId,
+        } satisfies RatingCorrectionApprovedPayload,
+      });
+    }
+    await writeOutbox(tx, {
+      aggregateType: 'Notification', aggregateId: `support.rating_correction:${ticket.id}`, eventType: 'UserNotificationRequested',
+      payload: {
+        recipient: { type: 'user', userId: ticket.requesterUserId, targetRole: 'player' }, category: 'support',
+        kind: 'support.rating_correction',
+        title: approvedTier ? 'Yêu cầu sửa trình độ đã được duyệt' : 'Yêu cầu sửa trình độ bị từ chối',
+        body: ticket.subject, priority: 'update', entityType: 'ticket', entityId: ticket.id, actionKind: 'support.view', actionExpiresAt: null,
+      },
+    });
+    return tx.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
   });
 }
 

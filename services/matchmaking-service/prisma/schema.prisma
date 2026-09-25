@@ -327,17 +327,216 @@ model AdminResultDecision {
   @@map("admin_result_decisions")
 }
 
+/// BR-CM-44: mỗi user có hai rating state độc lập, singles và doubles.
 model Passport {
-  userId        String     @id
+  userId        String
+  discipline    MatchDiscipline
   declaredTier  SkillTier?
   ratingMu      Float
   ratingRd      Float
   ratingSigma   Float
   matchesPlayed Int        @default(0)
   declaredAt    DateTime?  @db.Timestamptz(3)
+  /// BR-CM-49: mốc rating period gần nhất (đánh trận hoặc tăng RD khi không hoạt động).
+  lastAgedAt    DateTime?  @db.Timestamptz(3)
   updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
 
+  @@id([userId, discipline])
   @@map("passports")
+}
+
+/// BR-CM-43..48: mỗi kết quả ranked đổi rating của mỗi người đúng một lần.
+model MatchRatingChange {
+  id           String          @id @default(uuid())
+  matchId      String
+  userId       String
+  discipline   MatchDiscipline
+  ratingBefore Float
+  ratingAfter  Float
+  delta        Float
+  /// Thắng trận này; dùng cho tiêu chí nhiều trận thắng/chuỗi thắng của chương trình thưởng.
+  won          Boolean         @default(false)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([matchId, userId, discipline])
+  @@index([userId, discipline, createdAt])
+  @@map("match_rating_changes")
+}
+
+/// BR-CM-47: suất rating cùng đối thủ trong 7 ngày trượt, quyết định theo finalizedAt lúc chốt kết quả.
+/// opponentKey: singles = userId đối thủ; doubles = hai userId đội đối phương đã sắp xếp, nối bằng ':'.
+model RatedEncounter {
+  id          String          @id @default(uuid())
+  matchId     String
+  userId      String
+  discipline  MatchDiscipline
+  opponentKey String
+  finalizedAt DateTime        @db.Timestamptz(3)
+  rated       Boolean
+  /// Kết quả đã giữ suất (snapshot đối thủ lúc chốt); consumer áp theo thứ tự finalizedAt.
+  opponentRating Float?
+  opponentRd     Float?
+  score          Float?
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([matchId, userId])
+  @@index([userId, discipline, opponentKey, finalizedAt])
+  @@map("rated_encounters")
+}
+
+/// BR-CM-55..60: lịch kỳ toàn nền tảng; trạng thái suy ra từ thời gian và closedAt.
+model Season {
+  id        String                @id @default(uuid())
+  name      String
+  startAt   DateTime              @db.Timestamptz(3)
+  endAt     DateTime              @db.Timestamptz(3)
+  closedAt  DateTime?             @db.Timestamptz(3)
+  createdAt DateTime              @default(now()) @db.Timestamptz(3)
+  profiles  PlayerSeasonProfile[]
+  stats     SeasonStat[]
+  badges    PlayerBadge[]
+
+  @@index([startAt, endAt])
+  @@map("seasons")
+}
+
+/// BR-CM-59: tỉnh/thành chính của người chơi, khóa tới hết kỳ.
+model PlayerSeasonProfile {
+  seasonId     String
+  userId       String
+  provinceCode String
+  lockedAt     DateTime @db.Timestamptz(3)
+  season       Season   @relation(fields: [seasonId], references: [id])
+
+  @@id([seasonId, userId])
+  @@map("player_season_profiles")
+}
+
+/// BR-CM-56/57: số liệu theo kỳ, reset mỗi kỳ; Passport giữ nguyên qua các kỳ.
+model SeasonStat {
+  seasonId          String
+  userId            String
+  discipline        MatchDiscipline
+  matchesPlayed     Int             @default(0)
+  wins              Int             @default(0)
+  provinceMatches   Int             @default(0)
+  currentWinStreak  Int             @default(0)
+  longestWinStreak  Int             @default(0)
+  ratingGain        Float           @default(0)
+  /// Chụp lúc đóng kỳ để BXH/huy hiệu kỳ đã đóng không đổi theo Passport hiện tại.
+  finalRating       Float?
+  finalRd           Float?
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+  season            Season          @relation(fields: [seasonId], references: [id])
+
+  @@id([seasonId, userId, discipline])
+  @@index([seasonId, discipline, matchesPlayed])
+  @@map("season_stats")
+}
+
+/// BR-CM-62..70: chương trình thưởng Admin; tiền từ ngân sách riêng, không đụng ví/quỹ kèo.
+enum RewardCriterion {
+  ending_rating
+  most_wins
+  largest_rating_gain
+  longest_streak
+}
+
+enum RewardProgramStatus {
+  draft
+  scheduled
+  active
+  reconciling
+  awaiting_admin_approval
+  final
+  cancelled
+}
+
+model RewardProgram {
+  id               String              @id @default(uuid())
+  name             String
+  seasonId         String
+  criterion        RewardCriterion
+  discipline       MatchDiscipline
+  band             String
+  scope            String
+  provinceCode     String?
+  startAt          DateTime            @db.Timestamptz(3)
+  endAt            DateTime            @db.Timestamptz(3)
+  /// admin | marketing | sponsor: chỉ để hiển thị/audit, không chọn nguồn tiền.
+  fundingSource    String
+  status           RewardProgramStatus @default(draft)
+  createdByUserId  String
+  approvedByUserId String?
+  publishedAt      DateTime?           @db.Timestamptz(3)
+  cancelledAt      DateTime?           @db.Timestamptz(3)
+  cancelReason     String?
+  finalizedAt      DateTime?           @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  tiers            RewardTier[]
+  awards           RewardAward[]
+
+  @@index([status, startAt])
+  @@map("reward_programs")
+}
+
+model RewardTier {
+  id        String        @id @default(uuid())
+  programId String
+  rank      Int
+  amount    BigInt
+  program   RewardProgram @relation(fields: [programId], references: [id])
+
+  @@unique([programId, rank])
+  @@map("reward_tiers")
+}
+
+model RewardAward {
+  id        String        @id @default(uuid())
+  programId String
+  userId    String
+  rank      Int
+  score     Float
+  amount    BigInt
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  program   RewardProgram @relation(fields: [programId], references: [id])
+
+  @@unique([programId, userId])
+  @@map("reward_awards")
+}
+
+/// Huy hiệu vĩnh viễn; provinceCode '' cho phạm vi toàn nền tảng để unique key không vướng NULL.
+model PlayerBadge {
+  id           String          @id @default(uuid())
+  userId       String
+  discipline   MatchDiscipline
+  seasonId     String
+  badgeType    String
+  scope        String
+  provinceCode String          @default("")
+  awardedAt    DateTime        @default(now()) @db.Timestamptz(3)
+  season       Season          @relation(fields: [seasonId], references: [id])
+
+  @@unique([userId, discipline, seasonId, badgeType, scope, provinceCode])
+  @@index([userId, awardedAt])
+  @@map("player_badges")
+}
+
+/// BR-CM-54: audit mỗi lần Admin duyệt sửa khai báo qua support ticket (mỗi ticket áp dụng một lần).
+model PassportCorrection {
+  id             String          @id @default(uuid())
+  ticketId       String          @unique
+  userId         String
+  discipline     MatchDiscipline
+  adminUserId    String
+  approvedTier   SkillTier
+  previousRating Float?
+  newRating      Float
+  matchesPlayed  Int
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, discipline])
+  @@map("passport_corrections")
 }
 
 model Evaluation {

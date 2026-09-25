@@ -74,7 +74,7 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
       },
     });
     await matchmakingPrisma.passport.create({
-      data: {
+      data: { discipline: 'doubles',
         userId,
         declaredTier: 'intermediate_plus',
         ratingMu: 1700,

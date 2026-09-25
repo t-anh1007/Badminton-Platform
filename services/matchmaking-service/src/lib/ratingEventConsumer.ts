@@ -3,7 +3,7 @@ import type { Channel, ConsumeMessage } from 'amqplib';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { connectRabbitMQ } from '@khoaluantn/eventbus';
-import { applyRatingPeriodInTransaction } from '../domain/passport.js';
+import { applyRatedResultInTransaction, applyRatingCorrection } from '../domain/passport.js';
 import { prisma } from './prisma.js';
 
 const QUEUE_NAME = 'matchmaking.rating-periods';
@@ -12,6 +12,8 @@ const EVENT_TYPE = 'RatingPeriodReady';
 const ratingPeriodSchema = z.object({
   matchId: z.string().uuid(),
   userId: z.string().uuid(),
+  // Event cũ chưa có loại hình là rating singles (BR-CM-44).
+  discipline: z.enum(['singles', 'doubles']).default('singles'),
   results: z.array(z.object({
     opponentRating: z.number().finite(),
     opponentRd: z.number().positive().finite(),
@@ -19,7 +21,21 @@ const ratingPeriodSchema = z.object({
   }).strict()).min(1),
 }).strict();
 
-export type RatingPeriodReadyPayload = z.infer<typeof ratingPeriodSchema>;
+const RATING_CORRECTION = 'RatingCorrectionApproved';
+const ratingCorrectionSchema = z.object({
+  ticketId: z.string().uuid(),
+  userId: z.string().uuid(),
+  discipline: z.enum(['singles', 'doubles']),
+  approvedTier: z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']),
+  adminUserId: z.string().uuid(),
+}).strict();
+
+/** Idempotent theo ticketId (unique audit), nên replay/gửi lại không áp dụng hai lần. */
+export async function handleRatingCorrectionApproved(payload: z.input<typeof ratingCorrectionSchema>): Promise<void> {
+  await applyRatingCorrection(ratingCorrectionSchema.parse(payload));
+}
+
+export type RatingPeriodReadyPayload = z.input<typeof ratingPeriodSchema>;
 
 export async function handleRatingPeriodReady(
   eventId: string,
@@ -31,24 +47,27 @@ export async function handleRatingPeriodReady(
     const alreadyProcessed = await tx.processedEvent.findUnique({ where: { eventId } });
     if (alreadyProcessed) return;
 
-    await applyRatingPeriodInTransaction(tx, input.userId, input.results, 1);
+    await applyRatedResultInTransaction(tx, input);
     await tx.processedEvent.create({ data: { eventId } });
   });
 }
 
-function eventIdOf(message: ConsumeMessage): string {
-  if (message.properties.messageId) return `${EVENT_TYPE}:${message.properties.messageId}`;
-  return `${EVENT_TYPE}:${createHash('sha256').update(message.content).digest('hex')}`;
+function eventIdOf(message: ConsumeMessage, type = EVENT_TYPE): string {
+  if (message.properties.messageId) return `${type}:${message.properties.messageId}`;
+  return `${type}:${createHash('sha256').update(message.content).digest('hex')}`;
 }
 
 async function consumeMessage(channel: Channel, message: ConsumeMessage | null): Promise<void> {
   if (!message) return;
   try {
-    const envelope = z.object({
-      type: z.literal(EVENT_TYPE),
-      payload: ratingPeriodSchema,
-    }).passthrough().parse(JSON.parse(message.content.toString()));
-    await handleRatingPeriodReady(eventIdOf(message), envelope.payload);
+    const raw = JSON.parse(message.content.toString()) as { type?: unknown };
+    if (raw.type === RATING_CORRECTION) {
+      const envelope = z.object({ type: z.literal(RATING_CORRECTION), payload: ratingCorrectionSchema }).passthrough().parse(raw);
+      await handleRatingCorrectionApproved(envelope.payload);
+    } else {
+      const envelope = z.object({ type: z.literal(EVENT_TYPE), payload: ratingPeriodSchema }).passthrough().parse(raw);
+      await handleRatingPeriodReady(eventIdOf(message), envelope.payload);
+    }
     channel.ack(message);
   } catch (error) {
     console.error('[matchmaking-service rating consumer]', error);
@@ -65,6 +84,7 @@ export async function bootstrapRatingEventConsumption(): Promise<() => Promise<v
   );
   await channel.assertQueue(QUEUE_NAME, { durable: true });
   await channel.bindQueue(QUEUE_NAME, 'domain-events', EVENT_TYPE);
+  await channel.bindQueue(QUEUE_NAME, 'domain-events', RATING_CORRECTION);
   await channel.consume(QUEUE_NAME, (message) => void consumeMessage(channel, message));
 
   return async () => {

@@ -385,3 +385,47 @@ model MatchContribution {
   @@index([matchId, status])
   @@map("match_contributions")
 }
+
+/// BR-CM-68..70: chi thưởng thủ công từ ngân sách riêng; không có ví/ledger. Thông tin ngân hàng chỉ ở Finance.
+enum RewardPayoutStatus {
+  awaiting_information
+  ready_to_pay
+  paid
+  cancelled
+}
+
+model RewardPayout {
+  id                     String             @id @default(uuid())
+  awardId                String             @unique
+  programId              String
+  programName            String
+  rank                   Int
+  userId                 String
+  amount                 BigInt
+  claimDeadlineAt        DateTime
+  recipientName          String?
+  email                  String?
+  phone                  String?
+  address                String?
+  bankCode               String?
+  bankAccountNumber      String?
+  bankAccountName        String?
+  informationSubmittedAt DateTime?
+  payoutDeadlineAt       DateTime?
+  status                 RewardPayoutStatus @default(awaiting_information)
+  transactionReference   String?            @unique
+  proofObjectKey         String?
+  proofMimeType          String?
+  proofSize              Int?
+  proofChecksumSha256    String?
+  paidAt                 DateTime?
+  paidByUserId           String?
+  cancelledAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, claimDeadlineAt])
+  @@index([programId])
+  @@map("reward_payouts")
+}

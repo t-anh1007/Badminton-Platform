@@ -3,6 +3,7 @@ import type { JoinApprovedPayload, MatchCreatedPayload, MatchRatio } from '@khoa
 import { RATIO_FROM_DB, RATIO_TO_DB, calculateMatchFunding, capacityOf, formatAllowed, participantSlots, teamSize } from './matchRules.js';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
+import { assertRankedSeasonRegion } from './seasons.js';
 import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
@@ -55,6 +56,8 @@ export async function createMatch(
   input: CreateMatchInput,
   now = new Date(),
 ) {
+  // BR-CM-59: kèo xếp hạng cần khu vực của kỳ; kiểm tra trước khi đổi hold thành booking.
+  if (input.mode === 'ranked') await assertRankedSeasonRegion(prisma, organizerUserId, now);
   // BR-CM-01: nguồn là hold còn hiệu lực hoặc booking đã thanh toán của chính chủ kèo.
   const sourceType = input.bookingId ? 'paid_booking' as const : 'hold' as const;
   let bookingId: string;
@@ -356,7 +359,7 @@ export async function getPublicMatchDetail(
   const [context, organizerProfile, organizerPassport] = await Promise.all([
     venueBookingClient.getMatchContext(match.bookingId),
     accountClient.getPublicMatchProfile(match.organizerUserId),
-    prisma.passport.findUnique({ where: { userId: match.organizerUserId } }),
+    prisma.passport.findUnique({ where: { userId_discipline: { userId: match.organizerUserId, discipline: match.discipline } } }),
   ]);
   if (!context || !organizerProfile || context.status === 'cancelled' || (context.status === 'completed' && !canViewOwnLifecycle)) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
@@ -494,6 +497,7 @@ export async function requestJoin(matchId: string, participantUserId: string, re
     if (match.organizerUserId === participantUserId) {
       throw new AppError(409, 'ORGANIZER_ALREADY_PARTICIPATES', 'Organizer đã chiếm một chỗ trong kèo.');
     }
+    if (match.mode === 'ranked') await assertRankedSeasonRegion(tx, participantUserId, now);
     await tx.join.updateMany({
       where: {
         matchId,

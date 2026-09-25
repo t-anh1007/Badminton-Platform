@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
-import { declareTier } from '../src/domain/passport.js';
-import { handleRatingPeriodReady } from '../src/lib/ratingEventConsumer.js';
+import { declareTier, getOwnPassport } from '../src/domain/passport.js';
+import { handleRatingCorrectionApproved, handleRatingPeriodReady } from '../src/lib/ratingEventConsumer.js';
 
 const app = createApp();
 const createdUsers = new Set<string>();
@@ -41,6 +41,7 @@ afterAll(async () => {
   await prisma.match.deleteMany({
     where: { organizerUserId: { in: userIds } },
   });
+  await prisma.passportCorrection.deleteMany({ where: { userId: { in: userIds } } });
   await prisma.passport.deleteMany({ where: { userId: { in: userIds } } });
   await prisma.processedEvent.deleteMany({
     where: { eventId: { in: [...processedEventIds] } },
@@ -48,113 +49,58 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('MMP-09 — standardized tier declaration', () => {
-  it('AC-MMP-09-1: declaring TB initializes a high-RD Passport around TB', async () => {
-    const user = newUser();
-    const response = await request(app)
-      .put('/passports/me/declaration')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ tier: 'intermediate' })
-      .expect(200);
+describe('BR-CM-52 — one self-declaration per discipline', () => {
+  const declare = (token: string, body: Record<string, string>) => request(app)
+    .put('/passports/me/declaration').set('Authorization', `Bearer ${token}`).send(body);
 
+  it('declaring singles initializes a high-RD singles Passport and leaves doubles undeclared', async () => {
+    const user = newUser();
+    const response = await declare(user.token, { discipline: 'singles', tier: 'intermediate' }).expect(200);
     expect(response.body).toMatchObject({
       userId: user.userId,
-      declaredTier: 'intermediate',
-      tier: 'intermediate',
-      rating: 1500,
-      rd: 350,
-      uncertainty: 'high',
+      singles: {
+        declaredTier: 'intermediate', tier: 'intermediate', rating: 1500, matchesPlayed: 0,
+        ratingStability: 'high_uncertainty', leaderboardVisible: false,
+      },
+      doubles: null,
+      canDeclare: { singles: false, doubles: true },
     });
+    expect(response.body.singles).not.toHaveProperty('sigma');
+    expect((await declare(user.token, { tier: 'intermediate' })).status).toBe(400);
   });
 
-  it('AC-MMP-09-2: re-declaration shifts learned rating only within the D26 bound', async () => {
+  it('rejects a second declaration of the same discipline even for a different tier', async () => {
+    const user = newUser();
+    await declare(user.token, { discipline: 'doubles', tier: 'beginner' }).expect(200);
+    const response = await declare(user.token, { discipline: 'doubles', tier: 'advanced' }).expect(409);
+    expect(response.body.error.code).toBe('LEVEL_ALREADY_DECLARED');
+  });
+
+  it('declaring doubles never changes an existing singles rating', async () => {
     const user = newUser();
     await prisma.passport.create({
       data: {
-        userId: user.userId,
-        declaredTier: 'intermediate',
-        ratingMu: 1500,
-        ratingRd: 100,
-        ratingSigma: 0.06,
-        matchesPlayed: 10,
-        declaredAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+        userId: user.userId, discipline: 'singles', declaredTier: 'intermediate', ratingMu: 1620,
+        ratingRd: 90, ratingSigma: 0.059, matchesPlayed: 11, declaredAt: new Date('2026-08-01T00:00:00.000Z'),
       },
     });
-
-    const response = await request(app)
-      .put('/passports/me/declaration')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ tier: 'advanced' })
-      .expect(200);
-
-    expect(response.body.rating).toBeGreaterThan(1500);
-    expect(response.body.rating).toBeLessThanOrEqual(1550);
-    expect(response.body.rating).not.toBe(1900);
-    expect(response.body.rd).toBe(100);
-    expect(response.body.sigma).toBe(0.06);
+    const before = await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } } });
+    const response = await declare(user.token, { discipline: 'doubles', tier: 'advanced' }).expect(200);
+    expect(response.body.doubles).toMatchObject({ declaredTier: 'advanced', matchesPlayed: 0 });
+    expect(response.body.singles).toMatchObject({ rating: 1620, matchesPlayed: 11, ratingStability: 'established', leaderboardVisible: false });
+    expect(await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } } }))
+      .toEqual(before);
   });
 
-  it('enforces the approved 7-day re-declaration cooldown and returns recovery metadata', async () => {
+  it('serializes concurrent duplicate declarations into one Passport', async () => {
     const user = newUser();
-    await request(app)
-      .put('/passports/me/declaration')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ tier: 'beginner' })
-      .expect(200);
-
-    const response = await request(app)
-      .put('/passports/me/declaration')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ tier: 'advanced' })
-      .expect(409);
-
-    expect(response.body.error.code).toBe('LEVEL_DECLARATION_COOLDOWN');
-    expect(response.body.error.nextDeclarationAt).toBeTruthy();
-  });
-
-  it('rejects one millisecond before the seven-day boundary', async () => {
-    const user = newUser();
-    const declaredAt = new Date('2026-08-01T00:00:00.000Z');
-    await prisma.passport.create({
-      data: {
-        userId: user.userId,
-        declaredTier: 'intermediate',
-        ratingMu: 1500,
-        ratingRd: 100,
-        ratingSigma: 0.06,
-        matchesPlayed: 5,
-        declaredAt,
-      },
-    });
-
-    await expect(declareTier(user.userId, 'advanced', new Date(declaredAt.getTime() + 7 * 24 * 60 * 60 * 1000 - 1))).rejects.toMatchObject({
-      code: 'LEVEL_DECLARATION_COOLDOWN',
-      meta: { nextDeclarationAt: '2026-08-08T00:00:00.000Z' },
-    });
-  });
-
-  it('accepts exactly at T+7 days and serializes concurrent re-declarations', async () => {
-    const user = newUser();
-    const boundary = new Date('2026-08-08T00:00:00.000Z');
-    await prisma.passport.create({
-      data: {
-        userId: user.userId,
-        declaredTier: 'intermediate',
-        ratingMu: 1500,
-        ratingRd: 100,
-        ratingSigma: 0.06,
-        matchesPlayed: 5,
-        declaredAt: new Date('2026-08-01T00:00:00.000Z'),
-      },
-    });
-
     const results = await Promise.allSettled([
-      declareTier(user.userId, 'advanced', boundary),
-      declareTier(user.userId, 'beginner', boundary),
+      declareTier(user.userId, 'singles', 'advanced'),
+      declareTier(user.userId, 'singles', 'beginner'),
     ]);
-
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(results.find((result) => result.status === 'rejected')).toMatchObject({ reason: { code: 'LEVEL_ALREADY_DECLARED' } });
+    expect(await prisma.passport.count({ where: { userId: user.userId } })).toBe(1);
   });
 });
 
@@ -169,6 +115,7 @@ describe('MMP-11 — Player Passport views', () => {
     await prisma.passport.create({
       data: {
         userId: user.userId,
+        discipline: 'singles',
         declaredTier: 'intermediate_plus',
         ratingMu: 1710,
         ratingRd: 90,
@@ -258,11 +205,8 @@ describe('MMP-11 — Player Passport views', () => {
 
     expect(response.body).toMatchObject({
       userId: user.userId,
-      tier: 'intermediate_plus',
-      rating: 1710,
-      rd: 90,
-      uncertainty: 'established',
-      matchesPlayed: 5,
+      singles: { tier: 'intermediate_plus', rating: 1710, ratingStability: 'established', matchesPlayed: 5 },
+      doubles: null,
       evaluationScore: (1100 + 1300 + 1300) / 3,
       evaluationCount: 3,
       flaggedEvaluationCount: 1,
@@ -283,6 +227,7 @@ describe('MMP-11 — Player Passport views', () => {
     await prisma.passport.create({
       data: {
         userId: user.userId,
+        discipline: 'doubles',
         declaredTier: 'advanced',
         ratingMu: 1900,
         ratingRd: 70,
@@ -295,14 +240,14 @@ describe('MMP-11 — Player Passport views', () => {
 
     expect(response.body).toEqual({
       userId: user.userId,
-      tier: 'advanced',
-      matchesPlayed: 12,
+      singles: null,
+      doubles: { tier: 'advanced', matchesPlayed: 12 },
+      badges: [],
       displayName: 'Người chơi',
       avatarUrl: null,
       identityVisibility: 'hidden',
     });
-    expect(response.body).not.toHaveProperty('rating');
-    expect(response.body).not.toHaveProperty('rd');
+    expect(JSON.stringify(response.body)).not.toMatch(/rating|"rd"|sigma/);
     expect(response.body).not.toHaveProperty('recentMatches');
   });
 });
@@ -312,9 +257,11 @@ describe('F-01 — idempotent runtime rating updates', () => {
     const user = newUser();
     const eventId = `RatingPeriodReady:${randomUUID()}`;
     processedEventIds.add(eventId);
+    await prisma.passport.create({ data: { userId: user.userId, discipline: 'doubles', ratingMu: 1500, ratingRd: 350, ratingSigma: 0.06 } });
     await prisma.passport.create({
       data: {
         userId: user.userId,
+        discipline: 'singles',
         declaredTier: 'intermediate',
         ratingMu: 1500,
         ratingRd: 350,
@@ -332,17 +279,92 @@ describe('F-01 — idempotent runtime rating updates', () => {
     };
 
     await handleRatingPeriodReady(eventId, payload);
-    const afterFirst = await prisma.passport.findUniqueOrThrow({
-      where: { userId: user.userId },
-    });
+    const singles = { userId_discipline: { userId: user.userId, discipline: 'singles' as const } };
+    const afterFirst = await prisma.passport.findUniqueOrThrow({ where: singles });
     await handleRatingPeriodReady(eventId, payload);
-    const afterReplay = await prisma.passport.findUniqueOrThrow({
-      where: { userId: user.userId },
-    });
+    const afterReplay = await prisma.passport.findUniqueOrThrow({ where: singles });
 
     expect(afterFirst.ratingMu).toBeGreaterThan(1600);
     expect(afterFirst.ratingRd).toBeLessThan(350);
     expect(afterFirst.matchesPlayed).toBe(1);
     expect(afterReplay).toEqual(afterFirst);
+    // Event cũ không có discipline chỉ cập nhật singles.
+    expect(await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId: user.userId, discipline: 'doubles' } } }))
+      .toMatchObject({ ratingMu: 1500, matchesPlayed: 0 });
+  });
+
+  it('applies a doubles rating period only to the doubles Passport', async () => {
+    const user = newUser();
+    const eventId = `RatingPeriodReady:${randomUUID()}`;
+    processedEventIds.add(eventId);
+    for (const discipline of ['singles', 'doubles'] as const) {
+      await prisma.passport.create({ data: { userId: user.userId, discipline, ratingMu: 1500, ratingRd: 200, ratingSigma: 0.06 } });
+    }
+    await handleRatingPeriodReady(eventId, {
+      matchId: randomUUID(), userId: user.userId, discipline: 'doubles',
+      results: [{ opponentRating: 1600, opponentRd: 100, score: 1 }],
+    });
+    const rows = await prisma.passport.findMany({ where: { userId: user.userId }, orderBy: { discipline: 'asc' } });
+    expect(rows.map((row) => [row.discipline, row.matchesPlayed, row.ratingMu > 1500])).toEqual([
+      ['singles', 0, false], ['doubles', 1, true],
+    ]);
   });
 });
+
+describe('BR-CM-54 — Admin-approved tier correction', () => {
+  const approve = (userId: string, discipline: 'singles' | 'doubles', approvedTier: 'beginner' | 'advanced', ticketId = randomUUID()) =>
+    ({ ticketId, userId, discipline, approvedTier, adminUserId: randomUUID() });
+
+  it('resets a Passport without matches to the new tier center and audits the ticket/admin', async () => {
+    const user = newUser();
+    await declareTier(user.userId, 'doubles', 'intermediate');
+    const event = approve(user.userId, 'doubles', 'advanced');
+    await handleRatingCorrectionApproved(event);
+    expect(await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId: user.userId, discipline: 'doubles' } } }))
+      .toMatchObject({ declaredTier: 'advanced', ratingMu: 1900, ratingRd: 350 });
+    expect(await prisma.passportCorrection.findUniqueOrThrow({ where: { ticketId: event.ticketId } }))
+      .toMatchObject({ adminUserId: event.adminUserId, previousRating: 1500, newRating: 1900, matchesPlayed: 0 });
+  });
+
+  it('shifts a played Passport by at most 50 while keeping RD/sigma, and ignores replay', async () => {
+    const user = newUser();
+    await prisma.passport.create({
+      data: { userId: user.userId, discipline: 'singles', declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 90, ratingSigma: 0.058, matchesPlayed: 8 },
+    });
+    const event = approve(user.userId, 'singles', 'advanced');
+    await handleRatingCorrectionApproved(event);
+    await handleRatingCorrectionApproved(event);
+    const passport = await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } } });
+    expect(passport.ratingMu).toBeGreaterThan(1500);
+    expect(passport.ratingMu).toBeLessThanOrEqual(1550);
+    expect(passport).toMatchObject({ ratingRd: 90, ratingSigma: 0.058, matchesPlayed: 8, declaredTier: 'advanced' });
+    expect(await prisma.passportCorrection.count({ where: { ticketId: event.ticketId } })).toBe(1);
+  });
+
+  it('still exposes no player API that alters an existing declaration', async () => {
+    const user = newUser();
+    await declareTier(user.userId, 'singles', 'beginner');
+    await request(app).put('/passports/me/declaration').set('Authorization', `Bearer ${user.token}`)
+      .send({ discipline: 'singles', tier: 'advanced' }).expect(409);
+    await request(app).patch('/passports/me').set('Authorization', `Bearer ${user.token}`).send({ tier: 'advanced' }).expect(404);
+  });
+});
+
+describe('G4 review — leaderboard visibility follows the current season rule', () => {
+  it('needs five results in the active season as well as RD below 200', async () => {
+    const user = newUser();
+    const season = await prisma.season.create({ data: { name: 'Kỳ 2089', startAt: new Date('2089-01-01T00:00:00Z'), endAt: new Date('2089-04-01T00:00:00Z') } });
+    try {
+      await prisma.passport.create({ data: { userId: user.userId, discipline: 'singles', ratingMu: 1600, ratingRd: 90, ratingSigma: 0.06, matchesPlayed: 40 } });
+      const now = new Date('2089-02-01T00:00:00Z');
+      await prisma.seasonStat.create({ data: { seasonId: season.id, userId: user.userId, discipline: 'singles', matchesPlayed: 4 } });
+      expect((await getOwnPassport(user.userId, now)).singles?.leaderboardVisible).toBe(false);
+      await prisma.seasonStat.update({ where: { seasonId_userId_discipline: { seasonId: season.id, userId: user.userId, discipline: 'singles' } }, data: { matchesPlayed: 5 } });
+      expect((await getOwnPassport(user.userId, now)).singles?.leaderboardVisible).toBe(true);
+    } finally {
+      await prisma.seasonStat.deleteMany({ where: { seasonId: season.id } });
+      await prisma.season.delete({ where: { id: season.id } });
+    }
+  });
+});
+

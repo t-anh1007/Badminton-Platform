@@ -394,7 +394,7 @@ describe('MMP-03 — public match detail', () => {
     passportUserIds.push(match.organizerUserId);
     accountClient.displayNames.set(match.organizerUserId, 'Nguyễn Minh');
     await prisma.passport.create({
-      data: {
+      data: { discipline: match.discipline,
         userId: match.organizerUserId,
         declaredTier: 'intermediate_plus',
         ratingMu: 1700,
@@ -642,7 +642,7 @@ describe('MMP-05 — organizer join review', () => {
     const { match, join } = await pendingJoinFixture();
     passportUserIds.push(join.participantUserId);
     await prisma.passport.create({
-      data: {
+      data: { discipline: match.discipline,
         userId: join.participantUserId,
         ratingMu: 1500,
         ratingRd: 120,

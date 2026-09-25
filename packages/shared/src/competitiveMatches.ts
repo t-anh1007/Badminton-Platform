@@ -61,7 +61,9 @@ export interface MatchResultFinalizedPayload {
 
 export interface RewardAwardsFinalizedPayload {
   programId: string;
-  awards: Array<{ awardId: string; userId: string; amount: string; claimDeadlineAt: string }>;
+  /** Tên chương trình để Finance hiển thị nhãn giải cho người nhận. */
+  programName: string;
+  awards: Array<{ awardId: string; userId: string; rank: number; amount: string; claimDeadlineAt: string }>;
 }
 
 /**
@@ -87,4 +89,13 @@ export function allocateResultReserve(
     });
   }
   return allocations;
+}
+
+/** BR-CM-53/54: Admin duyệt ticket sửa khai báo trình độ; Matchmaking áp dụng có giới hạn và audit. */
+export interface RatingCorrectionApprovedPayload {
+  ticketId: string;
+  userId: string;
+  discipline: MatchDiscipline;
+  approvedTier: 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
+  adminUserId: string;
 }

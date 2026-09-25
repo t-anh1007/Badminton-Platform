@@ -63,8 +63,8 @@ describe('F-02 — compatibility shown to the organizer', () => {
     createdMatchIds.push(match.id);
     await prisma.passport.createMany({
       data: [
-        { userId: organizerUserId, ratingMu: 1515, ratingRd: 85, ratingSigma: 0.06 },
-        { userId: participantUserId, ratingMu: 1515, ratingRd: 80, ratingSigma: 0.06 },
+        { userId: organizerUserId, discipline: 'singles' as const, ratingMu: 1515, ratingRd: 85, ratingSigma: 0.06 },
+        { userId: participantUserId, discipline: 'singles' as const, ratingMu: 1515, ratingRd: 80, ratingSigma: 0.06 },
       ],
     });
     await prisma.join.create({ data: { matchId: match.id, participantUserId } });
@@ -103,8 +103,8 @@ describe('F-02 — compatibility shown to the organizer', () => {
     createdMatchIds.push(match.id);
     await prisma.passport.createMany({
       data: [
-        { userId: organizerUserId, ratingMu: 1100, ratingRd: 80, ratingSigma: 0.06 },
-        { userId: participantUserId, ratingMu: 1100, ratingRd: 80, ratingSigma: 0.06 },
+        { userId: organizerUserId, discipline: 'singles' as const, ratingMu: 1100, ratingRd: 80, ratingSigma: 0.06 },
+        { userId: participantUserId, discipline: 'singles' as const, ratingMu: 1100, ratingRd: 80, ratingSigma: 0.06 },
       ],
     });
     await prisma.join.create({ data: { matchId: match.id, participantUserId } });

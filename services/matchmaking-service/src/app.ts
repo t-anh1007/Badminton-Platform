@@ -6,6 +6,8 @@ import { HttpVenueBookingClient, type VenueBookingClient } from './clients/venue
 import { createPassportRouter } from './routes/passports.js';
 import { createMatchRouter } from './routes/matches.js';
 import { createMatchResultRouter } from './routes/matchResults.js';
+import { createCompetitionRouter } from './routes/competition.js';
+import { createRewardRouter } from './routes/rewards.js';
 import { createPrivateObjectStorageClientFromEnv, type PrivateObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'matchmaking-service';
@@ -31,6 +33,8 @@ export function createApp(dependencies?: {
   app.use('/matches', createMatchResultRouter(venueBookingClient, accountClient, resolveResultStorage));
   app.use('/matches', createMatchRouter(venueBookingClient, accountClient, matchmakerClient));
   app.use('/passports', createPassportRouter(accountClient));
+  app.use('/competition', createCompetitionRouter(accountClient));
+  app.use('/rewards', createRewardRouter(accountClient));
   return app;
 }
 

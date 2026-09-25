@@ -4,14 +4,19 @@ import { walletRouter } from './routes/wallets.js';
 import { paymentRouter } from './routes/payments.js';
 import { createFinanceOperationsRouter } from './routes/financeOperations.js';
 import { env } from './lib/env.js';
-import { createObjectStorageClientFromEnv, type ObjectStorageClient } from '@khoaluantn/object-storage';
+import {
+  createObjectStorageClientFromEnv, createPrivateObjectStorageClientFromEnv, type ObjectStorageClient, type PrivateObjectStorageClient,
+} from '@khoaluantn/object-storage';
+import { createRewardPayoutRouter } from './routes/rewardPayouts.js';
 import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
 import { createFinanceRealtimeRouter } from './routes/financeRealtime.js';
 import { internalShutdownRouter } from './routes/internalShutdown.js';
 
 const SERVICE_NAME = 'finance-service';
 
-export function createApp(dependencies?: { objectStorage?: ObjectStorageClient; financeRealtimeHub?: FinanceRealtimeHub }) {
+export function createApp(dependencies?: {
+  objectStorage?: ObjectStorageClient; privateStorage?: PrivateObjectStorageClient; financeRealtimeHub?: FinanceRealtimeHub;
+}) {
   const app = express();
   // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
   app.use((_req, _res, next) => { markActivity(); next(); });
@@ -43,6 +48,8 @@ export function createApp(dependencies?: { objectStorage?: ObjectStorageClient; 
   const resolveObjectStorage = () => dependencies?.objectStorage ?? createObjectStorageClientFromEnv();
   app.use('/', createFinanceOperationsRouter(resolveObjectStorage));
   app.use('/', createFinanceRealtimeRouter(dependencies?.financeRealtimeHub ?? new FinanceRealtimeHub()));
+  // Chứng từ chi thưởng chỉ ở bucket private, đọc qua signed URL sau khi xác thực quyền.
+  app.use('/', createRewardPayoutRouter(() => dependencies?.privateStorage ?? createPrivateObjectStorageClientFromEnv()));
   app.use('/internal', internalShutdownRouter);
 
   return app;
