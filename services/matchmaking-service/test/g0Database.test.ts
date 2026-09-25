@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { fetchUnpublishedOutbox } from '../src/lib/outbox.js';
 
@@ -75,5 +76,44 @@ databaseGate('P2-G0 matchmaking database guards', () => {
     await expect(prisma.evaluation.create({
       data: { matchId: match.id, raterUserId: 'player-1', rateeUserId: 'player-1' },
     })).rejects.toThrow();
+  });
+});
+
+// Không nằm sau gate: chỉ tạo và dọn đúng các dòng của chính test, không xóa dữ liệu dev.
+describe('Competitive matches v2 — match configuration columns', () => {
+  const ids: string[] = [];
+  afterAll(async () => {
+    await prisma.join.deleteMany({ where: { matchId: { in: ids } } });
+    await prisma.match.deleteMany({ where: { id: { in: ids } } });
+  });
+
+  it('keeps legacy rows readable with defaults and null snapshots', async () => {
+    const legacy = await prisma.match.create({ data: {
+      organizerUserId: randomUUID(), bookingId: randomUUID(), capacity: 2, feePerSlot: 100000n, cutoffAt: new Date(Date.now() + 60_000),
+    } });
+    ids.push(legacy.id);
+    expect(legacy).toMatchObject({
+      sourceType: 'hold', mode: 'friendly', discipline: 'singles', ratio: 'five_five', format: 'bo3',
+      bookingPrice: null, startAt: null, endAt: null, venueId: null, provinceCode: null, providerUserId: null,
+    });
+    const join = await prisma.join.create({ data: { matchId: legacy.id, participantUserId: randomUUID() } });
+    expect(join.teamSide).toBeNull();
+  });
+
+  it('persists every competitive configuration field and team side', async () => {
+    const startAt = new Date(Date.now() + 72 * 3_600_000);
+    const match = await prisma.match.create({ data: {
+      organizerUserId: randomUUID(), bookingId: randomUUID(), capacity: 4, feePerSlot: 60000n, cutoffAt: new Date(Date.now() + 60_000),
+      sourceType: 'paid_booking', mode: 'ranked', discipline: 'doubles', ratio: 'six_four', format: 'bo5',
+      bookingPrice: 200001n, startAt, endAt: new Date(startAt.getTime() + 120 * 60_000),
+      venueId: randomUUID(), provinceCode: 'ho-chi-minh', providerUserId: randomUUID(),
+    } });
+    ids.push(match.id);
+    const join = await prisma.join.create({ data: { matchId: match.id, participantUserId: randomUUID(), teamSide: 'B' } });
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({
+      sourceType: 'paid_booking', mode: 'ranked', discipline: 'doubles', ratio: 'six_four', format: 'bo5',
+      bookingPrice: 200001n, startAt, provinceCode: 'ho-chi-minh',
+    });
+    expect(join.teamSide).toBe('B');
   });
 });

@@ -15,6 +15,38 @@ datasource db {
   url      = env("MATCHMAKING_DATABASE_URL")
 }
 
+enum MatchSourceType {
+  hold
+  paid_booking
+}
+
+enum MatchMode {
+  friendly
+  ranked
+}
+
+enum MatchDiscipline {
+  singles
+  doubles
+}
+
+/// Bên thua : bên thắng.
+enum MatchRatio {
+  five_five
+  six_four
+  seven_three
+}
+
+enum MatchFormat {
+  bo3
+  bo5
+}
+
+enum TeamSide {
+  A
+  B
+}
+
 enum MatchStatus {
   /// PLAN_MATCH-DEPOSIT: đã tạo kèo, chờ chủ kèo trả cọc — chưa list công khai,
   /// chưa cho đối join. Trả cọc xong -> open.
@@ -83,12 +115,27 @@ model Match {
   settlementAttemptId         String?   @unique
   settlementVenueRevision     Int       @default(0)
   completedAt                 DateTime? @db.Timestamptz(3)
+  /// Kèo cạnh tranh v2 (competitive-matches.md BR-CM-01..09). Cấu hình khóa khi công bố.
+  sourceType       MatchSourceType @default(hold)
+  mode             MatchMode       @default(friendly)
+  discipline       MatchDiscipline @default(singles)
+  ratio            MatchRatio      @default(five_five)
+  format           MatchFormat     @default(bo3)
+  /// Snapshot từ Venue lúc tạo; null cho kèo cũ không backfill được xuyên service.
+  bookingPrice     BigInt?
+  startAt          DateTime?       @db.Timestamptz(3)
+  endAt            DateTime?       @db.Timestamptz(3)
+  venueId          String?
+  provinceCode     String?
+  providerUserId   String?
   createdAt       DateTime    @default(now()) @db.Timestamptz(3)
   joins           Join[]
   evaluations     Evaluation[]
   resolutions     MatchResolution[]
 
   @@index([status, cutoffAt])
+  @@index([mode, discipline, status, startAt])
+  @@index([provinceCode, mode, discipline])
   @@map("matches")
 }
 
@@ -117,10 +164,13 @@ model Join {
   feePaidAt         DateTime?  @db.Timestamptz(3)
   approvedAt        DateTime?  @db.Timestamptz(3)
   paymentContributionId String? @unique
+  /// Đội đã chọn trước khi trả tiền; null cho JOIN cũ.
+  teamSide          TeamSide?
   createdAt         DateTime   @default(now()) @db.Timestamptz(3)
   match             Match      @relation(fields: [matchId], references: [id])
 
   @@index([matchId, status])
+  @@index([matchId, teamSide, status])
   @@map("joins")
 }
 

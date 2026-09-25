@@ -163,6 +163,8 @@ model Venue {
   lat        Float
   lng        Float
   address    String
+  /// Mã tỉnh/thành ổn định từ VIETNAM_PROVINCES (34 đơn vị). Null cho cơ sở cũ tới khi sửa.
+  provinceCode String?
   amenities  Json?
   images     Json?
 

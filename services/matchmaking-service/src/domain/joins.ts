@@ -1,12 +1,36 @@
 import { AppError } from '../lib/errors.js';
 import { calculateCompatibility } from '@khoaluantn/ai';
+import type { TeamSide } from '@prisma/client';
 import type { JoinApprovedPayload } from '@khoaluantn/shared';
+import { participantSlots } from './matchRules.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating, INITIAL_RD, TIER_CENTERS } from './rating.js';
 
 // D50: người đầu tiên bấm tham gia giữ slot để thanh toán trong 10 phút.
 export const JOIN_HOLD_MINUTES = 10;
+
+/** Số chỗ đã giữ của một đội: JOIN confirmed + approved còn trong hạn thanh toán. JOIN cũ không có đội tính là đội B. */
+export async function reservedTeamSlots(
+  tx: Pick<typeof prisma, 'join'>,
+  matchId: string,
+  side: TeamSide,
+  now: Date,
+): Promise<number> {
+  return tx.join.count({
+    where: {
+      matchId,
+      AND: [
+        side === 'B' ? { OR: [{ teamSide: 'B' }, { teamSide: null }] } : { teamSide: 'A' },
+        { OR: [
+          { status: 'confirmed' },
+          { status: 'approved', approvedAt: { gt: new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000) } },
+        ] },
+      ],
+    },
+  });
+}
+
 
 async function assertOrganizer(matchId: string, organizerUserId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
@@ -108,6 +132,12 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
     if (reservedCount + 1 >= match.capacity) {
       throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
     }
+    // JOIN chờ duyệt (Tìm nhanh) chưa chọn đội: xếp vào đội còn chỗ, ưu tiên đội B (BR-CM-05).
+    let teamSide: TeamSide | null = null;
+    for (const side of ['B', 'A'] as const) {
+      if (await reservedTeamSlots(tx, matchId, side, now) < participantSlots(match.discipline, side)) { teamSide = side; break; }
+    }
+    if (!teamSide) throw new AppError(409, 'MATCH_FULL', 'Kèo đã hết chỗ.');
 
     // Kèo có phí chỉ được mở khoản chờ sau khi MatchCreated đã được ghi bền
     // vững vào outbox. Dữ liệu legacy từng thiếu event này nhưng vẫn phát
@@ -131,6 +161,7 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
       data: {
         status: match.feePerSlot === 0n ? 'confirmed' : 'approved',
         approvedAt: now,
+        teamSide,
       },
     });
     if (match.feePerSlot === 0n && reservedCount + 1 === match.capacity - 1) {
@@ -146,6 +177,7 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
         participantUserId: join.participantUserId,
         fee: match.feePerSlot.toString(),
         expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
+        teamSide,
       } satisfies JoinApprovedPayload,
     });
     await writeOutbox(tx, {

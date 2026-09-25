@@ -1,6 +1,6 @@
 # Competitive Matches V2 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution:** Claude Code executes Tasks 1-25 directly, task by task (`superpowers:executing-plans`), without dispatching subagents. Task 26 belongs to an independent reviewer (Codex). Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver competitive singles/doubles matches funded at 5:5, 6:4, or 7:3; evidence-backed result handling; provider recommendation plus final Admin decision; withdrawable result refunds; separate singles/doubles Glicko-2; seasonal leaderboards, badges, and Admin-funded rewards.
 
@@ -36,8 +36,24 @@ Active — specification approved; implementation has not started.
 - Desktop Admin tables must fit at browser zoom 100% without horizontal overlap, clipped labels, or displaced actions. Give action columns a stable width, keep each row aligned, and allow descriptive text to wrap without moving the action button outside its row/card.
 - Use the current 34 province-level units from Resolution 202/2025/QH15. Store stable application slugs from `VIETNAM_PROVINCES`; do not derive regions from free-text addresses.
 - The 14 companion mockups have PO approval. Do not implement product UI until Task 1 has also synchronized and verified the durable repository preview used by executors.
-- Do not commit, push, deploy, or run production migrations unless the PO explicitly asks.
-- Before the first test/build command during execution, the root agent performs the repository-required read-only impact scan and obtains the PO's validation approval. Once granted, each task runs its focused proof before the next task.
+- Never run production migrations, deploy, push, or change production infrastructure/configuration (including applying R2 CORS or bucket settings) unless the PO explicitly authorizes that specific command.
+- Validation authority (PO, 2026-09-25, whole implementation session): Claude may run Prisma migrations against the local/dev database, focused tests, Prisma validate/generate, and typecheck of the affected workspaces whenever a task needs them. Full build, full service suites, and E2E belong to Task 26 unless a specific task genuinely requires that proof.
+- Plan and spec contracts are binding on observable behavior and business invariants. Only minimal implementation details may be adjusted when existing code requires it; every deviation must preserve behavior and be recorded under Decisions. A deviation that changes an API contract or business rule stops execution for a PO decision.
+- Pre-existing red Web tests are recorded as a baseline with exact output before the first Web task. A pre-existing failure does not block a task when evidence shows it predates the change; any new regression must be fixed.
+
+## Execution Roles And Review Gates
+
+- Claude Opus 5.5 implements Tasks 1-25 and stops at each gate below. Task 26 is reserved for an independent reviewer (Codex); Claude does not self-accept, close, or move this plan to `docs/plans/completed/`.
+- At a gate Claude stops, reports the edited scope (files/workspaces touched and commands run with results), and gives the PO a ready-to-paste Codex review prompt. Claude does not prescribe what Codex should look for.
+- After Codex review passes and any findings are fixed, Claude creates one local checkpoint commit on `TuanAnh` (never pushed). No checkpoint commit is created before its gate passes. Task 26 reviews the diff between these checkpoints.
+
+| Gate | Tasks | Scope |
+|---|---|---|
+| G1 | T1-5 | Durable mockup, shared contracts, private storage/checksum, booking source, match creation |
+| G2 | T6-9 | Finance funding schema, contribution collection, cutoff settlement/rebalance, cancellation and late receipt |
+| G3 | T10-14 | Result cases, evidence, claims, schedulers, provider/Admin dispute, result-reserve release |
+| G4 | T15-21 | Dual Passport, rating-correction ticket, seasons, rated results/leaderboards, badges, reward programs, reward payouts |
+| G5 | T22-25 | Notification persistence/email delivery and all player/provider/Admin UI |
 
 ## Locked File And Module Ownership
 
@@ -92,7 +108,16 @@ T1 durable approved-mockup baseline
 
 ## Exact Per-Task Verification Commands
 
-Run these only after the root agent completes the read-only impact scan and the PO approves validation. A task is complete only when its listed verification succeeds and the task-specific expected result below is true.
+Validation for these commands is pre-approved for the implementation session (see Global Constraints). A task is complete only when its listed verification succeeds and the task-specific expected result below is true.
+
+**Local migration step.** Tests run against the local/dev database from the root `.env`. Every task that changes a Prisma schema (T3, T4, T6, T10, T15, T16, T17, T18, T19, T20, T21, T22) first applies its new migration locally, then regenerates the client, before its focused tests:
+
+```powershell
+npm run prisma:migrate:deploy --workspace @khoaluantn/<service>
+npm run prisma:generate --workspace @khoaluantn/<service>
+```
+
+Never point these commands at a production database.
 
 ```powershell
 # T1: manual 14-screen review plus stale-copy scan; any match fails the task
@@ -193,7 +218,7 @@ npm test --workspace @khoaluantn/web -- ImageUploadPicker.test.tsx MatchResultFl
 npm test --workspace @khoaluantn/web -- ManageMatchResultsPage.test.tsx AdminMatchResultsPage.test.tsx AdminSeasonsPage.test.tsx AdminRewardProgramsPage.test.tsx AdminRewardPayoutsPage.test.tsx
 ```
 
-Task 26 is reserved for the root reviewer. After Tasks 2–25 pass, the root reviewer runs the repository-wide and runtime commands listed in Task 26; the Luna executor must not mark the plan complete or move it to `docs/plans/completed/`.
+Task 26 is reserved for the independent reviewer (Codex). After gate G5 passes, the reviewer runs the repository-wide and runtime commands listed in Task 26; Claude must not mark the plan complete or move it to `docs/plans/completed/`.
 
 Before Task 16 or Task 26, use the repository's existing isolated Community test database. `COMMUNITY_TEST_DATABASE_URL` must target PostgreSQL schema `community_test`; do not point the test runner at development or production data.
 
@@ -225,7 +250,7 @@ Before Task 16 or Task 26, use the repository's existing isolated Community test
 - Read: `.superpowers/brainstorm/1471-1790321736/content/13-winner-bank-information.html`
 - Read: `.superpowers/brainstorm/1471-1790321736/content/14-admin-payout-proof.html`
 - Modify: `docs/matchmaking-passport/mockups/desktop-preview.html`
-- Create: `ai-notes/competitive-matches-desktop-preview.png`
+- Create: `ai-notes/competitive-matches-desktop-preview-s01.png` … `-s14.png` (one full-page capture per screen)
 
 **Reuse:** Keep the existing one-file desktop preview shell and screen switcher, but replace every stale screen body with the approved companion HTML. Preserve the approved COURTIN tokens, current Admin vertical navigation, business-language labels, single-hyphen copy, and 100% zoom fit notes. Do not introduce a frontend framework or design dependency. The companion directory is an input only; `docs/matchmaking-passport/mockups/desktop-preview.html` becomes the durable visual/UI authority. Business authority remains `competitive-matches.md` plus D56-D57.
 
@@ -262,9 +287,9 @@ Before Task 16 or Task 26, use the repository's existing isolated Community test
 | 13 | Task 24 winner payout information |
 | 14 | Task 25 Admin payout proof |
 
-- [ ] Copy the approved 14 screen bodies into the durable preview in the exact order above. Preserve their labels, amounts, states, and layout, then apply only the already-approved follow-up corrections: current role shell/navigation, Vietnamese business language, single-hyphen separators, authoritative booking/profile data notes, and 100% zoom fit.
+- [x] Copy the approved 14 screen bodies into the durable preview in the exact order above. Preserve their labels, amounts, states, and layout, then apply only the already-approved follow-up corrections: current role shell/navigation, Vietnamese business language, single-hyphen separators, authoritative booking/profile data notes, and 100% zoom fit.
 
-- [ ] Remove every Court Credit, Credit Pool, 24-hour objection, 72-hour program-close, and 365-day evidence-retention reference.
+- [x] Remove every Court Credit, Credit Pool, 24-hour objection, 72-hour program-close, and 365-day evidence-retention reference.
 - [x] Screen 01 approved by the PO on 2026-09-25 after replacing technical terms such as `cutoff` with Vietnamese business wording; apply the same copy rule to every later screen.
 - [x] Screen 02 approved by the PO on 2026-09-25 with venue/address/slot sourced from the booking and participant name/avatar sourced from account profiles.
 - [x] Screen 03 approved by the PO on 2026-09-25. Production evidence images must use persistent object storage and remain available across application restart/redeploy; do not store image bytes on ephemeral application disks.
@@ -279,9 +304,9 @@ Before Task 16 or Task 26, use the repository's existing isolated Community test
 - [x] Screen 12 approved by the PO on 2026-09-25 with one system criterion per program, season-bounded dates, discipline/rating-band/scope selection, configurable prize tiers, and publication lock disclosure.
 - [x] Screen 13 approved by the PO on 2026-09-25 with the seven-day winner deadline, only the approved contact/address/bank fields, forfeiture disclosure, and no deep identity or age verification.
 - [x] Screen 14 approved by the PO on 2026-09-25 with required transaction reference, persistent payout-proof image, receiver/amount confirmation, and automatic in-app plus email notification.
-- [ ] Show 5:5, 6:4, and 7:3 as loser:winner; include a paid-booking example that explicitly says the booking is not charged again.
-- [ ] Show provider recommendation as “Đề xuất - chưa có hiệu lực” and Admin overdue as locked, not auto-settled.
-- [ ] Capture the complete durable preview at desktop width as the Task 1 verification artifact. Do not open a new visual-approval cycle unless it differs from the approved companion screens beyond the listed follow-up corrections.
+- [x] Show 5:5, 6:4, and 7:3 as loser:winner; include a paid-booking example that explicitly says the booking is not charged again.
+- [x] Show provider recommendation as “Đề xuất - chưa có hiệu lực” and Admin overdue as locked, not auto-settled.
+- [x] Capture the complete durable preview at desktop width as the Task 1 verification artifact. Do not open a new visual-approval cycle unless it differs from the approved companion screens beyond the listed follow-up corrections.
 - [x] All 14 desktop screens explicitly approved by the PO on 2026-09-25; the visual approval gate is satisfied, but this approval does not itself authorize product implementation.
 
 **Verification:** Open `desktop-preview.html`, switch through all 14 screens at browser zoom 100%, and search the file for `Credit|24 giờ khiếu nại|365 ngày`. Expected: all screens render without displaced actions or horizontal overflow and the search returns no stale product wording. This persistence step does not require another PO visual approval unless the durable preview differs beyond the already-approved follow-up corrections.
@@ -303,6 +328,8 @@ Before Task 16 or Task 26, use the repository's existing isolated Community test
 - Create: `packages/shared/src/competitiveMatches.ts`
 - Modify: `packages/shared/src/index.ts`
 - Modify: `packages/object-storage/src/index.ts`
+- Modify: `packages/object-storage/r2-cors.json` (or add a private-bucket CORS file beside it)
+- Modify: `.env.example` if present (private bucket variable name only, no secret values)
 - Test: `packages/object-storage/test/objectStorage.test.ts`
 
 **Interfaces produced:**
@@ -346,11 +373,18 @@ inspectOwnedObject(input: AssertOwnedObjectInput): Promise<{
 }>;
 ```
 
-- [ ] Write Object Storage tests for new namespaces, checksum header signing, wrong namespace, wrong owner, 5 MB boundary, and checksum mismatch. Test the exact 34-entry province catalog through Venue's `venue.test.ts` in Task 3; `packages/shared` has no test runner.
-- [ ] Run the focused tests and confirm they fail because the exports/methods do not exist.
-- [ ] Add `competitiveMatches.ts`, re-export it, and extend object storage using the existing S3 client and `HeadObjectCommand`.
-- [ ] Keep `assertOwnedObject` backward compatible by delegating to `inspectOwnedObject` and discarding the returned metadata.
-- [ ] Run focused package tests and typechecks. Expected: all old upload callers still compile; new tests pass.
+**Private storage (PO 2026-09-25):** evidence (`match/results`) and payout proof (`finance/rewards`) must be private and readable only through authorized signed URLs; an unguessable key on the public bucket is not acceptable. Reuse the existing package with a separate private bucket: add `OBJECT_STORAGE_PRIVATE_BUCKET` and a private client (for example `createPrivateObjectStorageClientFromEnv`) that never uses `OBJECT_STORAGE_PUBLIC_BASE_URL` and always returns signed reads. The new namespaces are accepted only by the private client. Minimal infrastructure change: one R2 bucket with no public access/custom domain, CORS allowing `PUT`/`GET` with `content-type` and the checksum/metadata header, and the private bucket variable on Matchmaking and Finance. Claude prepares the repo-side config (`r2-cors.json` or a private-bucket variant, `.env.example`) only; creating the bucket, applying CORS, and setting Railway variables require explicit PO authorization per command.
+
+**Checksum spike before locking the implementation:** against the real R2 endpoint, upload one test object through a presigned PUT signed with `ChecksumSHA256` and read it back with `HeadObjectCommand({ ChecksumMode: 'ENABLED' })`. If R2 returns `ChecksumSHA256`, use it. If it does not, sign the SHA-256 into user metadata (`x-amz-meta-sha256`) on the presigned PUT and read that metadata through HEAD. Either way the checksum is bound to the upload signature and verified again when evidence/proof is committed; the checksum requirement is never dropped. Record the observed result under Decisions.
+
+**Shared notification contract (moved here from Task 22):** extend `UserNotificationRequested` in `packages/shared` with `emailPolicy: 'required' | 'none'` and the six action kinds listed in Task 22, so Tasks 8-21 emit against a stable contract. Persistence, email delivery, and Web deep links stay in Task 22.
+
+- [x] Run the R2 checksum spike and record the chosen verification path.
+- [x] Write Object Storage tests for new namespaces, private-client signed reads (never public URLs), checksum header signing, wrong namespace, wrong owner, 5 MB boundary, and checksum mismatch. Test the exact 34-entry province catalog through Venue's `venue.test.ts` in Task 3; `packages/shared` has no test runner.
+- [x] Run the focused tests and confirm they fail because the exports/methods do not exist.
+- [x] Add `competitiveMatches.ts`, re-export it, and extend object storage using the existing S3 client and `HeadObjectCommand`.
+- [x] Keep `assertOwnedObject` backward compatible by delegating to `inspectOwnedObject` and discarding the returned metadata.
+- [x] Run focused package tests and typechecks. Expected: all old upload callers still compile; new tests pass.
 
 **Depends on:** Task 1. **Blocks:** Tasks 3, 5, 7, 10, 13, 17, 21, 22.
 
@@ -409,11 +443,11 @@ type MatchSourceView = {
 };
 ```
 
-- [ ] Add failing tests for owned confirmed bookings, foreign bookings, completed bookings, provider identity, and province snapshots.
-- [ ] Add the nullable column migration and validate province input with the shared schema.
-- [ ] Include provider user ID and province in single/batch match context queries; keep internal-service authentication unchanged.
-- [ ] Extend match-source listing with confirmed paid bookings without changing booking status or emitting events.
-- [ ] Run focused venue tests. Expected: only valid owned sources appear; no booking or revenue mutation occurs.
+- [x] Add failing tests for owned confirmed bookings, foreign bookings, completed bookings, provider identity, and province snapshots.
+- [x] Add the nullable column migration and validate province input with the shared schema.
+- [x] Include provider user ID and province in single/batch match context queries; keep internal-service authentication unchanged.
+- [x] Extend match-source listing with confirmed paid bookings without changing booking status or emitting events.
+- [x] Run focused venue tests. Expected: only valid owned sources appear; no booking or revenue mutation occurs.
 
 **Depends on:** Task 2. **Blocks:** Tasks 5, 8, 17, 23.
 
@@ -463,10 +497,10 @@ model Join {
 
 Legacy columns stay nullable where a cross-service backfill is impossible. New-domain writes must always populate them. Add indexes for `[mode, discipline, status, startAt]`, `[provinceCode, mode, discipline]`, and `[matchId, teamSide, status]`.
 
-- [ ] Add migration tests for enum defaults and nullable legacy snapshots.
-- [ ] Write the SQL migration and Prisma schema exactly as above.
-- [ ] Generate the Prisma client and run schema validation.
-- [ ] Run `g0Database.test.ts`. Expected: existing records remain readable; new records persist all configuration fields.
+- [x] Add migration tests for enum defaults and nullable legacy snapshots.
+- [x] Write the SQL migration and Prisma schema exactly as above.
+- [x] Generate the Prisma client and run schema validation.
+- [x] Run `g0Database.test.ts`. Expected: existing records remain readable; new records persist all configuration fields.
 
 **Depends on:** Task 2. **Blocks:** Tasks 5, 10, 15, 17.
 
@@ -547,15 +581,17 @@ interface MatchActionView {
 
 The detail DTO also returns `sourceType`, mode, discipline, ratio, format, existing `cutoffAt`, authoritative venue/court/start/end snapshot, team slots, and participant `{ userId, displayName, avatarUrl, paymentState }`. API responses may keep internal enum values; Web maps them once to approved business labels.
 
+Reuse the existing `awaiting_deposit` flow, `deadlineAt`, and lead-time `computeMatchDeadline` for hold sources where they do not conflict with the spec; this is a reuse of current code, not a new business rule. A paid-booking source skips the organizer deposit step because its booking payment already funds the organizer contribution.
+
 Derive capacity as 2/4. Organizer occupies Team A. Singles joins can only choose B. Doubles permit one remaining A slot and two B slots. `<=90` minutes accepts only BO3; `>90` accepts BO3 or BO5. Creation from confirmed booking sets source `paid_booking`, marks the organizer contribution logically satisfied, and opens the match without changing the booking.
 
-- [ ] Add pure failing tests for every ratio at even and odd prices, exact total conservation, singles/doubles capacity, and organizer remainder.
-- [ ] Add HTTP failing tests for hold, paid booking, owner mismatch, lead under 24 hours, province missing for ranked, invalid format by duration, and duplicate booking.
-- [ ] Implement `calculateMatchFunding` with integer arithmetic only.
-- [ ] Replace client-supplied `capacity`/`feeMode` with the locked request contract; reject unknown fields through `.strict()`.
-- [ ] Populate snapshots and emit an expanded `MatchCreated` containing source, mode, discipline, ratio, team size, price, reserve, participant amount, and organizer amount.
-- [ ] Add transactional team-capacity checks to join request/approval; retain the existing 10-minute approved-slot payment hold.
-- [ ] Run focused Matchmaking tests. Expected: amounts conserve exactly and concurrent final-slot attempts leave only valid team capacity.
+- [x] Add pure failing tests for every ratio at even and odd prices, exact total conservation, singles/doubles capacity, and organizer remainder.
+- [x] Add HTTP failing tests for hold, paid booking, owner mismatch, lead under 24 hours, province missing for ranked, invalid format by duration, and duplicate booking.
+- [x] Implement `calculateMatchFunding` with integer arithmetic only.
+- [x] Replace client-supplied `capacity`/`feeMode` with the locked request contract; reject unknown fields through `.strict()`.
+- [x] Populate snapshots and emit an expanded `MatchCreated` containing source, mode, discipline, ratio, team size, price, reserve, participant amount, and organizer amount.
+- [x] Add transactional team-capacity checks to join request/approval; retain the existing 10-minute approved-slot payment hold.
+- [x] Run focused Matchmaking tests. Expected: amounts conserve exactly and concurrent final-slot attempts leave only valid team capacity.
 
 **Depends on:** Tasks 2, 3, 4. **Blocks:** Tasks 7, 8, 10, 23.
 
@@ -1336,7 +1372,7 @@ admin.reward-payout.review      -> /admin/reward-payouts/:payoutId
 Bank-information deadline notices use `reward.view` only for public program updates; winner-specific actions deep-link to `/rewards/payouts/:payoutId`. Paid notices deep-link to the same player payout detail. Do not add SMS routes.
 
 - [ ] Add failing tests for each action route, opted-out user with required delivery, email recipient lookup, role recipients, event replay, and email failure after durable inbox projection.
-- [ ] Keep `UserNotificationRequested`; add `emailPolicy: 'required' | 'none'` rather than a second event type.
+- [ ] Keep `UserNotificationRequested` and the `emailPolicy` field already added in Task 2; do not add a second event type.
 - [ ] Add nullable `emailSentAt` and `emailLastAttemptAt` to `Notification`. Project the inbox row first; skip email when `emailSentAt` is set; otherwise set `emailLastAttemptAt`, send with existing `emailSender`, then persist `emailSentAt`. A provider failure keeps `emailSentAt=null` for retry and never duplicates the inbox row.
 - [ ] Emit required notifications from the owning tasks for cutoff, declaration, objection, incident, provider/Admin SLA, final result, rating, season/program, bank deadline, and paid reward.
 - [ ] Run focused Account/Web tests. Expected: required notices ignore disabled preferences and no SMS path exists.
@@ -1363,6 +1399,8 @@ Bank-information deadline notices use `reward.view` only for public program upda
 - Modify: `apps/web/src/pages/MatchDetailPage.tsx`
 - Modify: `apps/web/src/components/MatchDepositCheckout.tsx`
 - Modify: `apps/web/src/pages/manage/ManageVenueDetailPage.tsx`
+- Modify: `apps/web/src/pages/manage/ManageVenuesPage.tsx` (required province on venue creation)
+- Modify: `apps/web/src/pages/BookingPage.tsx` and `apps/web/src/pages/BookingPage.selection.test.tsx` (booking-flow match creation uses the Task 5 body)
 - Test: `apps/web/src/pages/MatchListPage.created.test.tsx`
 - Test: `apps/web/src/pages/MatchListPage.sources.test.tsx`
 - Test: `apps/web/src/pages/MatchDetailPage.competitive.test.tsx`
@@ -1481,7 +1519,7 @@ Bank-information deadline notices use `reward.view` only for public program upda
 
 **Goal:** Prove the complete flow, record evidence, and move this plan to completed only after all required checks pass.
 
-**Owner:** Root reviewer only. The Luna executor stops after reporting Task 25 focused proof.
+**Owner:** Independent reviewer (Codex) only. Claude stops after gate G5 and does not run Task 26 unless the PO reassigns it.
 
 **Rules/AC:** AC-CM-01..35; repository completion standard.
 
@@ -1490,7 +1528,7 @@ Bank-information deadline notices use `reward.view` only for public program upda
 - Create or modify: `e2e/competitive-matches.spec.ts`
 - Modify during execution: `docs/plans/active/2026-09-25-competitive-matches.md`
 - Move after success: `docs/plans/completed/2026-09-25-competitive-matches.md`
-- Update only after executable proof: `docs/product/phase-1-progress.md` or the current Phase 2 progress ledger named by `docs/product/phase-1-handoff.md`
+- Update only after executable proof: `docs/product/phase-2-progress.md`
 
 **Required E2E scenarios:**
 
@@ -1557,7 +1595,7 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - [x] Product specification approved and approval markers updated on 2026-09-25.
 - [x] Current code mapped to existing service boundaries.
 - [x] All 14 companion desktop mockups approved by the PO on 2026-09-25.
-- [ ] Task 1 durable `desktop-preview.html` synchronized from those approved companions and checked at browser zoom 100%.
+- [x] Task 1 durable `desktop-preview.html` synchronized from those approved companions and checked at browser zoom 100%.
 - [ ] Tasks 2–25 implemented and focused-verified.
 - [ ] Task 26 repository/runtime verification complete.
 
@@ -1571,7 +1609,21 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - 2026-09-25: Existing support tickets carry rating-correction requests; no second support workflow is created.
 - 2026-09-25: Post-mockup reconciliation changes only the durable visual baseline, API read/upload contracts, and Tasks 23-25 Web execution steps; existing money, result, rating, badge, and reward domain rules remain unchanged.
 - 2026-09-25: Screen 07 shows current rank and a pinned viewer row; the decorative seven-day rank movement is omitted because no approved rank-history rule or authoritative API exists.
+- 2026-09-25 (PO): Claude executes Tasks 1-25 directly; Task 26 belongs to an independent Codex reviewer. Five review gates G1-G5; a local checkpoint commit follows each passed gate; no push.
+- 2026-09-25 (PO): Evidence and payout proof use a separate private bucket with authorized signed reads only; key obscurity on the public bucket is rejected.
+- 2026-09-25 (PO): Checksum stays mandatory. Use R2 `ChecksumSHA256` if HEAD returns it, otherwise signed `x-amz-meta-sha256` metadata read back through HEAD; decided by a real-endpoint spike in Task 2.
+- 2026-09-25: Task 1 embeds each approved companion unchanged through `iframe srcdoc` so companion CSS cannot collide; brainstorm review chrome is hidden, en dash is replaced by `-`, and screen 10 adds only the "ĐỀ XUẤT - CHƯA CÓ HIỆU LỰC" label plus the Admin-overdue lock sentence. Headless Chromium at 1680 px: 14/14 screens load, no horizontal overflow, stale-copy scan returns 0.
+- 2026-09-25 (PO): The shared `emailPolicy` notification contract moves to Task 2; persistence and email delivery stay in Task 22.
 - 2026-09-25: D57 gives a receiving team without the organizer its odd-VND remainder through existing earliest-JOIN order, and gives rolling-seven-day rating precedence to the first official `finalizedAt`.
+- 2026-09-25: Task 2 R2 spike (real R2 endpoint and local MinIO, test objects under spike/ deleted): presigned PUT with signed `x-amz-checksum-sha256` rejects a different body (R2 `BadDigest`, MinIO `XAmzContentChecksumMismatch`) and `HeadObject(ChecksumMode=ENABLED)` returns the same `ChecksumSHA256`. Native checksum is used; the metadata fallback is not needed.
+- 2026-09-25: `inspectOwnedObject` lives on a new `PrivateObjectStorageClient` interface so existing `ObjectStorageClient` test fakes stay valid; it accepts optional `expectedChecksumSha256`. Private client (`createPrivateObjectStorageClientFromEnv`, `OBJECT_STORAGE_PRIVATE_BUCKET`) accepts only `match/results`/`finance/rewards`, requires a checksum, and cannot carry a public base URL; the public client rejects those namespaces. Local MinIO gets bucket `khoaluantn-private`; `packages/object-storage/r2-private-cors.json` is prepared but not applied to R2.
+- 2026-09-25: Added notification action kind `reward.payout.view` (seventh kind) because winner payout notices deep-link to `/rewards/payouts/:payoutId`, which none of the six listed kinds routes to.
+- 2026-09-25: Task 3 enforces the required province only at HTTP `POST /venues` (domain `createVenue` accepts null so legacy fixtures stay valid). `GET /players/me/match-sources` adds `sources: MatchSourceView[]` beside the legacy `holds`/`bookings` fields, which Task 23 removes after Web switches. Paid-booking sources are owned marketplace `confirmed` bookings with `startAt > now`, excluding bookings created by a match (`holdPurposeSnapshot = match`); hold sources price through `calculateBookingPrice`. Web venue creation (`ManageVenuesPage`) must send `provinceCode` in Task 23.
+- 2026-09-25: `npm run prisma:generate --workspace @khoaluantn/venue-booking-service` fails from the service directory (`Could not resolve @prisma/client`); generate from the repo root with `npx dotenv -e .env -- prisma generate --schema services/<service>/prisma/schema.prisma` (same form Matchmaking/Community scripts use).
+- 2026-09-25: Task 4 schema tests live in a non-gated describe inside `g0Database.test.ts` that creates and deletes only its own rows; the existing `P2_G0_DATABASE_GATE` describe wipes whole tables and stays skipped on the shared local/dev database. `prisma migrate diff` against the local DB reports no drift.
+- 2026-09-25: Task 5 `MatchFundingView` returns `organizerContribution`, `organizerRefundAtLock` and `organizerRefundWithdrawable` only to the organizer (null for others) because BR-CM-61 keeps personal contributions/refunds private; everyone sees the regular slot amount and their own amount due. Legacy matches without `bookingPrice` return `funding: null`. Skill range is locked at creation (`skillConfiguredAt = now`); the legacy `PATCH /skill-range` stays for old matches. Quick Match accept and legacy organizer approval, which carry no team choice, place the player on the side with room, B first. Legacy joins without `teamSide` count as team B. `MatchCreated`/`JoinApproved` gained optional v2 fields so old events still parse.
+- 2026-09-25: Callers still on the old create body are updated by their owning tasks: `finance-service/test/matchFee.e2e.test.ts` (Task 7), `matchmaking-service/test/matchServiceChain.e2e.test.ts` (Task 8), and Web `MatchListPage`/`BookingPage` plus their tests (Task 23).
+- 2026-09-25: G1 review fixes. (1) `actions.canPay` requires `cutoffAt > now` and an open match for a participant JOIN, or `awaiting_deposit` for the organizer; a JOIN still inside its 10-minute hold after cutoff can no longer pay. (2) `updateVenue` rejects `MISSING_PROVINCE` when a legacy venue without a province is edited without one; venues that already have a province keep partial PATCH. (3) Screen 07 in the durable preview drops the seven-day movement badge and the Thay đổi column, keeping only the current rank.
 
 ## Validation
 

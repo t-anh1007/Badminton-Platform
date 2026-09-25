@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { vietnamProvinceCodeSchema } from '@khoaluantn/shared';
 import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 import { h } from './handler.js';
 import { createVenue, updateVenue } from '../domain/venue.js';
@@ -45,6 +46,7 @@ export function createVenueRouter(resolveStorage: () => ObjectStorageClient) {
   lat: z.number(),
   lng: z.number(),
   address: z.string(),
+  provinceCode: vietnamProvinceCodeSchema.optional(),
   amenities: z.unknown().optional(),
   images: z.unknown().optional(),
 });
@@ -53,7 +55,8 @@ venueRouter.post(
   '/',
   requireAuth,
   h(async (req, res) => {
-    const input = venueSchema.parse(req.body);
+    // Cơ sở mới bắt buộc tỉnh/thành có cấu trúc (kèo xếp hạng); cơ sở cũ để trống tới khi sửa.
+    const input = venueSchema.extend({ provinceCode: vietnamProvinceCodeSchema }).parse(req.body);
     const userId = (req as AuthenticatedRequest).user!.id;
     const venue = await createVenue(userId, input);
     res.status(201).json(venue);

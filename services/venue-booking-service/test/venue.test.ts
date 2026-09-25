@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { createVenue, updateVenue, isVenueSearchable } from '../src/domain/venue.js';
 import { createApprovedProvider, fakeUserId, signTestAccessToken } from './helpers.js';
 import type { ObjectStorageClient } from '@khoaluantn/object-storage';
+import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -85,5 +86,38 @@ describe('VEN-03 — Quản lý hồ sơ cơ sở sân', () => {
     await expect(
       createVenue(userId, { name: 'V', lat: 1, lng: 1, address: 'A' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_APPROVED' });
+  });
+});
+
+describe('Competitive matches — structured venue province', () => {
+  it('ships exactly the 34 province-level units with unique stable ASCII codes', () => {
+    expect(VIETNAM_PROVINCES).toHaveLength(34);
+    expect(new Set(VIETNAM_PROVINCES.map((p) => p.code)).size).toBe(34);
+    expect(new Set(VIETNAM_PROVINCES.map((p) => p.name)).size).toBe(34);
+    for (const { code } of VIETNAM_PROVINCES) expect(code).toMatch(/^[a-z]+(-[a-z]+)*$/);
+    expect(VIETNAM_PROVINCES.map((p) => p.name)).toEqual(expect.arrayContaining(['Hà Nội', 'Thành phố Hồ Chí Minh', 'An Giang', 'Cà Mau', 'Huế']));
+  });
+
+  it('requires a valid province to create a venue and keeps it on edit', async () => {
+    const provider = await createApprovedProvider();
+    const token = signTestAccessToken(provider.userId, ['provider']);
+    const body = { name: 'Sân tỉnh', lat: 10.7, lng: 106.6, address: '1 Lê Lợi' };
+    await request(createApp()).post('/venues').set('Authorization', `Bearer ${token}`).send(body).expect(400);
+    await request(createApp()).post('/venues').set('Authorization', `Bearer ${token}`).send({ ...body, provinceCode: 'sai-gon' }).expect(400);
+    const created = await request(createApp()).post('/venues').set('Authorization', `Bearer ${token}`).send({ ...body, provinceCode: 'ho-chi-minh' }).expect(201);
+    expect(created.body.provinceCode).toBe('ho-chi-minh');
+    const edited = await request(createApp()).patch(`/venues/${created.body.id}`).set('Authorization', `Bearer ${token}`).send({ provinceCode: 'da-nang' }).expect(200);
+    expect(edited.body.provinceCode).toBe('da-nang');
+    const renamed = await request(createApp()).patch(`/venues/${created.body.id}`).set('Authorization', `Bearer ${token}`).send({ name: 'Sân mới' }).expect(200);
+    expect(renamed.body).toMatchObject({ name: 'Sân mới', provinceCode: 'da-nang' });
+  });
+
+  it('requires a province on the first edit of a legacy venue without one', async () => {
+    const provider = await createApprovedProvider();
+    const token = signTestAccessToken(provider.userId, ['provider']);
+    const legacy = await createVenue(provider.userId, { name: 'Sân cũ', lat: 1, lng: 1, address: 'A' });
+    const refused = await request(createApp()).patch(`/venues/${legacy.id}`).set('Authorization', `Bearer ${token}`).send({ name: 'Sân cũ 2' }).expect(400);
+    expect(refused.body.error?.code ?? refused.body.code).toBe('MISSING_PROVINCE');
+    await request(createApp()).patch(`/venues/${legacy.id}`).set('Authorization', `Bearer ${token}`).send({ name: 'Sân cũ 2', provinceCode: 'hue' }).expect(200);
   });
 });

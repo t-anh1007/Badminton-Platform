@@ -13,7 +13,11 @@ export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const PRESIGN_EXPIRY_SECONDS = 10 * 60;
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number];
-export type ObjectNamespace = 'community/posts' | 'community/tickets' | 'venue/images' | 'profile/avatars' | 'finance/disputes';
+export type ObjectNamespace = 'community/posts' | 'community/tickets' | 'venue/images' | 'profile/avatars' | 'finance/disputes'
+  | 'match/results' | 'finance/rewards';
+/** Chỉ lưu trong bucket private riêng; không bao giờ có URL công khai (competitive-matches BR-CM-26). */
+export const PRIVATE_BUCKET_NAMESPACES: readonly ObjectNamespace[] = ['match/results', 'finance/rewards'];
+const SHA256_BASE64 = /^[A-Za-z0-9+/]{43}=$/;
 
 export class ObjectStorageError extends Error {
   constructor(public readonly code: string, message: string) {
@@ -25,6 +29,8 @@ export interface AuthorizeUploadInput {
   namespace: ObjectNamespace;
   ownerUserId: string;
   mimeType: ImageMimeType;
+  /** Base64 SHA-256 của file; storage từ chối body không khớp. Bắt buộc với bucket private. */
+  checksumSha256?: string;
 }
 
 export interface AssertOwnedObjectInput {
@@ -33,6 +39,13 @@ export interface AssertOwnedObjectInput {
   ownerUserId: string;
   mimeType: string;
   maxBytes: number;
+  /** Nếu có, checksum storage đã xác minh lúc upload phải khớp đúng giá trị này. */
+  expectedChecksumSha256?: string;
+}
+
+export interface OwnedObjectMetadata {
+  size: number;
+  checksumSha256: string | null;
 }
 
 export interface ObjectStorageClient {
@@ -45,6 +58,10 @@ export interface ObjectStorageClient {
   assertOwnedObject(input: AssertOwnedObjectInput): Promise<void>;
   getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string>;
   deleteObject(objectKey: string): Promise<void>;
+}
+
+export interface PrivateObjectStorageClient extends ObjectStorageClient {
+  inspectOwnedObject(input: AssertOwnedObjectInput): Promise<OwnedObjectMetadata>;
 }
 
 const extensions: Record<ImageMimeType, string> = {
@@ -100,35 +117,64 @@ export interface S3ObjectStorageOptions {
   s3: S3Client;
   publicBaseUrl?: string;
   now?: () => Date;
+  /** Bucket private: chỉ nhận PRIVATE_BUCKET_NAMESPACES và chỉ trả signed read URL. */
+  privateBucket?: boolean;
 }
 
-export class S3ObjectStorageClient implements ObjectStorageClient {
+export class S3ObjectStorageClient implements PrivateObjectStorageClient {
   private readonly now: () => Date;
 
   constructor(private readonly options: S3ObjectStorageOptions) {
+    if (options.privateBucket && options.publicBaseUrl) {
+      throw new ObjectStorageError('OBJECT_STORAGE_PRIVATE_PUBLIC_URL', 'Bucket private không được có URL công khai.');
+    }
     this.now = options.now ?? (() => new Date());
   }
 
+  private assertNamespaceAllowed(namespace: ObjectNamespace): void {
+    if (PRIVATE_BUCKET_NAMESPACES.includes(namespace) !== Boolean(this.options.privateBucket)) {
+      throw new ObjectStorageError('OBJECT_NAMESPACE_FORBIDDEN', 'Loại tệp này không được lưu ở kho lưu trữ đã chọn.');
+    }
+  }
+
   async authorizeUpload(input: AuthorizeUploadInput) {
+    this.assertNamespaceAllowed(input.namespace);
+    const checksum = input.checksumSha256;
+    if (checksum !== undefined && !SHA256_BASE64.test(checksum)) {
+      throw new ObjectStorageError('OBJECT_CHECKSUM_INVALID', 'Mã kiểm tra ảnh không hợp lệ.');
+    }
+    if (this.options.privateBucket && checksum === undefined) {
+      throw new ObjectStorageError('OBJECT_CHECKSUM_REQUIRED', 'Cần mã kiểm tra ảnh trước khi tải lên.');
+    }
     const objectKey = buildOwnedObjectKey(input);
     const uploadUrl = await getSignedUrl(
       this.options.s3,
-      new PutObjectCommand({ Bucket: this.options.bucket, Key: objectKey, ContentType: input.mimeType }),
-      { expiresIn: PRESIGN_EXPIRY_SECONDS },
+      new PutObjectCommand({ Bucket: this.options.bucket, Key: objectKey, ContentType: input.mimeType, ChecksumSHA256: checksum }),
+      checksum === undefined
+        ? { expiresIn: PRESIGN_EXPIRY_SECONDS }
+        // Giữ checksum trong header đã ký để R2/S3 tự từ chối body không khớp (BadDigest).
+        : { expiresIn: PRESIGN_EXPIRY_SECONDS, unhoistableHeaders: new Set(['x-amz-checksum-sha256']) },
     );
+    const headers: Record<string, string> = { 'Content-Type': input.mimeType };
+    if (checksum !== undefined) headers['x-amz-checksum-sha256'] = checksum;
     return {
       objectKey,
       uploadUrl,
-      headers: { 'Content-Type': input.mimeType },
+      headers,
       expiresAt: new Date(this.now().getTime() + PRESIGN_EXPIRY_SECONDS * 1_000).toISOString(),
     };
   }
 
   async assertOwnedObject(input: AssertOwnedObjectInput): Promise<void> {
+    await this.inspectOwnedObject(input);
+  }
+
+  async inspectOwnedObject(input: AssertOwnedObjectInput): Promise<OwnedObjectMetadata> {
     validateUploadInput(input);
-    let head: { ContentType?: string; ContentLength?: number };
+    this.assertNamespaceAllowed(input.namespace);
+    let head: { ContentType?: string; ContentLength?: number; ChecksumSHA256?: string };
     try {
-      head = await this.options.s3.send(new HeadObjectCommand({ Bucket: this.options.bucket, Key: input.objectKey }));
+      head = await this.options.s3.send(new HeadObjectCommand({ Bucket: this.options.bucket, Key: input.objectKey, ChecksumMode: 'ENABLED' }));
     } catch {
       throw new ObjectStorageError('OBJECT_NOT_FOUND', 'Không tìm thấy ảnh đã tải lên.');
     }
@@ -139,6 +185,11 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     if (typeof head.ContentLength !== 'number' || head.ContentLength < 1 || head.ContentLength > input.maxBytes) {
       throw new ObjectStorageError('OBJECT_TOO_LARGE', 'Ảnh vượt quá dung lượng cho phép.');
     }
+    const checksumSha256 = head.ChecksumSHA256 ?? null;
+    if (input.expectedChecksumSha256 !== undefined && checksumSha256 !== input.expectedChecksumSha256) {
+      throw new ObjectStorageError('OBJECT_CHECKSUM_MISMATCH', 'Mã kiểm tra ảnh không khớp.');
+    }
+    return { size: head.ContentLength, checksumSha256 };
   }
 
   async getReadUrl(objectKey: string, options?: { visibility?: 'public' | 'private' }): Promise<string> {
@@ -158,7 +209,15 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
 }
 
 export function createObjectStorageClientFromEnv(environment = process.env): ObjectStorageClient {
-  const bucket = environment.OBJECT_STORAGE_BUCKET;
+  return createS3Client(environment, environment.OBJECT_STORAGE_BUCKET, false);
+}
+
+/** Bằng chứng kết quả trận và chứng từ trả thưởng: bucket riêng không public, chỉ signed read. */
+export function createPrivateObjectStorageClientFromEnv(environment = process.env): PrivateObjectStorageClient {
+  return createS3Client(environment, environment.OBJECT_STORAGE_PRIVATE_BUCKET, true);
+}
+
+function createS3Client(environment: NodeJS.ProcessEnv, bucket: string | undefined, privateBucket: boolean): S3ObjectStorageClient {
   const endpoint = environment.OBJECT_STORAGE_ENDPOINT;
   const accessKeyId = environment.OBJECT_STORAGE_ACCESS_KEY;
   const secretAccessKey = environment.OBJECT_STORAGE_SECRET_KEY;
@@ -174,6 +233,7 @@ export function createObjectStorageClientFromEnv(environment = process.env): Obj
   return new S3ObjectStorageClient({
     bucket,
     s3: new S3Client(config),
-    publicBaseUrl: environment.OBJECT_STORAGE_PUBLIC_BASE_URL,
+    publicBaseUrl: privateBucket ? undefined : environment.OBJECT_STORAGE_PUBLIC_BASE_URL,
+    privateBucket,
   });
 }

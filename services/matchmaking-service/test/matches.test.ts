@@ -79,6 +79,8 @@ function context(bookingId: string, startAt: Date): VenueMatchContext {
       lat: 10.77,
       lng: 106.7,
     },
+    providerUserId: randomUUID(),
+    provinceCode: 'ho-chi-minh',
   };
 }
 
@@ -99,6 +101,7 @@ async function createMatch(input: {
       organizerUserId: randomUUID(),
       bookingId,
       capacity: input.capacity ?? 4,
+      discipline: (input.capacity ?? 4) === 4 ? 'doubles' : 'singles',
       feePerSlot: 100000n,
       cutoffAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
       deadlineAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
@@ -302,7 +305,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(201);
     createdMatchIds.push(response.body.id);
 
@@ -330,7 +333,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(422);
 
     expect(response.body.error.code).toBe('MATCH_SLOT_NOT_HELD');
@@ -346,7 +349,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(422);
 
     expect(response.body.error.code).toBe('MATCH_LEAD_TOO_SHORT');
@@ -364,7 +367,7 @@ describe('MMP-02 — create and publish a match', () => {
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('AC-MMP-02-4: kèo miễn phí ngoài scope mô hình cọc -> từ chối', async () => {
+  it('AC-MMP-02-4: client không còn tự đặt capacity/feeMode -> từ chối', async () => {
     const organizerUserId = randomUUID();
     const holdId = randomUUID();
     bookingIds.push(holdId);
@@ -375,9 +378,10 @@ describe('MMP-02 — create and publish a match', () => {
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
       .send({ holdId, capacity: 2, feeMode: 'free' })
-      .expect(422);
+      .expect(400);
 
-    expect(response.body.error.code).toBe('MATCH_DEPOSIT_SPLIT_ONLY');
+    // v2: capacity/phí do server suy ra; trường cũ bị từ chối bởi schema strict.
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -441,7 +445,7 @@ describe('MMP-03 — public match detail', () => {
 
     const response = await request(app).get(`/matches/${match.id}`).expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: false,
       canPayOrganizerContribution: false,
@@ -467,7 +471,7 @@ describe('MMP-03 — public match detail', () => {
       .set('Authorization', `Bearer ${playerToken(participantUserId)}`)
       .expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: false,
       canPayOrganizerContribution: false,
@@ -487,7 +491,7 @@ describe('MMP-03 — public match detail', () => {
       .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
       .expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: true,
       canPayOrganizerContribution: false,
@@ -570,6 +574,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${playerToken(participantUserId)}`)
+      .send({ teamSide: 'B' })
       .expect(201);
 
     expect(response.body).toMatchObject({
@@ -589,12 +594,13 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const match = await createMatch({});
     const participantUserId = randomUUID();
     const token = playerToken(participantUserId);
-    const created = await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).expect(201);
+    const created = await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).send({ teamSide: 'B' }).expect(201);
     eventAggregateIds.push(created.body.id);
 
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${token}`)
+      .send({ teamSide: 'B' })
       .expect(409);
 
     expect(response.body.error.code).toBe('JOIN_ALREADY_ACTIVE');
@@ -606,6 +612,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
+      .send({ teamSide: 'B' })
       .expect(409);
 
     expect(response.body.error.code).toBe('MATCH_NOT_OPEN');
@@ -614,7 +621,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
   it('D50: only the first concurrent player reserves the last slot', async () => {
     const match = await createMatch({ capacity: 2 });
     const responses = await Promise.all([randomUUID(), randomUUID()].map((userId) =>
-      request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${playerToken(userId)}`),
+      request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${playerToken(userId)}`).send({ teamSide: 'B' }),
     ));
     expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     expect(await prisma.join.count({ where: { matchId: match.id, status: 'approved' } })).toBe(1);
@@ -873,5 +880,112 @@ describe('post-payment skill setup', () => {
       .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
       .send({ skillMin: 'beginner', skillMax: 'advanced' })
       .expect(403);
+  });
+});
+
+describe('Competitive matches v2 — create from hold or paid booking, choose a team', () => {
+  const body = { mode: 'friendly', discipline: 'doubles', ratio: '6:4', format: 'bo3' } as const;
+  function paidBooking(organizerUserId: string, overrides: Partial<VenueMatchContext> = {}) {
+    const bookingId = randomUUID();
+    bookingIds.push(bookingId);
+    const slot = context(bookingId, new Date(Date.now() + 72 * 3_600_000));
+    venueBookingClient.contexts.set(bookingId, {
+      ...slot, ownerUserId: organizerUserId, status: 'confirmed', holdExpiresAt: null, priceSnapshot: '200001', ...overrides,
+    });
+    return bookingId;
+  }
+
+  it('AC-CM-01/06: a paid booking opens immediately without touching the booking and shows the owner rebalance', async () => {
+    const organizerUserId = randomUUID();
+    accountClient.displayNames.set(organizerUserId, 'Minh Anh');
+    const bookingId = paidBooking(organizerUserId);
+    let holdConversions = 0;
+    const original = venueBookingClient.createBookingFromHold.bind(venueBookingClient);
+    venueBookingClient.createBookingFromHold = async (holdId: string) => { holdConversions += 1; return original(holdId); };
+    try {
+      const response = await request(app).post('/matches').set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
+        .send({ bookingId, ...body }).expect(201);
+      createdMatchIds.push(response.body.id);
+      expect(response.body).toMatchObject({
+        status: 'open', sourceType: 'paid_booking', discipline: 'doubles', ratio: '6:4', capacity: 4, feePerSlot: '60000',
+        bookingPrice: '200001', provinceCode: 'ho-chi-minh',
+        funding: {
+          bookingPrice: '200001', totalContribution: '240001', resultHeldAmount: '40000', regularSlotAmount: '60000',
+          organizerContribution: '60001', viewerAdditionalAmountDue: '0', organizerRefundAtLock: '140000', organizerRefundWithdrawable: true,
+        },
+      });
+      expect(holdConversions).toBe(0);
+      const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: response.body.id, eventType: 'MatchCreated' } });
+      expect(event.payload).toMatchObject({
+        sourceType: 'paid_booking', mode: 'friendly', discipline: 'doubles', ratio: '6:4', teamSize: 2,
+        bookingPrice: '200001', resultReserve: '40000', totalContribution: '240001', feePerSlot: '60000', organizerContribution: '60001',
+      });
+      expect(event.payload).not.toHaveProperty('depositExpiresAt');
+
+      const stranger = await request(app).get(`/matches/${response.body.id}`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).expect(200);
+      expect(stranger.body.funding).toMatchObject({ regularSlotAmount: '60000', viewerAdditionalAmountDue: '60000', organizerContribution: null, organizerRefundAtLock: null });
+      expect(stranger.body.actions).toMatchObject({ canJoinTeamA: true, canJoinTeamB: true });
+      expect(stranger.body.teamSlots).toEqual([{ side: 'A', size: 2, open: 1 }, { side: 'B', size: 2, open: 2 }]);
+    } finally {
+      venueBookingClient.createBookingFromHold = original;
+    }
+  });
+
+  it('rejects a paid booking owned by someone else, ranked without province, and BO5 on a 60-minute booking', async () => {
+    const organizerUserId = randomUUID();
+    const token = `Bearer ${playerToken(organizerUserId)}`;
+    const foreign = paidBooking(randomUUID());
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: foreign, ...body }).expect(422)).body.error.code).toBe('MATCH_BOOKING_NOT_OWNED');
+    const noProvince = paidBooking(organizerUserId, { provinceCode: null });
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: noProvince, ...body, mode: 'ranked' }).expect(422)).body.error.code).toBe('MATCH_PROVINCE_REQUIRED');
+    const short = paidBooking(organizerUserId);
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: short, ...body, format: 'bo5' }).expect(422)).body.error.code).toBe('MATCH_FORMAT_NOT_ALLOWED');
+  });
+
+  it('AC-CM-02: a retried create returns the same match and a different config for the same booking is refused', async () => {
+    const organizerUserId = randomUUID();
+    const token = `Bearer ${playerToken(organizerUserId)}`;
+    const bookingId = paidBooking(organizerUserId);
+    const first = await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body }).expect(201);
+    createdMatchIds.push(first.body.id);
+    const retry = await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body }).expect(201);
+    expect(retry.body.id).toBe(first.body.id);
+    await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body, ratio: '7:3' }).expect(409);
+    expect(await prisma.match.count({ where: { bookingId } })).toBe(1);
+  });
+
+  it('BR-CM-05: doubles keeps one A slot and two B slots under concurrent joins; singles has no A slot', async () => {
+    const doubles = await createMatch({ capacity: 4 });
+    const joinAs = (side: 'A' | 'B') => request(app).post(`/matches/${doubles.id}/joins`)
+      .set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({ teamSide: side });
+    const lastA = await Promise.all([joinAs('A'), joinAs('A')]);
+    expect(lastA.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(lastA.find((r) => r.status === 409)!.body.error.code).toBe('MATCH_TEAM_FULL');
+    const b = await Promise.all([joinAs('B'), joinAs('B')]);
+    expect(b.map((r) => r.status)).toEqual([201, 201]);
+    expect(await prisma.join.groupBy({ by: ['teamSide'], where: { matchId: doubles.id, status: 'approved' }, _count: true }))
+      .toEqual(expect.arrayContaining([{ teamSide: 'A', _count: 1 }, { teamSide: 'B', _count: 2 }]));
+    const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: lastA.find((r) => r.status === 201)!.body.id, eventType: 'JoinApproved' } });
+    expect(event.payload).toMatchObject({ teamSide: 'A' });
+    eventAggregateIds.push(...[...lastA, ...b].filter((r) => r.status === 201).map((r) => r.body.id));
+
+    const singles = await createMatch({ capacity: 2 });
+    const refused = await request(app).post(`/matches/${singles.id}/joins`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({ teamSide: 'A' }).expect(409);
+    expect(refused.body.error.code).toBe('MATCH_TEAM_FULL');
+    await request(app).post(`/matches/${singles.id}/joins`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({}).expect(400);
+  });
+});
+
+describe('Competitive matches v2 — payment action closes at the lock deadline', () => {
+  it('turns canPay off once cutoffAt has passed even while the 10-minute JOIN hold is still running', async () => {
+    const match = await createMatch({ capacity: 2 });
+    accountClient.displayNames.set(match.organizerUserId, 'Chủ kèo');
+    const participantUserId = randomUUID();
+    await prisma.join.create({ data: { matchId: match.id, participantUserId, status: 'approved', approvedAt: new Date(), teamSide: 'B' } });
+    const detail = () => request(app).get(`/matches/${match.id}`).set('Authorization', `Bearer ${playerToken(participantUserId)}`).expect(200);
+
+    expect((await detail()).body.actions.canPay).toBe(true);
+    await prisma.match.update({ where: { id: match.id }, data: { cutoffAt: new Date(Date.now() - 60_000) } });
+    expect((await detail()).body.actions).toMatchObject({ canPay: false, canWithdrawBeforeLock: false });
   });
 });

@@ -30,6 +30,59 @@ describe('matchmaking booking context contract', () => {
     expect(response.status).toBe(200); expect(response.body.bookings).toHaveLength(1); expect(response.body.bookings[0].court.venue.name).toBe('Venue nguồn');
   });
 
+  it('BR-CM-01: lists owned holds and already-paid future bookings as match sources without mutating them', async () => {
+    const ownerId = randomUUID(); const otherId = randomUUID(); const providerId = randomUUID(); const providerUserId = randomUUID();
+    providerIds.push(providerId);
+    const court = await prisma.court.create({ data: { name: 'Sân 03', venue: { create: {
+      name: 'Nhà thi đấu Quận 7', address: '12 Nguyễn Thị Thập, Quận 7', provinceCode: 'ho-chi-minh', lat: 10.73, lng: 106.72,
+      provider: { create: { id: providerId, userId: providerUserId, orgName: 'Q7' } },
+    } } } });
+    const at = (hours: number) => new Date(Date.now() + hours * 3_600_000);
+    const booking = (data: Record<string, unknown>) => prisma.booking.create({ data: {
+      courtId: court.id, userId: ownerId, source: 'marketplace', status: 'confirmed', priceSnapshot: 200001n,
+      startAt: at(48), endAt: at(49), ...data,
+    } as never }).then((row) => { bookingIds.push(row.id); return row; });
+    const paid = await booking({});
+    await booking({ userId: otherId, startAt: at(50), endAt: at(51) });
+    await booking({ status: 'completed', startAt: at(52), endAt: at(53) });
+    await booking({ status: 'cancelled', startAt: at(54), endAt: at(55) });
+    await booking({ source: 'internal', userId: null, startAt: at(56), endAt: at(57) });
+    await booking({ holdPurposeSnapshot: 'match', startAt: at(58), endAt: at(59) });
+    await booking({ startAt: at(-3), endAt: at(-2) });
+    const hold = await prisma.hold.create({ data: { courtId: court.id, userId: ownerId, startAt: at(72), endAt: at(73), expiresAt: at(0.2) } });
+    const outboxBefore = await prisma.outbox.count();
+
+    const response = await request(app).get('/players/me/match-sources').set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`).expect(200);
+
+    expect(response.body.sources).toEqual([
+      expect.objectContaining({ sourceType: 'hold', holdId: hold.id, bookingStatus: 'held', price: '0' }),
+      {
+        sourceType: 'paid_booking', bookingId: paid.id, bookingStatus: 'confirmed', price: '200001',
+        startAt: paid.startAt.toISOString(), endAt: paid.endAt.toISOString(),
+        venue: { id: court.venueId, name: 'Nhà thi đấu Quận 7', address: '12 Nguyễn Thị Thập, Quận 7', provinceCode: 'ho-chi-minh' },
+        court: { id: court.id, name: 'Sân 03' },
+      },
+    ]);
+    expect(await prisma.booking.findUniqueOrThrow({ where: { id: paid.id } })).toMatchObject({ status: 'confirmed' });
+    expect(await prisma.outbox.count()).toBe(outboxBefore);
+    await prisma.hold.delete({ where: { id: hold.id } });
+  });
+
+  it('snapshots the provider identity and venue province in single and batch match context', async () => {
+    const providerId = randomUUID(); const providerUserId = randomUUID(); providerIds.push(providerId);
+    const booking = await prisma.booking.create({ data: {
+      userId: randomUUID(), source: 'marketplace', status: 'confirmed', priceSnapshot: 150000n,
+      startAt: new Date(Date.now() + 30 * 3_600_000), endAt: new Date(Date.now() + 31 * 3_600_000),
+      court: { create: { name: 'Sân 1', venue: { create: { name: 'V tỉnh', address: 'Đà Nẵng', provinceCode: 'da-nang', lat: 16, lng: 108,
+        provider: { create: { id: providerId, userId: providerUserId, orgName: 'P' } } } } } },
+    } });
+    bookingIds.push(booking.id);
+    const single = await request(app).get(`/internal/bookings/${booking.id}/match-context`).expect(200);
+    expect(single.body).toMatchObject({ providerUserId, provinceCode: 'da-nang' });
+    const batch = await request(app).post('/internal/bookings/match-contexts').send({ bookingIds: [booking.id] }).expect(200);
+    expect(batch.body.contexts[0]).toMatchObject({ providerUserId, provinceCode: 'da-nang' });
+  });
+
   it('returns booking display references only to an authenticated internal caller', async () => {
     const providerId = randomUUID();
     providerIds.push(providerId);

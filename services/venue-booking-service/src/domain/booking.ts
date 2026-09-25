@@ -99,7 +99,7 @@ export async function getPaymentStatus(bookingId: string) {
 export async function getMatchContext(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: { include: { venue: true } }, shutdownItems: { select: { id: true }, take: 1 } },
+    include: { court: { include: { venue: { include: { provider: { select: { userId: true } } } } } }, shutdownItems: { select: { id: true }, take: 1 } },
   });
   if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
 
@@ -124,6 +124,8 @@ export async function getMatchContext(bookingId: string) {
       lat: booking.court.venue.lat,
       lng: booking.court.venue.lng,
     },
+    providerUserId: booking.court.venue.provider.userId,
+    provinceCode: booking.court.venue.provinceCode,
   });
 }
 
@@ -132,7 +134,7 @@ export async function getMatchContext(bookingId: string) {
 export async function getMatchContexts(bookingIds: string[]) {
   const bookings = await prisma.booking.findMany({
     where: { id: { in: bookingIds } },
-    include: { court: { include: { venue: true } }, shutdownItems: { select: { id: true }, take: 1 } },
+    include: { court: { include: { venue: { include: { provider: { select: { userId: true } } } } } }, shutdownItems: { select: { id: true }, take: 1 } },
   });
   const now = new Date();
   const expiredIds = bookings
@@ -159,6 +161,8 @@ export async function getMatchContexts(bookingIds: string[]) {
       lat: booking.court.venue.lat,
       lng: booking.court.venue.lng,
     },
+    providerUserId: booking.court.venue.provider.userId,
+    provinceCode: booking.court.venue.provinceCode,
   })]));
   return bookingIds.map((bookingId) => byId.get(bookingId) ?? null);
 }
@@ -483,11 +487,33 @@ export async function listMyBookings(userId: string) {
 
 export async function listMyMatchSources(userId: string) {
   const now = new Date();
-  const [holds, bookings] = await Promise.all([
+  const [holds, bookings, paidBookings] = await Promise.all([
     prisma.hold.findMany({ where: { userId, expiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
     prisma.booking.findMany({ where: { userId, source: 'marketplace', status: 'held', holdExpiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
+    // Booking đã thanh toán, chưa diễn ra và không phải booking sinh ra từ kèo (BR-CM-01).
+    prisma.booking.findMany({
+      where: { userId, source: 'marketplace', status: 'confirmed', startAt: { gt: now }, NOT: { holdPurposeSnapshot: 'match' } },
+      include: { court: { include: { venue: true } } },
+    }),
   ]);
-  return { holds, bookings };
+  const place = (court: { id: string; name: string; venue: { id: string; name: string; address: string; provinceCode: string | null } }) => ({
+    venue: { id: court.venue.id, name: court.venue.name, address: court.venue.address, provinceCode: court.venue.provinceCode },
+    court: { id: court.id, name: court.name },
+  });
+  const sources = [
+    ...await Promise.all(holds.map(async (hold) => ({
+      sourceType: 'hold' as const, holdId: hold.id, bookingStatus: 'held' as const,
+      price: (await calculateBookingPrice(hold.courtId, hold.startAt, hold.endAt)).toString(),
+      startAt: hold.startAt.toISOString(), endAt: hold.endAt.toISOString(), ...place(hold.court),
+    }))),
+    ...paidBookings.map((booking) => ({
+      sourceType: 'paid_booking' as const, bookingId: booking.id, bookingStatus: 'confirmed' as const,
+      price: booking.priceSnapshot.toString(),
+      startAt: booking.startAt.toISOString(), endAt: booking.endAt.toISOString(), ...place(booking.court),
+    })),
+  ];
+  // `holds`/`bookings` giữ cho Web hiện tại tới khi Task 23 chuyển sang `sources`.
+  return { holds, bookings, sources };
 }
 
 export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date; page: number; pageSize: number }) {
