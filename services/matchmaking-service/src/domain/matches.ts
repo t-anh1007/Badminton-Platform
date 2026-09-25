@@ -299,6 +299,16 @@ export async function findPublicMatches(
   return Promise.all(rows.map(async (row) => ({ ...row, organizer: await accountClient.getPublicMatchProfile(row.organizerUserId) })));
 }
 
+// Danh tính theo hồ sơ tài khoản; hồ sơ private dùng nhãn trung tính (D31).
+export function publicIdentity(userId: string, profile: Awaited<ReturnType<AccountClient['getPublicMatchProfile']>>) {
+  const visible = profile?.identityVisibility === 'public';
+  return { userId, displayName: visible ? profile!.displayName : 'Người chơi', avatarUrl: visible ? profile!.avatarUrl : null };
+}
+
+export async function participantIdentity(accountClient: AccountClient, userId: string) {
+  return publicIdentity(userId, await accountClient.getPublicMatchProfile(userId));
+}
+
 export async function getPublicMatchDetail(
   venueBookingClient: VenueBookingClient,
   accountClient: AccountClient,
@@ -380,12 +390,9 @@ export async function getPublicMatchDetail(
     !ownJoin &&
     openSlots > 0,
   );
-  // Danh tính theo hồ sơ tài khoản; hồ sơ private dùng nhãn trung tính (D31).
-  const identity = async (userId: string) => {
-    const profile = userId === match.organizerUserId ? organizerProfile : await accountClient.getPublicMatchProfile(userId);
-    const visible = profile?.identityVisibility === 'public';
-    return { userId, displayName: visible ? profile!.displayName : 'Người chơi', avatarUrl: visible ? profile!.avatarUrl : null };
-  };
+  const identity = async (userId: string) => (userId === match.organizerUserId
+    ? publicIdentity(userId, organizerProfile)
+    : participantIdentity(accountClient, userId));
   const organizerPaid = match.sourceType === 'paid_booking' || Boolean(match.organizerContributionPaidAt);
   const participants = [
     { ...(await identity(match.organizerUserId)), teamSide: 'A' as TeamSide, role: 'organizer' as const, paymentState: organizerPaid ? 'paid' as const : 'awaiting_payment' as const },
@@ -445,8 +452,11 @@ export async function getPublicMatchDetail(
         || (isOrganizer && match.status === 'awaiting_deposit' && !match.organizerContributionPaidAt)
       ),
       canWithdrawBeforeLock: Boolean(ownJoin && ownJoin.status !== 'pending' && lockPending),
-      // Luồng sự cố mở ở Task 12.
-      canReportIncident: false,
+      // Roster đã khóa được báo sự cố trước/trong/sau trận; server kiểm tra hạn hồ sơ (BR-CM-34).
+      canReportIncident: Boolean(
+        match.endAt && ['confirmed', 'completed'].includes(match.status)
+        && (isOrganizer || ownJoin?.status === 'confirmed'),
+      ),
       canJoin: Boolean(
         requester?.roles.includes('player') &&
         match.status === 'open' &&
@@ -544,6 +554,7 @@ export async function requestJoin(matchId: string, participantUserId: string, re
         fee: match.feePerSlot.toString(),
         expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
         teamSide,
+        joinedAt: join.createdAt.toISOString(),
       } satisfies JoinApprovedPayload,
     });
     return join;

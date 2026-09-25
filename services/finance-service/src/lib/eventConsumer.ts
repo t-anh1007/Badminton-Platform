@@ -12,11 +12,13 @@ import type {
   JoinApprovedPayload,
   MatchCancelledPayload,
   MatchConfirmedPayload,
+  MatchResultFinalizedPayload,
   MatchCreatedPayload,
   MatchFeeRefundRequestedPayload,
   MatchBookingResolutionPayload,
   MatchSettlementRequestedPayload,
 } from '@khoaluantn/shared';
+import { handleMatchResultFinalized } from '../domain/matchResult.js';
 import {
   handleJoinApproved,
   handleMatchCancelled,
@@ -126,6 +128,8 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: E
         return;
       }
       await handleMatchConfirmed(eventId, envelope.payload as MatchConfirmedPayload);
+    } else if (envelope.type === 'MatchResultFinalized') {
+      await handleMatchResultFinalized(eventId, envelope.payload as MatchResultFinalizedPayload);
     } else if (envelope.type === 'MatchCancelled') {
       await handleMatchCancelled(eventId, envelope.payload as MatchCancelledPayload);
     } else if (envelope.type === 'MatchFeeRefundRequested') {
@@ -166,7 +170,7 @@ export async function bootstrapEventConsumption(options?: {
     'UserRegistered', 'ProviderApproved', 'BookingConfirmed', 'PaymentTooLate',
     'BookingCancelled', 'MatchCreated', 'JoinApproved', 'MatchConfirmed',
     'MatchCancelled', 'MatchFeeRefundRequested', 'MatchSettlementTooLate', 'MatchBookingResolved',
-    'MatchSettlementRequested',
+    'MatchSettlementRequested', 'MatchResultFinalized',
   ]) await channel.bindQueue(queueName, 'domain-events', eventType);
   const inFlight = new Set<Promise<void>>();
   const { consumerTag } = await channel.consume(queueName, (msg) => {

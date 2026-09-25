@@ -21,6 +21,7 @@ import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
 import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
 import { requestFundingIfReadyInTransaction } from '../domain/matchSettlement.js';
+import { openResultCase } from '../domain/matchResults.js';
 
 const QUEUE_NAME = 'matchmaking.match-lifecycle';
 
@@ -250,6 +251,7 @@ export async function handleMatchFundingCompleted(eventId: string, raw: MatchFun
     const match = await tx.match.findUnique({ where: { id: payload.matchId } });
     if (match && match.bookingId === payload.bookingId && match.status === 'filled' && match.fundingRequestedAt) {
       await tx.match.update({ where: { id: match.id }, data: { status: match.completedAt ? 'completed' : 'confirmed' } });
+      if (match.completedAt) await openResultCase(tx, match);
       await writeMatchOutcomeNotifications(tx, {
         matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
         title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất phần tiền kèo trước hạn chốt kèo.',
@@ -276,6 +278,7 @@ export async function handleBookingConfirmedForMatch(
         where: { id: match.id },
         data: { status: match.completedAt ? 'completed' : 'confirmed' },
       });
+      if (match.completedAt) await openResultCase(tx, match);
       await writeMatchOutcomeNotifications(tx, {
         matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
         title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất thanh toán và lịch sân được giữ chỗ.',
@@ -384,6 +387,7 @@ export async function handleBookingCompletedForMatch(eventId: string, raw: Booki
           completedAt: new Date(payload.completedAt),
         },
       });
+      if (match.status === 'confirmed' || match.status === 'completed') await openResultCase(tx, match);
     }
     await tx.processedEvent.create({ data: { eventId } });
   });

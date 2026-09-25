@@ -52,6 +52,7 @@ const joinApprovedSchema = z.object({
   fee: nonNegativeMoney,
   expiresAt: z.string().datetime(),
   teamSide: z.enum(['A', 'B']).optional(),
+  joinedAt: z.string().datetime().optional(),
 }).strict();
 
 const matchConfirmedSchema = z.object({
@@ -175,6 +176,7 @@ export async function handleJoinApproved(eventId: string, raw: JoinApprovedPaylo
           userId: payload.participantUserId,
           role: 'participant',
           teamSide: payload.teamSide ?? 'B',
+          joinedAt: payload.joinedAt ? new Date(payload.joinedAt) : null,
           amount: fee,
           expiresAt: new Date(payload.expiresAt),
         },

@@ -38,3 +38,41 @@ export async function writeMatchOutcomeNotifications(
     },
   })));
 }
+
+type ResultNotificationRecipient =
+  | { type: 'user'; userId: string; targetRole: 'player' | 'provider' }
+  | { type: 'role'; targetRole: 'admin' };
+
+/** Thông báo luồng kết quả kèo cạnh tranh: in-app + email bắt buộc (BR-CM-40, Task 22 giao email). */
+export async function writeResultNotification(
+  tx: Prisma.TransactionClient,
+  notification: {
+    recipients: ResultNotificationRecipient[];
+    kind: string;
+    title: string;
+    body: string;
+    matchId: string;
+    caseId: string;
+    actionKind: 'match.result.view' | 'provider.match-result.review' | 'admin.match-result.review';
+  },
+) {
+  const player = notification.actionKind === 'match.result.view';
+  await Promise.all(notification.recipients.map((recipient) => writeOutbox(tx, {
+    aggregateType: 'Notification',
+    aggregateId: `${notification.kind}:${notification.caseId}:${recipient.type === 'user' ? recipient.userId : 'admin'}`,
+    eventType: 'UserNotificationRequested',
+    payload: {
+      recipient,
+      category: player ? 'match' : 'dispute',
+      kind: notification.kind,
+      title: notification.title,
+      body: notification.body,
+      priority: player ? 'update' : 'action_required',
+      entityType: player ? 'match' : 'match_result_case',
+      entityId: player ? notification.matchId : notification.caseId,
+      actionKind: notification.actionKind,
+      actionExpiresAt: null,
+      emailPolicy: 'required',
+    },
+  })));
+}

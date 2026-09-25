@@ -762,7 +762,7 @@ Emit one idempotent `MatchFundingCompleted` event for both branches; Matchmaking
 - [x] Branch cutoff cancellation: hold cancels/releases booking; paid booking cancels only the match layer and refunds cash participants.
 - [x] Allow organizer cancel only before cutoff. After cutoff return a business error directing users to incident declaration.
 - [x] Replace the old ratio-based confirmed cancellation allocation with the exact 50:50 team rule above.
-- [ ] Verify result dispute does not modify `BookingRevenue`, business pending revenue, or commission.
+- [x] Verify result dispute does not modify `BookingRevenue`, business pending revenue, or commission.
 - [x] Run focused tests. Expected: every ledger sum balances and paid booking remains confirmed when only the match layer closes.
 
 **Depends on:** Task 8. **Blocks:** Task 14 and final finance verification.
@@ -791,12 +791,12 @@ Emit one idempotent `MatchFundingCompleted` event for both branches; Matchmaking
 
 **Evidence fields:** `objectKey`, `mimeType`, `size`, `checksumSha256`, `ownerUserId`, `claimId?`, `responseId?`, `position`, `createdAt`, `deletedAt?`. Unique `[caseId, objectKey]` and index `[caseId, ownerUserId]`.
 
-- [ ] Add the dependency and failing tests for wrong namespace/owner, 5 MB + 1 byte, checksum mismatch, sixth image, immutable evidence, and unauthorized private read.
-- [ ] Add schema/migration with result status values `declaration_open`, `provisional`, `incident_window`, `provider_review`, `admin_review`, `final`.
-- [ ] Implement evidence authorization under `match/results`, commit through `inspectOwnedObject`, and private signed reads only after role/roster authorization.
-- [ ] Add a retention sweep that deletes binary only when `closedAt <= now - 90 days`, then sets `deletedAt` while retaining metadata/checksum.
-- [ ] Register the storage client and retention scheduler through existing app/index dependency patterns.
-- [ ] Run focused tests and Prisma validation. Expected: evidence remains after restart/deploy because only object keys live in PostgreSQL and bytes live in object storage.
+- [x] Add the dependency and failing tests for wrong namespace/owner, 5 MB + 1 byte, checksum mismatch, sixth image, immutable evidence, and unauthorized private read.
+- [x] Add schema/migration with result status values `declaration_open`, `provisional`, `incident_window`, `provider_review`, `admin_review`, `final`.
+- [x] Implement evidence authorization under `match/results`, commit through `inspectOwnedObject`, and private signed reads only after role/roster authorization.
+- [x] Add a retention sweep that deletes binary only when `closedAt <= now - 90 days`, then sets `deletedAt` while retaining metadata/checksum.
+- [x] Register the storage client and retention scheduler through existing app/index dependency patterns.
+- [x] Run focused tests and Prisma validation. Expected: evidence remains after restart/deploy because only object keys live in PostgreSQL and bytes live in object storage.
 
 **Depends on:** Tasks 2, 4, 5. **Blocks:** Tasks 11–13, 24.
 
@@ -870,14 +870,14 @@ interface PlayerResultCaseView {
 
 Accept completed sets only at 21+ with two-point lead or exactly 30; allow at most one unfinished final set. If neither side has the required set wins at `endAt`, use set leader, then unfinished-set point leader; tie/no unfinished deciding set yields `NO_RESULT`, which the score-claim endpoint rejects and directs to incident flow.
 
-- [ ] Add pure tests for 21–19, 22–20, 30–29, invalid 31, BO3/BO5, incomplete timed match, tied incomplete set, and extra sets after victory.
-- [ ] Add HTTP tests for roster-only access, 12-hour deadline, 1–3 committed evidence items, and concurrent first claims.
-- [ ] Add read-model tests for authoritative booking address/court/slot, account display name/avatar, server deadlines/actions, roster-only money, and authorized evidence reads.
-- [ ] Reuse the participant-profile enrichment already used by the Task 5 match detail; at most four roster profiles are read through the existing Account client. Do not persist a second profile snapshot or create a new profile service.
-- [ ] On `BookingCompleted`, upsert one `declaration_open` case with deadline `match.endAt + 12h`; use match snapshot, not event arrival time.
-- [ ] First valid claim sets `provisional`, stores inferred outcome, and sets `objectionDeadlineAt = claim.createdAt + 12h`.
-- [ ] A later same-winner claim stays provisional and auditable; an opposite-winner claim moves to dispute processing.
-- [ ] Run focused tests. Expected: no claim path changes money/rating and first claim never becomes final synchronously.
+- [x] Add pure tests for 21–19, 22–20, 30–29, invalid 31, BO3/BO5, incomplete timed match, tied incomplete set, and extra sets after victory.
+- [x] Add HTTP tests for roster-only access, 12-hour deadline, 1–3 committed evidence items, and concurrent first claims.
+- [x] Add read-model tests for authoritative booking address/court/slot, account display name/avatar, server deadlines/actions, roster-only money, and authorized evidence reads.
+- [x] Reuse the participant-profile enrichment already used by the Task 5 match detail; at most four roster profiles are read through the existing Account client. Do not persist a second profile snapshot or create a new profile service.
+- [x] On `BookingCompleted`, upsert one `declaration_open` case with deadline `match.endAt + 12h`; use match snapshot, not event arrival time.
+- [x] First valid claim sets `provisional`, stores inferred outcome, and sets `objectionDeadlineAt = claim.createdAt + 12h`.
+- [x] A later same-winner claim stays provisional and auditable; an opposite-winner claim moves to dispute processing.
+- [x] Run focused tests. Expected: no claim path changes money/rating and first claim never becomes final synchronously.
 
 **Depends on:** Tasks 8, 10. **Blocks:** Tasks 12–14.
 
@@ -908,13 +908,13 @@ POST /matches/:matchId/result-evidence (supplement only while open)
 
 No-show is accepted only at/after `startAt + 15m`. Incident types are `no_show`, `not_played`, `interrupted`, and `other`; an incident always opens dispute review and never self-declares a winner.
 
-- [ ] Add failing tests for singles early confirmation, doubles first losing-player confirmation, full 60-minute grace beyond the original objection deadline, second confirmation, objection, no-show at +14:59/+15:00, no declaration, and scheduler replay.
-- [ ] Implement one transaction-locked `finalizeUndisputedResult(caseId, now)` used only by confirmation/deadline paths.
-- [ ] For doubles, first losing-team confirmation sets `teamGraceDeadlineAt = now + 1h`; both confirmations finalize immediately, otherwise finalize only after the grace expires without objection.
-- [ ] At declaration deadline with no claim, move to `incident_window` until `deadline + 12h`; silence then finalizes `NO_RESULT`.
-- [ ] At objection deadline with no objection, finalize the provisional result exactly once.
-- [ ] Emit `MatchResultFinalized` only from the shared finalizer; disputed/provider/Admin states are excluded by a hard status guard.
-- [ ] Run focused tests. Expected: concurrency/replay yields one terminal case and one outbox final event.
+- [x] Add failing tests for singles early confirmation, doubles first losing-player confirmation, full 60-minute grace beyond the original objection deadline, second confirmation, objection, no-show at +14:59/+15:00, no declaration, and scheduler replay.
+- [x] Implement one transaction-locked `finalizeUndisputedResult(caseId, now)` used only by confirmation/deadline paths.
+- [x] For doubles, first losing-team confirmation sets `teamGraceDeadlineAt = now + 1h`; both confirmations finalize immediately, otherwise finalize only after the grace expires without objection.
+- [x] At declaration deadline with no claim, move to `incident_window` until `deadline + 12h`; silence then finalizes `NO_RESULT`.
+- [x] At objection deadline with no objection, finalize the provisional result exactly once.
+- [x] Emit `MatchResultFinalized` only from the shared finalizer; disputed/provider/Admin states are excluded by a hard status guard.
+- [x] Run focused tests. Expected: concurrency/replay yields one terminal case and one outbox final event.
 
 **Depends on:** Task 11. **Blocks:** Tasks 13, 14, 18.
 
@@ -962,12 +962,12 @@ interface AdminDecisionPreview {
 }
 ```
 
-- [ ] Add failing tests for provider ownership, provider-in-roster conflict, paginated provider/Admin queues, authorized detail/evidence reads, 24-hour escalation, Admin 24/48-hour reminders, repeated overdue reminders, version conflict, and two-step confirmation.
-- [ ] Snapshot provider identity from the Match; if that user is in the roster, skip provider and enter `admin_review` immediately.
-- [ ] Persist recommendation append-only. It may only advance `provider_review -> admin_review`; it must not call the result finalizer or emit `MatchResultFinalized`.
-- [ ] Start Admin SLA at entry to `admin_review`; after 48 hours only set overdue metadata and emit reminders every 24 hours.
-- [ ] On confirmed Admin decision, persist `AdminResultDecision`, advance case to final, and emit the same `MatchResultFinalized` contract as undisputed finalization.
-- [ ] Run focused tests. Expected: deleting/pausing all Admin workers leaves funds/rating locked indefinitely; provider recommendation never becomes effective.
+- [x] Add failing tests for provider ownership, provider-in-roster conflict, paginated provider/Admin queues, authorized detail/evidence reads, 24-hour escalation, Admin 24/48-hour reminders, repeated overdue reminders, version conflict, and two-step confirmation.
+- [x] Snapshot provider identity from the Match; if that user is in the roster, skip provider and enter `admin_review` immediately.
+- [x] Persist recommendation append-only. It may only advance `provider_review -> admin_review`; it must not call the result finalizer or emit `MatchResultFinalized`.
+- [x] Start Admin SLA at entry to `admin_review`; after 48 hours only set overdue metadata and emit reminders every 24 hours.
+- [x] On confirmed Admin decision, persist `AdminResultDecision`, advance case to final, and emit the same `MatchResultFinalized` contract as undisputed finalization.
+- [x] Run focused tests. Expected: deleting/pausing all Admin workers leaves funds/rating locked indefinitely; provider recommendation never becomes effective.
 
 **Depends on:** Tasks 2 and 12. **Blocks:** Tasks 14, 18, 24, 25.
 
@@ -994,12 +994,12 @@ Consumer: MatchResultFinalizedPayload
 
 For a winner, allocate the entire result reserve to the winning team. For `NO_RESULT`, allocate `floor(resultReserve / 2)` to Team A and the remainder to Team B. Inside each receiving team, give each non-remainder recipient `floor(teamAmount / teamSize)`; give the remainder to the organizer when the organizer belongs to that team. If the receiving team does not contain the organizer, give the remainder to the member who joined that team earliest by the existing JOIN order; do not add a separate remainder mechanism. Finance recomputes from stored funding/contributions and never trusts client-supplied amounts.
 
-- [ ] Add failing tests for 5:5 zero reserve, 6:4, 7:3, singles, doubles, odd VND, organizer-present remainder, earliest-JOIN remainder when the receiving team has no organizer, winner/no-result, wrong match state, event replay, and concurrent consumers.
-- [ ] Implement a pure `calculateResultAllocations(funding, outcome)` used only by the event consumer and domain tests; do not add an internal HTTP endpoint.
-- [ ] Under the match advisory lock, debit platform `reserved` by each allocation total and credit personal `available` with equal `withdrawableDelta` using unique references `matchResult:<decisionId>:<userId>`.
-- [ ] Mark `resultReserveStatus=released` and `resultFinalizedAt`; zero reserve still records processed/finalized state without fake ledger entries.
-- [ ] Do not touch `BookingRevenue`, commission entries, or business wallets.
-- [ ] Run focused and Finance E2E tests. Expected: sum of credits equals reserve, every retry is a no-op, and winner credit is withdrawable.
+- [x] Add failing tests for 5:5 zero reserve, 6:4, 7:3, singles, doubles, odd VND, organizer-present remainder, earliest-JOIN remainder when the receiving team has no organizer, winner/no-result, wrong match state, event replay, and concurrent consumers.
+- [x] Implement a pure `calculateResultAllocations(funding, outcome)` used only by the event consumer and domain tests; do not add an internal HTTP endpoint.
+- [x] Under the match advisory lock, debit platform `reserved` by each allocation total and credit personal `available` with equal `withdrawableDelta` using unique references `matchResult:<decisionId>:<userId>`.
+- [x] Mark `resultReserveStatus=released` and `resultFinalizedAt`; zero reserve still records processed/finalized state without fake ledger entries.
+- [x] Do not touch `BookingRevenue`, commission entries, or business wallets.
+- [x] Run focused and Finance E2E tests. Expected: sum of credits equals reserve, every retry is a no-op, and winner credit is withdrawable.
 
 **Depends on:** Tasks 6–9 and 13. **Blocks:** final finance verification.
 
@@ -1631,6 +1631,19 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - 2026-09-25: Task 9 paid-booking matches close only the match layer locally (organizer cancel before cutoff, underfilled cutoff) and never call Venue; paid-booking participant withdrawal before cutoff is local with a full refund request and is rejected after cutoff (`JOIN_LOCKED_AT_CUTOFF`). Hold-source withdrawal keeps the existing D39 Venue path. Organizer cancellation after cutoff returns `MATCH_LOCKED_USE_INCIDENT` for both sources (the legacy D33 crash-recovery intent still completes first). Booking cancellation of a settled match uses `allocateMatchCancellationRefund`: (booking refund per policy + locked reserve) split 50:50 by team, floor per member, all remainders to the organizer; the reserve leaves `platform.reserved` as `refType = matchResultReserve` and `resultReserveStatus` becomes `refunded`. The old D37/D33 tests were rewritten to the D56 rule.
 - 2026-09-25: The Task 9 step "result dispute does not modify BookingRevenue" has no code to exercise until disputes exist; it is verified in Tasks 13-14.
 - 2026-09-25: G2 review fixes. (1) `refundCancelledBooking` skips a `cancelled` funding only for the hold source; a closed paid-booking match layer falls through to the ordinary owner refund. (2) Paid-booking settlement and booking cancellation share one lock order (`matchId` then `hashtext(bookingId)`); the settlement re-reads `BookingRevenue` after both locks, so exactly one of rebalance or ordinary owner refund happens. (3) A new withdrawal after cutoff is rejected for both sources (`JOIN_LOCKED_AT_CUTOFF`); only a D39 withdraw command persisted before cutoff may still resolve. (4) `BookingConfirmed` confirms only hold-source matches; paid-booking matches wait for `MatchFundingCompleted`. The old D32 after-cutoff withdrawal test was rewritten to BR-CM-07.
+- T10: Append-only audit is enforced by DB BEFORE UPDATE triggers on result_claims/result_sets/result_responses/provider_recommendations/admin_result_decisions; result_evidence may only transition deletedAt null->timestamp with every other column unchanged. DELETE is not DB-blocked (test cleanup) and no code path deletes these rows.
+- T10: Commit re-reads storage via inspectOwnedObject and requires a storage-verified SHA-256 (upload URL signs x-amz-checksum-sha256); evidence items may optionally echo checksumSha256, which must then match. Roster = organizer + confirmed JOINs; provider may read evidence only while the case is provider_review; Admin = JWT role admin.
+- T10: MatchResultCase carries the deadline columns Tasks 11-13 need (objection, team grace, incident, provider, admin SLA/reminder) to avoid extra migrations. Private storage wiring in app.ts moves to Task 11 where the first result route exists; index.ts reuses startMatchCutoffScheduler hourly for retention with a lazily created private client (missing config only logs).
+- T11: A player may file one claim per case (RESULT_CLAIM_EXISTS); claims are accepted only while status is declaration_open/provisional and before declarationDeadlineAt. An opposite-winner claim clears the provisional outcome and routes to provider_review (providerDeadlineAt=+24h) or straight to admin_review when the provider is null or in the roster; Task 13 builds on openResultDispute.
+- T11: The result case opens from BookingCompleted and also when MatchFundingCompleted/BookingConfirmed moves an already-completed match to completed. GET result-case returns { resultCase: PlayerResultCaseView }. viewerMoney: heldForResult = match resultReserve; projectedReceivable = viewer allocation from allocateResultReserve (same split as Finance Task 14) under the provisional outcome, or NO_RESULT when none; projectedFinalCost = viewer contribution - projectedReceivable. publicIdentity/participantIdentity were extracted from the match detail for reuse.
+- T12: Only losing-team roster members may confirm; any roster member may object while provisional and before max(objectionDeadlineAt, teamGraceDeadlineAt). A pending team grace replaces the objection deadline as the undisputed finalization trigger. Undisputed finalization uses the case id as decisionId; writeResultFinal is shared with the Task 13 Admin path. Incidents are accepted in declaration_open, provisional (response window) and incident_window, and create the case early (declaration deadline endAt+12h) for confirmed/completed matches so pre/during-match incidents work. Match detail canReportIncident = locked roster member of a confirmed/completed v2 match; the server enforces the case window. Deadline sweep reuses startMatchCutoffScheduler every 60s.
+- T13: No packages/shared change was needed (result action kinds and emailPolicy landed in Task 2). Result notifications use UserNotificationRequested with emailPolicy=required: provider/Admin review kinds (match.result.provider_review, admin_review, admin_reminder, admin_overdue) target provider user or role admin; match.result.final goes to the roster from the shared writeResultFinal. Overdue is derived (adminReviewStartedAt + 48h), no extra column; adminNextReminderAt advances by 24h under the match lock so replay does not duplicate reminders. Provider queue/detail only covers cases that entered provider review (providerDeadlineAt set), which excludes roster-conflict cases. Admin confirm requires confirm:true and the previewed caseVersion; outcome/reason are taken from the confirm request. Review sweep runs every 5 minutes.
+- T14: allocateResultReserve moved to packages/shared (competitiveMatches.ts) so the Matchmaking viewerMoney/Admin preview and Finance calculateResultAllocations share one rule. Finance orders team members by contribution createdAt (organizer first), its stored proxy for JOIN order; legacy null teamSide = organizer A / participant B. Ledger: platform reserved debit and personal available credit with withdrawableDelta, type release, refType matchResult, refId <decisionId>:<userId>; idempotency comes from ProcessedEvent plus resultFinalizedAt (the ledger has no unique ref constraint). A final event before funding settles throws for retry; cancelled/refunded funding is a no-op; zero reserve records resultFinalizedAt with status none.
+- T14: finance matchFee.e2e.test.ts (RUN_P2_FIN_E2E) was rewritten to the v2 model: 3 scenarios (hold 6:4 doubles undisputed release with BookingRevenue unchanged; singles 7:3 objection -> provider recommendation -> Admin decision release; pre-cutoff withdrawal refund plus underfilled cutoff cancellation with value conservation). Removed v1-only scenarios: feeMode free match, organizer-pays-last SePay intent rule, post-cutoff withdrawal refund, and the D39 held-settlement races (settlement now runs at cutoff; those guards stay covered by matchPayments/matchFee unit suites). Result: 3/3 green; former 11/11 red baseline retired.
+- 2026-09-26 (PO): Append-only audit now also blocks DELETE (migration 20260925103500_result_audit_no_delete); only a transaction with SET LOCAL app.result_audit_purge='on' may delete, used solely by test cleanup (test/resultTestUtils.ts purgeResultCases). Supersedes the T10 note that DELETE was not DB-blocked.
+- 2026-09-26 (PO): Approved one claim per player per case (RESULT_CLAIM_EXISTS); a wrong claim is corrected through objection/incident. viewerMoney.heldForResult is the viewer's own share of the result reserve = floor(viewer contribution * resultReserve / totalContribution), replacing the whole-match reserve from the T11 note.
+- 2026-09-26: Finance v2 e2e adds the D39 race: a withdrawal persisted before cutoff and the cutoff settlement both reach Venue at revision 0; the withdrawal wins, the participant is refunded, the stale settlement is held_revoked, funding returns to collecting and the next cutoff sweep cancels the underfilled match with full refunds and no BookingRevenue/settlement ledger. RUN_P2_FIN_E2E=1 matchFee.e2e 4/4.
+- 2026-09-26 G3 Codex review fixes: (1) Admin preview returns previewToken = HMAC(JWT_SECRET, admin, case, version, outcome, reason); POST admin-decision additionally requires previewToken and rejects any other outcome/reason/admin with RESULT_PREVIEW_MISMATCH (PO chose option a; preview stays read-only). (2) Evidence upload is allowed before a result case exists for the locked roster of a confirmed/completed match, so pre/during-match incidents can attach evidence. (3) result_evidence.objectKey is globally unique (migration 20260926101000_result_evidence_object_unique); one object belongs to one case, so retention can never delete another case's binary. (4) JoinApprovedPayload.joinedAt (optional) carries the authoritative JOIN time; Finance stores MatchContribution.joinedAt (migration 20260926100000_contribution_joined_at) and orders remainders by it, falling back to createdAt for legacy rows. (5) objectionOpenUntil = teamGraceDeadlineAt ?? objectionDeadlineAt and is the single deadline used by the API, DTO and finalizer. (6) Player result-case view adds finalOutcome (case outcome when final) independent of claims. (7) Retention/deadline/review sweeps accept optional matchIds so tests stay inside their fixtures.
 
 ## Validation
 

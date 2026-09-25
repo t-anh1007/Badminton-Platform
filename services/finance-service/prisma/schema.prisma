@@ -370,6 +370,8 @@ model MatchContribution {
   role            MatchContributionRole
   /// Đội; null cho contribution trước v2.
   teamSide        String?
+  /// Thời điểm JOIN gốc từ Matchmaking; null cho contribution cũ (dùng createdAt).
+  joinedAt        DateTime?
   source          MatchContributionSource @default(cash)
   amount          BigInt
   status          MatchContributionStatus @default(pending)

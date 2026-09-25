@@ -7,7 +7,7 @@ generator client {
   provider = "prisma-client-js"
   // Bắt buộc output riêng — tránh service khác ghi đè client khi hoist (xem
   // ghi chú trong account-service/prisma/schema.prisma, phát hiện lúc làm G1).
-  output = "../node_modules/@prisma/client"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -95,43 +95,44 @@ enum SkillTier {
 }
 
 model Match {
-  businessCode String @unique @default(dbgenerated("('KEO-'::text || lpad((nextval('matches_business_code_seq'::regclass))::text, 8, '0'::text))"))
-  id              String      @id @default(uuid())
-  organizerUserId String
-  bookingId       String      @unique
-  capacity        Int
-  feePerSlot      BigInt
-  skillMin        SkillTier?
-  skillMax        SkillTier?
-  skillConfiguredAt DateTime? @db.Timestamptz(3)
-  status          MatchStatus @default(open)
-  cutoffAt        DateTime    @db.Timestamptz(3)
+  businessCode                String            @unique @default(dbgenerated("('KEO-'::text || lpad((nextval('matches_business_code_seq'::regclass))::text, 8, '0'::text))"))
+  id                          String            @id @default(uuid())
+  organizerUserId             String
+  bookingId                   String            @unique
+  capacity                    Int
+  feePerSlot                  BigInt
+  skillMin                    SkillTier?
+  skillMax                    SkillTier?
+  skillConfiguredAt           DateTime?         @db.Timestamptz(3)
+  status                      MatchStatus       @default(open)
+  cutoffAt                    DateTime          @db.Timestamptz(3)
   /// PLAN_MATCH-DEPOSIT: hạn tìm đối X (find-opponent deadline). Scheduler tự
   /// hủy kèo chưa confirmed khi quá hạn này. Nullable cho bản ghi legacy.
-  deadlineAt      DateTime?   @db.Timestamptz(3)
-  organizerContributionPaidAt DateTime? @db.Timestamptz(3)
-  organizerContributionId     String?   @unique
-  fundingRequestedAt          DateTime? @db.Timestamptz(3)
-  settlementAttemptId         String?   @unique
-  settlementVenueRevision     Int       @default(0)
-  completedAt                 DateTime? @db.Timestamptz(3)
+  deadlineAt                  DateTime?         @db.Timestamptz(3)
+  organizerContributionPaidAt DateTime?         @db.Timestamptz(3)
+  organizerContributionId     String?           @unique
+  fundingRequestedAt          DateTime?         @db.Timestamptz(3)
+  settlementAttemptId         String?           @unique
+  settlementVenueRevision     Int               @default(0)
+  completedAt                 DateTime?         @db.Timestamptz(3)
   /// Kèo cạnh tranh v2 (competitive-matches.md BR-CM-01..09). Cấu hình khóa khi công bố.
-  sourceType       MatchSourceType @default(hold)
-  mode             MatchMode       @default(friendly)
-  discipline       MatchDiscipline @default(singles)
-  ratio            MatchRatio      @default(five_five)
-  format           MatchFormat     @default(bo3)
+  sourceType                  MatchSourceType   @default(hold)
+  mode                        MatchMode         @default(friendly)
+  discipline                  MatchDiscipline   @default(singles)
+  ratio                       MatchRatio        @default(five_five)
+  format                      MatchFormat       @default(bo3)
   /// Snapshot từ Venue lúc tạo; null cho kèo cũ không backfill được xuyên service.
-  bookingPrice     BigInt?
-  startAt          DateTime?       @db.Timestamptz(3)
-  endAt            DateTime?       @db.Timestamptz(3)
-  venueId          String?
-  provinceCode     String?
-  providerUserId   String?
-  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
-  joins           Join[]
-  evaluations     Evaluation[]
-  resolutions     MatchResolution[]
+  bookingPrice                BigInt?
+  startAt                     DateTime?         @db.Timestamptz(3)
+  endAt                       DateTime?         @db.Timestamptz(3)
+  venueId                     String?
+  provinceCode                String?
+  providerUserId              String?
+  createdAt                   DateTime          @default(now()) @db.Timestamptz(3)
+  joins                       Join[]
+  evaluations                 Evaluation[]
+  resolutions                 MatchResolution[]
+  resultCase                  MatchResultCase?
 
   @@index([status, cutoffAt])
   @@index([mode, discipline, status, startAt])
@@ -157,51 +158,203 @@ model MatchResolution {
 }
 
 model Join {
-  id                String     @id @default(uuid())
-  matchId           String
-  participantUserId String
-  status            JoinStatus @default(pending)
-  feePaidAt         DateTime?  @db.Timestamptz(3)
-  approvedAt        DateTime?  @db.Timestamptz(3)
-  paymentContributionId String? @unique
+  id                    String     @id @default(uuid())
+  matchId               String
+  participantUserId     String
+  status                JoinStatus @default(pending)
+  feePaidAt             DateTime?  @db.Timestamptz(3)
+  approvedAt            DateTime?  @db.Timestamptz(3)
+  paymentContributionId String?    @unique
   /// Đội đã chọn trước khi trả tiền; null cho JOIN cũ.
-  teamSide          TeamSide?
-  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
-  match             Match      @relation(fields: [matchId], references: [id])
+  teamSide              TeamSide?
+  createdAt             DateTime   @default(now()) @db.Timestamptz(3)
+  match                 Match      @relation(fields: [matchId], references: [id])
 
   @@index([matchId, status])
   @@index([matchId, teamSide, status])
   @@map("joins")
 }
 
+/// Kết quả kèo v2 (competitive-matches.md BR-CM-23..42). Claim/response/quyết định
+/// append-only (trigger DB chặn UPDATE/DELETE); chỉ status/version của case được tiến.
+enum ResultCaseStatus {
+  declaration_open
+  provisional
+  incident_window
+  provider_review
+  admin_review
+  final
+}
+
+enum MatchOutcome {
+  TEAM_A_WIN
+  TEAM_B_WIN
+  NO_RESULT
+}
+
+enum ResultResponseKind {
+  confirm
+  object
+  incident
+}
+
+enum ResultIncidentType {
+  no_show
+  not_played
+  interrupted
+  other
+}
+
+model MatchResultCase {
+  id                    String                   @id @default(uuid())
+  matchId               String                   @unique
+  match                 Match                    @relation(fields: [matchId], references: [id])
+  status                ResultCaseStatus         @default(declaration_open)
+  outcome               MatchOutcome?
+  declarationDeadlineAt DateTime                 @db.Timestamptz(3)
+  objectionDeadlineAt   DateTime?                @db.Timestamptz(3)
+  teamGraceDeadlineAt   DateTime?                @db.Timestamptz(3)
+  incidentDeadlineAt    DateTime?                @db.Timestamptz(3)
+  providerDeadlineAt    DateTime?                @db.Timestamptz(3)
+  adminReviewStartedAt  DateTime?                @db.Timestamptz(3)
+  adminNextReminderAt   DateTime?                @db.Timestamptz(3)
+  version               Int                      @default(1)
+  finalizedAt           DateTime?                @db.Timestamptz(3)
+  closedAt              DateTime?                @db.Timestamptz(3)
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @db.Timestamptz(3)
+  claims                ResultClaim[]
+  responses             ResultResponse[]
+  evidence              ResultEvidence[]
+  recommendations       ProviderRecommendation[]
+  adminDecision         AdminResultDecision?
+
+  @@index([status, declarationDeadlineAt])
+  @@index([status, objectionDeadlineAt])
+  @@index([closedAt])
+  @@map("match_result_cases")
+}
+
+model ResultClaim {
+  id             String           @id @default(uuid())
+  caseId         String
+  claimantUserId String
+  outcome        MatchOutcome
+  setWinsA       Int
+  setWinsB       Int
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  case           MatchResultCase  @relation(fields: [caseId], references: [id])
+  sets           ResultSet[]
+  evidence       ResultEvidence[]
+
+  @@index([caseId, createdAt])
+  @@map("result_claims")
+}
+
+model ResultSet {
+  id       String      @id @default(uuid())
+  claimId  String
+  position Int
+  teamA    Int
+  teamB    Int
+  claim    ResultClaim @relation(fields: [claimId], references: [id])
+
+  @@unique([claimId, position])
+  @@map("result_sets")
+}
+
+model ResultResponse {
+  id           String              @id @default(uuid())
+  caseId       String
+  userId       String
+  kind         ResultResponseKind
+  incidentType ResultIncidentType?
+  reason       String?
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  case         MatchResultCase     @relation(fields: [caseId], references: [id])
+  evidence     ResultEvidence[]
+
+  @@index([caseId, createdAt])
+  @@map("result_responses")
+}
+
+model ResultEvidence {
+  id             String          @id @default(uuid())
+  caseId         String
+  objectKey      String          @unique
+  mimeType       String
+  size           Int
+  checksumSha256 String
+  ownerUserId    String
+  claimId        String?
+  responseId     String?
+  position       Int
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  /// Retention xóa binary 90 ngày sau closedAt; metadata/checksum giữ lại (BR-CM-27).
+  deletedAt      DateTime?       @db.Timestamptz(3)
+  case           MatchResultCase @relation(fields: [caseId], references: [id])
+  claim          ResultClaim?    @relation(fields: [claimId], references: [id])
+  response       ResultResponse? @relation(fields: [responseId], references: [id])
+
+  @@unique([caseId, objectKey])
+  @@index([caseId, ownerUserId])
+  @@map("result_evidence")
+}
+
+model ProviderRecommendation {
+  id             String          @id @default(uuid())
+  caseId         String
+  providerUserId String
+  outcome        MatchOutcome
+  reason         String
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  case           MatchResultCase @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("provider_recommendations")
+}
+
+model AdminResultDecision {
+  id          String          @id @default(uuid())
+  caseId      String          @unique
+  adminUserId String
+  outcome     MatchOutcome
+  reason      String
+  caseVersion Int
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  case        MatchResultCase @relation(fields: [caseId], references: [id])
+
+  @@map("admin_result_decisions")
+}
+
 model Passport {
-  userId         String     @id
-  declaredTier   SkillTier?
-  ratingMu       Float
-  ratingRd       Float
-  ratingSigma    Float
-  matchesPlayed  Int        @default(0)
-  declaredAt     DateTime?  @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+  userId        String     @id
+  declaredTier  SkillTier?
+  ratingMu      Float
+  ratingRd      Float
+  ratingSigma   Float
+  matchesPlayed Int        @default(0)
+  declaredAt    DateTime?  @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
 
   @@map("passports")
 }
 
 model Evaluation {
-  id            String     @id @default(uuid())
-  matchId       String
-  raterUserId   String
-  rateeUserId   String
-  perceivedTier SkillTier?
-  labels        Json?
-  flagged       Boolean    @default(false)
-  flagReason    String?
-  countedAt     DateTime?  @db.Timestamptz(3)
-  reviewStatus  EvaluationReviewStatus?
-  reviewedAt    DateTime?  @db.Timestamptz(3)
+  id               String                  @id @default(uuid())
+  matchId          String
+  raterUserId      String
+  rateeUserId      String
+  perceivedTier    SkillTier?
+  labels           Json?
+  flagged          Boolean                 @default(false)
+  flagReason       String?
+  countedAt        DateTime?               @db.Timestamptz(3)
+  reviewStatus     EvaluationReviewStatus?
+  reviewedAt       DateTime?               @db.Timestamptz(3)
   reviewedByUserId String?
-  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
-  match         Match      @relation(fields: [matchId], references: [id])
+  createdAt        DateTime                @default(now()) @db.Timestamptz(3)
+  match            Match                   @relation(fields: [matchId], references: [id])
 
   @@unique([matchId, raterUserId, rateeUserId])
   @@index([matchId, flagged])

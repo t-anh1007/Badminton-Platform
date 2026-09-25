@@ -178,6 +178,7 @@ export async function approveJoin(matchId: string, joinId: string, organizerUser
         fee: match.feePerSlot.toString(),
         expiresAt: new Date(now.getTime() + JOIN_HOLD_MINUTES * 60_000).toISOString(),
         teamSide,
+        joinedAt: join.createdAt.toISOString(),
       } satisfies JoinApprovedPayload,
     });
     await writeOutbox(tx, {

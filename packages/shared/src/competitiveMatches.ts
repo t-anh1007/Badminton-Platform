@@ -63,3 +63,28 @@ export interface RewardAwardsFinalizedPayload {
   programId: string;
   awards: Array<{ awardId: string; userId: string; amount: string; claimDeadlineAt: string }>;
 }
+
+/**
+ * BR-CM-16..22 (Matchmaking preview và Finance Task 14 dùng chung): thắng nhận toàn bộ reserve; NO_RESULT chia
+ * floor/2 cho A, phần còn lại cho B. Trong đội chia đều, phần lẻ cho chủ kèo nếu ở đội đó,
+ * nếu không cho người JOIN sớm nhất. `teams` theo thứ tự JOIN, chủ kèo đứng đầu đội A.
+ */
+export function allocateResultReserve(
+  reserve: bigint,
+  outcome: MatchOutcome,
+  teams: Record<TeamSide, string[]>,
+): Map<string, bigint> {
+  const teamAmounts: Array<[TeamSide, bigint]> = outcome === 'TEAM_A_WIN' ? [['A', reserve]]
+    : outcome === 'TEAM_B_WIN' ? [['B', reserve]]
+    : [['A', reserve / 2n], ['B', reserve - reserve / 2n]];
+  const allocations = new Map<string, bigint>();
+  for (const [side, amount] of teamAmounts) {
+    const members = teams[side];
+    if (members.length === 0) throw new RangeError(`team ${side} is empty`);
+    const share = amount / BigInt(members.length);
+    members.forEach((userId, index) => {
+      allocations.set(userId, (allocations.get(userId) ?? 0n) + share + (index === 0 ? amount - share * BigInt(members.length) : 0n));
+    });
+  }
+  return allocations;
+}

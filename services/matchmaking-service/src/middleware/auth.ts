@@ -43,3 +43,11 @@ export function requireAdmin(req: AuthenticatedRequest, res: Response, next: Nex
   }
   next();
 }
+
+export function requireProvider(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (!req.user?.roles.includes('provider')) {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chỉ chủ sân được xem hồ sơ kết quả này.' } });
+    return;
+  }
+  next();
+}

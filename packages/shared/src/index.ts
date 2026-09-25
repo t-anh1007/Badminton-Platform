@@ -137,6 +137,8 @@ export interface JoinApprovedPayload {
   expiresAt: string;
   /** Đội người tham gia đã chọn trước khi trả tiền (BR-CM-05). */
   teamSide?: 'A' | 'B';
+  /** Thời điểm JOIN gốc; Finance dùng làm thứ tự JOIN khi chia phần lẻ (D57). */
+  joinedAt?: string;
 }
 
 /** D29: participantFees + organizerContribution phải bằng bookingPrice ở producer và consumer. */
