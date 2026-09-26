@@ -6,7 +6,7 @@ import { AppError } from '../lib/errors.js';
 import { h } from './handler.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import {
-  adminPayoutView, authorizeProofUpload, markPayoutPaid, playerPayoutView, submitPayoutInformation,
+  adminPayoutListItem, adminPayoutView, authorizeProofUpload, markPayoutPaid, playerPayoutView, submitPayoutInformation,
 } from '../domain/rewardPayout.js';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -73,7 +73,7 @@ export function createRewardPayoutRouter(resolveStorage: () => PrivateObjectStor
       prisma.rewardPayout.count({ where }),
     ]);
     const now = new Date();
-    res.json({ items: rows.map((row) => adminPayoutView(row, now)), total, page: query.page, pageSize: query.pageSize });
+    res.json({ items: rows.map((row) => adminPayoutListItem(row, now)), total, page: query.page, pageSize: query.pageSize });
   }));
 
   router.get('/rewards/admin/payouts/:id', requireAuth, requireRole('admin'), h(async (req, res) => {

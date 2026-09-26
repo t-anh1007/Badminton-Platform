@@ -4,7 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier } from '../lib/matchApi';
+import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
+import { MatchResultFlow } from '../components/MatchResultFlow.js';
+import { LockBanner, LockedConfig, MatchProgress, MoneyStatus, TeamRoster, disciplineLabel, modeLabel } from '../components/MatchCompetitiveSections.js';
 import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js';
 import {
   createMatchOrganizerContributionSepayIntent,
@@ -37,7 +39,7 @@ export function MatchDetailPage() {
   const [confirmAction, setConfirmAction] = useState<'withdraw' | 'cancel' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'sepay'>('balance');
   const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
-  const [scheduleWarning, setScheduleWarning] = useState<{ conflicts: ScheduleConflict[]; action: 'join' | 'payment' } | null>(null);
+  const [scheduleWarning, setScheduleWarning] = useState<{ conflicts: ScheduleConflict[]; action: 'join' | 'payment'; side: TeamSide } | null>(null);
   const [sepay, setSepay] = useState<{
     matchCode: string;
     amount: string;
@@ -227,14 +229,15 @@ export function MatchDetailPage() {
     );
   const join = detail.actions.ownJoin;
   const isFull = detail.openSlots <= 0;
-  const executeScheduleAction = (action: 'join' | 'payment') => {
+  // Đội được truyền thẳng qua cả bước kiểm tra lịch, không đọc lại từ state (tránh closure cũ).
+  const executeScheduleAction = (action: 'join' | 'payment', side: TeamSide) => {
     if (action === 'payment') {
       setPaymentOptionsOpen(true);
       return;
     }
-    void mutate(() => requestMatchJoin(detail.id), 'Đã giữ slot 10 phút. Hãy thanh toán để xác nhận chỗ; kèo và booking sân sẽ được chốt tại hạn tìm đối.');
+    void mutate(() => requestMatchJoin(detail.id, side), `Đã giữ chỗ ở đội ${side} trong 10 phút. Hãy thanh toán để xác nhận chỗ trước hạn chốt kèo.`);
   };
-  const checkScheduleBefore = async (action: 'join' | 'payment') => {
+  const checkScheduleBefore = async (action: 'join' | 'payment', side: TeamSide = 'B') => {
     if (!window.localStorage.getItem('accessToken')) {
       navigate('/auth');
       return;
@@ -246,21 +249,53 @@ export function MatchDetailPage() {
         excludeMatchId: detail.id,
       });
       if (result.conflicts.length > 0) {
-        setScheduleWarning({ conflicts: result.conflicts, action });
+        setScheduleWarning({ conflicts: result.conflicts, action, side });
         return;
       }
-      executeScheduleAction(action);
+      executeScheduleAction(action, side);
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Không thể kiểm tra lịch hiện tại.');
     }
   };
 
+  const competitive = Boolean(detail.funding);
+  const defaultSide: TeamSide = detail.actions.canJoinTeamB === false && detail.actions.canJoinTeamA ? 'A' : 'B';
+  const lockPending = (detail.status === 'open' || detail.status === 'filled') && new Date(detail.cutoffAt).getTime() > now;
   return (
     <div className="page-container pb-28 pt-8 sm:pt-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
       <button className="text-sm font-semibold text-brand-navy" onClick={() => navigate('/matches')}>
         ← Danh sách kèo
       </button>
+      {competitive ? (
+        <div className="mt-4 space-y-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="courtin-kicker">{modeLabel(detail)} - {disciplineLabel(detail)}</p>
+              <h1 className="mt-1 text-h1">{detail.venue.name} - {detail.court.name}</h1>
+              <p className="text-sm text-ink-500">{formatDateTimeVi(detail.startAt)}</p>
+              <BusinessCode code={detail.businessCode} label="Mã kèo" />
+            </div>
+            <Badge tone={detail.status === 'confirmed' || detail.status === 'completed' ? 'success' : 'warning'}>
+              {detail.status === 'completed' ? 'Đã thi đấu' : detail.status === 'confirmed' ? 'Chờ thi đấu' : detail.status === 'awaiting_deposit' ? 'Chờ chủ kèo đóng phần' : 'Chờ hạn chốt kèo'}
+            </Badge>
+          </div>
+          <MatchProgress detail={detail} />
+          <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
+            <div className="space-y-5">
+              {lockPending && <LockBanner detail={detail} />}
+              <LockedConfig detail={detail} />
+              <TeamRoster detail={detail} onJoin={(side) => void checkScheduleBefore('join', side)} />
+            </div>
+            <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+              <MoneyStatus detail={detail} />
+            </aside>
+          </div>
+          {(detail.status === 'confirmed' || detail.status === 'completed') && (
+            <MatchResultFlow matchId={detail.id} allowIncident={Boolean(detail.actions.canReportIncident)} />
+          )}
+        </div>
+      ) : (
       <div className="mt-4 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
         <div className="space-y-5">
           <SurfaceCard>
@@ -348,12 +383,13 @@ export function MatchDetailPage() {
           </SurfaceCard>
         </aside>
       </div>
+      )}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 p-3 pr-24 shadow-[0_-6px_24px_rgb(20_30_40_/_8%)] backdrop-blur sm:pr-28">
         <div className="page-container flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             {detail.actions.isOrganizer ? (
               <>
-                <p className="font-semibold">Bạn là organizer</p>
+                <p className="font-semibold">{competitive ? 'Bạn là chủ kèo' : 'Bạn là organizer'}</p>
                 <p className="text-sm text-ink-500">
                   {detail.actions.canPayOrganizerContribution
                     ? 'Đặt cọc (1/2 giá sân) để chốt sân và mở kèo tìm đối. Cọc hoàn vào ví nếu không tìm được đối.'
@@ -363,7 +399,7 @@ export function MatchDetailPage() {
                         ? 'Đối đã đóng đủ; hệ thống đang xác nhận sân.'
                         : detail.status === 'confirmed'
                           ? 'Kèo và booking sân đã được xác nhận.'
-                          : 'Kèo đang mở; người thanh toán trước sẽ có slot.'}
+                          : competitive ? 'Kèo đang mở tìm người chơi tới hạn chốt kèo; bạn có thể hủy trước hạn chốt.' : 'Kèo đang mở; người thanh toán trước sẽ có slot.'}
                 </p>
               </>
             ) : join?.status === 'approved' ? (
@@ -415,7 +451,7 @@ export function MatchDetailPage() {
             ) : (
               <Button
                 disabled={isFull || (!detail.actions.canJoin && Boolean(window.localStorage.getItem('accessToken')))}
-                onClick={() => void checkScheduleBefore('join')}
+                onClick={() => void checkScheduleBefore('join', defaultSide)}
               >
                 {window.localStorage.getItem('accessToken') ? 'Tham gia kèo' : 'Đăng nhập để tham gia'}
               </Button>
@@ -455,9 +491,9 @@ export function MatchDetailPage() {
         conflicts={scheduleWarning?.conflicts ?? []}
         onClose={() => setScheduleWarning(null)}
         onContinue={() => {
-          const action = scheduleWarning?.action;
+          const warning = scheduleWarning;
           setScheduleWarning(null);
-          if (action) executeScheduleAction(action);
+          if (warning) executeScheduleAction(warning.action, warning.side);
         }}
       />
       <Modal

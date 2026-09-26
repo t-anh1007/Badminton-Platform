@@ -1,6 +1,6 @@
 import type { MatchDiscipline as DbDiscipline, MatchRatio as DbRatio, MatchSourceType, SkillTier, TeamSide } from '@prisma/client';
 import type { JoinApprovedPayload, MatchCreatedPayload, MatchRatio } from '@khoaluantn/shared';
-import { RATIO_FROM_DB, RATIO_TO_DB, calculateMatchFunding, capacityOf, formatAllowed, participantSlots, teamSize } from './matchRules.js';
+import { RATIO_FROM_DB, RATIO_TO_DB, allocateResultReserve, calculateMatchFunding, capacityOf, formatAllowed, participantSlots, teamSize } from './matchRules.js';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import { assertRankedSeasonRegion } from './seasons.js';
@@ -207,6 +207,28 @@ export function matchFundingView(match: FundingSource, viewer: { id: string; joi
   };
 }
 
+/**
+ * BR-CM-10..15: dòng tiền của chủ kèo trước khi công bố, theo giá nguồn do Venue trả. Chỉ tính toán,
+ * không ghi gì; số tiền thật được tính lại từ snapshot booking lúc tạo kèo.
+ */
+export function previewMatchFunding(input: { price: bigint; ratio: MatchRatio; discipline: DbDiscipline; sourceType: 'hold' | 'paid_booking' }) {
+  const funding = calculateMatchFunding(input.price, input.ratio, capacityOf(input.discipline));
+  const teams = input.discipline === 'doubles' ? { A: ['organizer', 'partner'], B: ['b1', 'b2'] } : { A: ['organizer'], B: ['b1'] };
+  const organizerWinShare = allocateResultReserve(funding.resultReserve, 'TEAM_A_WIN', teams).get('organizer') ?? 0n;
+  const paid = input.sourceType === 'paid_booking';
+  return {
+    bookingPrice: input.price.toString(),
+    resultHeldAmount: funding.resultReserve.toString(),
+    regularSlotAmount: funding.feePerSlot.toString(),
+    organizerContribution: funding.organizerContribution.toString(),
+    alreadyPaid: (paid ? input.price : 0n).toString(),
+    additionalOwnerCharge: (paid ? 0n : funding.organizerContribution).toString(),
+    organizerRefundAtLock: (paid ? input.price - funding.organizerContribution : 0n).toString(),
+    netCostIfWin: (funding.organizerContribution - organizerWinShare).toString(),
+    netCostIfLose: funding.organizerContribution.toString(),
+  };
+}
+
 function skillIntersects(skill: SkillTier | undefined, min: SkillTier | null, max: SkillTier | null): boolean {
   if (!skill) return true;
   const requested = TIER_ORDER[skill];
@@ -361,7 +383,8 @@ export async function getPublicMatchDetail(
     accountClient.getPublicMatchProfile(match.organizerUserId),
     prisma.passport.findUnique({ where: { userId_discipline: { userId: match.organizerUserId, discipline: match.discipline } } }),
   ]);
-  if (!context || !organizerProfile || context.status === 'cancelled' || (context.status === 'completed' && !canViewOwnLifecycle)) {
+  // Chủ kèo chưa có hồ sơ công khai vẫn xem được kèo; danh tính hiển thị nhãn trung tính (D31).
+  if (!context || context.status === 'cancelled' || (context.status === 'completed' && !canViewOwnLifecycle)) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
@@ -423,9 +446,9 @@ export async function getPublicMatchDetail(
     court: context.court,
     venue: context.venue,
     organizer: {
-      displayName: organizerProfile.displayName,
-      avatarUrl: organizerProfile.avatarUrl,
-      identityVisibility: organizerProfile.identityVisibility,
+      displayName: organizerProfile?.displayName ?? 'Người chơi',
+      avatarUrl: organizerProfile?.avatarUrl ?? null,
+      identityVisibility: organizerProfile?.identityVisibility ?? 'hidden',
       tier: organizerPassport
         ? describeRating({
             rating: organizerPassport.ratingMu,

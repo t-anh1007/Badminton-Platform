@@ -21,12 +21,16 @@ export interface UploadImageState {
   objectKey?: string;
   width: number;
   height: number;
+  /** SHA-256 base64 của file, gửi kèm khi xin URL upload (bucket private bắt buộc). */
+  checksumSha256?: string;
 }
 
 export interface ImageUploadPickerProps {
   label: string;
   maxFiles?: number;
-  authorize: (mimeType: ImageMimeType) => Promise<UploadAuthorization>;
+  /** Giới hạn dung lượng mỗi ảnh; vượt thì báo lỗi, không xin URL upload. */
+  maxBytes?: number;
+  authorize: (mimeType: ImageMimeType, metadata?: { size: number; checksumSha256: string }) => Promise<UploadAuthorization>;
   upload: (authorization: UploadAuthorization, file: File, onProgress: (progress: number) => void) => Promise<void>;
   onUploadedChange: (images: UploadImageState[]) => void;
 }
@@ -42,7 +46,12 @@ function imageDimensions(previewUrl: string): Promise<{ width: number; height: n
   });
 }
 
-export function ImageUploadPicker({ label, maxFiles = 4, authorize, upload, onUploadedChange }: ImageUploadPickerProps) {
+async function sha256Base64(file: File): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
+  return btoa(String.fromCharCode(...digest));
+}
+
+export function ImageUploadPicker({ label, maxFiles = 4, maxBytes, authorize, upload, onUploadedChange }: ImageUploadPickerProps) {
   const [items, setItems] = useState<UploadImageState[]>([]);
   const itemsRef = useRef<UploadImageState[]>([]);
   const onUploadedChangeRef = useRef(onUploadedChange);
@@ -53,11 +62,16 @@ export function ImageUploadPicker({ label, maxFiles = 4, authorize, upload, onUp
 
   const update = (id: string, patch: Partial<UploadImageState>) => commit(itemsRef.current.map((item) => item.id === id ? { ...item, ...patch } : item));
   const startUpload = async (item: UploadImageState) => {
+    if (maxBytes !== undefined && item.file.size > maxBytes) {
+      update(item.id, { status: 'error', error: `Ảnh vượt quá ${Math.round(maxBytes / (1024 * 1024))} MB.` });
+      return;
+    }
     update(item.id, { status: 'uploading', error: undefined, progress: 0 });
     try {
-      const authorization = await authorize(item.file.type as ImageMimeType);
+      const checksumSha256 = await sha256Base64(item.file);
+      const authorization = await authorize(item.file.type as ImageMimeType, { size: item.file.size, checksumSha256 });
       await upload(authorization, item.file, (progress) => update(item.id, { progress }));
-      update(item.id, { status: 'uploaded', objectKey: authorization.objectKey, progress: 100 });
+      update(item.id, { status: 'uploaded', objectKey: authorization.objectKey, progress: 100, checksumSha256 });
     } catch (cause) {
       update(item.id, { status: 'error', error: cause instanceof Error ? cause.message : 'Không thể tải ảnh lên.' });
     }

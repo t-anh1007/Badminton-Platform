@@ -83,6 +83,14 @@ describe('Task 21 reward payouts', () => {
     expect(submitted.body.payout).toMatchObject({ status: 'ready_to_pay', informationComplete: true });
     expect(new Date(submitted.body.payout.payoutDeadlineAt).getTime() - Date.now()).toBeGreaterThan(6.9 * 24 * 60 * 60_000);
     await request(app).get('/rewards/admin/payouts').set('Authorization', auth(winner, 'player')).expect(403);
+    // Danh sách Admin không trả người nhận/ngân hàng/chứng từ; chỉ trang chi tiết mới có.
+    const adminList = await request(app).get(`/rewards/admin/payouts?programId=${programId}`).set('Authorization', admin).expect(200);
+    const row = adminList.body.items.find((item: { id: string }) => item.id === payout.id);
+    expect(row).toMatchObject({ id: payout.id, status: 'ready_to_pay', informationComplete: true, overdue: false });
+    for (const key of ['receiver', 'proof', 'paidByUserId', 'userId']) expect(row).not.toHaveProperty(key);
+    expect(JSON.stringify(adminList.body)).not.toContain(information.bankAccountNumber);
+    const adminDetail = await request(app).get(`/rewards/admin/payouts/${payout.id}`).set('Authorization', admin).expect(200);
+    expect(adminDetail.body.payout.receiver).toMatchObject({ bankAccountNumber: information.bankAccountNumber });
   });
 
   it('accepts information until one millisecond before the deadline and cancels only unclaimed awards at the deadline', async () => {

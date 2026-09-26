@@ -68,13 +68,26 @@ export async function submitPayoutInformation(userId: string, payoutId: string, 
     if (payout.status !== 'awaiting_information' && payout.status !== 'ready_to_pay') {
       throw new AppError('REWARD_PAYOUT_CLOSED', 'Khoản thưởng không còn nhận cập nhật thông tin.', 409);
     }
-    return tx.rewardPayout.update({
+    const updated = await tx.rewardPayout.update({
       where: { id: payoutId },
       data: {
         ...input, status: 'ready_to_pay', informationSubmittedAt: now,
         payoutDeadlineAt: payout.payoutDeadlineAt ?? new Date(now.getTime() + PAYOUT_WINDOW_MS),
       },
     });
+    if (payout.status === 'awaiting_information') {
+      // BR-CM-69: đủ thông tin thì Admin có 7 ngày chuyển khoản.
+      await writeOutbox(tx, {
+        aggregateType: 'Notification', aggregateId: `reward.payout_ready:${payout.id}`, eventType: 'UserNotificationRequested',
+        payload: {
+          recipient: { type: 'role', targetRole: 'admin' }, category: 'finance', kind: 'reward.payout_ready',
+          title: 'Có khoản thưởng chờ chuyển', body: `${payout.programName}: người nhận đã bổ sung đủ thông tin.`,
+          priority: 'action_required', entityType: 'reward_payout', entityId: payout.id,
+          actionKind: 'admin.reward-payout.review', actionExpiresAt: null, emailPolicy: 'required',
+        },
+      });
+    }
+    return updated;
   });
 }
 
@@ -161,6 +174,14 @@ export function playerPayoutView(payout: RewardPayout, now: Date) {
     achievementLabel: RANK_LABEL(payout.rank), amount: payout.amount.toString(), status: payout.status,
     claimDeadlineAt: payout.claimDeadlineAt.toISOString(), payoutDeadlineAt: payout.payoutDeadlineAt?.toISOString() ?? null,
     informationComplete: complete, paidAt: payout.paidAt?.toISOString() ?? null, transactionReference: payout.transactionReference,
+  };
+}
+
+/** Danh sách Admin: không trả thông tin người nhận/ngân hàng/chứng từ; chỉ trang chi tiết mới có. */
+export function adminPayoutListItem(payout: RewardPayout, now: Date) {
+  return {
+    ...playerPayoutView(payout, now),
+    overdue: payout.status === 'ready_to_pay' && payout.payoutDeadlineAt !== null && now > payout.payoutDeadlineAt,
   };
 }
 

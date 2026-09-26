@@ -11,6 +11,7 @@ import type { VenueBookingClient, VenueMatchContext } from '../src/clients/venue
 import type { AccountClient } from '../src/clients/account.js';
 import { allocateResultReserve, inferMatchOutcome } from '../src/domain/matchRules.js';
 import { handleBookingCompletedForMatch } from '../src/lib/matchLifecycleEventConsumer.js';
+import { sweepResultDeadlines, sweepResultReminders } from '../src/domain/resultLifecycle.js';
 
 const CHECKSUM = Buffer.alloc(32, 7).toString('base64');
 const s3 = new S3Client({
@@ -132,9 +133,49 @@ describe('Task 11 result claims', () => {
     const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
     expect(resultCase.status).toBe('declaration_open');
     expect(resultCase.declarationDeadlineAt.getTime()).toBe(match.endAt!.getTime() + 12 * 60 * 60_000);
+    // Task 22: roster nhận thông báo bắt buộc (in-app + email) khi mở khai kết quả.
+    const notices = await prisma.outbox.findMany({ where: { aggregateId: { startsWith: `match.result.declaration_open:${resultCase.id}:` } } });
+    expect(notices).toHaveLength(2);
+    expect(notices[0]!.payload).toMatchObject({ actionKind: 'match.result.view', emailPolicy: 'required', entityId: match.id });
     expect((await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).status).toBe('completed');
     await handleBookingCompletedForMatch(randomUUID(), { bookingId: match.bookingId, completedAt: new Date().toISOString() });
     expect(await prisma.matchResultCase.count({ where: { matchId: match.id } })).toBe(1);
+  });
+
+  it('notifies the roster on the first claim and reminds once before the declaration and response deadlines (spec §11)', async () => {
+    const notices = (kind: string, caseId: string) => prisma.outbox.findMany({ where: { aggregateId: { startsWith: `${kind}:${caseId}:` } } });
+    const { match, organizerUserId, opponentUserId } = await completedMatch();
+    const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
+    const beforeDeadline = (ms: number) => new Date(resultCase.declarationDeadlineAt.getTime() - ms);
+    // Chưa vào 2 giờ cuối thì chưa nhắc; vào rồi thì nhắc đúng một lần.
+    await sweepResultReminders(beforeDeadline(3 * 60 * 60_000), [match.id]);
+    expect(await notices('match.result.declaration_reminder', resultCase.id)).toHaveLength(0);
+    await sweepResultReminders(beforeDeadline(60 * 60_000), [match.id]);
+    await sweepResultReminders(beforeDeadline(30 * 60_000), [match.id]);
+    expect(await notices('match.result.declaration_reminder', resultCase.id)).toHaveLength(2);
+
+    expect((await claim(match.id, organizerUserId)).status).toBe(201);
+    const provisional = await notices('match.result.provisional', resultCase.id);
+    expect(provisional.map((row) => row.aggregateId).sort()).toEqual(
+      [`match.result.provisional:${resultCase.id}:${organizerUserId}`, `match.result.provisional:${resultCase.id}:${opponentUserId}`].sort(),
+    );
+    expect(provisional[0]!.payload).toMatchObject({ emailPolicy: 'required', entityId: match.id });
+
+    const open = await prisma.matchResultCase.findUniqueOrThrow({ where: { id: resultCase.id } });
+    const responseSoon = new Date(open.objectionDeadlineAt!.getTime() - 60 * 60_000);
+    await sweepResultReminders(responseSoon, [match.id]);
+    await sweepResultReminders(new Date(responseSoon.getTime() + 60_000), [match.id]);
+    const reminders = await notices('match.result.response_reminder', resultCase.id);
+    // Chỉ bên thua (đội B) được nhắc phản hồi, và chỉ một lần.
+    expect(reminders.map((row) => row.aggregateId)).toEqual([`match.result.response_reminder:${resultCase.id}:${opponentUserId}`]);
+  });
+
+  it('notifies the roster when nobody declared before the deadline', async () => {
+    const { match } = await completedMatch();
+    const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
+    await sweepResultDeadlines(new Date(resultCase.declarationDeadlineAt.getTime() + 1_000), [match.id]);
+    expect((await prisma.matchResultCase.findUniqueOrThrow({ where: { id: resultCase.id } })).status).toBe('incident_window');
+    expect(await prisma.outbox.count({ where: { aggregateId: { startsWith: `match.result.incident_window:${resultCase.id}:` } } })).toBe(2);
   });
 
   it('keeps claims roster-only, 1-3 evidence, within 12 hours, and rejects NO_RESULT or invalid scores', async () => {

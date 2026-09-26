@@ -143,6 +143,9 @@ model Notification {
   actionExpiresAt DateTime?
   sourceEventId   String
   readAt          DateTime?
+  /// Email giao dịch bắt buộc: gửi sau khi đã ghi inbox; null = chưa gửi thành công (retry được).
+  emailLastAttemptAt DateTime?
+  emailSentAt     DateTime?
   createdAt       DateTime             @default(now())
 
   @@unique([sourceEventId, userId, targetRole])

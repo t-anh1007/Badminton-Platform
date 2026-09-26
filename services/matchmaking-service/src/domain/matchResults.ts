@@ -44,12 +44,23 @@ export async function resultTeams(db: Tx | typeof prisma, match: Pick<Match, 'id
 }
 
 /** BR-CM-23: mở khai báo khi booking kết thúc; hạn tính từ snapshot endAt, không theo lúc event đến. */
-export async function openResultCase(tx: Tx, match: Pick<Match, 'id' | 'endAt'>) {
+export async function openResultCase(tx: Tx, match: Pick<Match, 'id' | 'endAt' | 'organizerUserId'>) {
   if (!match.endAt) return; // kèo cũ không có snapshot giờ chơi
-  await tx.matchResultCase.upsert({
-    where: { matchId: match.id },
-    create: { matchId: match.id, declarationDeadlineAt: new Date(match.endAt.getTime() + DECLARATION_WINDOW_MS) },
-    update: {},
+  if (await tx.matchResultCase.findUnique({ where: { matchId: match.id } })) return;
+  const resultCase = await tx.matchResultCase.create({
+    data: { matchId: match.id, declarationDeadlineAt: new Date(match.endAt.getTime() + DECLARATION_WINDOW_MS) },
+  });
+  await notifyRoster(tx, match, resultCase.id, 'match.result.declaration_open', 'Hãy khai kết quả trận',
+    'Trận đã kết thúc. Người trong kèo có 12 giờ để nhập tỷ số kèm ảnh bằng chứng.');
+}
+
+/** Thông báo roster về hồ sơ kết quả (in-app + email bắt buộc), mở trang kèo. */
+export async function notifyRoster(
+  tx: Tx, match: Pick<Match, 'id' | 'organizerUserId'>, caseId: string, kind: string, title: string, body: string,
+) {
+  await writeResultNotification(tx, {
+    recipients: Object.values(await resultTeams(tx, match)).flat().map((userId) => ({ type: 'user' as const, userId, targetRole: 'player' as const })),
+    kind, title, body, matchId: match.id, caseId, actionKind: 'match.result.view',
   });
 }
 
@@ -65,6 +76,8 @@ export function adminReviewNotification(matchId: string, caseId: string, kind: s
 /** BR-CM-30/39: tranh chấp đi provider trước, trừ khi provider nằm trong roster thì vào Admin ngay. */
 export async function openResultDispute(tx: Tx, resultCase: MatchResultCase, match: Match, rosterUserIds: string[], now: Date) {
   const providerEligible = match.providerUserId !== null && !rosterUserIds.includes(match.providerUserId);
+  await notifyRoster(tx, match, resultCase.id, 'match.result.disputed', 'Kết quả trận đang được xem xét',
+    'Có tranh chấp hoặc sự cố về kết quả. Tiền giữ cho kết quả và điểm xếp hạng tạm khóa tới khi có quyết định.');
   await writeResultNotification(tx, providerEligible
     ? {
         recipients: [{ type: 'user', userId: match.providerUserId!, targetRole: 'provider' }],
@@ -131,6 +144,9 @@ export async function submitResultClaim(
           objectionDeadlineAt: new Date(now.getTime() + OBJECTION_WINDOW_MS), version: { increment: 1 },
         },
       });
+      // Spec §11: báo roster có bản khai đầu để bên còn lại kịp đồng ý hoặc khiếu nại trong 12 giờ.
+      await notifyRoster(tx, match, resultCase.id, 'match.result.provisional', 'Đã có kết quả tạm của trận',
+        'Một người trong kèo đã khai kết quả. Bạn có 12 giờ để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
     } else if (resultCase.outcome !== inferred.outcome) {
       await openResultDispute(tx, resultCase, match, roster, now);
     } else {

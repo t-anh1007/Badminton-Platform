@@ -29,7 +29,7 @@ it('authorizes, PUTs and submits only uploaded Community image metadata', async 
   await new Promise((resolve) => window.setTimeout(resolve, 0));
   fireEvent.click(screen.getByRole('button', { name: 'Đăng bài' }));
   await waitFor(() => expect(createPost).toHaveBeenCalledWith('Xin chào', [expect.objectContaining({ objectKey: 'community/posts/u/image.jpg', position: 0 })]));
-  expect(authorize).toHaveBeenCalledWith('image/jpeg');
+  expect(authorize).toHaveBeenCalledWith('image/jpeg', expect.objectContaining({ checksumSha256: expect.any(String) }));
   expect(upload).toHaveBeenCalled();
 });
 

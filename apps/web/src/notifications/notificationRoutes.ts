@@ -1,7 +1,14 @@
 import type { NotificationItem, NotificationRole } from '../lib/notificationApi.js';
 export function resolveNotificationRoute(item: Pick<NotificationItem, 'actionKind' | 'entityId' | 'targetRole'>, activeRole: NotificationRole) {
+  if (item.actionKind === 'leaderboard.view') return '/leaderboard';
   if (!item.entityId) return null;
   switch (item.actionKind) {
+    case 'match.result.view': return `/matches/${item.entityId}`;
+    case 'provider.match-result.review': return `/manage/match-results?caseId=${item.entityId}`;
+    case 'admin.match-result.review': return `/admin/match-results?caseId=${item.entityId}`;
+    case 'reward.view': return `/rewards/${item.entityId}`;
+    case 'reward.payout.view': return `/rewards/payouts/${item.entityId}`;
+    case 'admin.reward-payout.review': return `/admin/reward-payouts/${item.entityId}`;
     case 'match.view': return `/matches/${item.entityId}`;
     case 'support.view': return `/support?ticket=${item.entityId}`;
     case 'dispute.view': return `/profile?tab=disputes&dispute=${item.entityId}`;

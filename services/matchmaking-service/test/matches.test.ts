@@ -989,3 +989,16 @@ describe('Competitive matches v2 — payment action closes at the lock deadline'
     expect((await detail()).body.actions).toMatchObject({ canPay: false, canWithdrawBeforeLock: false });
   });
 });
+
+describe('G5 — funding preview for the create screen', () => {
+  it('returns the organizer money flow from the backend formula', async () => {
+    const response = await request(app).get('/matches/funding-preview?price=200000&ratio=7:3&discipline=singles&sourceType=paid_booking').expect(200);
+    expect(response.body.preview).toEqual({
+      bookingPrice: '200000', resultHeldAmount: '80000', regularSlotAmount: '140000', organizerContribution: '140000',
+      alreadyPaid: '200000', additionalOwnerCharge: '0', organizerRefundAtLock: '60000', netCostIfWin: '60000', netCostIfLose: '140000',
+    });
+    const hold = await request(app).get('/matches/funding-preview?price=200000&ratio=6:4&discipline=doubles&sourceType=hold').expect(200);
+    expect(hold.body.preview).toMatchObject({ additionalOwnerCharge: hold.body.preview.organizerContribution, alreadyPaid: '0', organizerRefundAtLock: '0' });
+    await request(app).get('/matches/funding-preview?price=0&ratio=7:3&discipline=singles&sourceType=hold').expect(400);
+  });
+});

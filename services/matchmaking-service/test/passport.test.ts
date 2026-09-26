@@ -359,8 +359,14 @@ describe('G4 review — leaderboard visibility follows the current season rule',
       const now = new Date('2089-02-01T00:00:00Z');
       await prisma.seasonStat.create({ data: { seasonId: season.id, userId: user.userId, discipline: 'singles', matchesPlayed: 4 } });
       expect((await getOwnPassport(user.userId, now)).singles?.leaderboardVisible).toBe(false);
-      await prisma.seasonStat.update({ where: { seasonId_userId_discipline: { seasonId: season.id, userId: user.userId, discipline: 'singles' } }, data: { matchesPlayed: 5 } });
-      expect((await getOwnPassport(user.userId, now)).singles?.leaderboardVisible).toBe(true);
+      await prisma.seasonStat.update({ where: { seasonId_userId_discipline: { seasonId: season.id, userId: user.userId, discipline: 'singles' } }, data: { matchesPlayed: 5, wins: 3, currentWinStreak: 2 } });
+      const own = await getOwnPassport(user.userId, now);
+      expect(own.singles?.leaderboardVisible).toBe(true);
+      expect(own.singles?.season).toEqual({ matchesPlayed: 5, wins: 3, currentWinStreak: 2 });
+      expect(own.singles).toMatchObject({ rating: 1600, leaderboardBand: 'from_1600' });
+      // Hiển thị làm tròn 1600 nhưng nhóm bảng theo rating gốc như truy vấn BXH.
+      await prisma.passport.update({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } }, data: { ratingMu: 1599.6 } });
+      expect((await getOwnPassport(user.userId, now)).singles).toMatchObject({ rating: 1600, leaderboardBand: 'under_1600' });
     } finally {
       await prisma.seasonStat.deleteMany({ where: { seasonId: season.id } });
       await prisma.season.delete({ where: { id: season.id } });

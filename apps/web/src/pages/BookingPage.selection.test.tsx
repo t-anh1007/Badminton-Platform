@@ -97,7 +97,7 @@ it('creates one singles split match from the selected hold and opens deposit che
   fireEvent.click(findButton)
   fireEvent.click(findButton)
   await waitFor(() => expect(createHold).toHaveBeenCalledWith({ courtId: 'c1', startAt: '2026-08-14T23:00:00.000Z', endAt: '2026-08-15T00:00:00.000Z' }))
-  expect(createMatch).toHaveBeenCalledWith({ holdId: 'hold-internal', capacity: 2, feeMode: 'split' })
+  expect(createMatch).toHaveBeenCalledWith({ holdId: 'hold-internal', mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
   expect(createMatch).toHaveBeenCalledTimes(1)
   expect(await screen.findByText('Cọc tạo kèo (50%)')).toBeInTheDocument()
   expect(screen.queryByText(/Giữ chỗ \d{2}:\d{2}/)).not.toBeInTheDocument()
@@ -124,7 +124,7 @@ it('guards concurrent creation and reuses the pending hold after match creation 
   fireEvent.click(screen.getByRole('button', { name: 'TÌM ĐỐI THỦ' }))
   await waitFor(() => expect(screen.getByText('Cọc tạo kèo (50%)')).toBeInTheDocument())
   expect(createHold).toHaveBeenCalledTimes(1)
-  expect(createMatch).toHaveBeenNthCalledWith(2, { holdId: 'hold-race', capacity: 2, feeMode: 'split' })
+  expect(createMatch).toHaveBeenNthCalledWith(2, { holdId: 'hold-race', mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
 })
 
 it('shows elapsed slots for today but does not allow selecting them', async () => {

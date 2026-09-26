@@ -148,8 +148,7 @@ bookingRouter.get(
 );
 
 bookingRouter.get('/players/me/match-sources', requireAuth, h(async (req, res) => {
-  const result = await listMyMatchSources((req as AuthenticatedRequest).user!.id);
-  res.status(200).json({ holds: result.holds.map((hold) => ({ id: hold.id, startAt: hold.startAt, endAt: hold.endAt, expiresAt: hold.expiresAt, court: { name: hold.court.name, venue: { name: hold.court.venue.name } } })), bookings: result.bookings.map(serializeBooking), sources: result.sources });
+  res.status(200).json(await listMyMatchSources((req as AuthenticatedRequest).user!.id));
 }));
 
 bookingRouter.get(

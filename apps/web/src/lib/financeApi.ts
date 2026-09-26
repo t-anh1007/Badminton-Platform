@@ -5,7 +5,7 @@ function accessToken(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = accessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,

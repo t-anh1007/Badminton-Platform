@@ -27,7 +27,9 @@ vi.mock('../lib/financeApi.js', () => ({
   payMatchOrganizerContributionBalance: vi.fn().mockResolvedValue({}), createMatchOrganizerContributionSepayIntent: vi.fn().mockResolvedValue({ intentId: 'organizer-intent-hidden', matchCode: 'KLTORG01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTORG01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTORG01' } }),
 }))
 vi.mock('../lib/passportApi.js', () => ({
-  getOwnPassport: vi.fn().mockResolvedValue({ userId: 'owner-user-id', tier: 'intermediate', declaredTier: 'intermediate', matchesPlayed: 1, rating: 1500, rd: 80, sigma: 0.06, uncertainty: 'established', evaluationScore: null, evaluationCount: 0, flaggedEvaluationCount: 0, updatedAt: '2026-08-15T00:00:00Z', nextDeclarationAt: null, canDeclareTier: true, recentMatches: [{ id: 'match-id-must-not-render', bookingId: 'booking-id-must-not-render', completedAt: new Date().toISOString(), evaluationCandidates: [{ userId: 'candidate-id-must-not-render', submitted: false }] }] }),
+  api: vi.fn().mockRejectedValue(new Error('offline')),
+  getMatchHistory: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 5 }),
+  getOwnPassport: vi.fn().mockResolvedValue({ userId: 'owner-user-id', singles: null, doubles: null, canDeclare: { singles: true, doubles: true }, badges: [], evaluationScore: null, evaluationCount: 0, flaggedEvaluationCount: 0, recentMatches: [{ id: 'match-id-must-not-render', bookingId: 'booking-id-must-not-render', completedAt: new Date().toISOString(), evaluationCandidates: [{ userId: 'candidate-id-must-not-render', submitted: false }] }] }),
   getPublicPassport: vi.fn(), declarePassportTier: vi.fn(), submitMatchEvaluation: vi.fn().mockResolvedValue({}),
 }))
 const { post, comment, ticket } = vi.hoisted(() => {
@@ -107,7 +109,7 @@ it('requests a match join only when MatchDetail.actions allows it', async () => 
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: true, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: null }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Tham gia kèo' }))
-  await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1'))
+  await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1', 'B'))
 })
 
 it('warns about an overlapping schedule before reserving a match slot', async () => {
@@ -123,7 +125,7 @@ it('warns about an overlapping schedule before reserving a match slot', async ()
   expect(requestMatchJoin).not.toHaveBeenCalled()
   expect(within(warning).getByText(/Cơ sở đã đặt/)).toBeInTheDocument()
   fireEvent.click(within(warning).getByRole('button', { name: 'Vẫn tiếp tục' }))
-  await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1'))
+  await waitFor(() => expect(requestMatchJoin).toHaveBeenCalledWith('match-1', 'B'))
 })
 
 it('keeps a reserved match visible but disables joining while another player pays', async () => {

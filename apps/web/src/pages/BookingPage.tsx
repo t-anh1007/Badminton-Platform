@@ -306,7 +306,7 @@ export function BookingPage() {
           updateSelectedSlots('held')
         }
         const matchHold = nextHold
-        const match = await createMatch({ holdId: matchHold.id, capacity: 2, feeMode: 'split' }).catch(async (caught: unknown) => {
+        const match = await createMatch({ holdId: matchHold.id, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' }).catch(async (caught: unknown) => {
           if (isMatchRejected(caught)) await releaseMatchHold(matchHold)
           throw caught
         })

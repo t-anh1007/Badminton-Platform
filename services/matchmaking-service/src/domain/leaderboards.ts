@@ -115,6 +115,7 @@ export async function getMatchHistory(
       businessCode: match.businessCode,
       endedAt: (match.endAt ?? resultCase.finalizedAt!).toISOString(),
       discipline: match.discipline,
+      mode: match.mode,
       outcome: (resultCase.outcome === 'TEAM_A_WIN') === (mySide === 'A') ? 'win' as const : 'loss' as const,
       scoreLabel: shown
         ? shown.sets.map((set) => (mySide === 'A' ? `${set.teamA}-${set.teamB}` : `${set.teamB}-${set.teamA}`)).join(', ')

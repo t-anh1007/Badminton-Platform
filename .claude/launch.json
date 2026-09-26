@@ -6,6 +6,19 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "apps/web"],
       "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3004
+    },
+    {
+      "name": "backend-no-email",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "env": { "GMAIL_REFRESH_TOKEN": "", "GMAIL_CLIENT_ID": "", "SMTP_HOST": "", "SMTP_USER": "", "SMTP_PASS": "" },
+      "port": 3004
     }
   ]
 }

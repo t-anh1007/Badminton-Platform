@@ -26,6 +26,7 @@ describe('provider booking navigation', () => {
       '📅Lịch',
       '📋Quản lý booking',
       '⚠️Sự cố',
+      '🏆Hồ sơ kèo',
       '💰Tài chính',
     ]);
     expect(screen.getByRole('link', { name: /Quản lý booking/ })).toHaveAttribute('href', '/manage/bookings');

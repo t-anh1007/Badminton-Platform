@@ -2,28 +2,30 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createMatchOrganizerContributionSepayIntent, getMyWallets, payMatchOrganizerContributionBalance } from '../lib/financeApi.js'
-import { waitForMatchOpen } from '../lib/matchApi.js'
+import { getMatchDetail, waitForMatchOpen } from '../lib/matchApi.js'
 import { MatchDepositCheckout } from './MatchDepositCheckout.js'
 
 vi.mock('../lib/financeApi.js', () => ({ getMyWallets: vi.fn(), payMatchOrganizerContributionBalance: vi.fn(), createMatchOrganizerContributionSepayIntent: vi.fn() }))
-vi.mock('../lib/matchApi.js', () => ({ waitForMatchOpen: vi.fn() }))
+vi.mock('../lib/matchApi.js', () => ({ waitForMatchOpen: vi.fn(), getMatchDetail: vi.fn() }))
 const future = '2026-08-23T03:10:00.000Z'
 const sepayIntent = { intentId: 'pi1', matchCode: 'KLTORG01', amount: '60000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'COURTIN', amount: '60000', matchCode: 'KLTORG01', qrImageUrl: 'https://qr.test/code' } }
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z'))
+  // Phần góp của chủ kèo do backend trả (kèo đơn 7:3 giá 120.000đ -> 84.000đ).
+  vi.mocked(getMatchDetail).mockResolvedValue({ funding: { organizerContribution: '84000' } } as never)
   vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', withdrawable: '0', pending: '0', reserved: '0', currency: 'VND' }])
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
 
-it('shows the exact 50 percent deposit and waits for the match to open', async () => {
+it('shows the organizer contribution returned by the backend and waits for the match to open', async () => {
   vi.mocked(payMatchOrganizerContributionBalance).mockResolvedValue({} as never)
   vi.mocked(waitForMatchOpen).mockResolvedValue({ status: 'open' } as never)
   const onPaid = vi.fn()
   render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={onPaid} onExpired={vi.fn()} />)
-  expect(screen.getByText('Cọc tạo kèo (50%)')).toBeInTheDocument()
-  expect(screen.getByText('60.000đ')).toBeInTheDocument()
+  expect(screen.getByText('Phần góp của chủ kèo')).toBeInTheDocument()
+  expect(await screen.findByText('84.000đ')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Thanh toán số dư' }))
   await waitFor(() => expect(onPaid).toHaveBeenCalledWith('m1'))
   expect(waitForMatchOpen).toHaveBeenCalledWith('m1')

@@ -38,6 +38,7 @@ it('uses the provider-owned authorize then upload state before submitting venue 
   fireEvent.click(screen.getByRole('button', { name: 'Thêm sân kinh doanh' }));
   fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } });
   fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: 'Q1' } });
+  fireEvent.change(screen.getByLabelText('Tỉnh/thành'), { target: { value: 'ho-chi-minh' } });
   fireEvent.click(screen.getByRole('button', { name: 'đặt vị trí' }));
   fireEvent.change(screen.getByLabelText('Tên sân con mới'), { target: { value: 'Sân 1' } });
   fireEvent.click(screen.getByRole('button', { name: '+ Thêm sân' }));
@@ -46,5 +47,5 @@ it('uses the provider-owned authorize then upload state before submitting venue 
   await waitFor(() => expect(screen.getAllByText('Đã tải')).toHaveLength(2));
   fireEvent.click(screen.getByRole('button', { name: 'Lưu và hoàn tất cấu hình' }));
   await waitFor(() => expect(createVenue).toHaveBeenCalledWith(expect.objectContaining({ images: [{ objectKey: 'venue/images/picture.webp' }] })));
-  expect(authorize).toHaveBeenCalledWith('image/webp');
+  expect(authorize).toHaveBeenCalledWith('image/webp', expect.objectContaining({ checksumSha256: expect.any(String) }));
 });

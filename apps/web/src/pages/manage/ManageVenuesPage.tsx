@@ -1,7 +1,8 @@
+import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { BusinessCode } from '../../components/BusinessCode.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, EmptyState, SurfaceCard, TextInput } from '../../components/ui';
+import { Button, EmptyState, SelectInput, SurfaceCard, TextInput } from '../../components/ui';
 import {
   createManagedVenue,
   addManagedCourt,
@@ -17,10 +18,10 @@ import { ImageUploadPicker, type UploadImageState } from '../../components/Commu
 import { LocationPicker, type PickedLocation } from '../../components/map/LocationPicker';
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 
-interface VenueForm { name: string; address: string; amenities: string }
+interface VenueForm { name: string; address: string; provinceCode: string; amenities: string }
 interface CourtSetup { weekdays: number[]; openTime: string; closeTime: string; hourlyPrice: string; effectiveFrom: string }
 interface CourtDraft { id: string; name: string; images: UploadImageState[]; setup: CourtSetup }
-const emptyForm: VenueForm = { name: '', address: '', amenities: '' };
+const emptyForm: VenueForm = { name: '', address: '', provinceCode: '', amenities: '' };
 const SUGGESTED_AMENITIES = ['Wi-Fi', 'Bãi giữ xe', 'Nước uống', 'Phòng thay đồ', 'Nhà vệ sinh'] as const;
 const WEEKDAYS = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'] as const;
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -44,6 +45,7 @@ function createCourtSetup(): CourtSetup {
 const FIELD_LABELS: Record<keyof VenueForm, string> = {
   name: 'Tên cơ sở',
   address: 'Địa chỉ',
+  provinceCode: 'Tỉnh/thành',
   amenities: 'Tiện ích',
 };
 
@@ -129,6 +131,7 @@ export function ManageVenuesPage() {
     const nextErrors: typeof fieldErrors = {};
     if (!form.name.trim()) nextErrors.name = 'Vui lòng nhập tên cơ sở.';
     if (!form.address.trim()) nextErrors.address = 'Vui lòng nhập địa chỉ.';
+    if (!form.provinceCode) nextErrors.provinceCode = 'Chọn tỉnh/thành của cơ sở.';
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) nextErrors.location = 'Chọn vị trí cơ sở trên bản đồ.';
     if (Object.keys(nextErrors).length) { setFieldErrors(nextErrors); return; }
     if (courts.length === 0) { setError('Thêm ít nhất một sân con trước khi lưu cơ sở.'); return; }
@@ -152,6 +155,7 @@ export function ManageVenuesPage() {
       const venue = await createManagedVenue({
         name: form.name.trim(),
         address: form.address.trim(),
+        provinceCode: form.provinceCode,
         lat: location!.lat,
         lng: location!.lng,
         amenities: [...new Set([
@@ -200,6 +204,14 @@ export function ManageVenuesPage() {
           Địa chỉ <span className="text-danger">*</span>
           <TextInput aria-label={FIELD_LABELS.address} value={form.address} onChange={(event) => change('address', event.target.value)} placeholder="Địa chỉ tự động điền khi chọn trên bản đồ" />
           {fieldErrors.address && <span className="text-xs text-danger">{fieldErrors.address}</span>}
+        </label>
+        <label className="grid gap-1.5 text-sm font-medium">
+          Tỉnh/thành <span className="text-danger">*</span>
+          <SelectInput aria-label={FIELD_LABELS.provinceCode} value={form.provinceCode} onChange={(event) => change('provinceCode', event.target.value)}>
+            <option value="">Chọn tỉnh/thành</option>
+            {VIETNAM_PROVINCES.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+          </SelectInput>
+          {fieldErrors.provinceCode && <span className="text-xs text-danger">{fieldErrors.provinceCode}</span>}
         </label>
       </div>
       <fieldset className="grid gap-3">

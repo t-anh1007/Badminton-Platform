@@ -487,9 +487,8 @@ export async function listMyBookings(userId: string) {
 
 export async function listMyMatchSources(userId: string) {
   const now = new Date();
-  const [holds, bookings, paidBookings] = await Promise.all([
+  const [holds, paidBookings] = await Promise.all([
     prisma.hold.findMany({ where: { userId, expiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
-    prisma.booking.findMany({ where: { userId, source: 'marketplace', status: 'held', holdExpiresAt: { gt: now } }, include: { court: { include: { venue: true } } } }),
     // Booking đã thanh toán, chưa diễn ra và không phải booking sinh ra từ kèo (BR-CM-01).
     prisma.booking.findMany({
       where: { userId, source: 'marketplace', status: 'confirmed', startAt: { gt: now }, NOT: { holdPurposeSnapshot: 'match' } },
@@ -512,8 +511,7 @@ export async function listMyMatchSources(userId: string) {
       startAt: booking.startAt.toISOString(), endAt: booking.endAt.toISOString(), ...place(booking.court),
     })),
   ];
-  // `holds`/`bookings` giữ cho Web hiện tại tới khi Task 23 chuyển sang `sources`.
-  return { holds, bookings, sources };
+  return { sources };
 }
 
 export async function listAdminBookings(input: { query?: string; status?: BookingStatus; from?: Date; to?: Date; page: number; pageSize: number }) {

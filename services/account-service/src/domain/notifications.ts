@@ -1,3 +1,4 @@
+import type { EmailSender } from '../lib/email.js';
 import type { Notification, NotificationCategory, NotificationPriority, UserRole } from '@prisma/client';
 import { notificationCategories, type UserNotificationRequestedPayload } from '@khoaluantn/shared';
 import { prisma } from '../lib/prisma.js';
@@ -123,7 +124,67 @@ export async function saveNotificationPreference(userId: string, input: Preferen
 }
 
 export function notificationDeliveryAllowed(payload: UserNotificationRequestedPayload, preferenceEnabled: boolean): boolean {
-  return payload.deliveryPolicy === 'required' || payload.category === 'security' || preferenceEnabled;
+  // Thông báo có email bắt buộc (kèo cạnh tranh, thưởng) cũng bỏ qua tùy chọn tắt danh mục.
+  return payload.deliveryPolicy === 'required' || payload.emailPolicy === 'required' || payload.category === 'security' || preferenceEnabled;
+}
+
+/**
+ * Email giao dịch cho thông báo bắt buộc, chạy sau khi inbox đã ghi bền. Mỗi dòng gửi tối đa một lần thành
+ * công (emailSentAt); lỗi nhà cung cấp giữ emailSentAt=null để lần giao lại event thử tiếp, không nhân bản inbox.
+ */
+export async function deliverRequiredEmails(
+  notificationIds: string[],
+  payload: UserNotificationRequestedPayload,
+  sender: Pick<EmailSender, 'send'>,
+  now = () => new Date(),
+) {
+  if (payload.emailPolicy !== 'required') return;
+  let failure: unknown;
+  for (const id of notificationIds) {
+    try {
+      await sendRequiredEmail(id, sender, now);
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  if (failure) throw failure;
+}
+
+async function sendRequiredEmail(id: string, sender: Pick<EmailSender, 'send'>, now: () => Date) {
+  const row = await prisma.notification.findUnique({ where: { id }, include: { user: { select: { email: true } } } });
+  if (!row || row.emailSentAt) return;
+  await prisma.notification.update({ where: { id }, data: { emailLastAttemptAt: now() } });
+  await sender.send(row.user.email, row.title, `${row.body}\n\nMở Courtin để xem chi tiết.`);
+  await prisma.notification.update({ where: { id }, data: { emailSentAt: now() } });
+}
+
+export const REQUIRED_EMAIL_RETRY_DELAY_MS = 5 * 60_000;
+const REQUIRED_EMAIL_RETRY_WINDOW_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * Lưới an toàn cho email bắt buộc: chỉ dòng đã từng thử gửi (emailLastAttemptAt) là email bắt buộc, nên dòng chưa
+ * gửi được sẽ được thử lại mỗi >= 5 phút trong 7 ngày, không phụ thuộc số lần RabbitMQ giao lại event.
+ */
+export async function retryPendingRequiredEmails(sender: Pick<EmailSender, 'send'>, now = new Date()) {
+  const due = await prisma.notification.findMany({
+    where: {
+      emailSentAt: null,
+      emailLastAttemptAt: { not: null, lte: new Date(now.getTime() - REQUIRED_EMAIL_RETRY_DELAY_MS) },
+      createdAt: { gte: new Date(now.getTime() - REQUIRED_EMAIL_RETRY_WINDOW_MS) },
+    },
+    orderBy: { emailLastAttemptAt: 'asc' }, take: 50, select: { id: true },
+  });
+  let sent = 0;
+  for (const { id } of due) {
+    try {
+      await sendRequiredEmail(id, sender, () => now);
+      sent += 1;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[account-service] gửi lại email bắt buộc thất bại:', id, error);
+    }
+  }
+  return sent;
 }
 
 export async function projectNotification(sourceEventId: string, payload: UserNotificationRequestedPayload) {

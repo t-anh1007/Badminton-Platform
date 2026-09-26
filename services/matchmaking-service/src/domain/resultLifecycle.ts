@@ -13,7 +13,7 @@ import {
 } from './matchRules.js';
 import { participantIdentity } from './matches.js';
 import { reserveRatedResults } from './ratedResults.js';
-import { DECLARATION_WINDOW_MS, adminReviewNotification, lockMatch, openResultDispute, resultTeams } from './matchResults.js';
+import { DECLARATION_WINDOW_MS, adminReviewNotification, lockMatch, notifyRoster, openResultDispute, resultTeams } from './matchResults.js';
 import { inspectResultEvidence, insertResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
 
 type Tx = Prisma.TransactionClient;
@@ -95,7 +95,7 @@ function assertObjectionOpen(resultCase: MatchResultCase | null, now: Date): ass
 /** BR-CM-31: đơn chốt sớm khi đối thủ xác nhận; đôi cần cả hai người đội thua hoặc hết grace 60 phút. */
 export async function confirmResult(matchId: string, userId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
-    const { teams, resultCase } = await lockedCase(tx, matchId, userId);
+    const { match, teams, resultCase } = await lockedCase(tx, matchId, userId);
     assertObjectionOpen(resultCase, now);
     const losers = teams[losingSide(resultCase.outcome)!];
     if (!losers.includes(userId)) throw new AppError(403, 'RESULT_CONFIRM_LOSER_ONLY', 'Chỉ bên thua được xác nhận kết quả.');
@@ -112,6 +112,8 @@ export async function confirmResult(matchId: string, userId: string, now = new D
       where: { id: resultCase.id },
       data: { teamGraceDeadlineAt: new Date(now.getTime() + TEAM_GRACE_MS), version: { increment: 1 } },
     });
+    await notifyRoster(tx, match, resultCase.id, 'match.result.confirmed_partial', 'Một người bên thua đã đồng ý kết quả',
+      'Người còn lại của đội thua có 60 phút để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
     return { status: 'provisional' as const };
   });
 }
@@ -191,6 +193,7 @@ export async function supplementResultEvidence(
 /** Scheduler idempotent: mọi chuyển trạng thái đều kiểm tra lại dưới khóa kèo. */
 export async function sweepResultDeadlines(now = new Date(), matchIds?: string[]): Promise<number> {
   const scope = matchIds ? { matchId: { in: matchIds } } : {};
+  await sweepResultReminders(now, matchIds);
   const declarationExpired = await prisma.matchResultCase.findMany({
     where: { ...scope, status: 'declaration_open', declarationDeadlineAt: { lte: now } }, select: { id: true, matchId: true }, take: 100,
   });
@@ -207,6 +210,9 @@ export async function sweepResultDeadlines(now = new Date(), matchIds?: string[]
           incidentDeadlineAt: new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS), version: { increment: 1 },
         },
       });
+      const match = await tx.match.findUniqueOrThrow({ where: { id: target.matchId }, select: { id: true, organizerUserId: true } });
+      await notifyRoster(tx, match, resultCase.id, 'match.result.incident_window', 'Chưa có ai khai kết quả',
+        'Hết hạn khai kết quả. Bạn có 12 giờ để báo sự cố; nếu không, trận được ghi nhận là không có kết quả.');
     });
   }
   const due = await prisma.matchResultCase.findMany({
@@ -224,6 +230,47 @@ export async function sweepResultDeadlines(now = new Date(), matchIds?: string[]
   let finalized = 0;
   for (const target of due) if (await finalizeUndisputedResult(target.id, now)) finalized += 1;
   return declarationExpired.length + finalized;
+}
+
+export const RESULT_REMINDER_BEFORE_MS = 2 * HOUR_MS;
+
+/** Spec §11: nhắc sắp hết hạn khai báo (cả roster) và phản hồi (bên thua) đúng một lần, 2 giờ trước hạn. */
+export async function sweepResultReminders(now = new Date(), matchIds?: string[]) {
+  const scope = matchIds ? { matchId: { in: matchIds } } : {};
+  const soon = new Date(now.getTime() + RESULT_REMINDER_BEFORE_MS);
+  const cases = await prisma.matchResultCase.findMany({
+    where: {
+      ...scope,
+      OR: [
+        { status: 'declaration_open', declarationReminderAt: null, declarationDeadlineAt: { gt: now, lte: soon } },
+        { status: 'provisional', responseReminderAt: null, objectionDeadlineAt: { gt: now, lte: soon } },
+      ],
+    },
+    select: { id: true, matchId: true },
+    take: 100,
+  });
+  for (const target of cases) {
+    await prisma.$transaction(async (tx) => {
+      await lockMatch(tx, target.matchId);
+      const resultCase = await tx.matchResultCase.findUniqueOrThrow({ where: { id: target.id } });
+      const match = await tx.match.findUniqueOrThrow({ where: { id: target.matchId }, select: { id: true, organizerUserId: true } });
+      if (resultCase.status === 'declaration_open' && !resultCase.declarationReminderAt) {
+        await tx.matchResultCase.update({ where: { id: resultCase.id }, data: { declarationReminderAt: now } });
+        await notifyRoster(tx, match, resultCase.id, 'match.result.declaration_reminder', 'Sắp hết hạn khai kết quả',
+          'Còn dưới 2 giờ để khai tỷ số kèm ảnh bằng chứng. Quá hạn, trận chỉ còn 12 giờ để báo sự cố.');
+      } else if (resultCase.status === 'provisional' && !resultCase.responseReminderAt && resultCase.outcome) {
+        await tx.matchResultCase.update({ where: { id: resultCase.id }, data: { responseReminderAt: now } });
+        const losers = (await resultTeams(tx, match))[losingSide(resultCase.outcome)!];
+        await writeResultNotification(tx, {
+          recipients: losers.map((userId) => ({ type: 'user' as const, userId, targetRole: 'player' as const })),
+          kind: 'match.result.response_reminder', title: 'Sắp hết hạn phản hồi kết quả',
+          body: 'Còn dưới 2 giờ để đồng ý hoặc khiếu nại kết quả tạm; quá hạn kết quả sẽ được chốt.',
+          matchId: match.id, caseId: resultCase.id, actionKind: 'match.result.view',
+        });
+      }
+    });
+  }
+  return cases.length;
 }
 
 // ---- Task 13: provider đề xuất (không ràng buộc) và Admin quyết định cuối (BR-CM-37..42) ----

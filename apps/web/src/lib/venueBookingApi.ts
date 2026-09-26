@@ -93,26 +93,17 @@ export interface HoldResult {
   endAt: string;
   expiresAt: string;
 }
-export interface MatchSourceCourt {
-  id: string;
-  name: string;
-  venue: { id: string; name: string; address: string };
-}
-export interface MatchHoldSource {
-  id: string;
+/** Nguồn tạo kèo v2 (slot đang giữ hoặc booking đã thanh toán), dữ liệu snapshot từ Venue. */
+export interface MatchSource {
+  sourceType: 'hold' | 'paid_booking';
+  holdId?: string;
+  bookingId?: string;
+  bookingStatus: 'held' | 'confirmed';
+  price: string;
   startAt: string;
   endAt: string;
-  expiresAt: string;
-  court: MatchSourceCourt;
-}
-export interface MatchBookingSource {
-  businessCode?: string;
-  id: string;
-  startAt: string;
-  endAt: string;
-  holdExpiresAt: string | null;
-  status: 'held';
-  court: MatchSourceCourt;
+  venue: { id: string; name: string; address: string; provinceCode: string | null };
+  court: { id: string; name: string };
 }
 export interface ProviderRow {
   businessCode?: string; id: string; orgName: string; status: string; userId?: string; contact?: { contact?: string; email?: string; phone?: string } | null; }
@@ -121,7 +112,7 @@ export interface ProviderSelf {
 export interface ManagedCourt {
   businessCode?: string; id: string; name: string; active: boolean; images: Array<{ objectKey: string; url: string }>; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue {
-  businessCode?: string; id: string; name: string; address: string; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
+  businessCode?: string; id: string; name: string; address: string; provinceCode?: string | null; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
 export type OperationalShutdownMode = 'winding_down' | 'scheduled_close' | 'emergency';
 export type OperationalShutdownScope = 'venue' | 'court';
 export interface OperationalShutdownInput { mode: OperationalShutdownMode; closeDate?: string; reason?: string }
@@ -168,7 +159,7 @@ export const selectSlot = (courtId: string, body: { startAt: string; durationMin
 export const createHold = (body: { courtId: string; startAt: string; endAt: string }) =>
   api<HoldResult>('/holds', { method: 'POST', body: JSON.stringify(body) });
 export const createBooking = (holdId: string) => api<BookingSummary>('/bookings', { method: 'POST', body: JSON.stringify({ holdId }) });
-export const getMyMatchSources = () => api<{ holds: MatchHoldSource[]; bookings: MatchBookingSource[] }>('/players/me/match-sources');
+export const getMyMatchSources = () => api<{ sources: MatchSource[] }>('/players/me/match-sources');
 export const getAdminProviders = () => api<ProviderRow[]>('/providers?status=pending');
 export const getMyProvider = () => api<ProviderSelf | null>('/providers/me');
 export const registerProvider = (body: { orgName: string; contact: Record<string, string> }) => api<ProviderSelf>('/providers', { method: 'POST', body: JSON.stringify(body) });
@@ -186,8 +177,8 @@ export const reactivateOperationalShutdown = (scope: OperationalShutdownScope, i
   api<{ status: 'active'; restoredCourtCount: number }>(`/operational-shutdowns/${scope}/${id}/reactivate`, { method: 'POST' });
 export const authorizeVenueImage = (mimeType: 'image/jpeg' | 'image/png' | 'image/webp') => api<VenueUploadAuthorization>('/providers/me/uploads', { method: 'POST', body: JSON.stringify({ mimeType }) });
 export async function uploadVenueImage(authorization: VenueUploadAuthorization, file: File, onProgress?: (progress: number) => void): Promise<void> { onProgress?.(0); const response = await fetch(authorization.uploadUrl, { method: 'PUT', headers: authorization.headers, body: file }); if (!response.ok) throw new Error('Không thể tải ảnh cơ sở lên.'); onProgress?.(100) }
-export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
-export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+export const createManagedVenue = (body: { name: string; lat: number; lng: number; address: string; provinceCode: string; amenities?: unknown; images?: unknown }) => api<ManagedVenue>('/venues', { method: 'POST', body: JSON.stringify(body) });
+export const updateManagedVenue = (id: string, body: Partial<{ name: string; lat: number; lng: number; address: string; provinceCode: string; amenities: unknown; images: unknown }>) => api<ManagedVenue>(`/venues/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const deactivateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/deactivate`, { method: 'POST' });
 export const activateManagedVenue = (id: string) => api<{ message: string; count: number }>(`/venues/${id}/activate`, { method: 'POST' });
 export const addManagedCourt = (venueId: string, name: string, images: Array<{ objectKey: string }>) => api<ManagedCourt>(`/venues/${venueId}/courts`, { method: 'POST', body: JSON.stringify({ name, images }) });

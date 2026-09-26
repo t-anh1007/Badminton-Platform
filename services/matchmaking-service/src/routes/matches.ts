@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import type { MatchmakerExplanationClient } from '@khoaluantn/ai';
-import { configureMatchSkillRange, createMatch, findPublicMatches, matchFundingView, getPublicMatchDetail, listMyConfirmedMatches, requestJoin } from '../domain/matches.js';
+import { configureMatchSkillRange, createMatch, findPublicMatches, matchFundingView, getPublicMatchDetail, listMyConfirmedMatches, previewMatchFunding, requestJoin } from '../domain/matches.js';
 import { suggestAiMatches } from '../domain/aiMatchmaker.js';
 import { RATIO_FROM_DB } from '../domain/matchRules.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
@@ -94,6 +94,16 @@ export function createMatchRouter(
   matchmakerClient?: MatchmakerExplanationClient,
 ) {
   const router = Router();
+  // Màn tạo kèo xem trước dòng tiền bằng đúng công thức backend; React không tự tính số tiền.
+  router.get('/funding-preview', withErrorHandling(async (req, res) => {
+    const input = z.object({
+      price: z.string().regex(/^[1-9]\d*$/).transform(BigInt),
+      ratio: z.enum(['5:5', '6:4', '7:3']),
+      discipline: z.enum(['singles', 'doubles']),
+      sourceType: z.enum(['hold', 'paid_booking']),
+    }).parse(req.query);
+    res.status(200).json({ preview: previewMatchFunding(input) });
+  }));
   router.get('/admin/evaluations', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
     const { reviewStatus } = z.object({
       reviewStatus: z.enum(['pending', 'approved', 'rejected']).default('pending'),

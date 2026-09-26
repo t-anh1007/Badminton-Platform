@@ -3,17 +3,21 @@ import { createHash } from 'node:crypto';
 import { connectRabbitMQ, shouldRequeue } from '@khoaluantn/eventbus';
 import { env } from './env.js';
 import { grantProviderRole } from '../domain/providerRole.js';
-import { projectNotification } from '../domain/notifications.js';
+import { deliverRequiredEmails, projectNotification } from '../domain/notifications.js';
+import { emailSender, type EmailSender } from './email.js';
 import { userNotificationRequestedSchema } from '@khoaluantn/shared';
 import { publishNotificationSignal } from './notificationRealtime.js';
 
 const QUEUE_NAME = 'account.domain-events';
 
-export async function handleNotificationRequested(eventId: string, raw: unknown) {
-  const rows = await projectNotification(eventId, userNotificationRequestedSchema.parse(raw));
+export async function handleNotificationRequested(eventId: string, raw: unknown, sender: Pick<EmailSender, 'send'> = emailSender) {
+  const payload = userNotificationRequestedSchema.parse(raw);
+  const rows = await projectNotification(eventId, payload);
   for (const row of rows) publishNotificationSignal(row.userId, {
     eventId, notificationId: row.notification.id, occurredAt: row.notification.createdAt,
   });
+  // Inbox đã bền trước khi gửi email; lỗi email làm event được giao lại và chỉ thử lại phần email.
+  await deliverRequiredEmails(rows.map((row) => row.notification.id), payload, sender);
   return rows;
 }
 

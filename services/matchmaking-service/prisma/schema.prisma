@@ -218,6 +218,9 @@ model MatchResultCase {
   providerDeadlineAt    DateTime?                @db.Timestamptz(3)
   adminReviewStartedAt  DateTime?                @db.Timestamptz(3)
   adminNextReminderAt   DateTime?                @db.Timestamptz(3)
+  /// Đã nhắc sắp hết hạn khai báo / phản hồi (spec §11); chống gửi trùng khi scheduler chạy lại.
+  declarationReminderAt DateTime?                @db.Timestamptz(3)
+  responseReminderAt    DateTime?                @db.Timestamptz(3)
   version               Int                      @default(1)
   finalizedAt           DateTime?                @db.Timestamptz(3)
   closedAt              DateTime?                @db.Timestamptz(3)

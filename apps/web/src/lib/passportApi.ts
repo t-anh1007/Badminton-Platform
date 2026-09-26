@@ -5,7 +5,8 @@ const BASE_URL = import.meta.env.VITE_MATCHMAKING_URL ?? '/api/matchmaking';
 function token(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
+/** Gọi matchmaking-service; dùng chung cho passport, BXH và chương trình thưởng. */
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = token();
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -23,20 +24,41 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+export type Discipline = 'singles' | 'doubles';
+
+export interface PlayerBadge {
+  label: string;
+  disciplineLabel: string;
+  seasonName: string;
+  provinceName: string | null;
+  awardedAt: string;
+}
 export interface PublicPassport {
   userId: string;
-  tier: SkillTier;
-  matchesPlayed: number;
+  singles: { tier: SkillTier; matchesPlayed: number } | null;
+  doubles: { tier: SkillTier; matchesPlayed: number } | null;
+  badges: PlayerBadge[];
   displayName?: string;
   avatarUrl?: string | null;
   identityVisibility?: 'public' | 'hidden';
 }
-export interface OwnPassport extends PublicPassport {
-  declaredTier: SkillTier | null;
+export interface OwnDisciplinePassport {
+  declaredTier: SkillTier;
+  declaredAt: string;
+  tier: SkillTier;
   rating: number;
-  rd: number;
-  sigma: number;
-  uncertainty: 'high' | 'established';
+  matchesPlayed: number;
+  ratingStability: 'high_uncertainty' | 'established';
+  leaderboardVisible: boolean;
+  leaderboardBand: 'under_1600' | 'from_1600';
+  season: { matchesPlayed: number; wins: number; currentWinStreak: number };
+  updatedAt: string;
+}
+export interface OwnPassport {
+  userId: string;
+  singles: OwnDisciplinePassport | null;
+  doubles: OwnDisciplinePassport | null;
+  canDeclare: Record<Discipline, boolean>;
   evaluationScore: number | null;
   evaluationCount: number;
   flaggedEvaluationCount: number;
@@ -47,17 +69,30 @@ export interface OwnPassport extends PublicPassport {
     completedAt: string;
     evaluationCandidates: Array<{ userId: string; submitted: boolean }>;
   }>;
-  updatedAt: string;
-  nextDeclarationAt: string | null;
-  canDeclareTier: boolean;
+  badges: PlayerBadge[];
 }
+export interface MatchHistoryItem {
+  matchId: string;
+  businessCode: string;
+  endedAt: string;
+  discipline: Discipline;
+  mode: 'friendly' | 'ranked';
+  outcome: 'win' | 'loss';
+  scoreLabel: string;
+  ratingDelta: number | null;
+  opponents: Array<{ userId: string; displayName: string; avatarUrl: string | null }>;
+}
+export interface Page<T> { items: T[]; total: number; page: number; pageSize: number }
+
 export const getOwnPassport = () => api<OwnPassport>('/passports/me');
 export const getPublicPassport = (userId: string) => api<PublicPassport>(`/passports/${userId}`);
-export const declarePassportTier = (tier: SkillTier) =>
+export const declarePassportTier = (discipline: Discipline, tier: SkillTier) =>
   api<OwnPassport>('/passports/me/declaration', {
     method: 'PUT',
-    body: JSON.stringify({ tier }),
+    body: JSON.stringify({ discipline, tier }),
   });
+export const getMatchHistory = (discipline: Discipline, page = 1, pageSize = 5) =>
+  api<Page<MatchHistoryItem>>(`/passports/me/matches?${new URLSearchParams({ discipline, page: String(page), pageSize: String(pageSize) })}`);
 export const submitMatchEvaluation = (matchId: string, rateeUserId: string, perceivedTier: SkillTier) =>
   api(`/matches/${matchId}/evaluations`, {
     method: 'POST',
