@@ -118,20 +118,36 @@ code chạy đúng.
 Skill khả dụng thay đổi theo phiên; nếu skill không có, làm trực tiếp theo
 nguyên tắc của nó thay vì tìm skill thay thế.
 
+**Mặc định cho MỌI task** (không cần chờ trigger từ bảng dưới):
+- `caveman` — giao tiếp/output nén, giảm token khi không cần văn phong đầy đủ.
+- `ponytail` — luôn ưu tiên giải pháp đơn giản/tối thiểu nhất (YAGNI, chuẩn
+  trước khi thêm dependency) khi viết/sửa/refactor code.
+
+Hai skill trên áp dụng nền, không thay thế các quy tắc cứng khác trong tệp này
+(diff tối thiểu, đọc trước khi sửa, báo cáo kiểu Fable...).
+
 | Tình huống | Skill cần dùng |
 |---|---|
 | Yêu cầu mục tiêu mơ hồ, thiếu tiêu chí | `/goal-griller` |
-| Debug lỗi khó tái hiện hoặc nhiều nguyên nhân | `/systematic-debugging` |
-| Review diff/PR phức tạp trước commit | `/requesting-code-review` |
-| Nhận feedback review → áp dụng | `/receiving-code-review` |
-| Viết plan cho milestone mới | `/writing-plans` (plan đặt ở `docs/plans/active/`) |
-| Thực thi plan đã có từng bước | `/executing-plans` |
-| UI/UX frontend phức tạp (layout, design system) | `/web-design-guidelines` (review) hoặc `/frontend-design` (xây mới) |
-| Brainstorm giải pháp kỹ thuật | `/brainstorming` |
+| Debug lỗi khó tái hiện hoặc nhiều nguyên nhân | `/systematic-debugging` (superpowers) |
+| Review diff/PR phức tạp trước commit | `/requesting-code-review` (superpowers) |
+| Nhận feedback review → áp dụng | `/receiving-code-review` (superpowers) |
+| Viết plan cho milestone mới | `/writing-plans` (superpowers, plan đặt ở `docs/plans/active/`) |
+| Thực thi plan đã có từng bước | `/executing-plans` (superpowers) |
+| Brainstorm giải pháp kỹ thuật | `/brainstorming` (superpowers) |
+| UI/UX frontend phức tạp (layout, design system, aesthetic) | `frontend-design`, `ui-ux-pro-max` |
+| Review UI/UX theo guideline | `/web-design-guidelines` |
+| Tối ưu hiệu năng React/Next.js (component, data fetching, bundle) | `vercel-react-best-practices` |
+| Việc liên quan hạ tầng Vercel (deploy FE, domain, env) | skill nhóm `vercel:*` |
+| Việc liên quan hạ tầng Railway (backend, DB, deploy) | `use-railway` / skill nhóm `railway` |
+| Tự động hóa/kiểm thử trình duyệt (điền form, click, screenshot, scrape, QA web/Electron) | `agent-browser` |
+| Thiết kế thuật toán/hệ thống cần tư duy rõ ràng, tối giản | quy tắc `andrej-karpathy-skills:karpathy-guidelines` |
+| Task nhiều bước phức tạp khác (mattpocock domain) | skill nhóm `mattpocock-skills:*` (tdd, domain-modeling, codebase-design, diagnosing-bugs...) |
 | Commit / push / merge / deploy | `/release` (skill dự án, `.claude/skills/`) |
 
 **Không dùng skill khi**: sửa bug rõ ràng, thêm field nhỏ, trả lời câu hỏi đơn
-giản, refactor cục bộ — làm trực tiếp sẽ nhanh hơn và rẻ hơn.
+giản, refactor cục bộ — làm trực tiếp sẽ nhanh hơn và rẻ hơn (ngoại trừ 2 skill
+mặc định `caveman`/`ponytail` luôn áp dụng nền).
 
 ## Chuẩn làm việc (mọi model phải theo)
 
