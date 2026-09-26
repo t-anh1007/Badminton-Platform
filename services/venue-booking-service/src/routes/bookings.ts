@@ -17,7 +17,7 @@ bookingRouter.post('/internal/bookings/references', requireInternalService, h(as
   }).strict().refine((body) => (body.bookingIds?.length ?? 0) + (body.businessCodes?.length ?? 0) > 0).parse(req.body);
   const rows = await prisma.booking.findMany({
     where: { OR: [{ id: { in: bookingIds } }, { businessCode: { in: businessCodes } }] },
-    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, court: { select: { name: true, venue: { select: { name: true } } } } },
+    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, courtId: true, court: { select: { name: true, venue: { select: { name: true } } } } },
   });
   // Presentation-only metadata for finance screens; never used to authorize money movement.
   // Tên khách là phần phụ: account nhận tối đa 200 id/lần và có thể đang ngủ (Railway) —
@@ -35,6 +35,10 @@ bookingRouter.post('/internal/bookings/references', requireInternalService, h(as
   ]);
   const references = rows.map(({ court, ...row }) => ({ ...row, venueName: court.venue.name, courtName: court.name, customerName: row.userId ? names.get(row.userId) ?? null : row.guestName }));
   res.json({ references });
+}));
+// Danh sách cơ sở + sân con cho bộ lọc tài chính của admin (chỉ tên, không dữ liệu nhạy cảm).
+bookingRouter.get('/admin/venues/options', requireAuth, requireRole('admin'), h(async (_req, res) => {
+  res.json(await prisma.venue.findMany({ select: { id: true, name: true, courts: { select: { id: true, name: true }, orderBy: { name: 'asc' } } }, orderBy: { name: 'asc' } }));
 }));
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
   const input = z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'completed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);

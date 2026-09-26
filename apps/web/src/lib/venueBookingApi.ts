@@ -250,6 +250,7 @@ export function getProviderBookings(filters: ProviderBookingFilters = {}) {
 export const getProviderBookingDetail = (id: string) =>
   api<ProviderBookingDetail>(`/providers/me/bookings/${encodeURIComponent(id)}`);
 
+export const getAdminVenueOptions = () => api<Array<{ id: string; name: string; courts: Array<{ id: string; name: string }> }>>('/admin/venues/options');
 export const getAdminBookings = (filters: { query?: string; status?: string; from?: string; to?: string; page?: number; pageSize?: number } = {}) => {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, String(value)); });

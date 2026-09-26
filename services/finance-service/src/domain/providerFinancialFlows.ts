@@ -8,7 +8,7 @@ import { cancelReason, contains, dateTime, n, range, vnd, type FlowRow, type Kpi
  * một chủ sân (quy mô đồ án vài trăm booking); lên hàng chục nghìn thì chuyển sang SQL. */
 export const PROVIDER_FLOW_TABS = ['revenue', 'deduct', 'withdraw', 'ledger', 'venues'] as const;
 export type ProviderFlowTab = (typeof PROVIDER_FLOW_TABS)[number];
-export type ProviderFlowQuery = { tab: ProviderFlowTab; filter?: string; venueId?: string; from?: Date; to?: Date; q?: string; page: number; pageSize: number };
+export type ProviderFlowQuery = { tab: ProviderFlowTab; filter?: string; venueId?: string; courtId?: string; from?: Date; to?: Date; q?: string; page: number; pageSize: number };
 type Page = { kpis: Kpi[]; items: FlowRow[]; total: number };
 type Row = BookingRevenue & { detail?: BookingDetail };
 
@@ -26,7 +26,7 @@ async function bookings(userId: string, q: ProviderFlowQuery, extra: Prisma.Book
     orderBy: [{ endAt: 'desc' }, { bookingId: 'desc' }],
   });
   const details = await bookingDetails(rows.map((row) => row.bookingId));
-  return rows.map((row) => ({ ...row, detail: details.get(row.bookingId) }));
+  return rows.map((row) => ({ ...row, detail: details.get(row.bookingId) })).filter((row) => !q.courtId || row.detail?.courtId === q.courtId);
 }
 
 async function disputesFor(bookingIds: string[]) {
@@ -92,6 +92,7 @@ async function deductions(userId: string, q: ProviderFlowQuery): Promise<Page> {
   const rows = entries.filter((entry) => {
     const revenue = revenues.find((item) => item.bookingId === bookingIdOf(entry));
     if (q.venueId && revenue?.venueId !== q.venueId) return false;
+    if (q.courtId && details.get(revenue?.bookingId ?? '')?.courtId !== q.courtId) return false;
     if (q.filter && kindOf(entry) !== q.filter) return false;
     return !text || (revenue && matchesText({ ...revenue, detail: details.get(revenue.bookingId) }, text)) || disputes.some((item) => item.id === entry.refId && item.businessCode.toLowerCase().includes(text.toLowerCase()));
   });

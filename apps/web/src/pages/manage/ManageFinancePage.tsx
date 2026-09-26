@@ -8,7 +8,7 @@ import { getMyManagedVenues, type ManagedVenue } from '../../lib/venueBookingApi
 import { newPeriod, periodQuery } from '../../components/PeriodFilter.js';
 import { FinanceRevenueExplorer, type FinanceFilter } from './FinanceRevenueExplorer.js';
 import { ProviderFinanceFlows } from './ProviderFinanceFlows.js';
-import type { FlowNavState } from '../../components/FinanceFlows.js';
+import type { FlowNavState, FlowSync } from '../../components/FinanceFlows.js';
 import type { ProviderFlowTab } from '../../lib/financeApi.js';
 import { useFinanceRealtime } from './useFinanceRealtime.js';
 import { WithdrawalModal } from './WithdrawalModal.js';
@@ -24,7 +24,8 @@ export function ManageFinancePage() {
   // Mặc định: từ ngày bỏ trống, đến hôm nay = toàn bộ booking tới hiện tại.
   const [filters, setFilters] = useState<FinanceFilter>({ venueId: '', period: newPeriod('range') });
   const [flowNav, setFlowNav] = useState<FlowNavState<ProviderFlowTab>>({ tab: 'revenue', nonce: 0 });
-  const [day, setDay] = useState<string>();
+  const [flowSync, setFlowSync] = useState<FlowSync>({ nonce: 0 });
+  const pushSync = (next: Omit<FlowSync, 'nonce'>) => setFlowSync((current) => ({ ...next, nonce: current.nonce + 1 }));
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -82,13 +83,13 @@ export function ManageFinancePage() {
     <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-caption text-ink-500">QUẢN LÝ TÀI CHÍNH</p><h2 className="mt-1 text-h1">Dòng tiền hôm nay</h2><p className="mt-1 text-sm text-ink-500">Xem tiền có thể rút và hoạt động mới nhất của các cơ sở.</p></div><Button tone="ghost" size="sm" onClick={() => void load()}>Tải lại</Button></header>
     <section className="overflow-hidden rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-raised)] sm:p-8"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-sm text-surface/70">Số dư có thể rút</p><p className="text-figures mt-2 text-4xl font-bold">{new Intl.NumberFormat('vi-VN').format(BigInt(wallet.available))}đ</p><p className="mt-2 text-xs text-surface/70">{status === 'live' ? '● Đang cập nhật trực tiếp' : '○ Đang kết nối lại'}</p></div><div className="flex flex-wrap gap-2"><Button tone="ghost" onClick={() => openFlows('ledger')} className="text-surface hover:bg-surface/10">Số dư này gồm những khoản nào?</Button><Button aria-label="Tạo yêu cầu rút tiền" onClick={() => setWithdrawOpen(true)} className="bg-brand-yellow text-brand-navy hover:bg-brand-yellow-hover">Rút tiền</Button></div></div></section>
     {transparency ? <FinanceRevenueExplorer data={transparency} venues={venues} filters={filters}
-      onChange={(next) => { setFilters(next); setDay(undefined); void load(next); }}
-      onPickDay={(picked) => { setDay(picked); openFlows('revenue'); }}
-      onPickVenue={(venueId) => { const next = { ...filters, venueId }; setFilters(next); setDay(undefined); void load(next); openFlows('revenue'); }}
-      onShowPending={() => { const next = { ...filters, period: newPeriod('all') }; setFilters(next); setDay(undefined); void load(next); openFlows('revenue', 'pending'); }} /> : null}
+      onChange={(next) => { setFilters(next); pushSync({ period: next.period, venueId: next.venueId }); void load(next); }}
+      onPickDay={(picked) => { pushSync({ period: { ...newPeriod('day'), day: picked } }); openFlows('revenue'); }}
+      onPickVenue={(venueId) => { const next = { ...filters, venueId }; setFilters(next); pushSync({ venueId }); void load(next); openFlows('revenue'); }}
+      onShowPending={() => { const next = { ...filters, period: newPeriod('all') }; setFilters(next); pushSync({ period: next.period }); void load(next); openFlows('revenue', 'pending'); }} /> : null}
     <section id="finance-flows" className="grid scroll-mt-24 gap-3">
       <h3 className="text-h2">Chi tiết dòng tiền</h3>
-      <ProviderFinanceFlows nav={flowNav} venueId={filters.venueId} range={periodQuery(filters.period)} day={day} onClearDay={() => setDay(undefined)} version={version} />
+      <ProviderFinanceFlows nav={flowNav} venues={venues} sync={flowSync} initialPeriod={filters.period} version={version} />
     </section>
     {error && <p role="alert" className="rounded-2xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</p>}
     {message && !error && <p role="status" className="rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">{message}</p>}

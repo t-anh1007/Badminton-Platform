@@ -1,12 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Badge, Pagination, TextInput } from './ui.js';
+import { Badge, Pagination, SelectInput, TextInput } from './ui.js';
 import { newPeriod, PeriodFilter, periodQuery, type Period } from './PeriodFilter.js';
 import { formatMoneyVnd } from '../lib/formatters.js';
 import type { FlowLedgerEntry, FlowResult, FlowTone } from '../lib/financeApi.js';
 
 export const FLOW_PAGE_SIZE = 5;
 export type FlowTabConfig<T extends string> = { key: T; label: string; forCards: string; cols: [string, string, string, string, string]; chips: Array<[string, string]>; searchHint: string; note?: string };
-export type FlowQueryBase<T extends string> = { tab: T; filter: string; q: string; from?: string; to?: string; page: number; pageSize: number };
+export type FlowQueryBase<T extends string> = { tab: T; filter: string; q: string; from?: string; to?: string; venueId?: string; courtId?: string; page: number; pageSize: number };
+export type FlowPlace = { id: string; name: string; courts: Array<{ id: string; name: string }> };
+/** Trang cha đẩy kỳ xem / cơ sở vào (vd. bấm một ngày trên biểu đồ); nonce đổi thì áp dụng. */
+export type FlowSync = { nonce: number; period?: Period; venueId?: string };
 export type FlowNavState<T extends string> = { tab: T; filter?: string; nonce: number };
 
 const badgeTone: Record<FlowTone, 'success' | 'warning' | 'danger' | 'neutral'> = { ok: 'success', wait: 'warning', bad: 'danger', info: 'neutral', mute: 'neutral' };
@@ -16,15 +19,16 @@ const entryLabel: Record<string, string> = { topup: 'nạp tiền', payment: 'th
 
 /** Khung "Chi tiết dòng tiền" dùng chung cho admin và chủ sân: tab, nút lọc, kỳ xem, tìm kiếm,
  * 4 số tổng, bảng 5 dòng/trang và ngăn hành trình dòng tiền. */
-export function FinanceFlows<T extends string>({ tabs, nav, load, loadLedger, range, reloadKey = '', toolbar, text = (value) => value, walletName }: {
+export function FinanceFlows<T extends string>({ tabs, nav, load, loadLedger, reloadKey = '', toolbar, text = (value) => value, walletName, places = [], placeTabs = [], sync, initialPeriod }: {
   tabs: Array<FlowTabConfig<T>>; nav: FlowNavState<T>;
   load: (query: FlowQueryBase<T>) => Promise<FlowResult>; loadLedger: (refIds: string[]) => Promise<FlowLedgerEntry[]>;
-  /** Kỳ xem do trang cha quyết định; không truyền thì khu này có bộ lọc kỳ riêng. */
-  range?: { from?: string; to?: string }; reloadKey?: string;
+  reloadKey?: string; places?: FlowPlace[]; placeTabs?: T[]; sync?: FlowSync; initialPeriod?: Period;
   toolbar?: (tab: T) => ReactNode; text?: (value: string) => string; walletName: (entry: FlowLedgerEntry) => string;
 }) {
   const chipOf = (key: T, filter?: string) => filter ?? tabs.find((item) => item.key === key)!.chips[0]![0];
-  const [period, setPeriod] = useState<Period>(() => newPeriod('all'));
+  const [period, setPeriod] = useState<Period>(() => initialPeriod ?? newPeriod('all'));
+  const [venueId, setVenueId] = useState('');
+  const [courtId, setCourtId] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<T>(nav.tab);
@@ -35,19 +39,22 @@ export function FinanceFlows<T extends string>({ tabs, nav, load, loadLedger, ra
   const [ledger, setLedger] = useState<FlowLedgerEntry[]>([]);
   const [error, setError] = useState('');
   const config = tabs.find((item) => item.key === tab)!;
-  const { from, to } = range ?? periodQuery(period);
+  const { from, to } = periodQuery(period);
+  const usesPlace = placeTabs.includes(tab);
+  const place = places.find((item) => item.id === venueId);
 
   useEffect(() => { const timer = window.setTimeout(() => { setQ(searchInput.trim()); setPage(1); }, 400); return () => window.clearTimeout(timer); }, [searchInput]);
   // Điều hướng từ thẻ/biểu đồ phía trên chọn sẵn tab và nút lọc.
   useEffect(() => { if (!nav.nonce) return; setTab(nav.tab); setFilter(chipOf(nav.tab, nav.filter)); setPage(1); }, [nav.nonce]);
-  useEffect(() => { setPage(1); }, [reloadKey, from, to]);
+  useEffect(() => { if (!sync?.nonce) return; if (sync.period) setPeriod(sync.period); if (sync.venueId !== undefined) { setVenueId(sync.venueId); setCourtId(''); } }, [sync?.nonce]);
+  useEffect(() => { setPage(1); }, [reloadKey, from, to, venueId, courtId]);
   useEffect(() => {
     let active = true;
-    load({ tab, filter, q, from, to, page, pageSize: FLOW_PAGE_SIZE })
+    load({ tab, filter, q, from, to, venueId: usesPlace ? venueId || undefined : undefined, courtId: usesPlace ? courtId || undefined : undefined, page, pageSize: FLOW_PAGE_SIZE })
       .then((next) => { if (active) { setData(next); setSelected(0); setError(''); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Không thể tải chi tiết dòng tiền.'); });
     return () => { active = false; };
-  }, [tab, filter, q, from, to, page, reloadKey]);
+  }, [tab, filter, q, from, to, page, reloadKey, venueId, courtId]);
   const row = data?.items[selected];
   useEffect(() => {
     if (!row?.refIds.length) { setLedger([]); return; }
@@ -65,7 +72,11 @@ export function FinanceFlows<T extends string>({ tabs, nav, load, loadLedger, ra
     </nav>
     <p className="text-sm text-ink-500">Chi tiết cho: <strong className="text-brand-navy">{config.forCards}</strong></p>
     <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-canvas p-3">
-      {range ? null : <PeriodFilter value={period} onChange={(next) => { setPeriod(next); setPage(1); }} />}
+      <PeriodFilter value={period} onChange={(next) => { setPeriod(next); setPage(1); }} />
+      {usesPlace && places.length ? <>
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-ink-500">Cơ sở<SelectInput aria-label="Lọc cơ sở trong chi tiết dòng tiền" value={venueId} onChange={(event) => { setVenueId(event.target.value); setCourtId(''); }}><option value="">Tất cả cơ sở</option>{places.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</SelectInput></label>
+        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-ink-500">Sân con<SelectInput aria-label="Lọc sân con" value={courtId} disabled={!place} onChange={(event) => setCourtId(event.target.value)}><option value="">{place ? 'Tất cả sân con' : 'Chọn cơ sở trước'}</option>{place?.courts.map((court) => <option key={court.id} value={court.id}>{court.name}</option>)}</SelectInput></label>
+      </> : null}
       <label className="grid min-w-64 flex-1 gap-1 text-xs font-bold uppercase tracking-wide text-ink-500">Tìm kiếm<TextInput type="search" aria-label="Tìm trong chi tiết dòng tiền" placeholder={config.searchHint} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></label>
       {config.note ? <p className="basis-full text-xs text-ink-500">{config.note}</p> : null}
     </div>
@@ -105,7 +116,7 @@ export function FinanceFlows<T extends string>({ tabs, nav, load, loadLedger, ra
           <ol className="grid gap-3">{row.steps.map((step, index) => <li key={index} className="grid grid-cols-[28px_1fr] gap-2"><span className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold ${dotTone[step.tone]}`}>{index + 1}</span><div><p className="font-bold text-brand-navy">{text(step.title)}</p><p className="text-sm text-ink-500">{text(step.detail)}</p></div></li>)}</ol>
           <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 border-t border-line pt-3 text-sm">{row.facts.map((fact) => <div key={fact.k} className="contents"><dt className="text-ink-500">{fact.k}</dt><dd className="break-words font-semibold">{text(fact.v)}</dd></div>)}</dl>
           <div className="border-t border-line pt-3"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Tiền đã ghi vào ví</p>
-            {ledger.length ? <ul className="grid gap-1 text-sm">{ledger.map((entry) => <li key={entry.id} className="flex justify-between gap-3 border-b border-dashed border-line py-1.5"><span>{walletName(entry)} <span className="text-ink-500">· {entryLabel[entry.type] ?? 'khoản khác'}</span></span><span className={`text-figures font-bold ${entry.amount.startsWith('-') ? 'text-danger' : 'text-success'}`}>{entry.amount.startsWith('-') ? '−' : '+'}{formatMoneyVnd(entry.amount.replace('-', ''))}</span></li>)}</ul> : <p className="text-sm text-ink-500">Không có khoản ghi ví riêng cho dòng này (số tổng hợp, chi ngoài ví hoặc đã gộp trong thanh toán đặt sân).</p>}
+            {ledger.length ? <ul className="grid gap-1 text-sm">{ledger.map((entry) => <li key={entry.id} className="flex justify-between gap-3 border-b border-dashed border-line py-1.5"><span>{walletName(entry)} <span className="text-ink-500">· {entry.type === 'release' ? (entry.walletType === 'personal' ? 'tiền thắng kèo' : entry.walletType === 'business' ? 'doanh thu' : 'trả tiền kèo') : entryLabel[entry.type] ?? 'khoản khác'}</span></span><span className={`text-figures font-bold ${entry.amount.startsWith('-') ? 'text-danger' : 'text-success'}`}>{entry.amount.startsWith('-') ? '−' : '+'}{formatMoneyVnd(entry.amount.replace('-', ''))}</span></li>)}</ul> : <p className="text-sm text-ink-500">Không có khoản ghi ví riêng cho dòng này (số tổng hợp, chi ngoài ví hoặc đã gộp trong thanh toán đặt sân).</p>}
           </div>
         </> : <p className="text-sm text-ink-500">Chọn một dòng để xem hành trình dòng tiền.</p>}
       </aside>

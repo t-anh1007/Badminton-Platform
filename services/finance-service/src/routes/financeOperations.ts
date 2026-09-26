@@ -110,7 +110,7 @@ financeOperationsRouter.get('/providers/me/financial-transparency', requireAuth,
 financeOperationsRouter.get('/providers/me/financial-flows', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
   const query = transparencyPagination.extend({
-    tab: z.enum(PROVIDER_FLOW_TABS), filter: z.string().max(40).optional(), venueId: z.string().uuid().optional(),
+    tab: z.enum(PROVIDER_FLOW_TABS), filter: z.string().max(40).optional(), venueId: z.string().uuid().optional(), courtId: z.string().uuid().optional(),
     from: z.coerce.date().optional(), to: z.coerce.date().optional(), q: z.string().max(80).optional(),
   }).parse(req.query);
   res.json(await listProviderFinancialFlows(userId, query));
@@ -181,6 +181,7 @@ financeOperationsRouter.get('/admin/financial-flows', requireAuth, requireRole('
     tab: z.enum(FLOW_TABS), filter: z.string().max(40).optional(), ownerId: z.string().uuid().optional(),
     from: z.coerce.date().optional(), to: z.coerce.date().optional(),
     q: z.string().max(80).optional(), userIds: z.string().max(4000).optional(),
+    venueId: z.string().uuid().optional(), courtId: z.string().uuid().optional(),
   }).parse(req.query);
   res.json(await listAdminFinancialFlows({ ...query, userIds: query.userIds?.split(',').filter((id) => z.string().uuid().safeParse(id).success).slice(0, 50) }));
 }));

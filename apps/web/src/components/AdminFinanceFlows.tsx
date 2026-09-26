@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SelectInput } from './ui.js';
-import { FinanceFlows, type FlowTabConfig } from './FinanceFlows.js';
+import { FinanceFlows, type FlowPlace, type FlowTabConfig } from './FinanceFlows.js';
+import { getAdminVenueOptions } from '../lib/venueBookingApi.js';
 import { getAdminFinancialFlows, getAdminFlowLedger, type FlowLedgerEntry, type FlowTab } from '../lib/financeApi.js';
 import { getAdminAccountIdentities, getAdminAccounts } from '../lib/accountApi.js';
 
@@ -24,6 +25,8 @@ export type FlowNav = { tab: FlowTab; ownerId?: string; nonce: number };
 export function AdminFinanceFlows({ nav, owners }: { nav: FlowNav; owners: Array<{ id: string; name: string }> }) {
   const [ownerId, setOwnerId] = useState(nav.ownerId ?? '');
   const [names, setNames] = useState<Map<string, string>>(() => new Map());
+  const [places, setPlaces] = useState<FlowPlace[]>([]);
+  useEffect(() => { void getAdminVenueOptions().then(setPlaces).catch(() => setPlaces([])); }, []);
   const known = useRef(names); known.current = names;
   const lastNonce = useRef(nav.nonce);
   if (nav.nonce !== lastNonce.current) { lastNonce.current = nav.nonce; if ((nav.ownerId ?? '') !== ownerId) setOwnerId(nav.ownerId ?? ''); }
@@ -37,7 +40,7 @@ export function AdminFinanceFlows({ nav, owners }: { nav: FlowNav; owners: Array
   const text = (value: string) => value.replace(USER_TOKEN, (_, id: string) => names.get(id) ?? `Tài khoản #${id.slice(0, 8)}`);
 
   return <FinanceFlows
-    tabs={TABS} nav={nav} reloadKey={ownerId} text={text}
+    tabs={TABS} nav={nav} reloadKey={ownerId} text={text} places={places} placeTabs={['revenue', 'platform', 'refund', 'match', 'bank']}
     load={async (query) => {
       const accounts = query.q.length >= 2 ? await getAdminAccounts({ query: query.q }).catch(() => []) : [];
       const result = await getAdminFinancialFlows({ ...query, ownerId: query.tab === 'revenue' ? ownerId : undefined, userIds: accounts.map((account) => account.id).join(',') });

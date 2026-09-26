@@ -61,22 +61,25 @@ it('kỳ xem đổi thành khoảng ngày đúng: tháng lấy đủ ngày cuố
   expect(periodRange({ ...base, mode: 'range', from: '', to: '2026-09-26' })).toEqual({ from: undefined, to: '2026-09-26' });
 });
 
-it('chủ sân xem chi tiết dòng tiền: 5 tab, tên khách đầy đủ, lọc theo ngày bấm từ biểu đồ', async () => {
+it('chủ sân xem chi tiết dòng tiền: 5 tab, tên khách đầy đủ, kỳ xem theo ngày từ biểu đồ, lọc cơ sở và sân con', async () => {
   const api = await import('../lib/financeApi.js');
   const row = { id: 'b1', title: 'BK-00000158', titleNote: 'Sân Linh Xuân · Sân 1 · 30/08/2026 02:00 → 30/08/2026 03:00', party: 'Nguyễn Minh Khoa', partyNote: 'SePay · GD-00000930', counterpart: '31/08/2026 03:00', counterpartNote: 'đã mở khóa', status: 'Có thể rút', tone: 'ok' as const, amount: '60000', sign: '' as const, amountNote: 'phí 6.000đ · hoàn 0đ · bạn nhận 54.000đ', from: 'Nguyễn Minh Khoa', fromNote: 'SePay', to: 'Ví của bạn', toNote: '', steps: [{ title: 'Khách thanh toán 60.000đ', detail: 'SePay', tone: 'info' as const }], facts: [], refIds: ['b1'] };
   const flows = vi.spyOn(api, 'getMyFinancialFlows').mockResolvedValue({ kpis: [{ label: 'Bạn nhận', value: '54000', note: '1 booking', tone: 'ok' }], items: [row], total: 1, page: 1, pageSize: 5 });
   vi.spyOn(api, 'getMyFlowLedger').mockResolvedValue([{ id: 'l1', walletType: 'business', userId: 'me', type: 'release', refType: 'booking', amount: '54000', ts: '2026-08-30T20:00:00Z' }]);
   const { ProviderFinanceFlows } = await import('./manage/ProviderFinanceFlows.js');
-  const onClearDay = vi.fn();
-  render(<ProviderFinanceFlows nav={{ tab: 'revenue', nonce: 0 }} venueId="venue-1" range={{}} day="2026-08-30" onClearDay={onClearDay} />);
+  const venues = [{ id: 'venue-1', name: 'Sân Linh Xuân', courts: [{ id: 'court-1', name: 'Sân 1' }] }];
+  render(<ProviderFinanceFlows nav={{ tab: 'revenue', nonce: 0 }} venues={venues} sync={{ nonce: 1, period: { ...newPeriod('day'), day: '2026-08-30' } }} />);
   expect(await screen.findAllByText('Nguyễn Minh Khoa')).not.toHaveLength(0);
-  expect(flows).toHaveBeenCalledWith(expect.objectContaining({ tab: 'revenue', venueId: 'venue-1', from: '2026-08-30T00:00:00.000+07:00', to: '2026-08-30T23:59:59.999+07:00', pageSize: 5 }));
+  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'revenue', from: '2026-08-30T00:00:00.000+07:00', to: '2026-08-30T23:59:59.999+07:00', pageSize: 5 })));
   expect(await screen.findByText('Ví của bạn', { exact: false, selector: 'span' })).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: /Doanh thu booking|Hoàn tiền và khoản bị trừ|Rút tiền|Sổ ví|Theo cơ sở \/ sân/ })).toHaveLength(5);
-  fireEvent.click(screen.getByRole('button', { name: 'Bỏ lọc ×' }));
-  expect(onClearDay).toHaveBeenCalled();
+  expect(screen.getByLabelText('Lọc sân con')).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Lọc cơ sở trong chi tiết dòng tiền'), { target: { value: 'venue-1' } });
+  fireEvent.change(screen.getByLabelText('Lọc sân con'), { target: { value: 'court-1' } });
+  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: 'venue-1', courtId: 'court-1', page: 1 })));
   fireEvent.click(screen.getByRole('button', { name: 'Sổ ví' }));
-  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'ledger', filter: '', page: 1 })));
+  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'ledger', filter: '', venueId: undefined, courtId: undefined })));
+  expect(screen.queryByLabelText('Lọc sân con')).not.toBeInTheDocument();
 });
 
 it('Admin xem chi tiết dòng tiền: 9 tab, 5 dòng/trang, tên thay cho mã tài khoản, bút toán sổ cái', async () => {
@@ -87,6 +90,8 @@ it('Admin xem chi tiết dòng tiền: 9 tab, 5 dòng/trang, tên thay cho mã t
   const flows = vi.spyOn(api, 'getAdminFinancialFlows').mockResolvedValue({ kpis: [{ label: 'Rút tiền đã chi', value: '10000', note: '1 yêu cầu', tone: 'ok' }], items: [row], total: 12, page: 1, pageSize: 5 });
   vi.spyOn(api, 'getAdminFlowLedger').mockResolvedValue([{ id: 'l1', walletType: 'business', userId: ownerId, type: 'payout', refType: 'withdrawal', amount: '-10000', ts: '2026-09-12T08:38:00Z' }]);
   vi.spyOn(accounts, 'getAdminAccountIdentities').mockResolvedValue([{ id: ownerId, email: 'owner@demo.vn', displayName: 'Tuấn Anh', businessCode: 'TK-1' }]);
+  const venueApi = await import('../lib/venueBookingApi.js');
+  vi.spyOn(venueApi, 'getAdminVenueOptions').mockResolvedValue([{ id: 'venue-9', name: 'Sân Phú Nhuận', courts: [{ id: 'court-9', name: 'Sân A' }] }]);
   const { AdminFinanceFlows } = await import('../components/AdminFinanceFlows.js');
   vi.spyOn(accounts, 'getAdminAccounts').mockResolvedValue([{ id: ownerId, email: 'owner@demo.vn', displayName: 'Tuấn Anh', status: 'active', roles: ['provider'] } as never]);
   render(<AdminFinanceFlows nav={{ tab: 'withdraw', nonce: 0 }} owners={[]} />);
@@ -99,6 +104,10 @@ it('Admin xem chi tiết dòng tiền: 9 tab, 5 dòng/trang, tên thay cho mã t
   await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'Tuấn Anh', userIds: ownerId, page: 1 })), { timeout: 2000 });
   fireEvent.change(screen.getByLabelText('Kỳ xem'), { target: { value: 'year' } });
   await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ from: expect.stringMatching(/-01-01T00:00:00/), to: expect.stringMatching(/-12-31T23:59:59/) })));
+  fireEvent.click(screen.getByRole('button', { name: 'Doanh thu đặt sân' }));
+  fireEvent.change(await screen.findByLabelText('Lọc cơ sở trong chi tiết dòng tiền'), { target: { value: 'venue-9' } });
+  fireEvent.change(screen.getByLabelText('Lọc sân con'), { target: { value: 'court-9' } });
+  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'revenue', venueId: 'venue-9', courtId: 'court-9' })));
   fireEvent.click(screen.getByRole('button', { name: 'Kèo' }));
   await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'match', filter: '', page: 1 })));
   expect(screen.getAllByRole('button', { name: /Doanh thu đặt sân|Phí nền tảng|Hoàn tiền|Nạp ví|Kèo|Rút tiền|Thưởng giải|Số dư ví|Giao dịch ngân hàng/ }).length).toBeGreaterThanOrEqual(9);

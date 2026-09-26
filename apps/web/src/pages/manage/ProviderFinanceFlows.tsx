@@ -1,4 +1,5 @@
-import { FinanceFlows, type FlowNavState, type FlowTabConfig } from '../../components/FinanceFlows.js';
+import { FinanceFlows, type FlowNavState, type FlowPlace, type FlowSync, type FlowTabConfig } from '../../components/FinanceFlows.js';
+import type { Period } from '../../components/PeriodFilter.js';
 import { getMyFinancialFlows, getMyFlowLedger, type ProviderFlowTab } from '../../lib/financeApi.js';
 
 const TABS: Array<FlowTabConfig<ProviderFlowTab>> = [
@@ -9,17 +10,15 @@ const TABS: Array<FlowTabConfig<ProviderFlowTab>> = [
   { key: 'venues', label: 'Theo cơ sở / sân', forCards: 'Biểu đồ "Doanh thu theo cơ sở" · chia xuống từng sân con', cols: ['Cơ sở / sân', 'Booking', 'Phí', 'Hoàn', 'Bạn nhận'], chips: [['venue', 'Theo cơ sở'], ['court', 'Theo sân con']], searchHint: 'Tên cơ sở hoặc sân' },
 ];
 
-/** Chi tiết dòng tiền của chủ sân: 5 tab, dùng bộ lọc cơ sở + kỳ xem của trang; ngày bấm trên biểu đồ lọc chồng lên. */
-export function ProviderFinanceFlows({ nav, venueId, range, day, onClearDay, version = 0 }: {
-  nav: FlowNavState<ProviderFlowTab>; venueId: string; range: { from?: string; to?: string }; day?: string; onClearDay: () => void;
+/** Chi tiết dòng tiền của chủ sân: 5 tab, có kỳ xem + cơ sở/sân con riêng; trang cha đẩy bộ lọc vào qua sync. */
+export function ProviderFinanceFlows({ nav, venues, sync, initialPeriod, version = 0 }: {
+  nav: FlowNavState<ProviderFlowTab>; venues: FlowPlace[]; sync?: FlowSync; initialPeriod?: Period;
   /** Tăng khi số dư thay đổi (rút tiền, realtime) để tải lại danh sách. */ version?: number;
 }) {
-  const effective = day ? { from: `${day}T00:00:00.000+07:00`, to: `${day}T23:59:59.999+07:00` } : range;
   return <FinanceFlows
-    tabs={TABS} nav={nav} range={effective} reloadKey={`${venueId}:${version}`}
-    load={(query) => getMyFinancialFlows({ ...query, venueId: venueId || undefined })}
+    tabs={TABS} nav={nav} reloadKey={String(version)} places={venues} placeTabs={['revenue', 'deduct', 'venues']} sync={sync} initialPeriod={initialPeriod}
+    load={getMyFinancialFlows}
     loadLedger={getMyFlowLedger}
     walletName={() => 'Ví của bạn'}
-    toolbar={() => day ? <span className="ml-auto flex items-center gap-2 text-xs"><span className="rounded-full bg-info-bg px-3 py-1.5 font-bold text-brand-navy">Đang lọc từ biểu đồ: ngày {day.slice(8, 10)}/{day.slice(5, 7)}/{day.slice(0, 4)}</span><button type="button" onClick={onClearDay} className="min-h-9 rounded-full border border-line px-3 font-bold text-ink-700 hover:border-brand-navy">Bỏ lọc ×</button></span> : null}
   />;
 }

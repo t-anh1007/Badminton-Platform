@@ -2,7 +2,7 @@ import { env } from '../lib/env.js';
 import { z } from 'zod';
 
 const referencesSchema = z.object({
-  references: z.array(z.object({ id: z.string().uuid(), businessCode: z.string().regex(/^BK-\d{8}$/), startAt: z.coerce.date().optional(), venueName: z.string().optional(), courtName: z.string().optional(), customerName: z.string().nullish(), userId: z.string().nullish(), guestName: z.string().nullish(), cancellationReason: z.string().nullish() })),
+  references: z.array(z.object({ id: z.string().uuid(), businessCode: z.string().regex(/^BK-\d{8}$/), startAt: z.coerce.date().optional(), venueName: z.string().optional(), courtId: z.string().uuid().optional(), courtName: z.string().optional(), customerName: z.string().nullish(), userId: z.string().nullish(), guestName: z.string().nullish(), cancellationReason: z.string().nullish() })),
 });
 
 /** Presentation-only lookup. Never use display references to authorize or move money. */
@@ -11,7 +11,7 @@ export async function bookingReferences(bookingIds: string[]): Promise<Map<strin
 }
 
 /** Mã + giờ bắt đầu booking để hiển thị; thiếu dữ liệu thì trả map rỗng, không chặn số dư. */
-export type BookingDetail = { businessCode: string; startAt?: Date; venueName?: string; courtName?: string; customerName?: string | null; userId?: string | null; guestName?: string | null; cancellationReason?: string | null };
+export type BookingDetail = { businessCode: string; startAt?: Date; venueName?: string; courtId?: string; courtName?: string; customerName?: string | null; userId?: string | null; guestName?: string | null; cancellationReason?: string | null };
 export async function bookingDetails(bookingIds: string[]): Promise<Map<string, BookingDetail>> {
   const ids = [...new Set(bookingIds)];
   const codes = new Map<string, BookingDetail>();

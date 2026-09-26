@@ -7,7 +7,7 @@ import { bookingDetails, bookingIdsByCodes, type BookingDetail } from './booking
  * thay bằng tên qua API danh tính admin sẵn có. */
 export const FLOW_TABS = ['revenue', 'platform', 'refund', 'topup', 'match', 'withdraw', 'reward', 'wallets', 'bank'] as const;
 export type FlowTab = (typeof FLOW_TABS)[number];
-export type FlowQuery = { tab: FlowTab; filter?: string; ownerId?: string; from?: Date; to?: Date; page: number; pageSize: number; q?: string; userIds?: string[]; search?: Search };
+export type FlowQuery = { tab: FlowTab; filter?: string; ownerId?: string; from?: Date; to?: Date; page: number; pageSize: number; q?: string; userIds?: string[]; search?: Search; venueId?: string; courtId?: string; place?: string[] };
 /** Từ khóa tìm kiếm: chữ tự do + tài khoản khớp tên/email (FE tra trước) + booking khớp mã BK-. */
 type Search = { text: string; userIds: string[]; bookingIds: string[] };
 export const contains = (text: string) => ({ contains: text, mode: 'insensitive' as const });
@@ -44,6 +44,7 @@ async function revenue(q: FlowQuery): Promise<FlowPage> {
   const base: Prisma.BookingRevenueWhereInput = { ...range('endAt', q.from, q.to), ...(q.ownerId ? { businessUserId: q.ownerId } : {}) };
   const s = q.search;
   if (s) base.OR = [{ bookingId: { in: s.bookingIds } }, { businessUserId: { in: s.userIds } }];
+  if (q.place) base.bookingId = { in: q.place };
   const where: Prisma.BookingRevenueWhereInput = { ...base, ...(q.filter === 'pending' ? { releasedAt: null, cancelledAt: null } : q.filter === 'available' ? { releasedAt: { not: null }, cancelledAt: null } : q.filter === 'cancelled' ? { cancelledAt: { not: null } } : {}) };
   const [total, rows, totals] = await Promise.all([
     prisma.bookingRevenue.count({ where }),
@@ -69,7 +70,7 @@ async function revenue(q: FlowQuery): Promise<FlowPage> {
       const [status, tone]: [string, Tone] = row.cancelledAt ? ['Đã hủy', 'mute'] : row.releasedAt ? ['Có thể rút', 'ok'] : ['Chờ 24 giờ', 'wait'];
       const code = bookingLabel(row.bookingId, detail);
       return {
-        id: row.bookingId, title: code, titleNote: `${detail?.venueName ?? 'Cơ sở'} · ${detail?.startAt ? `${dateTime(detail.startAt)} → ` : 'kết thúc '}${dateTime(row.endAt)}`,
+        id: row.bookingId, title: code, titleNote: `${[detail?.venueName ?? 'Cơ sở', detail?.courtName].filter(Boolean).join(' · ')} · ${detail?.startAt ? `${dateTime(detail.startAt)} → ` : 'kết thúc '}${dateTime(row.endAt)}`,
         party: user(row.businessUserId), partyNote: 'Chủ sân nhận', counterpart: detail?.userId ? user(detail.userId) : detail?.guestName ?? 'Khách vãng lai', counterpartNote: channel,
         status, tone, amount: n(row.gross), sign: '', amountNote: `phí ${vnd(row.commission)} · hoàn ${vnd(refunded)} · chủ sân ${vnd(row.net)}`,
         from: detail?.userId ? user(detail.userId) : 'Khách', fromNote: channel, to: user(row.businessUserId), toNote: 'Ví chủ sân + phí nền tảng',
@@ -100,7 +101,7 @@ async function platform(q: FlowQuery): Promise<FlowPage> {
     { label: 'Ký quỹ kèo đang giữ', value: n(wallet?.reserved), note: 'Không phải doanh thu · tab Kèo', tone: 'wait' },
   ];
   if (q.filter === 'owner') {
-    const owners = await prisma.bookingRevenue.groupBy({ by: ['businessUserId'], where: { ...range('endAt', q.from, q.to), ...(q.search ? { businessUserId: { in: q.search.userIds } } : {}) }, _sum: { commission: true, gross: true }, _count: true, orderBy: { _sum: { commission: 'desc' } } });
+    const owners = await prisma.bookingRevenue.groupBy({ by: ['businessUserId'], where: { ...range('endAt', q.from, q.to), ...(q.search ? { businessUserId: { in: q.search.userIds } } : {}), ...(q.place ? { bookingId: { in: q.place } } : {}) }, _sum: { commission: true, gross: true }, _count: true, orderBy: { _sum: { commission: 'desc' } } });
     return { kpis, total: owners.length, items: page(owners, q).map((row) => ({
       id: row.businessUserId, title: user(row.businessUserId), titleNote: 'Chủ sân', party: `${row._count} booking`, partyNote: `khách trả ${vnd(row._sum.gross)}`,
       counterpart: 'Phí đặt sân', counterpartNote: 'đã trừ phần hoàn phí', status: 'Phí ròng', tone: 'info' as Tone, amount: n(row._sum.commission), sign: '+' as const, amountNote: 'vào ví nền tảng',
@@ -130,8 +131,10 @@ async function refunds(q: FlowQuery): Promise<FlowPage> {
   const refTypes = q.filter && REFUND_GROUPS[q.filter] ? REFUND_GROUPS[q.filter] : undefined;
   const s = q.search;
   const disputeIds = s ? (await prisma.dispute.findMany({ where: { OR: [{ businessCode: contains(s.text) }, { bookingId: { in: s.bookingIds } }] }, select: { id: true } })).map((row) => row.id) : [];
+  const placeRefs = q.place ? [...q.place, ...(await prisma.dispute.findMany({ where: { bookingId: { in: q.place } }, select: { id: true } })).map((row) => row.id)] : undefined;
   const where: Prisma.LedgerEntryWhereInput = { type: 'refund', amount: { gt: 0n }, wallet: { walletType: 'personal' }, ...(refTypes ? { refType: { in: refTypes } } : {}), ...range('ts', q.from, q.to),
-    ...(s ? { OR: [{ wallet: { userId: { in: s.userIds } } }, { refId: { in: [...s.bookingIds, ...disputeIds] } }] } : {}) };
+    ...(s ? { OR: [{ wallet: { userId: { in: s.userIds } } }, { refId: { in: [...s.bookingIds, ...disputeIds] } }] } : {}),
+    ...(placeRefs ? { AND: [{ refId: { in: placeRefs } }] } : {}) };
   const [total, rows, totals, reversals] = await Promise.all([
     prisma.ledgerEntry.count({ where }),
     prisma.ledgerEntry.findMany({ where, include: { wallet: true }, orderBy: [{ ts: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
@@ -219,7 +222,8 @@ async function matches(q: FlowQuery): Promise<FlowPage> {
     : q.filter === 'result' ? { resultReserveStatus: 'locked' } : q.filter === 'cancelled' ? { status: 'cancelled' } : {};
   const s = q.search;
   const where: Prisma.MatchFundingWhereInput = { ...statusWhere, ...range('createdAt', q.from, q.to),
-    ...(s ? { OR: [{ organizerUserId: { in: s.userIds } }, { contributions: { some: { userId: { in: s.userIds } } } }, { bookingId: { in: s.bookingIds } }, { matchId: { startsWith: s.text.replace(/^#/, '').toLowerCase() } }] } : {}) };
+    ...(s ? { OR: [{ organizerUserId: { in: s.userIds } }, { contributions: { some: { userId: { in: s.userIds } } } }, { bookingId: { in: s.bookingIds } }, { matchId: { startsWith: s.text.replace(/^#/, '').toLowerCase() } }] } : {}),
+    ...(q.place ? { AND: [{ bookingId: { in: q.place } }] } : {}) };
   const [total, rows, platformWallet, settledSum, cancelledCount] = await Promise.all([
     prisma.matchFunding.count({ where }),
     prisma.matchFunding.findMany({ where, include: { contributions: true }, orderBy: [{ createdAt: 'desc' }, { matchId: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
@@ -401,7 +405,8 @@ async function bank(q: FlowQuery): Promise<FlowPage> {
   const base = range('receivedAt', q.from, q.to);
   const s = q.search;
   const where: Prisma.SepayEventWhereInput = { ...base, ...filterWhere,
-    ...(s ? { OR: [{ businessCode: contains(s.text) }, { rawRef: contains(s.text) }, { externalRef: contains(s.text) }, { allocations: { some: { refId: { in: s.bookingIds } } } }] } : {}) };
+    ...(s ? { OR: [{ businessCode: contains(s.text) }, { rawRef: contains(s.text) }, { externalRef: contains(s.text) }, { allocations: { some: { refId: { in: s.bookingIds } } } }] } : {}),
+    ...(q.place ? { AND: [{ allocations: { some: { kind: 'booking', refId: { in: q.place } } } }] } : {}) };
   const [total, rows, byDirection, allocated, unmatched] = await Promise.all([
     prisma.sepayEvent.count({ where }),
     prisma.sepayEvent.findMany({ where, include: { allocations: true }, orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
@@ -456,10 +461,20 @@ async function bank(q: FlowQuery): Promise<FlowPage> {
 
 const HANDLERS: Record<FlowTab, (q: FlowQuery) => Promise<FlowPage>> = { revenue, platform, refund: refunds, topup: topups, match: matches, withdraw: withdrawals, reward: rewards, wallets, bank };
 
+/** Booking thuộc cơ sở / sân con đang lọc. ponytail: lọc sân con cần tra venue-booking theo từng booking
+ * của cơ sở (vài trăm) — FE chỉ cho chọn sân con sau khi đã chọn cơ sở. */
+export async function placeBookingIds(venueId?: string, courtId?: string, businessUserId?: string) {
+  if (!venueId && !courtId) return undefined;
+  const ids = (await prisma.bookingRevenue.findMany({ where: { ...(venueId ? { venueId } : {}), ...(businessUserId ? { businessUserId } : {}) }, select: { bookingId: true } })).map((row) => row.bookingId);
+  if (!courtId) return ids;
+  const details = await bookingDetails(ids);
+  return ids.filter((id) => details.get(id)?.courtId === courtId);
+}
+
 export async function listAdminFinancialFlows(q: FlowQuery) {
   const text = q.q?.trim() ?? '';
   const search = text ? { text, userIds: q.userIds ?? [], bookingIds: await bookingIdsByCodes(text.toUpperCase().match(/BK-\d{8}/g) ?? []) } : undefined;
-  const result = await HANDLERS[q.tab]({ ...q, search });
+  const result = await HANDLERS[q.tab]({ ...q, search, place: await placeBookingIds(q.venueId, q.courtId) });
   return { ...result, page: q.page, pageSize: q.pageSize };
 }
 
