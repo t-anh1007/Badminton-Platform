@@ -26,6 +26,7 @@ export interface Leaderboard {
   serverNow: string;
 }
 export interface LeaderboardQuery {
+  seasonId?: string;
   discipline: Discipline;
   scope: LeaderboardScope;
   provinceCode?: string;
@@ -46,6 +47,7 @@ export function getLeaderboard(query: LeaderboardQuery) {
     page: String(query.page ?? 1), pageSize: String(query.pageSize ?? 20),
   });
   if (query.scope === 'province' && query.provinceCode) params.set('provinceCode', query.provinceCode);
+  if (query.seasonId) params.set('seasonId', query.seasonId);
   return api<Leaderboard>(`/competition/leaderboards?${params}`);
 }
 
@@ -54,4 +56,6 @@ export const listAdminSeasons = (page = 1, pageSize = 10) =>
   api<{ items: AdminSeason[]; total: number; page: number; pageSize: number }>(`/competition/admin/seasons?${new URLSearchParams({ page: String(page), pageSize: String(pageSize) })}`);
 export const createSeason = (body: { name: string; startAt: string; endAt: string }) =>
   api<{ season: unknown }>('/competition/admin/seasons', { method: 'POST', body: JSON.stringify(body) });
+export const updateSeason = (id: string, body: { name?: string; startAt?: string; endAt?: string }) =>
+  api<{ season: unknown }>(`/competition/admin/seasons/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const closeSeason = (id: string) => api<{ season: unknown }>(`/competition/admin/seasons/${id}/close`, { method: 'POST', body: '{}' });

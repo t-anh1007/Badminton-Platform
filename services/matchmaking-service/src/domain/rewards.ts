@@ -26,7 +26,6 @@ export interface CreateProgramInput {
   provinceCode?: string;
   startAt: Date;
   endAt: Date;
-  fundingSource: 'admin' | 'marketing' | 'sponsor';
   tiers: Array<{ rank: number; amount: bigint }>;
 }
 
@@ -47,7 +46,7 @@ export async function createProgram(adminUserId: string, input: CreateProgramInp
     data: {
       name: input.name, seasonId: input.seasonId, criterion: input.criterion, discipline: input.discipline, band: input.band,
       scope: input.scope, provinceCode: input.provinceCode ?? null, startAt: input.startAt, endAt: input.endAt,
-      fundingSource: input.fundingSource, createdByUserId: adminUserId,
+      createdByUserId: adminUserId,
       tiers: { create: input.tiers.map((tier) => ({ rank: tier.rank, amount: tier.amount })) },
     },
     include: { tiers: { orderBy: { rank: 'asc' } } },
@@ -273,7 +272,7 @@ export async function listAdminPrograms(input: { page: number; pageSize: number;
   ]);
   return {
     items: rows.map((program) => ({
-      ...programView(program, now), fundingSource: program.fundingSource, locked: program.status !== 'draft', awardCount: program._count.awards,
+      ...programView(program, now), locked: program.status !== 'draft', awardCount: program._count.awards,
     })),
     total, page: input.page, pageSize: input.pageSize,
   };
@@ -287,7 +286,7 @@ export async function getAdminProgram(accountClient: AccountClient, id: string, 
   if (!program) throw new AppError(404, 'REWARD_PROGRAM_NOT_FOUND', 'Không tìm thấy chương trình.');
   const identity = await identities(accountClient, program.awards.map((award) => award.userId));
   return {
-    ...programView(program, now), fundingSource: program.fundingSource, locked: program.status !== 'draft',
+    ...programView(program, now), locked: program.status !== 'draft',
     cancelReason: program.cancelReason,
     awards: program.awards.map((award) => ({
       userId: award.userId, ...identity(award.userId), rank: award.rank, score: award.score, amount: award.amount.toString(),

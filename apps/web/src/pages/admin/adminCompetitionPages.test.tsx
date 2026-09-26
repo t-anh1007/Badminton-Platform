@@ -44,7 +44,7 @@ it('lists seasons with one-line names and shows the overlap error from create', 
 const program = (overrides: Record<string, unknown> = {}) => ({
   id: 'p1', name: 'Top đánh đơn TP. Hồ Chí Minh', seasonId: 's1', status: 'active', criterion: 'ending_rating', criterionLabel: 'Điểm xếp hạng cao nhất',
   discipline: 'singles', band: 'under_1600', scope: 'province', provinceCode: 'ho-chi-minh', serverNow: '', startAt: '2026-09-30T17:00:00Z',
-  endAt: '2026-10-31T17:00:00Z', reconciling: false, tiers: [{ rank: 1, amount: '2000000' }], fundingSource: 'marketing', locked: true, ...overrides,
+  endAt: '2026-10-31T17:00:00Z', reconciling: false, tiers: [{ rank: 1, amount: '2000000' }], locked: true, ...overrides,
 })
 
 it('builds configurable prize tiers with a display-only total and publishes after confirmation', async () => {
@@ -73,7 +73,7 @@ it('builds configurable prize tiers with a display-only total and publishes afte
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Công bố' }))
   await waitFor(() => expect(createRewardProgram).toHaveBeenCalledWith({
     name: 'Top đánh đơn TP. Hồ Chí Minh', seasonId: 's1', criterion: 'most_wins', discipline: 'singles', band: 'under_1600', scope: 'province',
-    provinceCode: 'ho-chi-minh', startAt: '2026-09-30T17:00:00.000Z', endAt: '2026-10-31T17:00:00.000Z', fundingSource: 'marketing',
+    provinceCode: 'ho-chi-minh', startAt: '2026-09-30T17:00:00.000Z', endAt: '2026-10-31T17:00:00.000Z',
     tiers: [{ rank: 1, amount: '2000000' }, { rank: 2, amount: '1000000' }],
   }))
   await waitFor(() => expect(publishRewardProgram).toHaveBeenCalledWith('p1'))

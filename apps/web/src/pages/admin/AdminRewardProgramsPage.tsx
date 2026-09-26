@@ -6,7 +6,7 @@ import { formatDateVi, formatMoneyVnd } from '../../lib/formatters.js';
 import { listAdminSeasons, type AdminSeason } from '../../lib/competitionApi';
 import {
   approveRewardProgramFinal, cancelRewardProgram, createRewardProgram, getAdminRewardProgram, listAdminRewardPrograms, publishRewardProgram,
-  REWARD_STATUS_LABELS, type AdminRewardProgram, type FundingSource, type NewRewardProgram, type RewardProgram,
+  REWARD_STATUS_LABELS, type AdminRewardProgram, type NewRewardProgram, type RewardProgram,
 } from '../../lib/rewardApi';
 
 const CRITERIA: Array<{ value: RewardProgram['criterion']; title: string; description: string }> = [
@@ -15,9 +15,10 @@ const CRITERIA: Array<{ value: RewardProgram['criterion']; title: string; descri
   { value: 'largest_rating_gain', title: 'Tăng điểm nhiều nhất', description: 'Mức tăng điểm lớn nhất trong thời gian chương trình.' },
   { value: 'longest_streak', title: 'Chuỗi thắng dài nhất', description: 'Số trận thắng liên tiếp dài nhất.' },
 ];
-const FUNDING: Record<FundingSource, string> = { admin: 'Ngân sách vận hành', marketing: 'Ngân sách marketing', sponsor: 'Nhà tài trợ' };
 const province = (code: string | null | undefined) => VIETNAM_PROVINCES.find((item) => item.code === code)?.name ?? '';
 const dayStart = (date: string) => new Date(`${date}T00:00:00+07:00`);
+/** Mốc thời gian → YYYY-MM-DD theo giờ Việt Nam cho ô nhập ngày. */
+const inputDate = (at: string | number) => new Date(at).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 const digits = (value: string) => value.replace(/\D/g, '').replace(/^0+/, '');
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
 
@@ -36,8 +37,8 @@ export function AdminRewardProgramsPage() {
   );
 }
 
-interface Draft { name: string; seasonId: string; criterion: RewardProgram['criterion']; discipline: NewRewardProgram['discipline']; band: NewRewardProgram['band']; scope: NewRewardProgram['scope']; provinceCode: string; start: string; end: string; fundingSource: FundingSource; tiers: string[] }
-const EMPTY: Draft = { name: '', seasonId: '', criterion: 'ending_rating', discipline: 'singles', band: 'under_1600', scope: 'global', provinceCode: '', start: '', end: '', fundingSource: 'marketing', tiers: [''] };
+interface Draft { name: string; seasonId: string; criterion: RewardProgram['criterion']; discipline: NewRewardProgram['discipline']; band: NewRewardProgram['band']; scope: NewRewardProgram['scope']; provinceCode: string; start: string; end: string; tiers: string[] }
+const EMPTY: Draft = { name: '', seasonId: '', criterion: 'ending_rating', discipline: 'singles', band: 'under_1600', scope: 'global', provinceCode: '', start: '', end: '', tiers: [''] };
 
 function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPublished: () => void }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -47,6 +48,14 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
   const [notice, setNotice] = useState('');
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
   const season = seasons.find((item) => item.id === draft.seasonId);
+  // Chọn kỳ thì điền sẵn ngày theo kỳ; chỉ công bố được chương trình chưa bắt đầu nên kỳ đang chạy lấy từ ngày mai.
+  const pickSeason = (seasonId: string) => {
+    const picked = seasons.find((item) => item.id === seasonId);
+    if (!picked) { set('seasonId', seasonId); return; }
+    const tomorrow = inputDate(Date.now() + 86_400_000);
+    const seasonStart = inputDate(picked.startAt);
+    setDraft((prev) => ({ ...prev, seasonId, start: seasonStart > tomorrow ? seasonStart : tomorrow, end: inputDate(new Date(picked.endAt).getTime() - 1) }));
+  };
   const total = draft.tiers.reduce((sum, amount) => sum + BigInt(digits(amount) || '0'), 0n);
 
   const validate = () => {
@@ -69,7 +78,7 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
       const { program } = await createRewardProgram({
         name: draft.name.trim(), seasonId: draft.seasonId, criterion: draft.criterion, discipline: draft.discipline, band: draft.band,
         scope: draft.scope, ...(draft.scope === 'province' ? { provinceCode: draft.provinceCode } : {}),
-        startAt: dayStart(draft.start).toISOString(), endAt: endAt.toISOString(), fundingSource: draft.fundingSource,
+        startAt: dayStart(draft.start).toISOString(), endAt: endAt.toISOString(),
         tiers: draft.tiers.map((amount, index) => ({ rank: index + 1, amount: digits(amount) })),
       });
       await publishRewardProgram(program.id);
@@ -87,16 +96,11 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
       <SurfaceCard>
         <h3 className="text-h3">1. Thông tin cơ bản</h3>
         <label className="mt-3 block text-sm font-bold">Tên chương trình<TextInput className="mt-1" value={draft.name} onChange={(event) => set('name', event.target.value)} /></label>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="block text-sm font-bold">Kỳ xếp hạng
-            <SelectInput className="mt-1" value={draft.seasonId} onChange={(event) => set('seasonId', event.target.value)}>
+            <SelectInput className="mt-1" value={draft.seasonId} onChange={(event) => pickSeason(event.target.value)}>
               <option value="">Chọn kỳ</option>
               {seasons.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </SelectInput>
-          </label>
-          <label className="block text-sm font-bold">Nguồn ngân sách
-            <SelectInput className="mt-1" value={draft.fundingSource} onChange={(event) => set('fundingSource', event.target.value as FundingSource)}>
-              {Object.entries(FUNDING).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </SelectInput>
           </label>
           <label className="block text-sm font-bold">Ngày bắt đầu<TextInput className="mt-1" type="date" value={draft.start} onChange={(event) => set('start', event.target.value)} /></label>
@@ -204,7 +208,7 @@ function ProgramList() {
             <li key={program.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
                 <p className="font-semibold text-brand-navy">{program.name}</p>
-                <p className="text-xs text-ink-500">{program.criterionLabel} - {formatDateVi(program.startAt)} - {formatDateVi(new Date(new Date(program.endAt).getTime() - 1))} - {FUNDING[program.fundingSource]}</p>
+                <p className="text-xs text-ink-500">{program.criterionLabel} - {formatDateVi(program.startAt)} - {formatDateVi(new Date(new Date(program.endAt).getTime() - 1))}</p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <Badge tone={program.status === 'cancelled' ? 'danger' : program.status === 'final' ? 'success' : 'neutral'}>{REWARD_STATUS_LABELS[program.status as keyof typeof REWARD_STATUS_LABELS] ?? 'Bản nháp'}</Badge>

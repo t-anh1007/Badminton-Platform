@@ -33,7 +33,7 @@ afterAll(async () => {
 
 const payload = (overrides: Record<string, unknown> = {}) => ({
   name: 'Vua đơn tháng 3', seasonId, criterion: 'most_wins', discipline: 'singles', band: 'under_1600', scope: 'global',
-  startAt: '2099-03-01T00:00:00.000Z', endAt: '2099-03-31T23:59:59.000Z', fundingSource: 'sponsor',
+  startAt: '2099-03-01T00:00:00.000Z', endAt: '2099-03-31T23:59:59.000Z',
   tiers: [{ rank: 1, amount: '100000' }, { rank: 2, amount: '60000' }, { rank: 3, amount: '30001' }], ...overrides,
 });
 
@@ -65,7 +65,7 @@ describe('Task 20 program administration', () => {
     expect((await create({ scope: 'province' })).body.error.code).toBe('REWARD_SCOPE_INVALID');
     const created = await create();
     expect(created.status).toBe(201);
-    expect(created.body.program).toMatchObject({ status: 'draft', fundingSource: 'sponsor', tiers: [{ rank: 1, amount: '100000' }, { rank: 2, amount: '60000' }, { rank: 3, amount: '30001' }] });
+    expect(created.body.program).toMatchObject({ status: 'draft', tiers: [{ rank: 1, amount: '100000' }, { rank: 2, amount: '60000' }, { rank: 3, amount: '30001' }] });
 
     const list = await request(app).get('/rewards/admin/programs?page=1&pageSize=1&status=draft').set('Authorization', admin).expect(200);
     expect(list.body).toMatchObject({ page: 1, pageSize: 1 });

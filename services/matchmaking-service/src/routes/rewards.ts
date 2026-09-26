@@ -18,7 +18,6 @@ const createBody = z.object({
   provinceCode: vietnamProvinceCodeSchema.optional(),
   startAt: z.coerce.date(),
   endAt: z.coerce.date(),
-  fundingSource: z.enum(['admin', 'marketing', 'sponsor']),
   tiers: z.array(z.object({ rank: z.number().int().positive(), amount: z.string().regex(/^[1-9]\d*$/).transform(BigInt) }).strict()).min(1).max(50),
 }).strict();
 const adminList = z.object({

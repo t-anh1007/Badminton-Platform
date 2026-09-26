@@ -75,15 +75,14 @@ export const PAYOUT_STATUS_LABELS: Record<RewardPayoutStatus, string> = {
   cancelled: 'Đã hủy',
 };
 
-export type FundingSource = 'admin' | 'marketing' | 'sponsor';
 export interface AdminRewardProgram extends RewardProgram {
-  fundingSource: FundingSource; locked: boolean; awardCount?: number; cancelReason?: string | null;
+  locked: boolean; awardCount?: number; cancelReason?: string | null;
   awards?: Array<{ userId: string; displayName: string; avatarUrl: string | null; rank: number; score: number; amount: string }>;
   awardTotal?: string;
 }
 export interface NewRewardProgram {
   name: string; seasonId: string; criterion: RewardProgram['criterion']; discipline: Discipline; band: LeaderboardBand;
-  scope: LeaderboardScope; provinceCode?: string; startAt: string; endAt: string; fundingSource: FundingSource;
+  scope: LeaderboardScope; provinceCode?: string; startAt: string; endAt: string;
   tiers: Array<{ rank: number; amount: string }>;
 }
 const post = (body: unknown = {}) => ({ method: 'POST', body: JSON.stringify(body) });

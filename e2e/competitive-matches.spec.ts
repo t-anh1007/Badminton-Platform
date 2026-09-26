@@ -639,7 +639,7 @@ async function seedProgramAwaitingApproval(admin: User, wins: Array<[User, numbe
   const startAt = new Date(Date.now() + 10 * 60_000);
   const createdProgram = await api<{ program: { id: string } }>('POST', '/matchmaking/rewards/admin/programs', admin.id, ['admin'], {
     name: `Top đánh đôi E2E ${randomUUID().slice(0, 4)}`, seasonId: season.id, criterion: 'most_wins', discipline: 'doubles', band: 'under_1600',
-    scope: 'global', startAt: startAt.toISOString(), endAt: new Date(startAt.getTime() + HOUR).toISOString(), fundingSource: 'marketing',
+    scope: 'global', startAt: startAt.toISOString(), endAt: new Date(startAt.getTime() + HOUR).toISOString(),
     tiers: [{ rank: 1, amount: '300000' }, { rank: 2, amount: '100000' }, { rank: 3, amount: '50000' }],
   });
   expect(createdProgram.status, JSON.stringify(createdProgram.body)).toBe(201);

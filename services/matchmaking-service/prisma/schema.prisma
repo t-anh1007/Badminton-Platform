@@ -466,8 +466,6 @@ model RewardProgram {
   provinceCode     String?
   startAt          DateTime            @db.Timestamptz(3)
   endAt            DateTime            @db.Timestamptz(3)
-  /// admin | marketing | sponsor: chỉ để hiển thị/audit, không chọn nguồn tiền.
-  fundingSource    String
   status           RewardProgramStatus @default(draft)
   createdByUserId  String
   approvedByUserId String?
