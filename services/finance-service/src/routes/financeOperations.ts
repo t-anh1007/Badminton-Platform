@@ -1,5 +1,6 @@
 import { withBookingReferences } from '../domain/bookingReferences.js';
 import { Router } from 'express';
+import { FLOW_TABS, listAdminFinancialFlows, listLedgerForRefs } from '../domain/adminFinancialFlows.js';
 import { z } from 'zod';
 import {
   MAX_IMAGE_BYTES, createObjectStorageClientFromEnv,
@@ -155,8 +156,22 @@ financeOperationsRouter.get('/admin/reconciliation', requireAuth, requireRole('a
 }));
 
 financeOperationsRouter.get('/admin/financial-transparency', requireAuth, requireRole('admin'), h(async (req, res) => {
-  const { page, pageSize } = transparencyPagination.parse(req.query);
-  res.json(await getAdminFinancialTransparency(page, pageSize));
+  const { page, pageSize, from, to } = transparencyPagination.extend({ from: z.coerce.date().optional(), to: z.coerce.date().optional() }).parse(req.query);
+  res.json(await getAdminFinancialTransparency(page, pageSize, { from, to }));
+}));
+
+financeOperationsRouter.get('/admin/financial-flows', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const query = transparencyPagination.extend({
+    tab: z.enum(FLOW_TABS), filter: z.string().max(40).optional(), ownerId: z.string().uuid().optional(),
+    from: z.coerce.date().optional(), to: z.coerce.date().optional(),
+    q: z.string().max(80).optional(), userIds: z.string().max(4000).optional(),
+  }).parse(req.query);
+  res.json(await listAdminFinancialFlows({ ...query, userIds: query.userIds?.split(',').filter((id) => z.string().uuid().safeParse(id).success).slice(0, 50) }));
+}));
+
+financeOperationsRouter.get('/admin/financial-flows/ledger', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const { refIds } = z.object({ refIds: z.string().max(4000).default('') }).parse(req.query);
+  res.json(await listLedgerForRefs(refIds.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 40)));
 }));
 
 financeOperationsRouter.post('/admin/reconciliation/:id/incoming', requireAuth, requireRole('admin'), h(async (req, res) => {

@@ -10,10 +10,16 @@ import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, c
 export const bookingRouter = Router();
 // Read-only metadata for authorized service callers; existing UUID routes stay unchanged.
 bookingRouter.post('/internal/bookings/references', requireInternalService, h(async (req, res) => {
-  const { bookingIds } = z.object({ bookingIds: z.array(z.string().uuid()).min(1).max(500) }).strict().parse(req.body);
-  const references = await prisma.booking.findMany({
-    where: { id: { in: bookingIds } }, select: { id: true, businessCode: true },
+  const { bookingIds = [], businessCodes = [] } = z.object({
+    bookingIds: z.array(z.string().uuid()).max(500).optional(),
+    businessCodes: z.array(z.string().regex(/^BK-\d{8}$/)).max(50).optional(),
+  }).strict().refine((body) => (body.bookingIds?.length ?? 0) + (body.businessCodes?.length ?? 0) > 0).parse(req.body);
+  const rows = await prisma.booking.findMany({
+    where: { OR: [{ id: { in: bookingIds } }, { businessCode: { in: businessCodes } }] },
+    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, court: { select: { venue: { select: { name: true } } } } },
   });
+  // Presentation-only metadata for finance screens; never used to authorize money movement.
+  const references = rows.map(({ court, ...row }) => ({ ...row, venueName: court.venue.name }));
   res.json({ references });
 }));
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {

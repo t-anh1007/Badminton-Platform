@@ -100,7 +100,13 @@ describe('matchmaking booking context contract', () => {
         .set('x-internal-service-token', 'booking-reference-test-secret')
         .send({ bookingIds: [booking.id] })
         .expect(200);
-      expect(response.body.references).toEqual([{ id: booking.id, businessCode: booking.businessCode }]);
+      expect(response.body.references).toEqual([expect.objectContaining({ id: booking.id, businessCode: booking.businessCode, startAt: booking.startAt.toISOString(), venueName: expect.any(String) })]);
+      const byCode = await request(app)
+        .post('/internal/bookings/references')
+        .set('x-internal-service-token', 'booking-reference-test-secret')
+        .send({ businessCodes: [booking.businessCode] })
+        .expect(200);
+      expect(byCode.body.references.map((row: { id: string }) => row.id)).toEqual([booking.id]);
     } finally {
       if (priorToken === undefined) delete process.env.INTERNAL_SERVICE_TOKEN;
       else process.env.INTERNAL_SERVICE_TOKEN = priorToken;

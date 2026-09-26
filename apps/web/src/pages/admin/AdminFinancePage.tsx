@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react'
 import { FinanceAdminPanel } from '../../components/FinanceAdminPanel'
 import { FinancePlatformOverview } from '../../components/FinancePlatformOverview'
 import { getAdminFinancialTransparency, type AdminTransparencyResult } from '../../lib/financeApi'
+import { getAdminAccountIdentities } from '../../lib/accountApi'
+import { newPeriod, PeriodFilter, periodQuery, type Period } from '../../components/PeriodFilter'
+import { AdminFinanceFlows, type FlowNav } from '../../components/AdminFinanceFlows'
 
 const financeSections = [
-  { id: 'finance-bank-reconciliation', label: 'Giao dịch ngân hàng và đối soát' },
+  { id: 'finance-bank-reconciliation', label: 'Tổng quan dòng tiền' },
+  { id: 'finance-flows', label: 'Chi tiết dòng tiền' },
   { id: 'finance-withdrawals', label: 'Yêu cầu rút tiền' },
   { id: 'finance-reconciliation', label: 'Đối soát' },
 ] as const
@@ -15,8 +19,21 @@ export function AdminFinancePage() {
   const [overview, setOverview] = useState<AdminTransparencyResult | null>(null)
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState<FinanceSectionId>('finance-bank-reconciliation')
-  const load = async (page = 1) => {
-    try { setOverview(await getAdminFinancialTransparency(page, 20)); setError('') }
+  const [period, setPeriod] = useState<Period>(() => newPeriod('all'))
+  const [ownerNames, setOwnerNames] = useState<Map<string, string>>(() => new Map())
+  const [flowNav, setFlowNav] = useState<FlowNav>({ tab: 'revenue', nonce: 0 })
+  const openOwner = (ownerId: string) => {
+    setFlowNav((current) => ({ tab: 'revenue', ownerId, nonce: current.nonce + 1 }))
+    setActiveSection('finance-flows')
+    document.getElementById('finance-flows')?.scrollIntoView({ behavior: 'smooth' })
+  }
+  const load = async (page = 1, nextPeriod = period) => {
+    try {
+      const next = await getAdminFinancialTransparency(page, 5, periodQuery(nextPeriod))
+      setOverview(next); setError('')
+      const identities = await getAdminAccountIdentities((next.byOwner ?? []).map((row) => row.key)).catch(() => [])
+      setOwnerNames(new Map(identities.map((identity) => [identity.id, identity.displayName || identity.email || identity.businessCode || identity.id])))
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tải tổng quan tài chính.') }
   }
   useEffect(() => { void load() }, [])
@@ -41,8 +58,17 @@ export function AdminFinancePage() {
         </div>
       </nav>
       <section id="finance-bank-reconciliation" className="scroll-mt-36">
+        <div className="mt-6 rounded-2xl border border-line bg-canvas p-3">
+          <PeriodFilter value={period} onChange={(next) => { setPeriod(next); void load(1, next) }} />
+          <p className="mt-2 text-xs text-ink-500">Kỳ xem áp cho doanh thu đặt sân và biểu đồ; số dư ví và giao dịch ngân hàng luôn là số hiện tại.</p>
+        </div>
         {error ? <p role="alert" className="mt-4 rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p> : null}
-        {overview ? <div className="mt-6"><FinancePlatformOverview data={overview} onPageChange={(page) => void load(page)} /></div> : <p className="mt-6 text-sm text-ink-500">Đang tải tổng quan tài chính…</p>}
+        {overview ? <div className="mt-6"><FinancePlatformOverview data={overview} ownerNames={ownerNames} onPickOwner={openOwner} /></div> : <p className="mt-6 text-sm text-ink-500">Đang tải tổng quan tài chính…</p>}
+      </section>
+      <section id="finance-flows" className="surface-card mt-6 scroll-mt-36 p-4">
+        <h3 className="text-h2">Chi tiết dòng tiền</h3>
+        <p className="mt-1 text-sm text-ink-500">Mỗi con số ở trên mở ra danh sách giao dịch cấu thành nó: tiền của ai, cho ai, vì nội dung gì, khớp giao dịch ngân hàng nào. Có bộ lọc kỳ xem và tìm kiếm riêng.</p>
+        <div className="mt-4"><AdminFinanceFlows nav={flowNav} owners={(overview?.byOwner ?? []).map((row) => ({ id: row.key, name: ownerNames.get(row.key) ?? `Chủ sân #${row.key.slice(0, 8)}` }))} /></div>
       </section>
       <section id="finance-withdrawals" className="surface-card mt-6 scroll-mt-36 p-4">
         <h3 className="text-h2">Yêu cầu rút tiền</h3>

@@ -6,7 +6,7 @@ import { NotificationBell } from './NotificationBell.js'
 
 const playerLinks = [['/', 'Trang chủ'], ['/venues', 'Đặt sân'], ['/matches', 'Tìm kèo'], ['/leaderboard', 'Bảng xếp hạng'], ['/community', 'Cộng đồng']] as const
 const providerLinks = [['/manage', 'Tổng quan'], ['/manage/venues', 'Sân'], ['/manage/calendar', 'Lịch'], ['/manage/finance', 'Doanh thu']] as const
-const adminLinks = [['/admin', 'Tổng quan'], ['/admin/bookings', 'Booking'], ['/admin/finance', 'Tài chính'], ['/admin/disputes', 'Tranh chấp']] as const
+const adminLinks = [['/admin', 'Tài chính'], ['/admin/bookings', 'Booking'], ['/admin/disputes', 'Tranh chấp']] as const
 export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
   const { session } = useSession()
   const links = session?.activeRole === 'provider' ? providerLinks : session?.activeRole === 'admin' ? adminLinks : playerLinks

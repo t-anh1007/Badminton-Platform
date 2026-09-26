@@ -3,7 +3,6 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { AdminAccountsPage } from './AdminAccountsPage.js'
 import { AdminProvidersPage } from './AdminProvidersPage.js'
 import { AdminBookingsPage } from './AdminBookingsPage.js'
-import { AdminOverviewPage } from './AdminOverviewPage.js'
 import { getAdminAccounts, lockAdminAccount, unlockAdminAccount } from '../../lib/accountApi.js'
 import { cancelAdminBooking, getAdminBookings, getOperationalShutdown, rejectProvider } from '../../lib/venueBookingApi.js'
 
@@ -75,12 +74,4 @@ it('sends all selected booking filters to the admin queue', async () => {
   fireEvent.change(screen.getByLabelText('Đến ngày booking'), { target: { value: '2026-08-16' } })
   fireEvent.click(screen.getByRole('button', { name: 'Lọc' }))
   await waitFor(() => expect(getAdminBookings).toHaveBeenLastCalledWith({ query: 'Phú Nhuận', status: 'confirmed', from: '2026-08-15', to: '2026-08-16', page: 1, pageSize: 20 }))
-})
-
-it('shows Vietnamese service health labels', async () => {
-  render(<AdminOverviewPage />)
-  expect(await screen.findByText('Tài khoản')).toBeInTheDocument()
-  expect(screen.getByText('Sẵn sàng')).toBeInTheDocument()
-  expect(screen.getByText('Suy giảm')).toBeInTheDocument()
-  expect(screen.getByText('Không kết nối')).toBeInTheDocument()
 })

@@ -13,7 +13,7 @@ type ReconciliationAction = { id: string; kind: 'incoming' | 'outgoing' | 'outOf
 
 const withdrawalStatusLabel = (status: string) => ({ pending: 'Chờ đối soát chi', partially_paid: 'Đã chi một phần', paid: 'Đã chi', rejected: 'Đã từ chối' } as Record<string, string>)[status] ?? status;
 const withdrawalStatusTone = (status: string) => status === 'pending' || status === 'partially_paid' ? 'warning' : status === 'paid' ? 'success' : status === 'rejected' ? 'danger' : 'neutral';
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 const dateValue = (value?: string | null) => value ? new Date(value).getTime() : 0;
 const includesText = (values: Array<string | null | undefined>, query: string) => values.some((value) => value?.toLocaleLowerCase('vi').includes(query));
 const withdrawalQr = (row: WithdrawalRow) => {

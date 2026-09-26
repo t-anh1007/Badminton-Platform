@@ -8,7 +8,7 @@ const statusLabel: Record<string, string> = { pending: 'Đang chờ xử lý', p
 export function FinanceWithdrawalHistory() {
   const [data, setData] = useState<FinancePage<ProviderWithdrawalTransparencyRow> | null>(null);
   const [error, setError] = useState('');
-  const load = async (page: number) => { try { setData(await getMyWithdrawalTransparency(page, 20)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tải lịch sử rút tiền.'); } };
+  const load = async (page: number) => { try { setData(await getMyWithdrawalTransparency(page, 5)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tải lịch sử rút tiền.'); } };
   useEffect(() => { void load(1); }, []);
   if (error) return <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>;
   if (!data) return <p className="text-sm text-ink-500">Đang tải lịch sử rút tiền…</p>;

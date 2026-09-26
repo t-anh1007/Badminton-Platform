@@ -15,6 +15,7 @@ vi.mock('../../lib/accountApi.js', () => ({
 }))
 
 vi.mock('../../lib/financeApi.js', () => ({
+  getAdminFinancialFlows: vi.fn().mockResolvedValue({ kpis: [], items: [], total: 0, page: 1, pageSize: 5 }), getAdminFlowLedger: vi.fn().mockResolvedValue([]),
   getAdminFinancialTransparency: vi.fn().mockResolvedValue({ summary: { customerPayments: '500000', ownerPending: '100000', ownerAvailable: '300000', reservedPayout: '100000', paidPayout: '0', platformRevenue: '50000', bankMovement: '500000', allocatedMovement: '500000', difference: '0' }, transactions: { items: [], total: 0, page: 1, pageSize: 20 } }),
   getAdminWithdrawals: vi.fn().mockResolvedValue([{ id: 'w1', sellerUserId: 'u1', amount: '200000', paidAmount: '0', status: 'pending', transferCode: 'RUT-2026-001', bankCode: 'VCB', bankAccountNumber: '***1234', bankAccountName: 'NGUYEN VAN A', createdAt: '2026-08-15T00:00:00Z', processedAt: null }, { id: 'w2', sellerUserId: 'u2', amount: '300000', paidAmount: '100000', status: 'partially_paid', transferCode: 'RUT-2026-002', bankCode: 'ACB', bankAccountNumber: '***5678', bankAccountName: 'TRAN VAN B', createdAt: '2026-08-16T00:00:00Z', processedAt: null }]),
   getReconciliationQueue: vi.fn().mockResolvedValue([{ id: 'rc1', direction: 'in', amount: '100000', rawRef: 'SEPAY-LONG-REFERENCE-001', receivedAt: '2026-08-15T00:00:00Z' }, { id: 'rc2', direction: 'out', amount: '200000', rawRef: 'BANK-LONG-REFERENCE-002', receivedAt: '2026-08-15T01:00:00Z' }]),
@@ -45,7 +46,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 it('navigates between the three admin finance sections with in-page links', async () => {
   render(<AdminFinancePage />)
 
-  const bank = await screen.findByRole('link', { name: 'Giao dịch ngân hàng và đối soát' })
+  const bank = await screen.findByRole('link', { name: 'Tổng quan dòng tiền' })
   const withdrawals = screen.getByRole('link', { name: 'Yêu cầu rút tiền' })
   const reconciliation = screen.getByRole('link', { name: 'Đối soát' })
 

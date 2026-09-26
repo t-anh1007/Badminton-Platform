@@ -14,7 +14,7 @@ export function resolveNotificationRoute(item: Pick<NotificationItem, 'actionKin
     case 'dispute.view': return `/profile?tab=disputes&dispute=${item.entityId}`;
     case 'withdrawal.view': return `/manage/finance?withdrawal=${item.entityId}`;
     case 'admin.dispute.review': return `/admin/disputes?dispute=${item.entityId}`;
-    case 'admin.withdrawal.review': return `/admin/finance?withdrawal=${item.entityId}`;
+    case 'admin.withdrawal.review': return `/admin?withdrawal=${item.entityId}`;
     case 'admin.provider.review': return `/admin/providers?provider=${item.entityId}`;
     case 'admin.moderation.review': return `/admin/moderation?report=${item.entityId}`;
     case 'admin.ticket.view': return `/admin/tickets?ticket=${item.entityId}`;

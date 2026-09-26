@@ -5,23 +5,22 @@ import {
   type ProviderTransparencyResult, type WalletRow, type WithdrawalRow,
 } from '../../lib/financeApi.js';
 import { getMyManagedVenues, type ManagedVenue } from '../../lib/venueBookingApi.js';
-import { parseDateFieldVi } from '../../lib/formatters.js';
-import { FinanceRevenueExplorer } from './FinanceRevenueExplorer.js';
+import { newPeriod, periodQuery } from '../../components/PeriodFilter.js';
+import { FinanceRevenueExplorer, type FinanceFilter } from './FinanceRevenueExplorer.js';
 import { FinanceWithdrawalHistory } from './FinanceWithdrawalHistory.js';
 import { useFinanceRealtime } from './useFinanceRealtime.js';
 import { WithdrawalModal } from './WithdrawalModal.js';
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 
 const ACTIVE_STATUSES = new Set(['pending', 'partially_paid']);
-const vietnamDayBoundary = (date: string, edge: 'start' | 'end') => `${date}T${edge === 'start' ? '00:00:00.000' : '23:59:59.999'}+07:00`;
-const todayVi = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
 
 export function ManageFinancePage() {
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [venues, setVenues] = useState<ManagedVenue[]>([]);
   const [transparency, setTransparency] = useState<ProviderTransparencyResult | null>(null);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
-  const [filters, setFilters] = useState({ venueId: '', from: todayVi(), to: todayVi(), status: '', page: 1 });
+  // Mặc định: từ ngày bỏ trống, đến hôm nay = toàn bộ booking tới hiện tại.
+  const [filters, setFilters] = useState<FinanceFilter>({ venueId: '', period: newPeriod('range'), status: '', page: 1 });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -29,15 +28,12 @@ export function ManageFinancePage() {
   const [message, setMessage] = useState('');
 
   const load = async (nextFilters = filters) => {
-    const from = parseDateFieldVi(nextFilters.from);
-    const to = parseDateFieldVi(nextFilters.to);
-    if (!from || !to) { setError('Ngày cần theo định dạng dd/MM/yyyy.'); return; }
     try {
       const wallets = await getMyWallets();
       const business = wallets.find((row) => row.walletType === 'business') ?? null;
       const [nextVenues, nextTransparency, nextWithdrawals] = await Promise.all([
         getMyManagedVenues().catch(() => [] as ManagedVenue[]),
-        getMyFinancialTransparency({ venueId: nextFilters.venueId, from: vietnamDayBoundary(from, 'start'), to: vietnamDayBoundary(to, 'end'), status: nextFilters.status, page: nextFilters.page, pageSize: 20 }),
+        getMyFinancialTransparency({ venueId: nextFilters.venueId, ...periodQuery(nextFilters.period), status: nextFilters.status, page: nextFilters.page, pageSize: 5 }),
         getMyWithdrawals(),
       ]);
       setWallet(business); setVenues(nextVenues); setTransparency(nextTransparency); setWithdrawals(nextWithdrawals);

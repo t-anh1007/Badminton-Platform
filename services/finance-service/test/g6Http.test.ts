@@ -99,7 +99,7 @@ describe('G6 HTTP contract', () => {
     expect(page.status).toBe(200);
     expect(page.body.transactions).toMatchObject({ total: 3, page: 2, pageSize: 2 });
     expect(page.body.transactions.items).toHaveLength(1);
-    expect(page.body.summary.gross).toBe('600000');
+    expect(page.body.summary).toMatchObject({ gross: '600000', refunded: '0', withdrawn: '0' });
 
     const withdrawals = await request(app).get('/providers/me/withdrawal-transparency?page=1&pageSize=20').set(auth);
     expect(withdrawals.status).toBe(200);
@@ -114,6 +114,6 @@ describe('G6 HTTP contract', () => {
     expect(response.status).toBe(200);
     expect(response.body.transactions).toMatchObject({ page: 1, pageSize: 2 });
     expect(response.body.transactions.items.length).toBeLessThanOrEqual(2);
-    expect(response.body.summary).toEqual(expect.objectContaining({ bankMovement: expect.any(String), allocatedMovement: expect.any(String), difference: expect.any(String) }));
+    expect(response.body.summary).toEqual(expect.objectContaining({ bankMovement: expect.any(String), allocatedMovement: expect.any(String), difference: expect.any(String), bankIn: expect.any(String), bankOut: expect.any(String), bookingRefunded: expect.any(String), playerAvailable: expect.any(String), platformReserved: expect.any(String) }));
   });
 });
