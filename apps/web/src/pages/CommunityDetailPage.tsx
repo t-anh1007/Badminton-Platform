@@ -1,4 +1,3 @@
-import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SurfaceCard, TextArea, Toast } from '../components/ui';
@@ -226,7 +225,6 @@ export function CommunityDetailPage() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorDisplayName)}</p>
                   <p className="text-caption">{formatDate(post.createdAt)}{post.editedAt ? ' · đã chỉnh sửa' : ''}</p>
-                  <BusinessCode code={post.businessCode} label="Mã bài viết" />
                 </div>
               </div>
               {isOwner && <Badge tone="success">Bài của bạn</Badge>}
@@ -315,7 +313,6 @@ export function CommunityDetailPage() {
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <p className="text-sm font-semibold">{commentOwner ? 'Bạn' : userLabel(comment.authorDisplayName)}</p>
                         <p className="text-caption">{formatDate(comment.createdAt)}</p>
-                        <BusinessCode code={comment.businessCode} label="Mã bình luận" />
                       </div>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-700">{comment.body}</p>
                       <div className="mt-2 flex gap-3 text-xs font-semibold">

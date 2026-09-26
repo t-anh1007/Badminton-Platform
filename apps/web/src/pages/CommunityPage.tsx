@@ -87,7 +87,6 @@ function PostCard({
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink-900">{authorLabel(post.authorDisplayName)}</p>
               <p className="text-caption">{formatDate(post.createdAt)}{post.editedAt ? ' · đã chỉnh sửa' : ''}</p>
-              <BusinessCode code={post.businessCode} label="Mã bài viết" />
             </div>
           </div>
           {isOwner && (
@@ -495,7 +494,7 @@ export function CommunityPage() {
                             to={`/support?ticket=${ticket.id}`}
                             className="block rounded-xl border border-line p-3 hover:border-green-100 hover:bg-green-50"
                           >
-                            <p className="line-clamp-1 text-sm font-medium">{ticket.subject}</p><BusinessCode code={ticket.businessCode} label="Mã hỗ trợ" />
+                            <p className="line-clamp-1 text-sm font-medium">{ticket.subject}</p>
                             <div className="mt-2">
                               <Badge tone={status.tone}>{status.label}</Badge>
                             </div>
@@ -549,7 +548,7 @@ export function CommunityPage() {
                       to={`/support?ticket=${ticket.id}`}
                       className="flex items-center justify-between gap-3 rounded-xl border border-line p-3"
                     >
-                      <div className="min-w-0"><p className="truncate text-sm font-medium">{ticket.subject}</p><BusinessCode code={ticket.businessCode} label="Mã hỗ trợ" /></div>
+                      <div className="min-w-0"><p className="truncate text-sm font-medium">{ticket.subject}</p></div>
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </Link>
                   );
