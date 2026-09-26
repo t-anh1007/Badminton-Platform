@@ -132,7 +132,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
               <h3 className="text-h3">Thanh toán</h3>
               <p className="text-figures mt-2 text-xl font-bold text-brand-navy">{formatMoneyVnd(detail.priceSnapshot)}</p>
               {detail.matchDepositPaid ? <p className="mt-1 text-sm text-success">Đã nhận đặt cọc ghép trận</p> : null}
-              <Link className="mt-3 inline-block text-sm font-semibold text-brand-navy" to="/manage/finance">
+              <Link className="mt-3 inline-block text-sm font-semibold text-brand-navy" to="/manage">
                 Xem đối soát tài chính →
               </Link>
             </section>

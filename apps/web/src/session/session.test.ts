@@ -12,9 +12,11 @@ describe('session persistence', () => {
     clearSession()
     expect(loadSession()).toBeNull()
   })
-  it('defaults an admin account to the admin role on a fresh login', () => {
+  it('defaults admin then provider accounts to their managing role on a fresh login', () => {
     expect(saveSession({ accessToken: token('admin-1'), refreshToken: 'refresh', roles: ['player', 'admin'] }).activeRole).toBe('admin')
     clearSession()
-    expect(saveSession({ accessToken: token('player-1'), refreshToken: 'refresh', roles: ['player', 'provider'] }).activeRole).toBe('player')
+    expect(saveSession({ accessToken: token('player-1'), refreshToken: 'refresh', roles: ['player', 'provider'] }).activeRole).toBe('provider')
+    clearSession()
+    expect(saveSession({ accessToken: token('player-2'), refreshToken: 'refresh', roles: ['player'] }).activeRole).toBe('player')
   })
 })
