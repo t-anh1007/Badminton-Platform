@@ -16,7 +16,7 @@
 
 ## Status
 
-Active — specification approved; implementation has not started.
+Completed — Tasks 1-26 implemented and verified; the PO accepted Task 26 on 2026-09-26.
 
 ## Global Constraints
 
@@ -1640,7 +1640,7 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - [x] All 14 companion desktop mockups approved by the PO on 2026-09-25.
 - [x] Task 1 durable `desktop-preview.html` synchronized from those approved companions and checked at browser zoom 100%.
 - [x] Tasks 2–25 implemented and focused-verified (gates G1-G5, local checkpoints 7370011, 2c5ab45, 7567714, ba9b1f9, 32eca4c).
-- [ ] Task 26 repository/runtime verification complete. Done: E2E spec with 14 scenarios, service suites, desktop product review of 14 screens with fixes, PO decisions Q1-Q3, Finance reconciliation (#11), private object checks (#12). Pending: root `npm run build` before the checkpoint commit, and PO acceptance before moving this plan to completed.
+- [x] Task 26 repository/runtime verification complete (PO accepted 2026-09-26, checkpoint e2c61ea). Done: E2E spec with 14 scenarios, service suites, desktop product review of 14 screens with fixes, PO decisions Q1-Q3, Finance reconciliation (#11), private object checks (#12). Root `npm run build` passed before the checkpoint commit.
 
 ## Decisions
 
@@ -1728,4 +1728,4 @@ Task 26 results (2026-09-26, local stack via `backend-no-email`, local MinIO, no
 
 ## Result
 
-Pending implementation and verification.
+Completed on 2026-09-26. Competitive matches v2 was delivered across Venue, Finance, Matchmaking, Account and Web, through gates G1-G5 (local checkpoints 7370011, 2c5ab45, 7567714, ba9b1f9, 32eca4c) and Task 26 (checkpoint e2c61ea). The 14 end-to-end scenarios pass against the local stack. Finance reconciliation and private-object checks are recorded under Validation. Nothing has been pushed or deployed. Production migration and deployment remain separate steps for the PO (`/release`).
