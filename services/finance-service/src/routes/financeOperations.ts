@@ -1,6 +1,7 @@
 import { withBookingReferences } from '../domain/bookingReferences.js';
 import { Router } from 'express';
 import { FLOW_TABS, listAdminFinancialFlows, listLedgerForRefs } from '../domain/adminFinancialFlows.js';
+import { PROVIDER_FLOW_TABS, listProviderFinancialFlows, listProviderLedgerForRefs } from '../domain/providerFinancialFlows.js';
 import { z } from 'zod';
 import {
   MAX_IMAGE_BYTES, createObjectStorageClientFromEnv,
@@ -104,6 +105,21 @@ financeOperationsRouter.get('/providers/me/financial-transparency', requireAuth,
     status: z.enum(['pending', 'available', 'disputed', 'cancelled']).optional(),
   }).parse(req.query);
   res.json(await listProviderFinancialTransparency(userId, query));
+}));
+
+financeOperationsRouter.get('/providers/me/financial-flows', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const query = transparencyPagination.extend({
+    tab: z.enum(PROVIDER_FLOW_TABS), filter: z.string().max(40).optional(), venueId: z.string().uuid().optional(),
+    from: z.coerce.date().optional(), to: z.coerce.date().optional(), q: z.string().max(80).optional(),
+  }).parse(req.query);
+  res.json(await listProviderFinancialFlows(userId, query));
+}));
+
+financeOperationsRouter.get('/providers/me/financial-flows/ledger', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const { refIds } = z.object({ refIds: z.string().max(4000).default('') }).parse(req.query);
+  res.json(await listProviderLedgerForRefs(userId, refIds.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 40)));
 }));
 
 financeOperationsRouter.get('/providers/me/withdrawal-transparency', requireAuth, requireRole('provider'), h(async (req, res) => {

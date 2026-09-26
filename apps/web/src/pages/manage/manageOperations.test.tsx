@@ -7,7 +7,8 @@ vi.mock('../../lib/financeApi.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/financeApi.js')>()),
   getMyWallets: vi.fn().mockResolvedValue([{ id: 'bw', walletType: 'business', available: '500000', pending: '100000', reserved: '50000', currency: 'VND' }]),
   getMyFinancialTransparency: vi.fn().mockResolvedValue({ summary: { available: '500000', pending: '100000', reserved: '50000', gross: '1000000', net: '900000', commission: '100000' }, transactions: { items: [{ bookingId: 'booking-1', venueId: 'v1', gross: '1000000', net: '900000', commission: '100000', endAt: '2026-09-10T08:00:00Z', releaseAt: '2026-09-11T08:00:00Z', releasedAt: null, status: 'pending', payment: null }], total: 1, page: 1, pageSize: 20 } }),
-  getMyWithdrawalTransparency: vi.fn().mockResolvedValue({ items: [{ id: 'withdrawal-1', amount: '100000', paidAmount: '0', status: 'rejected', transferCode: 'WD1', bankCode: 'VCB', bankAccountName: 'A', bankAccountMasked: '•••• 0123', createdAt: '2026-09-10T08:00:00.000Z', processedAt: '2026-09-10T09:00:00.000Z', providerReference: null, bankConfirmedAt: null }], total: 1, page: 1, pageSize: 20 }),
+  getMyFinancialFlows: vi.fn().mockResolvedValue({ kpis: [], items: [{ id: 'withdrawal-1', title: 'WD1', titleNote: 'Tạo 10/09/2026 15:00', party: 'A · VCB •••• 0123', partyNote: 'Lý do: Sai thông tin tài khoản', counterpart: '—', counterpartNote: 'Không chuyển', status: 'Bị từ chối', tone: 'bad', amount: '100000', sign: '', amountNote: 'đã trả lại số dư', from: '', fromNote: '', to: '', toNote: '', steps: [], facts: [], refIds: [] }], total: 1, page: 1, pageSize: 5 }),
+  getMyFlowLedger: vi.fn().mockResolvedValue([]),
   getMyWithdrawals: vi.fn().mockResolvedValue([{ id: 'withdrawal-1', sellerUserId: 'owner', amount: '100000', paidAmount: '0', status: 'rejected', transferCode: 'WD1', bankCode: 'VCB', bankAccountNumber: '123', bankAccountName: 'A', rejectionReason: 'Sai thông tin tài khoản', createdAt: '2026-09-10T08:00:00.000Z', processedAt: '2026-09-10T09:00:00.000Z' }]),
   createWithdrawal: vi.fn().mockResolvedValue({ transferCode: 'WD123' }), cancelMyWithdrawal: vi.fn().mockResolvedValue({}), streamMyFinance: vi.fn().mockImplementation(() => new Promise(() => {})),
 }))
@@ -28,10 +29,10 @@ it('loads replacement choices and requires a provider-fault reason before cancel
 })
 it('shows today’s owner snapshot and creates a withdrawal from the single primary action', async () => {
   render(<ManageFinancePage />); await screen.findByText('Số dư có thể rút')
-  expect(getMyFinancialTransparency).toHaveBeenCalledWith(expect.objectContaining({ from: undefined, to: expect.stringContaining('+07:00'), page: 1, pageSize: 5 }))
-  expect(await screen.findByText('Không được duyệt')).toBeVisible()
+  expect(getMyFinancialTransparency).toHaveBeenCalledWith(expect.objectContaining({ from: undefined, to: expect.stringContaining('+07:00'), page: 1, pageSize: 1 }))
+  expect(await screen.findByText('Bị từ chối')).toBeVisible()
   expect(screen.getByText(/VCB •••• 0123/)).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: 'Rút tiền' })); expect(screen.getByRole('dialog')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo yêu cầu rút tiền' })); expect(screen.getByRole('dialog')).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận yêu cầu rút' })); expect(screen.getByRole('alert')).toHaveTextContent(/Nhập đủ thông tin/i)
   for (const [label, value] of [['Số tiền rút','10000'],['Mã ngân hàng','VCB'],['Số tài khoản nhận','123'],['Tên chủ tài khoản','A']] as const) fireEvent.change(screen.getByLabelText(label), { target: { value } })
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận yêu cầu rút' })); await waitFor(() => expect(createWithdrawal).toHaveBeenCalledWith(expect.objectContaining({ amount: '10000' })))

@@ -10,29 +10,29 @@ export type FlowTab = (typeof FLOW_TABS)[number];
 export type FlowQuery = { tab: FlowTab; filter?: string; ownerId?: string; from?: Date; to?: Date; page: number; pageSize: number; q?: string; userIds?: string[]; search?: Search };
 /** Từ khóa tìm kiếm: chữ tự do + tài khoản khớp tên/email (FE tra trước) + booking khớp mã BK-. */
 type Search = { text: string; userIds: string[]; bookingIds: string[] };
-const contains = (text: string) => ({ contains: text, mode: 'insensitive' as const });
-type Tone = 'ok' | 'wait' | 'bad' | 'info' | 'mute';
+export const contains = (text: string) => ({ contains: text, mode: 'insensitive' as const });
+export type Tone = 'ok' | 'wait' | 'bad' | 'info' | 'mute';
 type Step = { title: string; detail: string; tone: Tone };
 export type FlowRow = {
   id: string; title: string; titleNote: string; party: string; partyNote: string; counterpart: string; counterpartNote: string;
   status: string; tone: Tone; amount: string; sign: '+' | '-' | ''; amountNote: string;
   from: string; fromNote: string; to: string; toNote: string; steps: Step[]; facts: Array<{ k: string; v: string }>; refIds: string[];
 };
-type Kpi = { label: string; value: string; note: string; tone: Tone };
+export type Kpi = { label: string; value: string; note: string; tone: Tone };
 type FlowPage = { kpis: Kpi[]; items: FlowRow[]; total: number };
 
 const vndFormat = new Intl.NumberFormat('vi-VN');
-const vnd = (value: bigint | null | undefined) => `${vndFormat.format(value ?? 0n)}đ`;
-const n = (value: bigint | null | undefined) => (value ?? 0n).toString();
+export const vnd = (value: bigint | null | undefined) => `${vndFormat.format(value ?? 0n)}đ`;
+export const n = (value: bigint | null | undefined) => (value ?? 0n).toString();
 const user = (id: string | null | undefined) => (id ? `@user:${id}` : '—');
-const short = (id: string) => id.slice(0, 8);
+export const short = (id: string) => id.slice(0, 8);
 const dateFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const dateTime = (value: Date | null | undefined) => value ? dateFormat.format(value).replace(', ', ' ') : '—';
-const range = (field: string, from?: Date, to?: Date) => from || to ? { [field]: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {};
+export const dateTime = (value: Date | null | undefined) => value ? dateFormat.format(value).replace(', ', ' ') : '—';
+export const range = (field: string, from?: Date, to?: Date) => from || to ? { [field]: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {};
 const sum = (rows: Array<{ amount: bigint }>) => rows.reduce((total, row) => total + row.amount, 0n);
 const page = <T>(rows: T[], q: FlowQuery) => rows.slice((q.page - 1) * q.pageSize, q.page * q.pageSize);
 const bookingLabel = (id: string, detail?: BookingDetail) => detail?.businessCode ?? `Booking #${short(id)}`;
-const cancelReason: Record<string, string> = { self: 'Khách tự hủy', provider_fault: 'Lỗi phía sân', platform_admin: 'Admin hủy' };
+export const cancelReason: Record<string, string> = { self: 'Khách tự hủy', provider_fault: 'Lỗi phía sân', platform_admin: 'Admin hủy' };
 
 const REFUND_GROUPS: Record<string, string[]> = { booking: ['booking'], dispute: ['dispute'], match: ['matchFee', 'matchFeeCancellation', 'matchOwnerRebalance', 'matchResultReserve', 'matchSettlementReturn'] };
 const TOPUP_GROUPS: Record<string, string[]> = { topup: ['topup'], late: ['late_payment', 'late_match_fee'], over: ['overpay', 'overpay_match_fee'], partial: ['partial_payment', 'partial_match_fee'], manual: ['reconciliation'] };

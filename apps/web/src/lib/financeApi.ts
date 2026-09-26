@@ -252,12 +252,6 @@ export const createMatchOrganizerContributionSepayIntent = (matchId: string) =>
   api<SepayIntent>(`/matches/${matchId}/organizer-contribution/pay/sepay`, {
     method: 'POST',
   });
-export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {
-  const query = new URLSearchParams(
-    Object.entries(filters ?? {}).filter((entry): entry is [string, string] => Boolean(entry[1])),
-  );
-  return api<RevenueRow[]>(`/providers/me/revenue${query.size ? `?${query}` : ''}`);
-};
 export const getMyFinancialTransparency = (filters: {
   venueId?: string; from?: string; to?: string; status?: string; page: number; pageSize: number;
 }) => {
@@ -265,8 +259,6 @@ export const getMyFinancialTransparency = (filters: {
   Object.entries(filters).forEach(([key, value]) => { if (value !== '' && value !== undefined) query.set(key, String(value)); });
   return api<ProviderTransparencyResult>(`/providers/me/financial-transparency?${query}`);
 };
-export const getMyWithdrawalTransparency = (page: number, pageSize: number) =>
-  api<FinancePage<ProviderWithdrawalTransparencyRow>>(`/providers/me/withdrawal-transparency?page=${page}&pageSize=${pageSize}`);
 export const getMyWithdrawals = () => api<WithdrawalRow[]>('/providers/me/withdrawals');
 export const createWithdrawal = (body: {
   amount: string;
@@ -366,3 +358,12 @@ export const getAdminFinancialFlows = (query: { tab: FlowTab; filter?: string; o
 };
 export const getAdminFlowLedger = (refIds: string[]) =>
   api<FlowLedgerEntry[]>(`/admin/financial-flows/ledger?refIds=${encodeURIComponent(refIds.join(','))}`);
+
+export type ProviderFlowTab = 'revenue' | 'deduct' | 'withdraw' | 'ledger' | 'venues';
+export const getMyFinancialFlows = (query: { tab: ProviderFlowTab; filter?: string; venueId?: string; from?: string; to?: string; q?: string; page: number; pageSize: number }) => {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+  return api<FlowResult>(`/providers/me/financial-flows?${params}`);
+};
+export const getMyFlowLedger = (refIds: string[]) =>
+  api<FlowLedgerEntry[]>(`/providers/me/financial-flows/ledger?refIds=${encodeURIComponent(refIds.join(','))}`);

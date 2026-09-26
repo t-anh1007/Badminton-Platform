@@ -101,6 +101,19 @@ describe('G6 HTTP contract', () => {
     expect(page.body.transactions.items).toHaveLength(1);
     expect(page.body.summary).toMatchObject({ gross: '600000', refunded: '0', withdrawn: '0' });
 
+    const flows = await request(app).get('/providers/me/financial-flows?tab=revenue&filter=pending&page=1&pageSize=5').set(auth);
+    expect(flows.status).toBe(200);
+    expect(flows.body).toMatchObject({ total: 3, page: 1, pageSize: 5 });
+    expect(flows.body.kpis[1]).toMatchObject({ label: 'Bạn nhận', value: '540000' });
+    const withdrawTab = await request(app).get('/providers/me/financial-flows?tab=withdraw&filter=pending&page=1&pageSize=5').set(auth);
+    expect(withdrawTab.body.items).toHaveLength(1);
+    expect(JSON.stringify(withdrawTab.body)).not.toContain('0123456789');
+    const venuesTab = await request(app).get('/providers/me/financial-flows?tab=venues&filter=venue&page=1&pageSize=5').set(auth);
+    expect(venuesTab.body.items[0]).toMatchObject({ amount: '540000', party: '3 booking' });
+    const ledgerTab = await request(app).get('/providers/me/financial-flows?tab=ledger&page=1&pageSize=5').set(auth);
+    expect(ledgerTab.status).toBe(200);
+    expect((await request(app).get('/providers/me/financial-flows?tab=revenue&page=1&pageSize=5').set({ Authorization: `Bearer ${token(randomUUID(), ['player'])}` })).status).toBe(403);
+
     const withdrawals = await request(app).get('/providers/me/withdrawal-transparency?page=1&pageSize=20').set(auth);
     expect(withdrawals.status).toBe(200);
     expect(withdrawals.body.items[0]).toMatchObject({ bankAccountMasked: '•••• 6789' });

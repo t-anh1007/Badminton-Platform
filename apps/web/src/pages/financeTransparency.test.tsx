@@ -15,29 +15,17 @@ const providerData: ProviderTransparencyResult = {
 };
 afterEach(cleanup);
 
-it('dùng ngôn ngữ nghiệp vụ cho chủ sân, màu phân cấp và Pagination chuẩn COURTIN', () => {
-  const onChange = vi.fn();
-  render(<FinanceRevenueExplorer data={providerData} venues={[{ id: 'venue-1', name: 'Sân Tân Bình' } as never]} filters={{ venueId: '', period: newPeriod('all'), status: '', page: 1 }} onChange={onChange} />);
-  expect(screen.getAllByText('180.000đ').some((element) => element.classList.contains('text-success'))).toBe(true);
-  expect(screen.getAllByText('20.000đ').some((element) => element.classList.contains('text-warning'))).toBe(true);
-  expect(screen.getByRole('region', { name: 'Doanh thu trong khoảng đang xem' })).toBeInTheDocument();
-  expect(screen.queryByText(/ledger|wallet|database/i)).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText('Booking BK-00000042'));
-  expect(screen.getByRole('dialog', { name: 'Hành trình dòng tiền' })).toBeInTheDocument();
-  expect(screen.queryByText('Thông tin hỗ trợ kiểm tra')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '›' }));
-  expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }));
-});
+const explorerProps = { venues: [{ id: 'venue-1', name: 'Sân Tân Bình' } as never], filters: { venueId: '', period: newPeriod('range') }, onChange: vi.fn(), onPickDay: vi.fn(), onPickVenue: vi.fn(), onShowPending: vi.fn() };
 
-it('booking đã hoàn tiền hiển thị đủ: khách trả = phí + đã hoàn + chủ sân nhận', () => {
-  const row = { ...providerData.transactions.items[0], bookingCode: 'BK-00000099', gross: '60000', net: '0', commission: '0', status: 'cancelled' as const, releasedAt: null };
-  render(<FinanceRevenueExplorer data={{ ...providerData, transactions: { ...providerData.transactions, items: [row] } }} venues={[]} filters={{ venueId: '', period: newPeriod('all'), status: '', page: 1 }} onChange={vi.fn()} />);
-  expect(screen.getByRole('columnheader', { name: 'Đã hoàn' })).toBeInTheDocument();
-  fireEvent.click(screen.getByText('Booking BK-00000099'));
-  const dialog = screen.getByRole('dialog', { name: 'Hành trình dòng tiền' });
-  expect(dialog).toHaveTextContent('60.000đ = 0đ phí nền tảng + 0đ tiền chủ sân + 60.000đ đã hoàn khách.');
-  expect(dialog).toHaveTextContent('Hoàn 60.000đ cho khách');
-  expect(dialog).not.toHaveTextContent('Chờ hết thời hạn xem xét');
+it('chủ sân: tổng quan dùng ngôn ngữ nghiệp vụ, đổi cơ sở tải lại, nút xem booking đang chờ', () => {
+  const props = { ...explorerProps, onChange: vi.fn(), onShowPending: vi.fn() };
+  render(<FinanceRevenueExplorer data={providerData} {...props} />);
+  expect(screen.getByRole('region', { name: 'Doanh thu trong khoảng đang xem' })).toHaveTextContent('200.000đ');
+  expect(screen.queryByText(/ledger|wallet|database/i)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'venue-1' } });
+  expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ venueId: 'venue-1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Xem các booking đang chờ đủ 24 giờ' }));
+  expect(props.onShowPending).toHaveBeenCalled();
 });
 
 it('Admin có tổng quan đối soát bằng ngôn ngữ nghiệp vụ và phân trang', () => {
@@ -55,11 +43,14 @@ it('Admin có tổng quan đối soát bằng ngôn ngữ nghiệp vụ và phâ
   expect(onPickOwner).toHaveBeenCalledWith('owner-1');
 });
 
-it('biểu đồ doanh thu theo ngày và theo cơ sở giữ đúng phân rã khách trả = chủ sân + phí + đã hoàn', () => {
+it('biểu đồ chủ sân giữ đúng phân rã; bấm ngày hoặc cơ sở mở chi tiết đã lọc', () => {
   const point = { gross: '260000', net: '180000', commission: '20000', refunded: '60000', count: 2 };
-  render(<FinanceRevenueExplorer data={{ ...providerData, byDay: [{ key: '2026-09-19', ...point }], byVenue: [{ key: 'venue-1', ...point }] }} venues={[{ id: 'venue-1', name: 'Sân Tân Bình' } as never]} filters={{ venueId: '', period: newPeriod('all'), status: '', page: 1 }} onChange={vi.fn()} />);
-  expect(screen.getByRole('button', { name: /19\/09: khách trả 260\.000đ = chủ sân 180\.000đ \+ phí 20\.000đ \+ đã hoàn 60\.000đ · 2 booking/ })).toBeInTheDocument();
-  expect(screen.getByRole('region', { name: 'Doanh thu theo cơ sở' })).toHaveTextContent('Sân Tân Bình');
+  const props = { ...explorerProps, onPickDay: vi.fn(), onPickVenue: vi.fn() };
+  render(<FinanceRevenueExplorer data={{ ...providerData, byDay: [{ key: '2026-09-19', ...point }], byVenue: [{ key: 'venue-1', ...point }] }} {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: /19\/09: khách trả 260\.000đ = chủ sân 180\.000đ \+ phí 20\.000đ \+ đã hoàn 60\.000đ · 2 booking/ }));
+  expect(props.onPickDay).toHaveBeenCalledWith('2026-09-19');
+  fireEvent.click(screen.getByRole('button', { name: 'Sân Tân Bình' }));
+  expect(props.onPickVenue).toHaveBeenCalledWith('venue-1');
 });
 
 it('kỳ xem đổi thành khoảng ngày đúng: tháng lấy đủ ngày cuối, năm trọn năm, toàn bộ không giới hạn', () => {
@@ -70,11 +61,22 @@ it('kỳ xem đổi thành khoảng ngày đúng: tháng lấy đủ ngày cuố
   expect(periodRange({ ...base, mode: 'range', from: '', to: '2026-09-26' })).toEqual({ from: undefined, to: '2026-09-26' });
 });
 
-it('đổi bộ lọc trạng thái tự tải lại ngay, về trang 1', () => {
-  const onChange = vi.fn();
-  render(<FinanceRevenueExplorer data={providerData} venues={[]} filters={{ venueId: '', period: newPeriod('range'), status: '', page: 3 }} onChange={onChange} />);
-  fireEvent.change(screen.getByLabelText('Trạng thái dòng tiền'), { target: { value: 'pending' } });
-  expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', page: 1 }));
+it('chủ sân xem chi tiết dòng tiền: 5 tab, tên khách đầy đủ, lọc theo ngày bấm từ biểu đồ', async () => {
+  const api = await import('../lib/financeApi.js');
+  const row = { id: 'b1', title: 'BK-00000158', titleNote: 'Sân Linh Xuân · Sân 1 · 30/08/2026 02:00 → 30/08/2026 03:00', party: 'Nguyễn Minh Khoa', partyNote: 'SePay · GD-00000930', counterpart: '31/08/2026 03:00', counterpartNote: 'đã mở khóa', status: 'Có thể rút', tone: 'ok' as const, amount: '60000', sign: '' as const, amountNote: 'phí 6.000đ · hoàn 0đ · bạn nhận 54.000đ', from: 'Nguyễn Minh Khoa', fromNote: 'SePay', to: 'Ví của bạn', toNote: '', steps: [{ title: 'Khách thanh toán 60.000đ', detail: 'SePay', tone: 'info' as const }], facts: [], refIds: ['b1'] };
+  const flows = vi.spyOn(api, 'getMyFinancialFlows').mockResolvedValue({ kpis: [{ label: 'Bạn nhận', value: '54000', note: '1 booking', tone: 'ok' }], items: [row], total: 1, page: 1, pageSize: 5 });
+  vi.spyOn(api, 'getMyFlowLedger').mockResolvedValue([{ id: 'l1', walletType: 'business', userId: 'me', type: 'release', refType: 'booking', amount: '54000', ts: '2026-08-30T20:00:00Z' }]);
+  const { ProviderFinanceFlows } = await import('./manage/ProviderFinanceFlows.js');
+  const onClearDay = vi.fn();
+  render(<ProviderFinanceFlows nav={{ tab: 'revenue', nonce: 0 }} venueId="venue-1" range={{}} day="2026-08-30" onClearDay={onClearDay} />);
+  expect(await screen.findAllByText('Nguyễn Minh Khoa')).not.toHaveLength(0);
+  expect(flows).toHaveBeenCalledWith(expect.objectContaining({ tab: 'revenue', venueId: 'venue-1', from: '2026-08-30T00:00:00.000+07:00', to: '2026-08-30T23:59:59.999+07:00', pageSize: 5 }));
+  expect(await screen.findByText('Ví của bạn', { exact: false, selector: 'span' })).toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: /Doanh thu booking|Hoàn tiền và khoản bị trừ|Rút tiền|Sổ ví|Theo cơ sở \/ sân/ })).toHaveLength(5);
+  fireEvent.click(screen.getByRole('button', { name: 'Bỏ lọc ×' }));
+  expect(onClearDay).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Sổ ví' }));
+  await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'ledger', filter: '', page: 1 })));
 });
 
 it('Admin xem chi tiết dòng tiền: 9 tab, 5 dòng/trang, tên thay cho mã tài khoản, bút toán sổ cái', async () => {

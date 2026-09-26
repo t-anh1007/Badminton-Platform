@@ -34,13 +34,13 @@ function SeriesTable({ points, labelOf, keyHeader }: { points: RevenueSeriesPoin
 }
 
 /** Cột xếp chồng theo thời gian: chiều cao = khách trả, chia thành chủ sân / phí / đã hoàn. */
-export function RevenueColumns({ title, points, labelOf, keyHeader }: { title: string; points: RevenueSeriesPoint[]; labelOf: (key: string) => string; keyHeader: string }) {
+export function RevenueColumns({ title, points, labelOf, keyHeader, onPick }: { title: string; points: RevenueSeriesPoint[]; labelOf: (key: string) => string; keyHeader: string; onPick?: (key: string) => void }) {
   const max = points.reduce((result, point) => big(point.gross) > result ? big(point.gross) : result, 0n);
   return <section className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow-card)]" aria-label={title}>
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-h3">{title}</h3><Legend /></div>
     {points.length === 0 ? <p className="mt-4 text-sm text-ink-500">Chưa có doanh thu trong khoảng đang xem.</p> : <>
       <div className="mt-4 flex h-44 items-end gap-1.5 border-b border-line pb-px">
-        {points.map((point, index) => <button type="button" key={point.key} aria-label={describe(labelOf(point.key), point)} className="group relative flex h-full min-w-2 flex-1 flex-col justify-end focus:outline-none">
+        {points.map((point, index) => <button type="button" key={point.key} onClick={onPick ? () => onPick(point.key) : undefined} aria-label={describe(labelOf(point.key), point)} className="group relative flex h-full min-w-2 flex-1 flex-col justify-end focus:outline-none">
           <Tip label={labelOf(point.key)} point={point} className={`top-0 ${index < points.length / 2 ? 'left-0' : 'right-0'}`} />
           <span className="flex flex-col-reverse gap-[2px] overflow-hidden rounded-t group-hover:opacity-80 group-focus-visible:ring-2 group-focus-visible:ring-brand-navy" style={{ height: `${share(big(point.gross), max)}%` }}>
             {SEGMENTS.map((segment) => big(point[segment.field]) > 0n ? <span key={segment.field} className={segment.color} style={{ flexGrow: Number(big(point[segment.field])) }} /> : null)}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
 import { prisma } from '../lib/prisma.js';
+import { HttpAccountDisplayNameClient } from '../clients/account.js';
 import { activateMatchHold, createBookingFromHold, findPlayerScheduleConflicts, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
@@ -16,10 +17,23 @@ bookingRouter.post('/internal/bookings/references', requireInternalService, h(as
   }).strict().refine((body) => (body.bookingIds?.length ?? 0) + (body.businessCodes?.length ?? 0) > 0).parse(req.body);
   const rows = await prisma.booking.findMany({
     where: { OR: [{ id: { in: bookingIds } }, { businessCode: { in: businessCodes } }] },
-    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, court: { select: { venue: { select: { name: true } } } } },
+    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, court: { select: { name: true, venue: { select: { name: true } } } } },
   });
   // Presentation-only metadata for finance screens; never used to authorize money movement.
-  const references = rows.map(({ court, ...row }) => ({ ...row, venueName: court.venue.name }));
+  // Tên khách là phần phụ: account nhận tối đa 200 id/lần và có thể đang ngủ (Railway) —
+  // chia lô và chỉ chờ 1,5 giây để mã booking/tên sân vẫn về kịp giới hạn 3 giây của finance.
+  const names = new Map<string, string>();
+  const userIds = [...new Set(rows.flatMap((row) => row.userId ? [row.userId] : []))];
+  const client = new HttpAccountDisplayNameClient();
+  await Promise.race([
+    (async () => {
+      for (let offset = 0; offset < userIds.length; offset += 200) {
+        for (const profile of await client.getPublicDisplayNames(userIds.slice(offset, offset + 200))) if (profile.displayName) names.set(profile.userId, profile.displayName);
+      }
+    })().catch(() => undefined),
+    new Promise((resolve) => setTimeout(resolve, 1500)),
+  ]);
+  const references = rows.map(({ court, ...row }) => ({ ...row, venueName: court.venue.name, courtName: court.name, customerName: row.userId ? names.get(row.userId) ?? null : row.guestName }));
   res.json({ references });
 }));
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
