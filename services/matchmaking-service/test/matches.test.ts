@@ -936,7 +936,14 @@ describe('Competitive matches v2 — create from hold or paid booking, choose a 
     const token = `Bearer ${playerToken(organizerUserId)}`;
     const foreign = paidBooking(randomUUID());
     expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: foreign, ...body }).expect(422)).body.error.code).toBe('MATCH_BOOKING_NOT_OWNED');
+    // DB local có thể đang có kỳ xếp hạng; chọn sẵn khu vực để chỉ kiểm tra lỗi sân thiếu tỉnh.
+    const season = await prisma.season.findFirst({ where: { closedAt: null, startAt: { lte: new Date() }, endAt: { gt: new Date() } } });
+    if (season) await prisma.playerSeasonProfile.create({ data: { seasonId: season.id, userId: organizerUserId, provinceCode: 'ho-chi-minh', lockedAt: new Date() } });
     const noProvince = paidBooking(organizerUserId, { provinceCode: null });
+    // Kèo xếp hạng cần Passport của loại hình trước mọi kiểm tra khác về sân.
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: noProvince, ...body, mode: 'ranked' }).expect(409)).body.error.code).toBe('PASSPORT_REQUIRED');
+    passportUserIds.push(organizerUserId);
+    await prisma.passport.create({ data: { userId: organizerUserId, discipline: body.discipline, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 350, ratingSigma: 0.06, declaredAt: new Date() } });
     expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: noProvince, ...body, mode: 'ranked' }).expect(422)).body.error.code).toBe('MATCH_PROVINCE_REQUIRED');
     const short = paidBooking(organizerUserId);
     expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: short, ...body, format: 'bo5' }).expect(422)).body.error.code).toBe('MATCH_FORMAT_NOT_ALLOWED');

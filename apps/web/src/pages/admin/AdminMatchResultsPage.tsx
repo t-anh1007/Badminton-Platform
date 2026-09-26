@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AsyncButton, Badge, Button, Pagination, SurfaceCard, TextArea } from '../../components/ui';
+import { AsyncButton, Badge, Button, Pagination, SelectInput, SurfaceCard, TextArea } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
 import { RESULT_STATUS_LABELS } from '../../components/MatchResultFlow';
 import { CaseStatements, CaseSummary, OutcomeChoice, outcomeText, queueTitle } from '../../components/ResultCaseReview';
@@ -13,6 +13,8 @@ import {
 /** Màn 10: Admin quyết định cuối qua hai bước - xem trước tác động rồi xác nhận đúng bản xem trước. */
 export function AdminMatchResultsPage() {
   const [page, setPage] = useState(1);
+  // Mặc định hồ sơ cần quyết định; "Đã có kết quả" chỉ để xem lại.
+  const [status, setStatus] = useState<'admin_review' | 'final'>('admin_review');
   const [queue, setQueue] = useState<{ items: ReviewQueueItem[]; total: number; pageSize: number } | null>(null);
   const [queueError, setQueueError] = useState('');
   // Hồ sơ đang xem nằm trên URL (?caseId=) để link thông báo mở đúng hồ sơ, kể cả khi nằm ngoài trang hàng chờ hiện tại.
@@ -27,8 +29,8 @@ export function AdminMatchResultsPage() {
   });
 
   useEffect(() => {
-    listAdminResultCases(page).then(setQueue, (cause) => setQueueError(cause instanceof Error ? cause.message : 'Không thể tải hồ sơ.'));
-  }, [page, version]);
+    listAdminResultCases(page, status).then(setQueue, (cause) => setQueueError(cause instanceof Error ? cause.message : 'Không thể tải hồ sơ.'));
+  }, [page, version, status]);
 
   return (
     <>
@@ -37,12 +39,16 @@ export function AdminMatchResultsPage() {
       <div className="mt-5 grid gap-5 2xl:grid-cols-[260px_minmax(0,1fr)]">
         <SurfaceCard className="h-fit">
           <div className="flex items-center justify-between">
-            <h3 className="text-h3">Cần quyết định</h3>
-            {queue && <Badge tone={queue.total ? 'warning' : 'neutral'}>{queue.total}</Badge>}
+            <h3 className="text-h3">{status === 'admin_review' ? 'Cần quyết định' : 'Đã có kết quả'}</h3>
+            {queue && <Badge tone={queue.total && status === 'admin_review' ? 'warning' : 'neutral'}>{queue.total}</Badge>}
           </div>
+          <SelectInput aria-label="Trạng thái hồ sơ" className="mt-3" value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }}>
+            <option value="admin_review">Cần quyết định</option>
+            <option value="final">Đã có kết quả</option>
+          </SelectInput>
           {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
             : !queue ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p>
-            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">Không có hồ sơ chờ Admin quyết định.</p>
+            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'admin_review' ? 'Không có hồ sơ chờ Admin quyết định.' : 'Chưa có hồ sơ nào đã có kết quả.'}</p>
             : (
               <ul className="mt-3 space-y-2">
                 {queue.items.map((item) => (
@@ -159,7 +165,7 @@ function AdminCase({ caseId, onDecided }: { caseId: string; onDecided: () => voi
                   {preview.rows.map((row) => (
                     <div key={row.userId} className="flex justify-between gap-3 py-2">
                       <dt>{row.displayName} nhận lại</dt>
-                      <dd className="text-right"><span className="text-figures font-bold">{formatMoneyVnd(row.amount)}</span> <Badge tone="success">Có thể rút</Badge></dd>
+                      <dd className="text-right"><span className="text-figures font-bold">{formatMoneyVnd(row.amount)}</span>{BigInt(row.amount) > 0n && <> <Badge tone="success">Có thể rút</Badge></>}</dd>
                     </div>
                   ))}
                   <div className="flex justify-between py-2"><dt>Điểm xếp hạng</dt><dd className="font-semibold">{preview.ratingEffect === 'apply_ranked_result' ? 'Cập nhật theo kết quả' : 'Không thay đổi'}</dd></div>

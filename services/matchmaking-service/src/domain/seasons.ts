@@ -1,4 +1,4 @@
-import type { Prisma, Season } from '@prisma/client';
+import type { MatchDiscipline, Prisma, Season } from '@prisma/client';
 import { AppError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { HIGH_UNCERTAINTY_RD } from './rating.js';
@@ -128,6 +128,15 @@ export async function selectSeasonRegion(userId: string, provinceCode: string, n
     }
     return tx.playerSeasonProfile.create({ data: { seasonId: season.id, userId, provinceCode, lockedAt: now } });
   });
+}
+
+/** Kèo xếp hạng chỉ tính điểm cho người đã khai trình độ loại hình đó, nên chặn tạo/tham gia khi chưa khai. */
+export async function assertRankedEligibility(db: Db, userId: string, discipline: MatchDiscipline, now = new Date()) {
+  if (!await db.passport.findUnique({ where: { userId_discipline: { userId, discipline } } })) {
+    const label = discipline === 'singles' ? 'đánh đơn' : 'đánh đôi';
+    throw new AppError(409, 'PASSPORT_REQUIRED', `Hãy khai trình độ ${label} trước khi chơi kèo xếp hạng ${label}.`);
+  }
+  await assertRankedSeasonRegion(db, userId, now);
 }
 
 /** Kèo xếp hạng cần khu vực của kỳ đang diễn ra; không có kỳ thì chưa áp yêu cầu, kèo giao hữu không bị chặn. */

@@ -89,4 +89,3 @@ export async function countPendingRatedWork(
     WHERE e.rated AND c.id IS NULL AND m."endAt" >= ${window.from} AND m."endAt" <= ${window.to} ${discipline}`;
   return unresolved + Number(rows[0]?.count ?? 0);
 }
-

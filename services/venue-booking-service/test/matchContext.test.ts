@@ -43,7 +43,8 @@ describe('matchmaking booking context contract', () => {
     await booking({ holdPurposeSnapshot: 'match', startAt: at(58), endAt: at(59) });
     await booking({ startAt: at(-3), endAt: at(-2) });
     const hold = await prisma.hold.create({ data: { courtId: court.id, userId: ownerId, startAt: at(72), endAt: at(73), expiresAt: at(0.2) } });
-    const outboxBefore = await prisma.outbox.count();
+    // Chỉ đếm outbox của nguồn trong test này; test file khác chạy song song cũng ghi outbox.
+    const since = new Date();
 
     const response = await request(app).get('/players/me/match-sources').set('Authorization', `Bearer ${signTestAccessToken(ownerId, ['player'])}`).expect(200);
 
@@ -57,7 +58,7 @@ describe('matchmaking booking context contract', () => {
       },
     ]);
     expect(await prisma.booking.findUniqueOrThrow({ where: { id: paid.id } })).toMatchObject({ status: 'confirmed' });
-    expect(await prisma.outbox.count()).toBe(outboxBefore);
+    expect(await prisma.outbox.count({ where: { createdAt: { gte: since }, aggregateId: { in: [...bookingIds, hold.id] } } })).toBe(0);
     await prisma.hold.delete({ where: { id: hold.id } });
   });
 
@@ -244,7 +245,7 @@ describe('matchmaking booking context contract', () => {
     providerIds.push(providerId);
     const court = await prisma.court.create({
       data: {
-        name: 'SÃ¢n D39',
+        name: 'Sân D39',
         venue: {
           create: {
             name: 'Venue D39', address: 'Q1', lat: 10, lng: 106,

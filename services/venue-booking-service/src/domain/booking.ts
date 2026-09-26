@@ -298,7 +298,7 @@ export async function resolveMatchBooking(command: MatchBookingResolutionCommand
       where: { id: command.bookingId },
       include: { court: { include: { venue: { include: { provider: true } } } } },
     });
-    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y booking.', 404);
+    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
 
     let decision: MatchBookingResolutionPayload['decision'];
     let venueRevision = booking.matchSettlementRevision;
@@ -501,7 +501,7 @@ export async function listMyMatchSources(userId: string) {
   });
   const sources = [
     ...await Promise.all(holds.map(async (hold) => ({
-      sourceType: 'hold' as const, holdId: hold.id, bookingStatus: 'held' as const,
+      sourceType: 'hold' as const, holdId: hold.id, bookingStatus: 'held' as const, holdExpiresAt: hold.expiresAt.toISOString(),
       price: (await calculateBookingPrice(hold.courtId, hold.startAt, hold.endAt)).toString(),
       startAt: hold.startAt.toISOString(), endAt: hold.endAt.toISOString(), ...place(hold.court),
     }))),

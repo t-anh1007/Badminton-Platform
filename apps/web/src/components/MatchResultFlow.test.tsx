@@ -171,3 +171,16 @@ it('keeps asking the server after the deadline until the status moves', async ()
     vi.useRealTimers()
   }
 })
+
+it('keeps the counter-claim form closed while a provisional result awaits the viewer response', async () => {
+  vi.mocked(getResultCase).mockResolvedValue(resultCase({
+    status: 'provisional', declarationDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(), objectionDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(),
+    provisional: { claimant: person('u1', 'Minh Anh'), sets: [{ teamA: 21, teamB: 15 }, { teamA: 21, teamB: 18 }], outcome: 'TEAM_A_WIN', evidence: [] },
+    viewerActions: { canClaim: true, canConfirm: true, canObject: true, canReportIncident: false },
+  }))
+  render(<MatchResultFlow matchId="m1" />)
+  expect(await screen.findByRole('button', { name: 'Gửi phản hồi' })).toBeInTheDocument()
+  expect(screen.queryByText('Nhập tỷ số chính thức')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Tôi có tỷ số khác - khai báo' }))
+  expect(screen.getByText('Nhập tỷ số chính thức')).toBeInTheDocument()
+})

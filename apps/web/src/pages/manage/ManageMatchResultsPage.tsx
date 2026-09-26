@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AsyncButton, Badge, Pagination, SurfaceCard, TextArea } from '../../components/ui';
+import { AsyncButton, Badge, Pagination, SelectInput, SurfaceCard, TextArea } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
 import { RESULT_STATUS_LABELS, useServerCountdown } from '../../components/MatchResultFlow';
 import { CaseStatements, CaseSummary, OutcomeChoice, queueTitle } from '../../components/ResultCaseReview';
@@ -13,6 +13,8 @@ import {
 /** Màn 09: chủ sân gửi đề xuất không ràng buộc; kết quả cuối luôn do Admin quyết định. */
 export function ManageMatchResultsPage() {
   const [page, setPage] = useState(1);
+  // Mặc định hồ sơ đang chờ chủ sân; các lựa chọn khác chỉ để xem lại hồ sơ đã gửi đề xuất.
+  const [status, setStatus] = useState<'provider_review' | 'admin_review' | 'final'>('provider_review');
   const [queue, setQueue] = useState<{ items: ReviewQueueItem[]; total: number; pageSize: number } | null>(null);
   const [queueError, setQueueError] = useState('');
   // Hồ sơ đang xem nằm trên URL (?caseId=) để link thông báo mở đúng hồ sơ, kể cả khi nằm ngoài trang hàng chờ hiện tại.
@@ -25,8 +27,8 @@ export function ManageMatchResultsPage() {
   });
 
   useEffect(() => {
-    listProviderResultCases(page).then(setQueue, (cause) => setQueueError(cause instanceof Error ? cause.message : 'Không thể tải hồ sơ.'));
-  }, [page]);
+    listProviderResultCases(page, status).then(setQueue, (cause) => setQueueError(cause instanceof Error ? cause.message : 'Không thể tải hồ sơ.'));
+  }, [page, status]);
 
   return (
     <div>
@@ -36,11 +38,16 @@ export function ManageMatchResultsPage() {
         <SurfaceCard className="h-fit">
           <div className="flex items-center justify-between">
             <h3 className="text-h3">Hàng chờ</h3>
-            {queue && <Badge tone={queue.total ? 'warning' : 'neutral'}>{queue.total} hồ sơ</Badge>}
+            {queue && <Badge tone={queue.total && status === 'provider_review' ? 'warning' : 'neutral'}>{queue.total} hồ sơ</Badge>}
           </div>
+          <SelectInput aria-label="Trạng thái hồ sơ" className="mt-3" value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }}>
+            <option value="provider_review">Chờ chủ sân đề xuất</option>
+            <option value="admin_review">Đã đề xuất - chờ Admin quyết định</option>
+            <option value="final">Đã có kết quả</option>
+          </SelectInput>
           {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
             : !queue ? <p className="mt-3 text-sm text-ink-500">Đang tải hàng chờ…</p>
-            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">Không có hồ sơ nào cần chủ sân xem xét.</p>
+            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'provider_review' ? 'Không có hồ sơ nào cần chủ sân xem xét.' : 'Không có hồ sơ nào ở trạng thái này.'}</p>
             : (
               <ul className="mt-3 space-y-2">
                 {queue.items.map((item) => (

@@ -1519,13 +1519,14 @@ Bank-information deadline notices use `reward.view` only for public program upda
 
 **Goal:** Prove the complete flow, record evidence, and move this plan to completed only after all required checks pass.
 
-**Owner:** Independent reviewer (Codex) only. Claude stops after gate G5 and does not run Task 26 unless the PO reassigns it.
+**Owner:** Claude (PO reassigned 2026-09-26 after gate G5 checkpoint `32eca4c`). The PO keeps the final external review; Claude still must not self-accept the plan or move it to completed without PO approval.
 
 **Rules/AC:** AC-CM-01..35; repository completion standard.
 
 **Files:**
 
 - Create or modify: `e2e/competitive-matches.spec.ts`
+- Fix or add as needed from the product review below: files under `apps/web/src/`, `services/*/src/` with their tests
 - Modify during execution: `docs/plans/active/2026-09-25-competitive-matches.md`
 - Move after success: `docs/plans/completed/2026-09-25-competitive-matches.md`
 - Update only after executable proof: `docs/product/phase-2-progress.md`
@@ -1540,7 +1541,30 @@ Bank-information deadline notices use `reward.view` only for public program upda
 4. No declaration -> 12h incident window -> silence -> NO_RESULT -> 50:50 net allocation -> no rating.
 5. Ranked result -> singles/doubles independent rating -> anti-repeat exclusion -> leaderboard eligibility/band.
 6. Reward program -> tie split -> seven-day bank deadline -> Admin proof/transaction -> paid notification.
+7. Evidence via UI (1-3 images, max 5 per user/case) -> outsider signed read rejected -> public match/leaderboard/program
+   APIs return no contribution, refund, bank data or evidence (AC-CM-32, 33, 35).
+8. Doubles: one loser confirms -> teammate gets 60 minutes; no-show before startAt+15m rejected, confirmed doubles
+   no-show makes the whole team lose (AC-CM-15, 17).
+9. Two claims with the same winner but different scores -> no dispute; different winners -> dispute (AC-CM-14).
+10. Booking cancelled before a result -> result reserve refunded in full, booking share split 50:50 by policy (AC-CM-10).
+11. Payment received after the match layer closed -> does not fund the match, credits the payer available+withdrawable
+    exactly once (AC-CM-08).
+12. Winner misses the seven-day bank-information deadline -> award cancelled, not reallocated to the next rank (AC-CM-30).
+13. Admin review passes 48 hours -> overdue flag and reminders only, no automatic settlement (AC-CM-19).
+14. Self-declaration once per discipline -> new season keeps rating but resets season counters and eligibility
+    (AC-CM-26, 27).
 ```
+
+AC-CM-12, 25, 31 and 34 are single-service rules (score validator, RD aging, badges, 90-day binary retention) and stay covered by service tests, not E2E.
+
+**How the E2E spec runs (binding):**
+
+- Drive user-facing steps through the Web UI (create match, pick team, pay, declare, respond, report incident, provider/Admin review, payout information, Admin proof); assert money, ledger and state through read-only queries on the local databases, following the existing `e2e/phase-2.spec.ts` pattern (per-service Prisma clients, signed dev tokens, `setSession`).
+- Payments: use seeded wallet balances with the existing pay-from-balance flow, or a locally HMAC-signed SePay webhook built from the local secret; never call real payment endpoints.
+- Time: move deadline/cutoff timestamps in the local database for the case under test, then wait for the running scheduler (1-minute sweeps) or call the exported sweep with an explicit `now`; never wait real hours.
+- Isolation: unique IDs per run; clean up in `afterAll`, deleting append-only result audit rows only through `purgeResultCases`.
+- Environment: backend from the `backend-no-email` launch configuration, private object storage pointed at local MinIO through process environment only.
+- Every scenario also asserts that the expected in-app notifications exist and that their links open the right screen.
 
 **Root verification commands (run in order after validation approval):**
 
@@ -1566,6 +1590,24 @@ npm test --workspace @khoaluantn/community-service
 npm run e2e -- e2e/competitive-matches.spec.ts
 ```
 
+**Runtime safety for E2E and manual review (PO decision 2026-09-26, option a):**
+
+- Run the backend with the `backend-no-email` launch configuration (blank Gmail/SMTP variables) so required notifications go to the console stub; never send email to seeded or test addresses.
+- Point private object storage for the E2E/runtime process at the local MinIO container through process environment only; do not edit `.env` and do not read, write or reconfigure the real R2 buckets.
+- Seed data only in the local database; delete one-off seed scripts from `ai-notes/` when the task closes.
+
+**Desktop product review (all 14 approved screens, agent-browser, 1440 px):**
+
+The mockups are a visual reference, not a complete specification. For every screen and every reachable state (empty, loading, error, each business status, own vs other role), check and record:
+
+1. Visual parity with the approved mockup: layout, hierarchy, no horizontal overflow, controls fit at zoom 100%.
+2. Functional completeness: every action the user needs at that step exists, is reachable, and matches the spec/business rules (not only what the mockup drew). Missing actions, dead ends, missing confirmations, missing empty/error states and missing navigation links count as findings.
+3. Correct behaviour against the real local stack: actions succeed or fail with the backend's rule, state and money figures update from the server, countdowns/deadlines move the case forward, notifications arrive with a working link.
+4. Business wording: Vietnamese, plain, no technical terms, raw enums, IDs, event names, ledger or object keys; labels, errors and helper text tell the user what happens and what to do next.
+5. Accessibility basics: visible labels, keyboard reachable controls, disabled states explained.
+
+Classify each finding as fix-now (clear bug, wording, missing state or missing link within the approved business rules), which Claude fixes with a test, or PO decision (new money, permission, status or cross-service rule, or anything the spec does not settle), which Claude lists with 2-4 options marked `(Khuyến nghị)` and does not implement until the PO chooses. Record the review table (screen, state, finding, class, fix or decision) under Progress.
+
 For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --workspace @khoaluantn/web` in separate retained terminals. Require HTTP 200 from `http://localhost:3000/health` through `http://localhost:3005/health` and load `http://localhost:5173` before Playwright/manual review. Do not inspect or restart Docker when the PO says infrastructure is already running.
 
 - [ ] Run `git diff --check` and inspect every changed file for unrelated edits.
@@ -1574,7 +1616,8 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - [ ] Run `npm run typecheck`, then `npm run build`. Expected: all workspaces pass.
 - [ ] Run these sequentially: `npm test --workspace @khoaluantn/account-service`, `npm test --workspace @khoaluantn/venue-booking-service`, `npm test --workspace @khoaluantn/finance-service`, `npm test --workspace @khoaluantn/matchmaking-service`, and `npm test --workspace @khoaluantn/community-service`. Expected: all pass or every unrelated pre-existing failure is captured with exact evidence and no weakened guard.
 - [ ] Start the existing local stack only after PO validation approval; probe gateway/services/web health.
-- [ ] Run `npm run e2e -- e2e/competitive-matches.spec.ts` plus manual desktop review of all approved mockup states.
+- [ ] Write `e2e/competitive-matches.spec.ts` covering the fourteen required scenarios, then run `npm run e2e -- e2e/competitive-matches.spec.ts` against the local stack with no-email and local MinIO. Expected: all scenarios pass.
+- [ ] Run the desktop product review above for all 14 screens with agent-browser; fix every fix-now finding with a focused test, re-verify it in the browser, and bring PO-decision findings to the PO with options.
 - [ ] Query Finance test data to prove paid booking has one `BookingRevenue`, one commission, no second booking settlement, one owner rebalance, and one result-release set.
 - [ ] Verify private object bytes survive service restart and unauthorized signed-read requests fail.
 - [ ] Record commands/results in this plan's Progress/Validation sections and move it to completed only when no required work remains.
@@ -1596,8 +1639,8 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - [x] Current code mapped to existing service boundaries.
 - [x] All 14 companion desktop mockups approved by the PO on 2026-09-25.
 - [x] Task 1 durable `desktop-preview.html` synchronized from those approved companions and checked at browser zoom 100%.
-- [ ] Tasks 2–25 implemented and focused-verified.
-- [ ] Task 26 repository/runtime verification complete.
+- [x] Tasks 2–25 implemented and focused-verified (gates G1-G5, local checkpoints 7370011, 2c5ab45, 7567714, ba9b1f9, 32eca4c).
+- [ ] Task 26 repository/runtime verification complete. Done: E2E spec with 14 scenarios, service suites, desktop product review of 14 screens with fixes, PO decisions Q1-Q3, Finance reconciliation (#11), private object checks (#12). Pending: root `npm run build` before the checkpoint commit, and PO acceptance before moving this plan to completed.
 
 ## Decisions
 
@@ -1659,6 +1702,7 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - T25: Screens 09/10 share components/ResultCaseReview (summary, statements with signed evidence reads via the existing player read route, three-outcome radio group). Outcome labels always carry the team (`... thắng (Đội A)`) because anonymous players all display as `Người chơi` and two identical options were observed in browser verification. Admin decision: the confirm button is enabled only while the loaded preview matches the current outcome, trimmed reason and case version and the review checkbox is ticked; any change clears the preview, and a failed confirm (for example RESULT_CASE_VERSION_CONFLICT) reloads the case and forces a new preview. The Admin queue sits above the detail below 2xl so the detail keeps two columns at 1440 px inside the 220 px Admin navigation. Seasons and reward programs take native dates as Vietnam calendar days: start = 00:00 +07:00, end = 00:00 +07:00 of the day after the chosen last day. Season activity treats endAt as exclusive (startAt <= now < endAt). Reward programs count a match when startAt <= Match.endAt <= program.endAt, so a 23:00-24:00 slot on the chosen last day (ending exactly at the next 00:00) is included, while the earliest next-day match ends at 01:00 and is excluded; Codex G5 finding 9 was reviewed and needs no code change. Program creation creates then publishes behind one confirmation dialog; cancelling a running program (active, or scheduled with a start in the past) requires a reason, matching the backend rule. Approve-final opens the stored award list (ties shown as separate rows with the same rank) before the approve call. Payout proof uses the extended ImageUploadPicker (1 file, 5 MB, checksum) and mark-paid needs the reconciliation checkbox plus a second confirmation dialog showing receiver and amount. The payout list shows no receiver/bank fields; they appear only in the detail view. PO-approved contract change (2026-09-26, option a): GET /rewards/admin/payouts now returns `adminPayoutListItem` (player view fields + overdue) without receiver, proof, paidByUserId or userId; GET /rewards/admin/payouts/:id and mark-paid keep the full admin view. Provider navigation gained `Hồ sơ kèo`; Admin navigation gained `Tranh chấp kèo`, `Kỳ xếp hạng`, `Chương trình thưởng`. Removed the legacy `holds`/`bookings` fields of GET /players/me/match-sources (web now reads only `sources`; the held-booking-only legacy test was deleted). Browser verification (agent-browser, full local stack, desktop 1440 px, local dev staff user with admin+provider roles and a Redis-backed session created directly in the local DB): screens 09, 10 (preview loaded, confirm enabled only after the check), 11 (backend SEASON_OVERLAP message shown), 12 and 14, no horizontal overflow. The final Admin confirm and mark-paid were not executed live because they emit notifications with required email; both are covered by component tests.
 - G5 Codex review fixes (PO chose option a, 2026-09-26): (1) MatchDetailPage passes the chosen team explicitly through the schedule-conflict check and its continue path (the old code read a stale `joinSide` state and could send B for A). (2) account-service keeps one fast RabbitMQ redelivery and adds `retryPendingRequiredEmails`, run every 5 minutes: rows that were attempted (emailLastAttemptAt) but not sent are retried after >= 5 minutes, for at most 7 days. (3) Spec §11 producers added: first claim (`match.result.provisional`, roster), partial doubles confirm (`match.result.confirmed_partial`), declaration expiry into the incident window (`match.result.incident_window`), and one-time reminders 2 hours before the declaration deadline (roster) and the response deadline (losing side) via `sweepResultReminders`, deduplicated by new MatchResultCase columns declarationReminderAt/responseReminderAt (migration 20260926140000_result_deadline_reminders). (4) MatchResultFlow refetches on realtime notifications (useLiveDataRefresh) and, once a deadline has passed, keeps refetching every 30 seconds until the server returns a new deadline/status. (5) Provider/Admin review pages keep the selected case in `?caseId=`, so notification links open that case even outside the current queue page. (6) Players can add supplementary evidence (POST /matches/:matchId/result-evidence) while the case is provisional, in the incident window or under provider/Admin review. (7) Claim, objection, incident and supplement submits stay disabled while any chosen image is still uploading or failed. (8) Own Passport returns `leaderboardBand` computed from the unrounded rating like the leaderboard query; web no longer derives the band from the rounded display rating. (9) See the program boundary note above; no code change. (10) Match history returns `mode`; unrated ranked matches show `Kèo xếp hạng - không tính điểm`.
 - Local email safety (2026-09-26): the seeded overdue Admin case triggered `match.result.admin_overdue` to every local admin (about 100 leftover test admins with example.com addresses) through the real email provider configured in `.env`. Seeded cases were muted, and `.claude/launch.json` gained `backend-no-email`, which blanks Gmail/SMTP variables for the dev process (dotenv does not override existing variables) so emails go to the console stub during local UI verification. `.env` was not changed.
+- T26 product review decisions (PO chose option a for Q1-Q3, 2026-09-26): (Q1) Reloading or leaving the page no longer cancels an unpaid match or releases an unpaid join. `useCheckoutAbandonment` is removed from MatchDetailPage and from the match checkout on BookingPage (a plain booking checkout still releases its hold on leave). Expiry is handled by the existing sweeps: `cancelExpiredDepositMatches` (12 minutes) and `releaseExpiredApprovedJoins` (10 minutes). The explicit `Thoát và nhả chỗ` and `Hủy kèo` actions stay. The unused keepalive helpers `abandonMatch`/`abandonMatchJoin` were deleted. (Q2) Ranked create, ranked join and quick-match join require a Passport for the match discipline: `assertRankedEligibility` returns 409 `PASSPORT_REQUIRED` before the season-region check, and this check applies even when no season is active. The create panel (ranked mode) and the ranked match detail (for a player who can still join) load `GET /passports/me`. When the Passport is missing, they show a warning that links to `/passport` and block the submit on the client. If that load fails, no warning is shown and the backend still blocks. Tests that create ranked matches now declare Passports first (matchmaking matches/seasons, finance matchFee.e2e, e2e scenario 4, which also asserts the refusal). (Q3) Provider and Admin result queues gained a status filter.
 
 ## Validation
 
@@ -1666,6 +1710,21 @@ For runtime QA, launch backend with `npm run dev` and Web with `npm run dev --wo
 - Integration proof: Existing Matchmaking/Finance/Venue chain tests plus `e2e/competitive-matches.spec.ts`.
 - Runtime proof: health probes, desktop Playwright flow, finance ledger/revenue queries, object-storage restart/read authorization.
 - Repository checks: Prisma validate/generate, workspace typecheck, build, full service tests, `git diff --check`.
+
+Task 26 results (2026-09-26, local stack via `backend-no-email`, local MinIO, no production access):
+
+- E2E: `GMAIL_REFRESH_TOKEN= SMTP_HOST= npx dotenv -e .env -- npx playwright test e2e/competitive-matches.spec.ts --reporter=line` returned `14 passed (3.1m)` after the Q1/Q2 changes. The logged `venue-booking match resolution failed with 404` lines come from an unrelated leftover local friendly match from 2026-08-22 whose booking no longer exists; the cutoff sweep logs the error and continues.
+- Service suites (run earlier in Task 26): account 56/57 (the pre-existing `adminAccounts` businessCode failure), venue 164/164, finance 135/135, matchmaking 176/176, community 28/28. After Q2: matchmaking `matches` + `seasons` 43/43, and finance `matchFee.e2e` (`RUN_P2_FIN_E2E=1`) 4/4.
+- Web: the full suite ran earlier at 205/206; the only failure is the baseline `managePages` test. After Q1/Q2: MatchDetailPage.competitive, MatchListPage.sources, matchCommunitySupportSurfaces and BookingPage.selection passed 35/35. `tsc -b apps/web services/matchmaking-service services/finance-service` reported no errors.
+- #11 Finance reconciliation (e2e scenario 2, paid booking, doubles 6:4, disputed, Admin final):
+  - BookingRevenue count is 1 and unchanged;
+  - the booking has exactly 1 commission entry;
+  - the ledger entries for the booking are identical before match creation and after the final result;
+  - the match has no `PaymentCompleted`/`matchSettlement` rows;
+  - there are exactly 2 `matchOwnerRebalance` entries (one transfer);
+  - exactly one result-release set: 4 `matchResult` entries under the decision id, 40,000đ paid to the winners;
+  - replaying `MatchResultFinalized` with a new event id adds no entries and leaves every withdrawable balance unchanged.
+- #12 Private objects: an object was uploaded to the private MinIO bucket (`match/results`, signed checksum) and the backend was restarted. After the restart the signed read returned 200 with identical bytes, the unsigned URL returned 403, and a tampered signature returned 403. The test object was then deleted. Route-level authorization is covered by e2e scenario 7 (outsider read 403, participant read 200).
 
 ## Result
 

@@ -1,13 +1,13 @@
 import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import { abandonMatch, abandonMatchJoin, cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
+import { cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
 import { MatchResultFlow } from '../components/MatchResultFlow.js';
+import { getOwnPassport, type OwnPassport } from '../lib/passportApi';
 import { LockBanner, LockedConfig, MatchProgress, MoneyStatus, TeamRoster, disciplineLabel, modeLabel } from '../components/MatchCompetitiveSections.js';
-import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js';
 import {
   createMatchOrganizerContributionSepayIntent,
   createMatchJoinSepayIntent,
@@ -48,17 +48,13 @@ export function MatchDetailPage() {
   } | null>(null);
   const [now, setNow] = useState(Date.now());
   const expiredApprovalReloaded = useRef<string | null>(null);
-  const paymentCompleted = useRef(false);
-
-  const pendingOrganizerDeposit = Boolean(detail?.actions.isOrganizer && detail.actions.canPayOrganizerContribution);
-  const pendingParticipantPayment = detail?.actions.ownJoin?.status === 'approved';
-  useCheckoutAbandonment(
-    pendingOrganizerDeposit
-      ? () => paymentCompleted.current ? Promise.resolve() : abandonMatch(detail!.id)
-      : pendingParticipantPayment
-        ? () => paymentCompleted.current ? Promise.resolve() : abandonMatchJoin(detail!.id, detail!.actions.ownJoin!.id)
-        : null,
-  );
+  const [passport, setPassport] = useState<OwnPassport | null>(null);
+  // Chỉ người có thể vào kèo xếp hạng mới cần biết đã khai trình độ chưa; lỗi tải thì để backend chặn.
+  const mayJoinRanked = detail?.mode === 'ranked' && detail.actions.canJoin && !detail.actions.isOrganizer && !detail.actions.ownJoin;
+  useEffect(() => {
+    if (!mayJoinRanked || !window.localStorage.getItem('accessToken')) return;
+    void getOwnPassport().then(setPassport).catch(() => undefined);
+  }, [mayJoinRanked]);
 
   const load = async (showPageLoader = false) => {
     if (!id) return;
@@ -122,7 +118,6 @@ export function MatchDetailPage() {
           ? next.actions.ownJoin?.status === 'confirmed'
           : next.status === 'confirmed' && !next.actions.canPayOrganizerContribution;
         if (completed) {
-          paymentCompleted.current = true;
           setDetail(next);
           setSepay(null);
           setNotice('Đã xác nhận thanh toán SePay.');
@@ -173,7 +168,6 @@ export function MatchDetailPage() {
     }
     setSepay(null);
     if (sepay?.purpose === 'organizer' && detail?.actions.canPayOrganizerContribution) {
-      paymentCompleted.current = true;
       void mutate(
         () => cancelMatch(detail.id),
         'Đã thoát thanh toán và hủy lượt giữ sân.',
@@ -187,7 +181,6 @@ export function MatchDetailPage() {
     try {
       if (paymentMethod === 'balance') {
         await payMatchJoinBalance(detail.id, join.id);
-        paymentCompleted.current = true;
         setPaymentOptionsOpen(false);
         setNotice('Đã thanh toán phí tham gia bằng số dư.');
         await load();
@@ -205,15 +198,14 @@ export function MatchDetailPage() {
     try {
       if (paymentMethod === 'balance') {
         await payMatchOrganizerContributionBalance(detail.id);
-        paymentCompleted.current = true;
-        setNotice('Đã thanh toán phần organizer bằng số dư.');
+        setNotice('Đã thanh toán phần của chủ kèo bằng số dư.');
         await load();
       } else {
         const intent = await createMatchOrganizerContributionSepayIntent(detail.id);
         setSepay({ ...intent, purpose: 'organizer' });
       }
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'Thanh toán phần organizer chưa thành công.');
+      setNotice(cause instanceof Error ? cause.message : 'Thanh toán phần của chủ kèo chưa thành công.');
     }
   };
 
@@ -237,9 +229,15 @@ export function MatchDetailPage() {
     }
     void mutate(() => requestMatchJoin(detail.id, side), `Đã giữ chỗ ở đội ${side} trong 10 phút. Hãy thanh toán để xác nhận chỗ trước hạn chốt kèo.`);
   };
+  const rankedDisciplineName = detail.discipline === 'doubles' ? 'đánh đôi' : 'đánh đơn';
+  const needsDeclaration = Boolean(mayJoinRanked && passport && detail.discipline && passport[detail.discipline] === null);
   const checkScheduleBefore = async (action: 'join' | 'payment', side: TeamSide = 'B') => {
     if (!window.localStorage.getItem('accessToken')) {
       navigate('/auth');
+      return;
+    }
+    if (action === 'join' && needsDeclaration) {
+      setNotice(`Hãy khai trình độ ${rankedDisciplineName} trước khi tham gia kèo xếp hạng ${rankedDisciplineName}.`);
       return;
     }
     try {
@@ -284,6 +282,12 @@ export function MatchDetailPage() {
           <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
             <div className="space-y-5">
               {lockPending && <LockBanner detail={detail} />}
+              {needsDeclaration && (
+                <p className="rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-sm text-ink-700">
+                  Kèo xếp hạng chỉ tính điểm cho người đã khai trình độ. Bạn chưa khai trình độ {rankedDisciplineName}.{' '}
+                  <Link to="/passport" className="font-semibold text-brand-navy underline">Khai trình độ ngay</Link>
+                </p>
+              )}
               <LockedConfig detail={detail} />
               <TeamRoster detail={detail} onJoin={(side) => void checkScheduleBefore('join', side)} />
             </div>
@@ -359,7 +363,7 @@ export function MatchDetailPage() {
                 ? 'Chủ kèo đang chờ đặt cọc để mở kèo tìm đối.'
                 : detail.confirmedParticipants === 0
                   ? 'Chủ kèo đang chờ người chơi phù hợp tham gia.'
-                  : 'Organizer và người chơi đã xác nhận. Ảnh đại diện hiển thị theo thiết lập hồ sơ của từng người.'}
+                  : 'Chủ kèo và người chơi đã xác nhận. Ảnh đại diện hiển thị theo thiết lập hồ sơ của từng người.'}
             </p>
             <div className="mt-4 flex -space-x-2">
               <Avatar label={detail.organizer.displayName} src={detail.organizer.avatarUrl} alt={`Ảnh đại diện ${detail.organizer.displayName}`} className="h-10 w-10 border-2 border-surface" />
@@ -389,16 +393,20 @@ export function MatchDetailPage() {
           <div>
             {detail.actions.isOrganizer ? (
               <>
-                <p className="font-semibold">{competitive ? 'Bạn là chủ kèo' : 'Bạn là organizer'}</p>
+                <p className="font-semibold">Bạn là chủ kèo</p>
                 <p className="text-sm text-ink-500">
                   {detail.actions.canPayOrganizerContribution
-                    ? 'Đặt cọc (1/2 giá sân) để chốt sân và mở kèo tìm đối. Cọc hoàn vào ví nếu không tìm được đối.'
+                    ? competitive
+                      ? 'Đóng phần góp của bạn để mở kèo tìm người chơi. Nếu kèo không đủ người tới hạn chốt kèo, phần góp được hoàn vào ví.'
+                      : 'Đặt cọc (1/2 giá sân) để chốt sân và mở kèo tìm đối. Cọc hoàn vào ví nếu không tìm được đối.'
                     : detail.status === 'awaiting_deposit'
                       ? 'Đang chờ xác nhận cọc; kèo sẽ mở tìm đối ngay sau khi cọc về.'
                       : detail.status === 'filled'
                         ? 'Đối đã đóng đủ; hệ thống đang xác nhận sân.'
-                        : detail.status === 'confirmed'
-                          ? 'Kèo và booking sân đã được xác nhận.'
+                        : detail.status === 'confirmed' || detail.status === 'completed'
+                          ? competitive
+                            ? 'Kèo đã chốt nên không thể hủy. Nếu có vấn đề, hãy báo sự cố trong phần kết quả trận.'
+                            : 'Kèo và booking sân đã được xác nhận.'
                           : competitive ? 'Kèo đang mở tìm người chơi tới hạn chốt kèo; bạn có thể hủy trước hạn chốt.' : 'Kèo đang mở; người thanh toán trước sẽ có slot.'}
                 </p>
               </>
@@ -409,8 +417,8 @@ export function MatchDetailPage() {
               </>
             ) : join?.status === 'confirmed' ? (
               <>
-                <p className="font-semibold">{detail.status === 'confirmed' ? 'Kèo đã tham gia · Đã xác nhận' : 'Đã thanh toán · Chờ chốt kèo'}</p>
-                <p className="text-sm text-ink-500">{detail.status === 'confirmed' ? 'Booking sân đã xác nhận. Rút kèo tuân theo cutoff và trạng thái booking.' : 'Bạn có thể rút và nhận hoàn 100% trước hạn tìm đối; chỗ sẽ mở lại cho người khác.'}</p>
+                <p className="font-semibold">{lockPending ? 'Đã thanh toán · Chờ chốt kèo' : 'Đã tham gia · Kèo đã chốt'}</p>
+                <p className="text-sm text-ink-500">{lockPending ? 'Bạn có thể rút và nhận hoàn 100% trước hạn chốt kèo; chỗ sẽ mở lại cho người khác.' : 'Sau hạn chốt kèo không thể rút khỏi kèo. Nếu có vấn đề, hãy báo sự cố trong phần kết quả trận.'}</p>
               </>
             ) : (
               <>
@@ -425,7 +433,7 @@ export function MatchDetailPage() {
                 {detail.actions.canPayOrganizerContribution && (
                   <>
                     <SelectInput
-                      aria-label="Cách thanh toán phần organizer"
+                      aria-label="Cách thanh toán phần của chủ kèo"
                       className="w-auto"
                       value={paymentMethod}
                       onChange={(event) => setPaymentMethod(event.target.value as 'balance' | 'sepay')}
@@ -433,21 +441,26 @@ export function MatchDetailPage() {
                       <option value="balance">Số dư</option>
                       <option value="sepay">SePay</option>
                     </SelectInput>
-                    <Button onClick={() => void payOrganizer()}>Đặt cọc chốt sân</Button>
+                    <Button onClick={() => void payOrganizer()}>{competitive ? 'Đóng phần góp' : 'Đặt cọc chốt sân'}</Button>
                   </>
                 )}
-                <Button tone="danger" onClick={() => setConfirmAction('cancel')}>
-                  Hủy kèo
-                </Button>
+                {(detail.status === 'awaiting_deposit' || lockPending || !competitive) && (
+                  <Button tone="danger" onClick={() => setConfirmAction('cancel')}>
+                    Hủy kèo
+                  </Button>
+                )}
               </>
             ) : join?.status === 'approved' ? (
               <Button disabled={remaining <= 0} onClick={() => void checkScheduleBefore('payment')}>
                 Thanh toán phần còn lại
               </Button>
             ) : join ? (
-              <Button tone="secondary" onClick={() => setConfirmAction('withdraw')}>
-                {join.status === 'pending' ? 'Rút yêu cầu' : 'Rút khỏi kèo'}
-              </Button>
+              // Sau hạn chốt kèo roster bị khóa (BR-CM-07): không còn nút rút, vấn đề đi qua báo sự cố.
+              (join.status === 'pending' || lockPending || !competitive) && (
+                <Button tone="secondary" onClick={() => setConfirmAction('withdraw')}>
+                  {join.status === 'pending' ? 'Rút yêu cầu' : 'Rút khỏi kèo'}
+                </Button>
+              )
             ) : (
               <Button
                 disabled={isFull || (!detail.actions.canJoin && Boolean(window.localStorage.getItem('accessToken')))}
@@ -533,7 +546,7 @@ export function MatchDetailPage() {
       <Modal
         open={Boolean(sepay)}
         title={
-          sepay?.purpose === 'organizer' ? 'Thanh toán phần organizer qua SePay' : 'Thanh toán phí tham gia qua SePay'
+          sepay?.purpose === 'organizer' ? 'Thanh toán phần của chủ kèo qua SePay' : 'Thanh toán phí tham gia qua SePay'
         }
         onClose={leaveSepayCheckout}
       >

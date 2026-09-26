@@ -9,7 +9,7 @@ import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
 import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
 import { ScheduleConflictWarning } from '../components/ScheduleConflictWarning.js'
-import { abandonMatch, cancelMatch, createMatch, getMyScheduleConflicts, MATCH_MIN_LEAD_HOURS, MatchApiError, type ScheduleConflict } from '../lib/matchApi.js'
+import { cancelMatch, createMatch, getMyScheduleConflicts, MATCH_MIN_LEAD_HOURS, MatchApiError, type ScheduleConflict } from '../lib/matchApi.js'
 import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js'
 import { vietnamDateInput } from '../lib/formatters.js'
 import {
@@ -121,11 +121,10 @@ export function BookingPage() {
   const meetsMinDuration = !bookingRule || !selection || selection.durationMinutes >= bookingRule.minDurationMinutes
 
   useCheckoutAbandonment(
+    // Kèo chờ đóng phần góp không tự hủy khi rời trang: slot tự nhả khi hết hạn giữ.
     booking
       ? () => checkoutCompleted.current ? Promise.resolve() : abandonMyBooking(booking.id)
-      : matchCheckout
-        ? () => checkoutCompleted.current ? Promise.resolve() : abandonMatch(matchCheckout.matchId)
-        : null,
+      : null,
   )
 
   const clearFlow = () => {
@@ -427,7 +426,7 @@ export function BookingPage() {
               ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => attemptScheduleAction('booking')}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => attemptScheduleAction('match')}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho slot còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
-            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { checkoutCompleted.current = true; navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}
+            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>

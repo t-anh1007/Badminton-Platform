@@ -5,6 +5,7 @@ import { RouteState } from '../../components/RouteState.js';
 import { ImageUploadPicker, type UploadImageState } from '../../components/CommunityComposer.js';
 import { useServerCountdown } from '../../components/MatchResultFlow';
 import { uploadAuthorizedFile } from '../../lib/communityApi';
+import { BANKS } from '../RewardPages';
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js';
 import {
   authorizePayoutProof, getAdminRewardPayout, listAdminRewardPayouts, markRewardPayoutPaid,
@@ -104,7 +105,7 @@ function PayoutDetail({ payoutId }: { payoutId: string }) {
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể ghi nhận.'); setConfirming(false); } finally { setPending(false); }
   };
   const fields: Array<[string, string | null]> = [
-    ['Ngân hàng', receiver.bankCode], ['Số tài khoản', receiver.bankAccountNumber],
+    ['Ngân hàng', BANKS.find(([code]) => code === receiver.bankCode)?.[1] ?? receiver.bankCode], ['Số tài khoản', receiver.bankAccountNumber],
     ['Tên chủ tài khoản', receiver.bankAccountName], ['Địa chỉ liên hệ', receiver.address],
   ];
 
@@ -170,7 +171,7 @@ function PayoutDetail({ payoutId }: { payoutId: string }) {
         </SurfaceCard>
       </div>
       <Modal open={confirming} title="Xác nhận đã trả thưởng" onClose={() => setConfirming(false)}>
-        <p className="text-sm">Đã chuyển <strong>{formatMoneyVnd(payout.amount)}</strong> cho <strong>{receiver.recipientName}</strong> ({receiver.bankCode} - {receiver.bankAccountNumber}), mã giao dịch <strong>{reference.trim()}</strong>. Thao tác này không hoàn tác được.</p>
+        <p className="text-sm">Đã chuyển <strong>{formatMoneyVnd(payout.amount)}</strong> cho <strong>{receiver.recipientName}</strong> ({BANKS.find(([code]) => code === receiver.bankCode)?.[1] ?? receiver.bankCode} - {receiver.bankAccountNumber}), mã giao dịch <strong>{reference.trim()}</strong>. Thao tác này không hoàn tác được.</p>
         <div className="mt-5 flex justify-end gap-2">
           <Button tone="secondary" onClick={() => setConfirming(false)}>Quay lại</Button>
           <AsyncButton pending={pending} onClick={() => void markPaid()}>Xác nhận đã trả</AsyncButton>

@@ -105,7 +105,7 @@ export function LockedConfig({ detail }: { detail: MatchDetail }) {
   );
 }
 
-function PlayerCard({ participant, amount, paidBooking }: { participant: MatchParticipant; amount: string | null; paidBooking: boolean }) {
+function PlayerCard({ participant, amount, paidBooking, locked }: { participant: MatchParticipant; amount: string | null; paidBooking: boolean; locked: boolean }) {
   return (
     <div className="rounded-2xl border border-line p-3">
       <div className="flex items-center gap-3">
@@ -119,7 +119,7 @@ function PlayerCard({ participant, amount, paidBooking }: { participant: MatchPa
         <span className={participant.paymentState === 'paid' ? 'text-success' : 'text-warning'}>
           {participant.role === 'organizer' && paidBooking
             ? 'Dùng từ booking đã thanh toán - không trả thêm'
-            : participant.paymentState === 'paid' ? 'Đã đóng - có thể rút trước hạn chốt' : 'Đang giữ chỗ - chờ thanh toán'}
+            : participant.paymentState === 'paid' ? (locked ? 'Đã đóng - kèo đã chốt' : 'Đã đóng - có thể rút trước hạn chốt') : 'Đang giữ chỗ - chờ thanh toán'}
         </span>
         {amount && <span className="text-figures font-semibold">{formatMoneyVnd(amount)}</span>}
       </div>
@@ -133,6 +133,8 @@ export function TeamRoster({ detail, onJoin }: { detail: MatchDetail; onJoin: (s
   const amountOf = (participant: MatchParticipant) =>
     participant.role === 'organizer' ? funding?.organizerContribution ?? null : funding?.regularSlotAmount ?? null;
   const filled = detail.capacity - detail.openSlots;
+  // Sau hạn chốt kèo không còn rút được (BR-CM-07).
+  const locked = !['awaiting_deposit', 'open', 'filled'].includes(detail.status) || new Date(detail.cutoffAt).getTime() <= Date.now();
   return (
     <SurfaceCard>
       <div className="flex items-center justify-between gap-3">
@@ -147,7 +149,7 @@ export function TeamRoster({ detail, onJoin }: { detail: MatchDetail; onJoin: (s
           return (
             <section key={side} aria-label={`Đội ${side}`} className="space-y-3">
               <h3 className="text-sm font-bold text-ink-700">Đội {side}</h3>
-              {members.map((participant) => <PlayerCard key={participant.userId} participant={participant} amount={amountOf(participant)} paidBooking={detail.sourceType === 'paid_booking'} />)}
+              {members.map((participant) => <PlayerCard locked={locked} key={participant.userId} participant={participant} amount={amountOf(participant)} paidBooking={detail.sourceType === 'paid_booking'} />)}
               {Array.from({ length: open }, (_, index) => (
                 <div key={index} className="flex items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-line p-3">
                   <span className="text-sm text-ink-500">Còn trống</span>

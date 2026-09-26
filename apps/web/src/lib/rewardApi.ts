@@ -65,7 +65,7 @@ export const REWARD_STATUS_LABELS: Record<RewardProgramStatus, string> = {
   active: 'Đang diễn ra',
   reconciling: 'Đang đối soát kết quả',
   awaiting_admin_approval: 'Chờ duyệt kết quả',
-  final: 'Đã công bố',
+  final: 'Đã có kết quả',
   cancelled: 'Đã hủy',
 };
 export const PAYOUT_STATUS_LABELS: Record<RewardPayoutStatus, string> = {

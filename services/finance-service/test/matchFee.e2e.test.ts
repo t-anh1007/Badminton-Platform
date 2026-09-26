@@ -138,9 +138,21 @@ async function createHold(organizerUserId: string, price: bigint) {
   return { hold, providerUserId };
 }
 
+/** Kèo xếp hạng cần Passport của loại hình; DB local dùng chung có thể đang có kỳ xếp hạng (như production) nên cần cả khu vực kỳ. */
+async function ensureRankedReady(userId: string) {
+  await matchmakingPrisma.passport.createMany({
+    data: (['singles', 'doubles'] as const).map((discipline) => ({
+      userId, discipline, declaredTier: 'intermediate' as const, ratingMu: 1500, ratingRd: 350, ratingSigma: 0.06, declaredAt: new Date(),
+    })),
+  });
+  const season = await matchmakingPrisma.season.findFirst({ where: { closedAt: null, startAt: { lte: new Date() }, endAt: { gt: new Date() } } });
+  if (season) await matchmakingPrisma.playerSeasonProfile.create({ data: { seasonId: season.id, userId, provinceCode: 'ho-chi-minh', lockedAt: new Date() } });
+}
+
 async function createMatch(options: { discipline: 'singles' | 'doubles'; ratio: '5:5' | '6:4' | '7:3'; price: bigint; mode?: 'friendly' | 'ranked' }) {
   const organizerUserId = randomUUID();
   userIds.push(organizerUserId);
+  await ensureRankedReady(organizerUserId);
   const { hold, providerUserId } = await createHold(organizerUserId, options.price);
   const created = await send<{ id: string; bookingId: string }>(matchmakingBaseUrl, '/matches', auth(organizerUserId), {
     holdId: hold.id, mode: options.mode ?? 'ranked', discipline: options.discipline, ratio: options.ratio, format: 'bo3',
@@ -164,6 +176,7 @@ async function createMatch(options: { discipline: 'singles' | 'doubles'; ratio: 
 async function joinAndPay(matchId: string, _organizerUserId: string, teamSide: 'A' | 'B') {
   const participantUserId = randomUUID();
   userIds.push(participantUserId);
+  await ensureRankedReady(participantUserId);
   const join = await send<{ id: string }>(matchmakingBaseUrl, `/matches/${matchId}/joins`, auth(participantUserId), { teamSide }, 201);
   matchAggregateIds.add(join.id);
   // Kèo v2 duyệt JOIN tự động khi còn chỗ ở đội đã chọn.
@@ -272,6 +285,12 @@ describeP2FinanceE2E('Competitive matches v2 — real HTTP, RabbitMQ and outbox 
       where: { OR: [{ aggregateId: { in: [...matchAggregateIds] } }, ...caseIds.map((id) => ({ aggregateId: { contains: id } }))] },
     });
     await matchmakingPrisma.matchResolution.deleteMany({ where: { matchId: { in: matchIds } } });
+    await matchmakingPrisma.matchRatingChange.deleteMany({ where: { userId: { in: userIds } } });
+    await matchmakingPrisma.ratedEncounter.deleteMany({ where: { userId: { in: userIds } } });
+    await matchmakingPrisma.playerBadge.deleteMany({ where: { userId: { in: userIds } } });
+    await matchmakingPrisma.seasonStat.deleteMany({ where: { userId: { in: userIds } } });
+    await matchmakingPrisma.playerSeasonProfile.deleteMany({ where: { userId: { in: userIds } } });
+    await matchmakingPrisma.passport.deleteMany({ where: { userId: { in: userIds } } });
     await matchmakingPrisma.join.deleteMany({ where: { matchId: { in: matchIds } } });
     await matchmakingPrisma.match.deleteMany({ where: { id: { in: matchIds } } });
     await venuePrisma.outbox.deleteMany({ where: { aggregateId: { in: [...venueAggregateIds] } } });

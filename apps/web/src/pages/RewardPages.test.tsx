@@ -68,3 +68,9 @@ it('submits exactly the seven payout fields after inline validation', async () =
   }))
   expect(await screen.findByText('Chờ chuyển thưởng')).toBeInTheDocument()
 })
+
+it('links a winner of a final program to their payout', async () => {
+  vi.mocked(getRewardProgram).mockResolvedValue({ program: { ...program, status: 'final', viewer: { rank: 1, score: 1600 } } } as never)
+  at('/rewards/p1', '/rewards/:programId', <RewardProgramDetailPage />)
+  expect(await screen.findByRole('link', { name: 'Xem khoản thưởng và bổ sung thông tin nhận thưởng' })).toHaveAttribute('href', '/rewards/payouts')
+})

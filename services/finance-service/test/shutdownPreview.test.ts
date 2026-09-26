@@ -40,7 +40,7 @@ describe('shutdown refund preview', () => {
       });
       await prisma.matchFunding.create({ data: {
         matchId, bookingId: matchBookingId, organizerUserId: randomUUID(), capacity: 3,
-        feePerSlot: 100000n, bookingPrice: 300000n, organizerContribution: 100000n,
+        feePerSlot: 100000n, bookingPrice: 300000n, organizerContribution: 100000n, totalContribution: 300000n,
         cutoffAt: new Date(Date.now() + 60_000),
         contributions: { create: [
           { contributionKey: `preview-${randomUUID()}`, userId: randomUUID(), role: 'organizer', amount: 40000n, status: 'paid' },

@@ -10,6 +10,9 @@ async function removeDemoUser() {
   if (!user) return;
   await prisma.playerProfile.deleteMany({ where: { userId: user.id } });
   await prisma.outbox.deleteMany({ where: { aggregateId: user.id } });
+  // Demo có thể đã nhận thông báo (kèo cạnh tranh, thưởng) trên DB local dùng chung.
+  await prisma.notification.deleteMany({ where: { userId: user.id } });
+  await prisma.notificationPreference.deleteMany({ where: { userId: user.id } });
   await prisma.user.delete({ where: { id: user.id } });
 }
 

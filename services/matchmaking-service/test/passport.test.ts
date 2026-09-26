@@ -373,4 +373,3 @@ describe('G4 review — leaderboard visibility follows the current season rule',
     }
   });
 });
-

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { MatchListPage } from './MatchListPage.js'
 import { createMatch, getFundingPreview } from '../lib/matchApi.js'
 import { getMyMatchSources } from '../lib/venueBookingApi.js'
+import { getOwnPassport } from '../lib/passportApi'
 
 vi.mock('../components/QuickMatchPanel.js', () => ({ QuickMatchPanel: () => null }))
 vi.mock('../lib/matchApi.js', () => ({
@@ -13,6 +14,7 @@ vi.mock('../lib/matchApi.js', () => ({
   getFundingPreview: vi.fn(),
 }))
 vi.mock('../lib/venueBookingApi.js', () => ({ getMyMatchSources: vi.fn() }))
+vi.mock('../lib/passportApi', () => ({ getOwnPassport: vi.fn() }))
 
 const place = { venue: { id: 'v1', name: 'Nhà thi đấu A', address: '12 Lê Lợi, Quận 1', provinceCode: 'ho-chi-minh' }, court: { id: 'c1', name: 'Sân 1' } }
 
@@ -21,9 +23,10 @@ afterEach(() => cleanup())
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.setItem('accessToken', 'token')
+  vi.mocked(getOwnPassport).mockResolvedValue({ singles: {}, doubles: {} } as never)
   vi.mocked(getMyMatchSources).mockResolvedValue({
     sources: [
-      { sourceType: 'hold', holdId: 'h1', bookingStatus: 'held', price: '200000', startAt: '2026-10-15T08:00:00Z', endAt: '2026-10-15T09:00:00Z', ...place },
+      { sourceType: 'hold', holdId: 'h1', bookingStatus: 'held', holdExpiresAt: '2026-10-14T08:10:00Z', price: '200000', startAt: '2026-10-15T08:00:00Z', endAt: '2026-10-15T09:00:00Z', ...place },
       { sourceType: 'paid_booking', bookingId: 'b1', bookingStatus: 'confirmed', price: '200000', startAt: '2026-10-16T08:00:00Z', endAt: '2026-10-16T10:00:00Z', ...place },
     ],
   })
@@ -78,4 +81,22 @@ it('summarizes errors and blocks an inverted skill range', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Công bố kèo' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Bậc tối thiểu không được cao hơn bậc tối đa.')
   expect(createMatch).not.toHaveBeenCalled()
+})
+
+it('tells the organizer until when the held slot is kept', async () => {
+  await openCreate()
+  expect(await screen.findByText(/Slot được giữ đến .*nếu không slot sẽ tự nhả/)).toBeInTheDocument()
+})
+
+it('blocks a ranked match until the organizer declares the level for that discipline', async () => {
+  vi.mocked(getOwnPassport).mockResolvedValue({ singles: null, doubles: {} } as never)
+  await openCreate()
+  fireEvent.click(screen.getByText('Xếp hạng', { exact: true }))
+  expect(await screen.findByText(/Bạn chưa khai trình độ đánh đơn/)).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Khai trình độ ngay' })).toHaveAttribute('href', '/passport')
+  fireEvent.click(screen.getByRole('button', { name: 'Công bố kèo' }))
+  expect(await screen.findByText('Hãy khai trình độ đánh đơn trước khi tạo kèo xếp hạng đánh đơn.')).toBeInTheDocument()
+  expect(createMatch).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByText('Đánh đôi', { exact: true }))
+  expect(screen.queryByText(/Bạn chưa khai trình độ/)).not.toBeInTheDocument()
 })

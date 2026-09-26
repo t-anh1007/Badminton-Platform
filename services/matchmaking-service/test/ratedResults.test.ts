@@ -200,4 +200,3 @@ describe('G4 review — results apply in authoritative finalizedAt order', () =>
     expect(await prisma.matchRatingChange.count({ where: { userId: a.userId } })).toBe(2);
   });
 });
-

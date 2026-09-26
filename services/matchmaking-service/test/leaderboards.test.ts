@@ -119,7 +119,7 @@ describe('Task 18 Passport match history', () => {
     const page = await request(app).get('/passports/me/matches?discipline=singles&page=1&pageSize=1').set('Authorization', token(me)).expect(200);
     expect(page.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
     expect(page.body.items).toEqual([{
-      matchId: rated.id, businessCode: rated.businessCode, endedAt: '2096-02-02T00:00:00.000Z', discipline: 'singles', outcome: 'win',
+      matchId: rated.id, businessCode: rated.businessCode, endedAt: '2096-02-02T00:00:00.000Z', discipline: 'singles', mode: 'ranked', outcome: 'win',
       scoreLabel: '21-15, 21-19', opponents: [{ userId: opp, displayName: 'Đối thủ', avatarUrl: null }], ratingDelta: 12,
     }]);
     const second = await request(app).get('/passports/me/matches?discipline=singles&page=2&pageSize=1').set('Authorization', token(me)).expect(200);

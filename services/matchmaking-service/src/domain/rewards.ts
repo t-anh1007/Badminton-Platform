@@ -295,4 +295,3 @@ export async function getAdminProgram(accountClient: AccountClient, id: string, 
     awardTotal: program.awards.reduce((sum, award) => sum + award.amount, 0n).toString(),
   };
 }
-

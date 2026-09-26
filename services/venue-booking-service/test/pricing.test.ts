@@ -139,4 +139,23 @@ describe('VEN-06 — Thiết lập biểu giá theo lịch', () => {
     const total = await calculateBookingPrice(court.id, start, end);
     expect(total).toBe(250000n);
   });
+
+  it('prices the last slot of a day that closes at 24:00 (23:00-24:00 Vietnam time), not 0', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    await setOperatingHours(provider.userId, court.id, WEEKDAY, 6 * 60, 24 * 60);
+    await savePricingRules(provider.userId, court.id, [
+      { weekday: WEEKDAY, startMinute: 6 * 60, endMinute: 22 * 60, price: 100000 },
+      { weekday: WEEKDAY, startMinute: 22 * 60, endMinute: 24 * 60, price: 120000 },
+    ], new Date(Date.now() - 1000));
+    const base = new Date();
+    const diff = (WEEKDAY - base.getUTCDay() + 7) % 7 || 7;
+    base.setUTCDate(base.getUTCDate() + diff);
+    // 23:00-24:00 giờ Việt Nam = 16:00-17:00 UTC; kết thúc đúng 00:00 ngày hôm sau theo giờ Việt Nam.
+    const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 16, 0, 0));
+    const end = new Date(start.getTime() + 60 * 60_000);
+    expect(await calculateBookingPrice(court.id, start, end)).toBe(120000n);
+    // 22:30-24:00 cũng phải tính đủ 90 phút.
+    expect(await calculateBookingPrice(court.id, new Date(start.getTime() - 30 * 60_000), end)).toBe(180000n);
+  });
 });

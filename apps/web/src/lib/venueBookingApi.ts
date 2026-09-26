@@ -99,6 +99,8 @@ export interface MatchSource {
   holdId?: string;
   bookingId?: string;
   bookingStatus: 'held' | 'confirmed';
+  /** Chỉ nguồn slot đang giữ: hết giờ giữ thì slot tự nhả. */
+  holdExpiresAt?: string;
   price: string;
   startAt: string;
   endAt: string;

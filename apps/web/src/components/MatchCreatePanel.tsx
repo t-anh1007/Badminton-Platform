@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge, Button, SelectInput, SurfaceCard } from './ui';
 import { RouteState } from './RouteState.js';
 import {
@@ -6,6 +7,7 @@ import {
   type MatchDiscipline, type MatchFormat, type MatchFundingPreview, type MatchMode, type MatchRatio, type MatchRow, type SkillTier,
 } from '../lib/matchApi';
 import { getMyMatchSources, type MatchSource } from '../lib/venueBookingApi';
+import { getOwnPassport, type OwnPassport } from '../lib/passportApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 
 const tierLabels: Record<SkillTier, string> = {
@@ -78,16 +80,21 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
   const [preview, setPreview] = useState<MatchFundingPreview | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [passport, setPassport] = useState<OwnPassport | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void getMyMatchSources()
       .then((result) => setSources(result.sources ?? []))
       .catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'Không thể tải slot và booking của bạn.'));
+    // Không tải được thì bỏ qua cảnh báo; backend vẫn chặn kèo xếp hạng khi chưa khai trình độ.
+    void getOwnPassport().then(setPassport).catch(() => undefined);
   }, []);
   const visible = useMemo(() => (sources ?? []).filter((source) => source.sourceType === sourceType), [sources, sourceType]);
   const source = visible.find((item) => sourceKey(item) === selected) ?? visible[0];
   const bo5Allowed = allowsBo5(source);
+  const disciplineName = discipline === 'singles' ? 'đánh đơn' : 'đánh đôi';
+  const needsDeclaration = mode === 'ranked' && passport !== null && passport[discipline] === null;
   useEffect(() => { if (!bo5Allowed) setFormat('bo3'); }, [bo5Allowed]);
   useEffect(() => {
     setPreview(null);
@@ -103,6 +110,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
     const problems: string[] = [];
     if (!source) problems.push('Hãy chọn một slot đang giữ hoặc booking đã thanh toán.');
     if (tiers.indexOf(skillMin) > tiers.indexOf(skillMax)) problems.push('Bậc tối thiểu không được cao hơn bậc tối đa.');
+    if (needsDeclaration) problems.push(`Hãy khai trình độ ${disciplineName} trước khi tạo kèo xếp hạng ${disciplineName}.`);
     setErrors(problems);
     if (problems.length > 0 || !source) { summaryRef.current?.focus(); return; }
     setSubmitting(true);
@@ -173,6 +181,11 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               </div>
             </div>
           )}
+          {source?.holdExpiresAt && (
+            <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-sm text-ink-700">
+              Slot được giữ đến {formatDateTimeVi(source.holdExpiresAt)}. Hãy công bố kèo và đóng phần góp trước giờ này, nếu không slot sẽ tự nhả.
+            </p>
+          )}
           {paid && (
             <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-sm text-ink-700">
               Booking thường vẫn giữ nguyên. Khi công bố, booking này trở thành nguồn của kèo; hệ thống không thu hay ghi nhận tiền sân lần hai.
@@ -191,6 +204,12 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               { value: 'singles', title: 'Đánh đơn', description: '2 người - 1 người mỗi đội.' },
               { value: 'doubles', title: 'Đánh đôi', description: '4 người - 2 người mỗi đội.' },
             ]} />
+            {needsDeclaration && (
+              <p className="rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-sm text-ink-700">
+                Kèo xếp hạng chỉ tính điểm cho người đã khai trình độ. Bạn chưa khai trình độ {disciplineName}.{' '}
+                <Link to="/passport" className="font-semibold text-brand-navy underline">Khai trình độ ngay</Link>
+              </p>
+            )}
             <ChoiceGroup legend="Tỷ lệ bên thua : bên thắng" columns={3} value={ratio} onChange={setRatio}
               options={(Object.keys(ratioLabels) as MatchRatio[]).map((value) => ({ value, title: value.replace(':', ' : '), description: ratioLabels[value] }))} />
             <div className="grid gap-4 sm:grid-cols-2">

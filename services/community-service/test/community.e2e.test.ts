@@ -665,4 +665,3 @@ describe('BR-CM-53/54 — rating correction through support tickets', () => {
     expect((await decide(closed.id, moderator, { decision: 'approve', reason: 'x' }).expect(409)).body.error.code).toBe('TICKET_CLOSED');
   });
 });
-

@@ -132,4 +132,3 @@ describe('G4 review — closing a season', () => {
     expect(board.body.items).toEqual([expect.objectContaining({ userId: top, rating: 1700, rank: 1 })]);
   });
 });
-

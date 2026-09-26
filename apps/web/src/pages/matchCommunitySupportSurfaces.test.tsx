@@ -20,7 +20,7 @@ import {
 } from '../lib/communityApi.js'
 
 vi.mock('../lib/matchApi.js', () => ({
-  getMatchDetail: vi.fn(), getMyScheduleConflicts: vi.fn().mockResolvedValue({ conflicts: [] }), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}), abandonMatch: vi.fn().mockResolvedValue({}), abandonMatchJoin: vi.fn().mockResolvedValue({}),
+  getMatchDetail: vi.fn(), getMyScheduleConflicts: vi.fn().mockResolvedValue({ conflicts: [] }), requestMatchJoin: vi.fn().mockResolvedValue({}), withdrawMatchJoin: vi.fn().mockResolvedValue({}), cancelMatch: vi.fn().mockResolvedValue({}),
 }))
 vi.mock('../lib/financeApi.js', () => ({
   payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
@@ -71,12 +71,12 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear() })
 it('shows organizer payment and cancel controls without an approval queue', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ canJoin: false, isOrganizer: true, canPayOrganizerContribution: true, ownJoin: null }) as never)
   render(<MemoryRouter initialEntries={['/matches/match-1']}><Routes><Route path="/matches/:id" element={<MatchDetailPage />} /></Routes></MemoryRouter>)
-  expect(await screen.findByText('Bạn là organizer')).toBeInTheDocument()
+  expect(await screen.findByText('Bạn là chủ kèo')).toBeInTheDocument()
   expect(screen.queryByText(/participant-internal-uuid/)).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
   await waitFor(() => expect(payMatchOrganizerContributionBalance).toHaveBeenCalledWith('match-1'))
-  fireEvent.change(screen.getByLabelText('Cách thanh toán phần organizer'), { target: { value: 'sepay' } })
+  fireEvent.change(screen.getByLabelText('Cách thanh toán phần của chủ kèo'), { target: { value: 'sepay' } })
   fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
   expect(await screen.findByText('KLTORG01')).toBeInTheDocument()
   expect(screen.queryByText('organizer-intent-hidden')).not.toBeInTheDocument()

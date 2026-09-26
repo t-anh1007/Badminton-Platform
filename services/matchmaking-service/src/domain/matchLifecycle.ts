@@ -23,7 +23,7 @@ async function beginResolution(
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
     const match = await tx.match.findUnique({ where: { id: matchId } });
-    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y kÃ¨o.');
+    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
     const pending = await tx.matchResolution.findFirst({
       where: { matchId, joinId: joinId ?? null, action, decision: 'pending' },
       orderBy: { createdAt: 'asc' },
@@ -215,10 +215,10 @@ export async function withdrawJoin(
   // receipt is intentionally reusable after transport failure.
   const existingJoin = await prisma.join.findUnique({ where: { id: joinId } });
   if (!existingJoin || existingJoin.matchId !== matchId || existingJoin.participantUserId !== participantUserId) {
-    throw new AppError(404, 'JOIN_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y lÆ°á»£t tham gia cá»§a báº¡n.');
+    throw new AppError(404, 'JOIN_NOT_FOUND', 'Không tìm thấy lượt tham gia của bạn.');
   }
   if (existingJoin.status !== 'approved' && existingJoin.status !== 'confirmed') {
-    throw new AppError(409, 'JOIN_NOT_WITHDRAWABLE', 'LÆ°á»£t tham gia khÃ´ng thá»ƒ rÃºt á»Ÿ tráº¡ng thÃ¡i hiá»‡n táº¡i.');
+    throw new AppError(409, 'JOIN_NOT_WITHDRAWABLE', 'Lượt tham gia không thể rút ở trạng thái hiện tại.');
   }
   const current = await prisma.match.findUniqueOrThrow({ where: { id: matchId } });
   // BR-CM-07: sau hạn chốt kèo roster bị khóa. Chỉ lệnh rút đã ghi bền trước hạn (D39) được phép hoàn tất.
@@ -314,9 +314,9 @@ export async function cancelMatchByOrganizer(
   now = new Date(),
 ) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y kÃ¨o.');
+  if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
   if (match.organizerUserId !== organizerUserId) {
-    throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chá»‰ organizer Ä‘Æ°á»£c há»§y kÃ¨o.');
+    throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chỉ chủ kèo được hủy kèo.');
   }
   if (await hasConfirmedPolicyCancellationIntent(matchId, 'organizer')) {
     return finalizeConfirmedPolicyCancellation(venueBookingClient, matchId, match.bookingId, authorization);

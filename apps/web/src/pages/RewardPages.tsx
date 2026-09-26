@@ -137,6 +137,9 @@ export function RewardProgramDetailPage() {
               <p className="text-xs text-ink-500">{program.status === 'final' ? 'Hạng chính thức' : 'Hạng tạm tính'}</p>
               <p className="text-figures text-4xl font-bold text-brand-navy">#{program.viewer.rank}</p>
               <p className="mt-1 text-sm text-success">{program.viewer.score.toLocaleString('vi-VN')} {scoreUnit[program.criterion]}</p>
+              {program.status === 'final' && program.tiers.some((tier) => tier.rank === program.viewer!.rank) && (
+                <Link to="/rewards/payouts" className="mt-3 inline-block text-sm font-bold text-brand-navy underline">Xem khoản thưởng và bổ sung thông tin nhận thưởng</Link>
+              )}
             </div>
           ) : (
             <p className="mt-4 rounded-xl bg-canvas p-4 text-sm">
@@ -197,7 +200,7 @@ function RewardPayoutList() {
   );
 }
 
-const BANKS = [
+export const BANKS = [
   ['VCB', 'Vietcombank'], ['CTG', 'VietinBank'], ['BIDV', 'BIDV'], ['VBA', 'Agribank'], ['TCB', 'Techcombank'], ['MB', 'MB Bank'],
   ['ACB', 'ACB'], ['VPB', 'VPBank'], ['TPB', 'TPBank'], ['STB', 'Sacombank'], ['VIB', 'VIB'], ['SHB', 'SHB'], ['HDB', 'HDBank'], ['OCB', 'OCB'], ['MSB', 'MSB'],
 ] as const;
