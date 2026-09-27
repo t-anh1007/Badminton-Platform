@@ -8,6 +8,7 @@ import { formatMoneyVnd, vietnamDateInput, vietnamMinuteOfDay } from '../../lib/
 
 type Court = { courtId: string; courtName: string; closedAllDay: boolean }
 type CalendarEntry = {
+  businessCode?: string
   id?: string
   courtId: string
   kind: 'booking' | 'hold'
@@ -369,6 +370,7 @@ export function ManageCalendarPage() {
               <button type="button" aria-label="Đóng" onClick={() => setSelected(null)} className="rounded-lg px-2 py-1 text-ink-500 hover:bg-canvas">✕</button>
             </div>
             <dl className="grid gap-3 text-sm">
+              <div className="flex justify-between gap-4"><dt className="text-ink-500">Mã booking</dt><dd className="font-mono font-semibold">{selected.businessCode ?? 'Chưa có mã'}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Ngày</dt><dd className="font-medium text-ink-800">{fmtDate(selected.iso)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Khung giờ</dt><dd className="font-medium tabular-nums text-ink-800">{clockLabel(minuteOf(selected.startAt) ?? 0)}–{clockLabel(minuteOf(selected.endAt) ?? 0)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Sân con</dt><dd className="font-medium text-ink-800">{courtName(selected.courtId)}</dd></div>

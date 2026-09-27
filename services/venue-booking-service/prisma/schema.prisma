@@ -82,7 +82,48 @@ enum CancellationReason {
   platform_admin
 }
 
+enum ShutdownScopeType {
+  venue
+  court
+}
+
+enum ShutdownMode {
+  winding_down
+  scheduled_close
+  emergency
+}
+
+enum ShutdownOperationalStatus {
+  winding_down
+  scheduled_close
+  inactive
+}
+
+enum ShutdownResolutionStatus {
+  not_required
+  processing
+  completed
+  needs_attention
+}
+
+enum ShutdownItemStatus {
+  identified
+  cancellation_processing
+  cancelled_refund_processing
+  refunded
+  cancelled_no_platform_refund
+  cancelled_unpaid
+  needs_attention
+}
+
+enum ShutdownRefundPath {
+  booking
+  match
+  none
+}
+
 model Provider {
+  businessCode String @unique @default(dbgenerated("('NCC-'::text || lpad((nextval('providers_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String         @id @default(uuid())
   userId  String
   orgName String
@@ -114,6 +155,7 @@ model Provider {
 }
 
 model Venue {
+  businessCode String @unique @default(dbgenerated("('CS-'::text || lpad((nextval('venues_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id         String   @id @default(uuid())
   providerId String
   provider   Provider @relation(fields: [providerId], references: [id])
@@ -121,6 +163,8 @@ model Venue {
   lat        Float
   lng        Float
   address    String
+  /// Mã tỉnh/thành ổn định từ VIETNAM_PROVINCES (34 đơn vị). Null cho cơ sở cũ tới khi sửa.
+  provinceCode String?
   amenities  Json?
   images     Json?
 
@@ -130,6 +174,7 @@ model Venue {
 }
 
 model Court {
+  businessCode String @unique @default(dbgenerated("('SAN-'::text || lpad((nextval('courts_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String  @id @default(uuid())
   venueId String
   venue   Venue   @relation(fields: [venueId], references: [id])
@@ -214,6 +259,7 @@ model Hold {
   endAt     DateTime @db.Timestamptz(3)
   userId    String
   expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
   /// PLAN_MATCH-DEPOSIT: mặc định checkout để tương thích ngược mọi hold cũ.
   purpose   HoldPurpose @default(checkout)
 
@@ -221,10 +267,14 @@ model Hold {
 }
 
 model Booking {
+  businessCode String @unique @default(dbgenerated("('BK-'::text || lpad((nextval('bookings_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id      String @id @default(uuid())
   /// Idempotency key for converting a player hold into a marketplace booking.
   /// Nullable for internal and pre-existing bookings; unique when present.
   holdId  String? @unique
+  /// Remember whether the original hold represented an open-court checkout or a match deposit,
+  /// even after the physical Hold row expires and is removed by the scheduler.
+  holdPurposeSnapshot HoldPurpose @default(checkout)
   courtId String
   court   Court  @relation(fields: [courtId], references: [id])
   /// G2: đổi từ Unsupported("tstzrange") — xem ghi chú ở Hold.
@@ -258,6 +308,7 @@ model Booking {
   matchSettlementRevision Int @default(0)
   matchSettlementAttemptId String?
   matchCommands MatchBookingCommand[]
+  shutdownItems OperationalShutdownItem[]
 
   @@map("bookings")
 }
@@ -304,4 +355,68 @@ model ProcessedEvent {
   processedAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("processed_events")
+}
+
+model OperationalShutdown {
+  id                String                    @id @default(uuid())
+  scopeType         ShutdownScopeType
+  scopeId           String
+  mode              ShutdownMode
+  modeStartedAt     DateTime                  @db.Timestamptz(3)
+  operationalStatus ShutdownOperationalStatus
+  resolutionStatus  ShutdownResolutionStatus  @default(not_required)
+  effectiveAt       DateTime?                 @db.Timestamptz(3)
+  expectedInactiveAt DateTime?                @db.Timestamptz(3)
+  reason            String?
+  createdByUserId   String
+  originallyActiveCourtIds Json
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                  @updatedAt @db.Timestamptz(3)
+  endedAt           DateTime?                 @db.Timestamptz(3)
+  endedByUserId     String?
+  items             OperationalShutdownItem[]
+  transitions       OperationalShutdownTransition[]
+
+  @@index([scopeType, scopeId, endedAt])
+  @@map("operational_shutdowns")
+}
+
+model OperationalShutdownItem {
+  id            String              @id @default(uuid())
+  shutdownId    String
+  shutdown      OperationalShutdown @relation(fields: [shutdownId], references: [id])
+  bookingId     String
+  booking       Booking             @relation(fields: [bookingId], references: [id])
+  mode          ShutdownMode
+  effectiveAt   DateTime            @db.Timestamptz(3)
+  status        ShutdownItemStatus  @default(identified)
+  refundPath    ShutdownRefundPath?
+  refundCompletedAt DateTime?          @db.Timestamptz(3)
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime?           @db.Timestamptz(3)
+  lastError     String?
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@unique([shutdownId, bookingId])
+  @@index([status, nextAttemptAt])
+  @@map("operational_shutdown_items")
+}
+
+model OperationalShutdownTransition {
+  id                   String              @id @default(uuid())
+  shutdownId           String
+  shutdown             OperationalShutdown @relation(fields: [shutdownId], references: [id])
+  fromMode             ShutdownMode?
+  toMode               ShutdownMode
+  previousEffectiveAt  DateTime?           @db.Timestamptz(3)
+  effectiveAt          DateTime?           @db.Timestamptz(3)
+  newlyAffectedCount   Int
+  estimatedRefundGross BigInt
+  actorUserId          String
+  reason               String?
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+
+  @@index([shutdownId, createdAt])
+  @@map("operational_shutdown_transitions")
 }

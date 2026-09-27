@@ -53,7 +53,7 @@ async function seedAccountIdentity(userId: string, roles: UserRole[] = [UserRole
 
 async function seedCourt(providerUserId: string, startAt: Date) {
   const provider = await venueDb.provider.create({ data: { userId: providerUserId, orgName: `E2E Provider ${randomUUID()}`, status: 'approved' } });
-  const venue = await venueDb.venue.create({ data: { providerId: provider.id, name: `E2E Venue ${randomUUID()}`, lat: 10.7769, lng: 106.7009, address: 'TP.HCM' } });
+  const venue = await venueDb.venue.create({ data: { providerId: provider.id, name: `E2E Venue ${randomUUID()}`, lat: 10.7769, lng: 106.7009, address: 'TP.HCM', provinceCode: 'ho-chi-minh' } });
   const court = await venueDb.court.create({ data: { venueId: venue.id, name: 'Sân E2E' } });
   // Availability accepts an ISO calendar date and evaluates it in UTC.
   // Match that contract instead of the runner machine's local timezone.
@@ -137,7 +137,7 @@ test('HT2 đăng ký NCC → Admin duyệt → cấu hình sân/lịch/giá', as
     return current?.status === 'approved' ? current : null;
   });
   const providerToken = token(userId, ['player', 'provider']);
-  const venueResponse = await request.post(`${VENUE}/venues`, { headers: auth(providerToken), data: { name: 'Sân E2E API', lat: 10.77, lng: 106.7, address: 'TP.HCM' } });
+  const venueResponse = await request.post(`${VENUE}/venues`, { headers: auth(providerToken), data: { name: 'Sân E2E API', lat: 10.77, lng: 106.7, address: 'TP.HCM', provinceCode: 'ho-chi-minh' } });
   const venue = await venueResponse.json();
   const courtResponse = await request.post(`${VENUE}/venues/${venue.id}/courts`, { headers: auth(providerToken), data: { name: 'Sân 1' } });
   const court = await courtResponse.json();

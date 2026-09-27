@@ -31,6 +31,7 @@ export interface CreateVenueInput {
   lat: number;
   lng: number;
   address: string;
+  provinceCode?: string | null;
   amenities?: unknown;
   images?: unknown;
 }
@@ -62,6 +63,7 @@ export async function createVenue(userId: string, input: CreateVenueInput) {
       lat: input.lat,
       lng: input.lng,
       address: input.address,
+      provinceCode: input.provinceCode ?? null,
       amenities: input.amenities as never,
       images: input.images as never,
     },
@@ -81,6 +83,10 @@ export async function updateVenue(
   if (venue.provider.userId !== userId) {
     throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
   }
+  // Cơ sở cũ chỉ được để trống tỉnh/thành tới lần sửa đầu tiên (kèo xếp hạng cần tỉnh có cấu trúc).
+  if (!venue.provinceCode && !input.provinceCode) {
+    throw new AppError('MISSING_PROVINCE', 'Vui lòng chọn tỉnh/thành cho cơ sở trước khi lưu thay đổi.', 400);
+  }
   return prisma.venue.update({
     where: { id: venueId },
     data: {
@@ -88,6 +94,7 @@ export async function updateVenue(
       ...(input.address !== undefined ? { address: input.address } : {}),
       ...(input.lat !== undefined ? { lat: input.lat } : {}),
       ...(input.lng !== undefined ? { lng: input.lng } : {}),
+      ...(input.provinceCode ? { provinceCode: input.provinceCode } : {}),
       ...(input.amenities !== undefined ? { amenities: input.amenities as never } : {}),
       ...(input.images !== undefined ? { images: input.images as never } : {}),
     },
@@ -133,6 +140,7 @@ type ManagedVenueEntity = Prisma.VenueGetPayload<{ include: typeof managedVenueI
 async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorageClient) {
   return {
     id: venue.id,
+    businessCode: venue.businessCode,
     name: venue.name,
     address: venue.address,
     lat: venue.lat,
@@ -141,6 +149,7 @@ async function managedVenueDto(venue: ManagedVenueEntity, storage: ObjectStorage
     images: await resolveImageEntries(venue.images, storage),
     courts: await Promise.all(venue.courts.map(async (court) => ({
       id: court.id,
+      businessCode: court.businessCode,
       name: court.name,
       active: court.active,
       images: await resolveImageEntries(court.images, storage),

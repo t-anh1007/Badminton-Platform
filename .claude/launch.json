@@ -6,6 +6,26 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "apps/web"],
       "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3004
+    },
+    {
+      "name": "backend-no-email",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "env": {
+        "GMAIL_REFRESH_TOKEN": "", "GMAIL_CLIENT_ID": "", "SMTP_HOST": "", "SMTP_USER": "", "SMTP_PASS": "",
+        "OBJECT_STORAGE_ENDPOINT": "http://localhost:9000", "OBJECT_STORAGE_REGION": "us-east-1",
+        "OBJECT_STORAGE_ACCESS_KEY": "minioadmin", "OBJECT_STORAGE_SECRET_KEY": "minioadmin",
+        "OBJECT_STORAGE_FORCE_PATH_STYLE": "true", "OBJECT_STORAGE_BUCKET": "khoaluantn-media",
+        "OBJECT_STORAGE_PRIVATE_BUCKET": "khoaluantn-private", "OBJECT_STORAGE_PUBLIC_BASE_URL": "http://localhost:9000/khoaluantn-media",
+        "OUTBOX_RELAY_INTERVAL_MS": "200"
+      },
+      "port": 3004
     }
   ]
 }

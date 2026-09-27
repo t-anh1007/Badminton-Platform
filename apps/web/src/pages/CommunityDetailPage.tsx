@@ -224,10 +224,7 @@ export function CommunityDetailPage() {
                 <Avatar label={avatarLabel(post.authorDisplayName)} src={post.authorAvatarUrl} alt={`Ảnh đại diện ${userLabel(post.authorDisplayName)}`} className="h-11 w-11" />
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{isOwner ? 'Bạn' : userLabel(post.authorDisplayName)}</p>
-                  <p className="text-caption">
-                    {formatDate(post.createdAt)}
-                    {post.editedAt ? ' · đã chỉnh sửa' : ''}
-                  </p>
+                  <p className="text-caption">{formatDate(post.createdAt)}{post.editedAt ? ' · đã chỉnh sửa' : ''}</p>
                 </div>
               </div>
               {isOwner && <Badge tone="success">Bài của bạn</Badge>}

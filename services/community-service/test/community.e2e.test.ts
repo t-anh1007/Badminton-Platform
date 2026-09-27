@@ -161,6 +161,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .expect(201);
 
     expect(assertOwnedObject).toHaveBeenCalledTimes(5);
+    expect(created.body.businessCode).toMatch(/^HT-\d{8}$/);
     expect(created.body.evidence.map((image: { objectKey: string }) => image.objectKey)).toEqual(objectKeys.map((key) => `https://storage.test/signed/${key}`));
     await request(appWithStorage)
       .post('/tickets')
@@ -307,7 +308,10 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', author.authorization)
       .send({ body: 'Bài hợp lệ' })
       .expect(201)
-      .expect(({ body }) => expect(body.status).toBe('published'));
+      .expect(({ body }) => {
+        expect(body.status).toBe('published');
+        expect(body.businessCode).toMatch(/^BV-\d{8}$/);
+      });
 
     const locked = player();
     await handleAccountLocked('account-unlock-v2', {
@@ -386,6 +390,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', other.authorization)
       .send({ body: 'Bình luận hợp lệ' })
       .expect(201);
+    expect(comment.body.businessCode).toMatch(/^BL-\d{8}$/);
     await request(app)
       .get(`/posts/${post.body.id}`)
       .expect(200)
@@ -430,7 +435,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .set('Authorization', author.authorization)
       .send({ body: 'Cần kiểm duyệt' })
       .expect(201);
-    await request(app)
+    const report = await request(app)
       .post('/reports')
       .set('Authorization', reporter.authorization)
       .send({
@@ -439,6 +444,7 @@ describe('COM-01..08 — public community and asynchronous support', () => {
         reason: 'Nội dung vi phạm',
       })
       .expect(201);
+    expect(report.body.businessCode).toMatch(/^BC-\d{8}$/);
     expect(await prisma.post.findUniqueOrThrow({ where: { id: post.body.id } })).toMatchObject({ status: 'published' });
     expect(
       await prisma.outbox.findFirstOrThrow({
@@ -608,5 +614,54 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       .send({ status: 'closed' })
       .expect(200)
       .expect(({ body }) => expect(body.status).toBe('closed'));
+  });
+});
+
+describe('BR-CM-53/54 — rating correction through support tickets', () => {
+  const create = (requester: { authorization: string }, body: Record<string, unknown>) => request(app)
+    .post('/tickets').set('Authorization', requester.authorization).send(body);
+  const decide = (ticketId: string, by: { authorization: string }, body: Record<string, unknown>) => request(app)
+    .post(`/tickets/${ticketId}/rating-correction-decision`).set('Authorization', by.authorization).send(body);
+  const correction = { subject: 'Sửa trình độ đôi', body: 'Tôi khai nhầm', type: 'rating_correction', metadata: { discipline: 'doubles', requestedTier: 'intermediate' } };
+
+  it('requires structured metadata only for rating_correction tickets', async () => {
+    const requester = player();
+    await create(requester, { ...correction, metadata: undefined }).expect(400);
+    await create(requester, { subject: 'Hỏi', body: 'x', metadata: correction.metadata }).expect(400);
+    await create(requester, { ...correction, metadata: { discipline: 'mixed', requestedTier: 'intermediate' } }).expect(400);
+    const ticket = await create(requester, correction).expect(201);
+    expect(ticket.body).toMatchObject({ type: 'rating_correction', metadata: correction.metadata, requesterUserId: requester.userId });
+  });
+
+  it('lets only Admin decide once with a reason and emits the approval in the resolving transaction', async () => {
+    const requester = player();
+    const moderator = admin();
+    const ticket = (await create(requester, correction).expect(201)).body;
+    await decide(ticket.id, requester, { decision: 'approve', reason: 'x' }).expect(403);
+    await decide(ticket.id, moderator, { decision: 'approve' }).expect(400);
+    await decide(ticket.id, moderator, { decision: 'reject', approvedTier: 'advanced', reason: 'x' }).expect(400);
+
+    const decided = await decide(ticket.id, moderator, { decision: 'approve', approvedTier: 'beginner', reason: 'Đã xem video' }).expect(200);
+    expect(decided.body).toMatchObject({ status: 'resolved', correctionDecision: { decision: 'approve', approvedTier: 'beginner', adminUserId: moderator.userId } });
+    const events = await prisma.outbox.findMany({ where: { aggregateId: ticket.id, eventType: 'RatingCorrectionApproved' } });
+    expect(events.map((event) => event.payload)).toEqual([
+      { ticketId: ticket.id, userId: requester.userId, discipline: 'doubles', approvedTier: 'beginner', adminUserId: moderator.userId },
+    ]);
+    expect((await decide(ticket.id, moderator, { decision: 'reject', reason: 'đổi ý' }).expect(409)).body.error.code).toBe('RATING_CORRECTION_DECIDED');
+  });
+
+  it('rejects decisions on general or closed tickets and emits nothing on rejection', async () => {
+    const requester = player();
+    const moderator = admin();
+    const general = (await create(requester, { subject: 'Hỏi', body: 'x' }).expect(201)).body;
+    expect((await decide(general.id, moderator, { decision: 'approve', reason: 'x' }).expect(409)).body.error.code).toBe('TICKET_NOT_RATING_CORRECTION');
+
+    const rejected = (await create(requester, correction).expect(201)).body;
+    await decide(rejected.id, moderator, { decision: 'reject', reason: 'Không đủ bằng chứng' }).expect(200);
+    expect(await prisma.outbox.count({ where: { aggregateId: rejected.id, eventType: 'RatingCorrectionApproved' } })).toBe(0);
+
+    const closed = (await create(requester, correction).expect(201)).body;
+    await prisma.ticket.update({ where: { id: closed.id }, data: { status: 'closed' } });
+    expect((await decide(closed.id, moderator, { decision: 'approve', reason: 'x' }).expect(409)).body.error.code).toBe('TICKET_CLOSED');
   });
 });

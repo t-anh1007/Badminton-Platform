@@ -7,6 +7,10 @@ import { writeOutbox } from './outbox.js';
 import type { MatchCancelledPayload } from '@khoaluantn/shared';
 import { releaseHeldMatchBooking } from '../domain/booking.js';
 import type { MatchSettlementTooLatePayload } from '@khoaluantn/shared';
+import { recordShutdownRefundCompleted } from '../domain/operationalShutdown.js';
+import { assertCourtAcceptsCommitment } from '../domain/operationalShutdown.js';
+import { lockCourtSchedule } from './courtScheduleLock.js';
+import { AppError } from './errors.js';
 
 interface AccountLockedPayload {
   userId: string;
@@ -58,18 +62,32 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
   if (already) return; // AC-BOK-07-4: phát lại không sinh BookingConfirmed lần hai
 
   await prisma.$transaction(async (tx) => {
+    const target = await tx.booking.findUnique({ where: { id: payload.bookingId }, select: { courtId: true } });
+    if (target) await lockCourtSchedule(tx, target.courtId);
     // Serialize webhook với thao tác người chơi rời checkout/hủy hold. Trạng
     // thái được đọc lại sau lock nên booking đã nhả không thể bị xác nhận ngược.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.bookingId}, 0))`;
     const booking = await tx.booking.findUnique({
       where: { id: payload.bookingId },
-      include: { court: { include: { venue: { include: { provider: true } } } } },
+      include: {
+        court: { include: { venue: { include: { provider: true } } } },
+        shutdownItems: { select: { id: true, shutdownId: true }, take: 1 },
+      },
     });
     if (!booking) {
       await tx.processedEvent.create({ data: { eventId } });
       return;
     }
-    const stillPayable = booking.status === 'held' && !!booking.holdExpiresAt && booking.holdExpiresAt.getTime() > Date.now();
+    const hold = booking.holdId ? await tx.hold.findUnique({ where: { id: booking.holdId } }) : null;
+    let shutdownAllowsPayment = true;
+    try {
+      await assertCourtAcceptsCommitment(tx, booking.courtId, booking.endAt, hold?.createdAt ?? booking.createdAt);
+    } catch (error) {
+      if (!(error instanceof AppError) || error.code !== 'COURT_SHUTTING_DOWN') throw error;
+      shutdownAllowsPayment = false;
+    }
+    const stillPayable = booking.status === 'held' && !!booking.holdExpiresAt
+      && booking.holdExpiresAt.getTime() > Date.now() && shutdownAllowsPayment;
 
     if (stillPayable) {
       await tx.booking.update({ where: { id: booking.id }, data: { status: 'confirmed' } });
@@ -108,7 +126,7 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
     } else {
       // BR-BOK-04: hết hạn thì KHÔNG phục hồi — chỉ đảm bảo trạng thái là
       // cancelled (có thể đã được tác vụ nền chuyển từ trước) rồi báo finance.
-      if (booking.status === 'held') {
+      if (booking.status === 'held' && booking.shutdownItems.length === 0) {
         await tx.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
       }
       const matchSettlement = payload.refType === 'matchSettlement' && payload.matchId;
@@ -122,6 +140,10 @@ export async function handlePaymentCompleted(eventId: string, payload: PaymentCo
             bookingId: booking.id,
             userId: booking.userId,
             amount: booking.priceSnapshot.toString(),
+            ...(booking.shutdownItems[0] ? {
+              shutdownId: booking.shutdownItems[0].shutdownId,
+              bookingBusinessCode: booking.businessCode,
+            } : {}),
           },
       });
     }
@@ -167,6 +189,8 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null): Promise<
       if (!payload.refType) await handlePaymentCompleted(eventId, payload);
     } else if (envelope.type === 'MatchCancelled') {
       await releaseHeldMatchBooking(eventId, envelope.payload as MatchCancelledPayload);
+    } else if (envelope.type === 'BookingRefundCompleted') {
+      await recordShutdownRefundCompleted(eventId, envelope.payload as { bookingId: string; shutdownId: string });
     }
     channel.ack(msg);
   } catch (err) {
@@ -190,6 +214,7 @@ export async function bootstrapEventConsumption(options?: {
   await channel.bindQueue(queueName, 'domain-events', 'AccountLocked');
   await channel.bindQueue(queueName, 'domain-events', 'PaymentCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'MatchCancelled');
+  await channel.bindQueue(queueName, 'domain-events', 'BookingRefundCompleted');
   const inFlight = new Set<Promise<void>>();
   const { consumerTag } = await channel.consume(queueName, (msg) => {
     const task = onMessage(channel, msg);

@@ -11,6 +11,7 @@ afterAll(async () => {
 const CENTER = { lat: 10.0, lng: 106.0 };
 const NEARBY = { lat: 10.01, lng: 106.01 }; // ~1.5km
 const FAR_AWAY = { lat: 30.0, lng: 120.0 }; // rất xa
+const EMPTY_CENTER = { lat: -80.0, lng: -170.0 };
 
 describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
   it('AC-BOK-01-1: 3 cơ sở thỏa BR-VEN-03 + 1 cơ sở của NCC bị khóa -> chỉ 3 cơ sở, không có cơ sở bị khóa', async () => {
@@ -47,7 +48,7 @@ describe('BOK-01 — Tìm sân bằng danh sách và bản đồ', () => {
   }, 15000);
 
   it('AC-BOK-01-4: không có cơ sở nào trong bán kính -> mảng rỗng, không lỗi', async () => {
-    await expect(searchVenues(FAR_AWAY.lat, FAR_AWAY.lng, 1)).resolves.toEqual([]);
+    await expect(searchVenues(EMPTY_CENTER.lat, EMPTY_CENTER.lng, 1)).resolves.toEqual([]);
   });
 
   it('không truyền bán kính -> trả tất cả cơ sở đủ điều kiện dù ở xa', async () => {

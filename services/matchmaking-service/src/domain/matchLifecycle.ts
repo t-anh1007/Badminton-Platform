@@ -6,6 +6,7 @@ import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { writeMatchOutcomeNotifications } from '../lib/notificationOutbox.js';
 import { prisma } from '../lib/prisma.js';
+import { requestMatchFundingAtCutoff } from './matchSettlement.js';
 
 type CancelReason = 'organizer' | 'cutoff';
 type ResolutionAction = 'withdraw' | 'cancel';
@@ -22,7 +23,7 @@ async function beginResolution(
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
     const match = await tx.match.findUnique({ where: { id: matchId } });
-    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y kÃ¨o.');
+    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
     const pending = await tx.matchResolution.findFirst({
       where: { matchId, joinId: joinId ?? null, action, decision: 'pending' },
       orderBy: { createdAt: 'asc' },
@@ -151,6 +152,58 @@ export async function applyMatchBookingResolution(
   });
 }
 
+/**
+ * BR-CM-18/21: kèo từ booking đã thanh toán chỉ đóng lớp kèo. Booking vẫn là booking thường của chủ kèo,
+ * nên không gọi Venue; Finance hoàn tiền mặt của người tham gia qua MatchCancelled.
+ */
+async function closePaidBookingMatchLayer(matchId: string, reason: CancelReason) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
+    const match = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
+    if (match.status === 'cancelled') return match;
+    if (match.fundingRequestedAt || !['open', 'filled'].includes(match.status)) {
+      throw new AppError(409, 'MATCH_ALREADY_LOCKED', 'Kèo đã qua hạn chốt kèo.');
+    }
+    const paidJoins = await tx.join.findMany({ where: { matchId, feePaidAt: { not: null } }, select: { id: true } });
+    await writeMatchOutcomeNotifications(tx, {
+      matchId, organizerUserId: match.organizerUserId, kind: 'match.cancelled',
+      title: 'Kèo đã đóng', body: 'Kèo không tiếp tục. Booking của chủ kèo trở lại booking thường; người tham gia được hoàn phần tiền kèo.',
+    });
+    await tx.join.updateMany({
+      where: { matchId, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' },
+    });
+    const cancelled = await tx.match.update({ where: { id: matchId }, data: { status: 'cancelled' } });
+    await writeOutbox(tx, {
+      aggregateType: 'Match', aggregateId: matchId, eventType: 'MatchCancelled',
+      payload: { matchId, bookingId: match.bookingId, reason, paidJoinIds: paidJoins.map((join) => join.id) } satisfies MatchCancelledPayload,
+    });
+    return cancelled;
+  });
+}
+
+/** BR-CM-07: rút trước hạn chốt kèo của kèo từ booking đã thanh toán; booking không bị chạm tới. */
+async function withdrawFromPaidBookingMatch(matchId: string, joinId: string, now: Date) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
+    const match = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
+    const join = await tx.join.findUniqueOrThrow({ where: { id: joinId } });
+    if (match.cutoffAt <= now || match.fundingRequestedAt) {
+      throw new AppError(409, 'JOIN_LOCKED_AT_CUTOFF', 'Sau hạn chốt kèo không thể rút khỏi kèo. Nếu có vấn đề, hãy báo sự cố.');
+    }
+    if (join.status !== 'approved' && join.status !== 'confirmed') return { join, refunded: false };
+    const refundable = join.status === 'confirmed' && join.feePaidAt !== null;
+    await tx.join.update({ where: { id: join.id }, data: { status: 'withdrawn' } });
+    if (refundable) {
+      await writeOutbox(tx, {
+        aggregateType: 'Join', aggregateId: join.id, eventType: 'MatchFeeRefundRequested',
+        payload: { matchId, joinId: join.id, participantUserId: join.participantUserId, reason: 'withdraw_before_cutoff' } satisfies MatchFeeRefundRequestedPayload,
+      });
+    }
+    if (match.status === 'filled') await tx.match.update({ where: { id: matchId }, data: { status: 'open' } });
+    return { join: await tx.join.findUniqueOrThrow({ where: { id: joinId } }), refunded: refundable };
+  });
+}
+
 export async function withdrawJoin(
   venueBookingClient: VenueBookingClient,
   matchId: string,
@@ -162,10 +215,24 @@ export async function withdrawJoin(
   // receipt is intentionally reusable after transport failure.
   const existingJoin = await prisma.join.findUnique({ where: { id: joinId } });
   if (!existingJoin || existingJoin.matchId !== matchId || existingJoin.participantUserId !== participantUserId) {
-    throw new AppError(404, 'JOIN_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y lÆ°á»£t tham gia cá»§a báº¡n.');
+    throw new AppError(404, 'JOIN_NOT_FOUND', 'Không tìm thấy lượt tham gia của bạn.');
   }
   if (existingJoin.status !== 'approved' && existingJoin.status !== 'confirmed') {
-    throw new AppError(409, 'JOIN_NOT_WITHDRAWABLE', 'LÆ°á»£t tham gia khÃ´ng thá»ƒ rÃºt á»Ÿ tráº¡ng thÃ¡i hiá»‡n táº¡i.');
+    throw new AppError(409, 'JOIN_NOT_WITHDRAWABLE', 'Lượt tham gia không thể rút ở trạng thái hiện tại.');
+  }
+  const current = await prisma.match.findUniqueOrThrow({ where: { id: matchId } });
+  // BR-CM-07: sau hạn chốt kèo roster bị khóa. Chỉ lệnh rút đã ghi bền trước hạn (D39) được phép hoàn tất.
+  if (current.cutoffAt <= now) {
+    const pendingBeforeCutoff = await prisma.matchResolution.findFirst({
+      where: { matchId, joinId, action: 'withdraw', decision: 'pending', createdAt: { lt: current.cutoffAt } },
+    });
+    if (!pendingBeforeCutoff) {
+      throw new AppError(409, 'JOIN_LOCKED_AT_CUTOFF', 'Sau hạn chốt kèo không thể rút khỏi kèo. Nếu có vấn đề, hãy báo sự cố.');
+    }
+  }
+  if (current.sourceType === 'paid_booking') {
+    const { join, refunded } = await withdrawFromPaidBookingMatch(matchId, joinId, now);
+    return { ...join, refunded };
   }
   const { match, resolution } = await beginResolution(matchId, 'withdraw', joinId);
   const result = await venueBookingClient.resolveMatchBooking({
@@ -247,13 +314,18 @@ export async function cancelMatchByOrganizer(
   now = new Date(),
 ) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'KhÃ´ng tÃ¬m tháº¥y kÃ¨o.');
+  if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
   if (match.organizerUserId !== organizerUserId) {
-    throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chá»‰ organizer Ä‘Æ°á»£c há»§y kÃ¨o.');
+    throw new AppError(403, 'MATCH_ORGANIZER_ONLY', 'Chỉ chủ kèo được hủy kèo.');
   }
   if (await hasConfirmedPolicyCancellationIntent(matchId, 'organizer')) {
     return finalizeConfirmedPolicyCancellation(venueBookingClient, matchId, match.bookingId, authorization);
   }
+  // BR-CM-21: chủ kèo chỉ hủy được trước hạn chốt kèo; sau đó mọi vấn đề đi qua luồng sự cố.
+  if (match.status !== 'cancelled' && (match.cutoffAt <= now || match.fundingRequestedAt)) {
+    throw new AppError(409, 'MATCH_LOCKED_USE_INCIDENT', 'Kèo đã qua hạn chốt kèo nên không thể hủy. Nếu có vấn đề, hãy báo sự cố trong kèo.');
+  }
+  if (match.sourceType === 'paid_booking') return closePaidBookingMatchLayer(matchId, 'organizer');
   const { result } = await cancelThroughVenue(venueBookingClient, matchId, 'organizer', now);
   if (result.decision !== 'confirmed') return prisma.match.findUniqueOrThrow({ where: { id: matchId } });
 
@@ -269,11 +341,18 @@ export async function cancelMatchesAtCutoff(
   // Include a persisted pending settlement attempt: Venue is the only place
   // that may choose whether cutoff cancellation or confirmation won.
   const matches = await prisma.match.findMany({
-    where: { status: { in: ['open', 'filled'] }, cutoffAt: { lte: now } }, select: { id: true },
+    where: { status: { in: ['open', 'filled'] }, cutoffAt: { lte: now } }, select: { id: true, sourceType: true },
   });
   let cancelled = 0;
   for (const match of matches) {
     try {
+      if (await requestMatchFundingAtCutoff(venueBookingClient, match.id, now)) continue;
+      if (match.sourceType === 'paid_booking') {
+        // Thiếu người/tiền: đóng lớp kèo, giữ booking thường cho chủ kèo (BR-CM-18).
+        await closePaidBookingMatchLayer(match.id, 'cutoff');
+        cancelled += 1;
+        continue;
+      }
       const { result } = await cancelThroughVenue(venueBookingClient, match.id, 'cutoff', now);
       if (result.decision === 'cancelled') cancelled += 1;
     } catch (error) {

@@ -34,8 +34,11 @@ approved: 2026-08-05
 | BR-BOK-08 | Hủy do phía sân hoặc do lỗi nền tảng luôn hoàn **100%**, bất kể thời điểm hủy. Bậc thang BR-BOK-05 không áp dụng. |
 | BR-BOK-09 | **Điều chỉnh booking** chỉ có nghĩa là chuyển sang sân con khác trong cùng cơ sở, **giữ nguyên khung giờ và giá**. Không đổi giờ, không đổi cơ sở, không cần người chơi đồng ý, chỉ cần thông báo. **Quyết định D12.** |
 | BR-BOK-10 | Người chơi chỉ xem và hủy được booking của chính mình. Nhà cung cấp chỉ thao tác được trên booking thuộc cơ sở của mình. Kiểm tra ở tầng API. |
+| BR-BOK-14 | Mọi command tạo/xác nhận cam kết (hold checkout, booking nội bộ, promote match hold, settlement và payment completion) phải kiểm tra `OperationalShutdown` dưới khóa phù hợp. Ẩn sân khỏi tìm kiếm không thay thế kiểm tra server. |
+| BR-BOK-15 | Emergency shutdown là ngoại lệ hẹp duy nhất cho phép phía sân hủy booking `confirmed` đã bắt đầu nhưng chưa kết thúc. Ngoại lệ cần shutdown emergency hợp lệ, đúng phạm vi, đúng chủ sở hữu/Admin và lý do được audit; API hủy BOK-10 thông thường vẫn từ chối sau giờ bắt đầu. |
 | BR-BOK-11 | Không tạo được hold hay booking cho khoảng thời gian đã trôi qua. |
 | BR-BOK-12 | Booking nội bộ (`source=internal`, VEN-09) không thuộc phạm vi BOK-08 và BOK-09; người chơi không thấy và không hủy được nó. |
+| BR-BOK-14 | Trước khi tạo hold/booking marketplace, hệ thống kiểm tra lịch cá nhân từ booking và kèo đang hoạt động. Nếu chồng lấn thì cảnh báo và yêu cầu xác nhận tường minh trước khi tiếp tục; không hard-block vì người chơi có thể đặt hộ (D54). |
 
 ## 3. Trạng thái
 
@@ -217,6 +220,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 - `AC-BOK-05-3` — **Given** booking 18h–20h bắc qua khung giá 100k/giờ và 150k/giờ, **When** hệ thống tính tiền, **Then** tổng hiển thị là 250k.
 - `AC-BOK-05-4` — **Given** khoảng chọn 19h–21h nhưng 20h–20h30 đã có booking, **When** người chơi xác nhận lựa chọn, **Then** hệ thống từ chối và chỉ ra đoạn bị vướng.
 - `AC-BOK-05-5` — **Given** khách chưa đăng nhập, **When** chọn một khung giờ, **Then** hệ thống điều hướng sang đăng nhập và giữ nguyên lựa chọn sau khi quay lại.
+- `AC-BOK-05-6` — **Given** player đã có booking hoặc kèo hoạt động giao thời gian với slot đang chọn, **When** xác nhận đặt sân hoặc tạo kèo, **Then** chưa tạo hold, hiển thị lịch trùng và chỉ tiếp tục sau khi player xác nhận tường minh.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 5 AC.
 
@@ -371,7 +375,7 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 | Điều kiện trước | Booking `confirmed` thuộc cơ sở của mình, ca chưa bắt đầu |
 | Sự kiện kích hoạt | Nhà cung cấp chọn điều chỉnh hoặc hủy |
 | Workflow chính (điều chỉnh) | 1. Chọn booking → 2. Hệ thống liệt kê sân con cùng cơ sở còn trống trọn khung giờ đó → 3. Chọn sân thay thế → 4. Đổi `courtId`, giữ nguyên khung giờ, `priceSnapshot`, `policySnapshot` và `status` → 5. Thông báo cho người chơi |
-| Workflow phụ (hủy) | 1. Chọn hủy, nhập lý do bắt buộc → 2. `status=cancelled`, giải phóng slot → 3. Phát `BookingCancelled` với cờ lỗi phía sân → 4. Finance hoàn **100%** vào ví cá nhân người chơi, chủ sân không nhận gì |
+| Workflow phụ (hủy) | 1. Chọn hủy, nhập lý do bắt buộc → 2. `status=cancelled`, giải phóng slot → 3. Phát `BookingCancelled` với cờ lỗi phía sân → 4. Finance hoàn **100%** vào ví cá nhân người chơi, chủ sân không nhận gì. Với D55, hệ thống tạo và xử lý từng item idempotent; scheduled hủy ngay mọi booking có `endAt > effectiveAt`, emergency hủy mọi booking có `endAt > now`, kể cả ca đang diễn ra. |
 | Luồng thay thế | Không còn sân trống nào cùng khung giờ: hệ thống chỉ cho phép hủy, không cho điều chỉnh |
 | Luồng lỗi | Điều chỉnh sang sân đang bận → từ chối; Hủy mà không nhập lý do → từ chối; Ca đã bắt đầu → từ chối cả hai thao tác |
 | Business Rules | BR-BOK-03, BR-BOK-08, BR-BOK-09, BR-BOK-10 |
@@ -392,8 +396,11 @@ dọn bởi tác vụ nền. Điều chỉnh sân con (BOK-10) **không** đổi
 - `AC-BOK-10-4` — **Given** nhà cung cấp bỏ trống lý do, **When** xác nhận hủy, **Then** hệ thống từ chối.
 - `AC-BOK-10-5` — **Given** nhà cung cấp A, **When** gọi API điều chỉnh booking thuộc cơ sở của nhà cung cấp B, **Then** hệ thống từ chối.
 - `AC-BOK-10-6` — **Given** một booking đã được chuyển sang sân 3, **When** người chơi mở chi tiết booking, **Then** thông tin sân hiển thị là sân 3 và có ghi chú về việc đổi sân.
+- `AC-BOK-10-7` — **Given** một booking đang diễn ra, **When** chủ sân gọi API hủy thông thường, **Then** hệ thống từ chối; **When** cùng booking được xử lý bởi emergency shutdown đúng phạm vi, **Then** booking bị hủy và yêu cầu hoàn 100% được phát đúng một lần.
+- `AC-BOK-10-8` — **Given** scheduled shutdown được xác nhận, **When** có booking kết thúc sau cutoff, **Then** booking bị hủy ngay lúc xác nhận và thông báo bắt buộc mang đúng `Booking.businessCode`; booking kết thúc không muộn hơn cutoff tiếp tục phục vụ.
+- `AC-BOK-10-9` — **Given** shutdown đã khóa phạm vi, **When** gọi trực tiếp API tạo/xác nhận hold, booking nội bộ hoặc match settlement giao với vùng đóng, **Then** command bị từ chối dù sân vẫn còn xuất hiện trong dữ liệu client cũ.
 
-**Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC. AC-BOK-10-3 kiểm tra trực tiếp `LEDGER_ENTRY` để chứng minh không có bút toán doanh thu nào cho chủ sân.
+**Tiêu chí kiểm chứng:** kiểm thử tự động 9 AC. AC-BOK-10-3/7 kiểm tra trực tiếp `LEDGER_ENTRY` để chứng minh không có bút toán doanh thu nào bị giữ lại cho phần hoàn.
 
 ---
 

@@ -11,6 +11,7 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(), deactivateManagedVenue: vi.fn(), activateManagedVenue: vi.fn(),
   addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), activateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
   savePricing: vi.fn(), saveBookingRule: vi.fn(),
+  getOperationalShutdown: vi.fn().mockResolvedValue(null), reactivateOperationalShutdown: vi.fn(),
   authorizeVenueImage: vi.fn(), uploadVenueImage: vi.fn(),
 }))
 
@@ -21,7 +22,7 @@ vi.mock('../../components/map/LocationPicker.js', () => ({
   ),
 }))
 
-const venue = { id: 'v1', name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, images: [{ objectKey: 'venue/images/court.webp', url: 'https://cdn.test/court.webp' }], configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ id: `oh-${weekday}`, weekday, openMinute: 480, closeMinute: 1320 })), closures: [], pricingRules: [{ id: 'pr1', weekday: 0, startMinute: 480, endMinute: 1320, price: '100000', version: 1, effectiveFrom: '2026-01-01T00:00:00.000Z' }], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
+const venue = { id: 'v1', name: 'Sân A', address: '1 A', provinceCode: 'ho-chi-minh', lat: 10.7, lng: 106.6, amenities: [], images: [], courts: [{ id: 'c1', name: 'Sân 1', active: true, images: [{ objectKey: 'venue/images/court.webp', url: 'https://cdn.test/court.webp' }], configuration: { operatingHours: 1, pricingRules: 1, bookingRule: true }, operatingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ id: `oh-${weekday}`, weekday, openMinute: 480, closeMinute: 1320 })), closures: [], pricingRules: [{ id: 'pr1', weekday: 0, startMinute: 480, endMinute: 1320, price: '100000', version: 1, effectiveFrom: '2026-01-01T00:00:00.000Z' }], bookingRule: { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } }] }
 afterEach(cleanup)
 beforeEach(() => {
   vi.clearAllMocks()
@@ -42,7 +43,7 @@ it('exposes the empty CTA, maps every create field and prevents duplicate submit
   vi.mocked(venueApi.createManagedVenue).mockReturnValue(new Promise<typeof venue>((done) => { resolve = done }) as never)
   render(<MemoryRouter><ManageVenuesPage /></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Thêm sân kinh doanh' }))
-  fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } }); fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: '1 A' } }); fireEvent.click(screen.getByRole('button', { name: 'đặt vị trí' })); fireEvent.change(screen.getByLabelText('Tiện ích'), { target: { value: 'wifi, bãi xe' } })
+  fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } }); fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: '1 A' } }); fireEvent.change(screen.getByLabelText('Tỉnh/thành'), { target: { value: 'ho-chi-minh' } }); fireEvent.click(screen.getByRole('button', { name: 'đặt vị trí' })); fireEvent.change(screen.getByLabelText('Tiện ích'), { target: { value: 'wifi, bãi xe' } })
   fireEvent.change(screen.getByLabelText('Tên sân con mới'), { target: { value: 'Sân 1' } }); fireEvent.click(screen.getByRole('button', { name: '+ Thêm sân' }))
   fireEvent.change(screen.getByLabelText('Ảnh Sân 1 (bắt buộc 1–5 ảnh)'), { target: { files: [new File(['court'], 'court.webp', { type: 'image/webp' })] } })
   await waitFor(() => expect(screen.getByText('Đã tải')).toBeInTheDocument())
@@ -50,7 +51,7 @@ it('exposes the empty CTA, maps every create field and prevents duplicate submit
   expect(screen.queryByLabelText('Bước thời gian chung')).not.toBeInTheDocument()
   const save = screen.getByRole('button', { name: 'Lưu và hoàn tất cấu hình' }); fireEvent.click(save); fireEvent.click(save)
   expect(venueApi.createManagedVenue).toHaveBeenCalledTimes(1)
-  expect(venueApi.createManagedVenue).toHaveBeenCalledWith({ name: 'Sân A', address: '1 A', lat: 10.7, lng: 106.6, amenities: ['wifi', 'bãi xe'], images: [] })
+  expect(venueApi.createManagedVenue).toHaveBeenCalledWith({ name: 'Sân A', address: '1 A', provinceCode: 'ho-chi-minh', lat: 10.7, lng: 106.6, amenities: ['wifi', 'bãi xe'], images: [] })
   expect(save).toBeDisabled(); resolve(venue); await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu và hoàn tất cấu hình' })).not.toBeInTheDocument())
   expect(venueApi.addManagedCourt).toHaveBeenCalledWith('v1', 'Sân 1', [{ objectKey: 'venue/images/court.webp' }])
   expect(venueApi.replaceOperatingHours).toHaveBeenCalledWith('c1', [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, openMinute: 480, closeMinute: 1320 })))

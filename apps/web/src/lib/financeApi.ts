@@ -5,7 +5,7 @@ function accessToken(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = accessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -25,6 +25,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface RevenueRow {
   bookingId: string;
+  bookingCode?: string | null;
   venueId: string;
   gross: string;
   net: string;
@@ -47,6 +48,45 @@ export interface WithdrawalRow {
   rejectionReason?: string | null;
   createdAt?: string;
   processedAt?: string | null;
+}
+export interface FinancePage<T> { items: T[]; total: number; page: number; pageSize: number }
+export interface ProviderTransparencyRow {
+  bookingId: string;
+  bookingCode?: string | null; venueId: string; gross: string; net: string; commission: string; refunded?: string;
+  startAt?: string | null; endAt: string; releaseAt: string; releasedAt: string | null;
+  status: 'pending' | 'available' | 'disputed' | 'cancelled';
+  payment: null | {
+    businessCode?: string | null; method: 'balance' | 'sepay'; provider: string; amount: string; providerReference: string | null;
+    confirmedAt: string | null; reconciliationStatus: string; senderAccount: string | null; collectionAccount: string | null;
+  };
+}
+export interface RevenueSeriesPoint { key: string; gross: string; refunded: string; commission: string; net: string; count: number }
+export interface ProviderTransparencyResult {
+  summary: { available: string; pending: string; reserved: string; gross: string; net: string; commission: string; refunded?: string; withdrawn?: string };
+  transactions: FinancePage<ProviderTransparencyRow>;
+  byDay?: RevenueSeriesPoint[]; byVenue?: RevenueSeriesPoint[];
+}
+/** Hoàn tiền chỉ giảm phần chủ sân/phí, tổng khách trả giữ nguyên — phần chênh là tiền đã hoàn khách. */
+export function refundedOf(row: { gross: string; net: string; commission: string; refunded?: string }) {
+  return row.refunded ?? (BigInt(row.gross) - BigInt(row.net) - BigInt(row.commission)).toString();
+}
+export interface ProviderWithdrawalTransparencyRow {
+  id: string; amount: string; paidAmount: string; status: string; transferCode: string; bankCode: string;
+  bankAccountName: string; bankAccountMasked: string | null; createdAt: string; processedAt: string | null;
+  bankTransactionCode?: string | null; providerReference: string | null; bankConfirmedAt: string | null;
+}
+export interface AdminTransparencyResult {
+  summary: {
+    customerPayments: string; ownerPending: string; ownerAvailable: string; reservedPayout: string;
+    paidPayout: string; platformRevenue: string; bankMovement: string; allocatedMovement: string; difference: string;
+    bookingGross?: string; bookingRefunded?: string; bookingCommission?: string; bookingNet?: string; bankIn?: string; bankOut?: string;
+    ownerReserved?: string; playerAvailable?: string; playerReserved?: string; platformReserved?: string; rewardPaid?: string; rewardPending?: string;
+  };
+  transactions: FinancePage<{
+    id: string; businessCode?: string; direction: 'in' | 'out'; amount: string; provider: string; providerReference: string | null;
+    receivedAt: string; status: string; businessReference: string | null; matchedType: string | null; allocatedAmount: string;
+  }>;
+  byMonth?: RevenueSeriesPoint[]; byOwner?: RevenueSeriesPoint[];
 }
 
 export type FinanceUiScope = 'wallet' | 'revenue' | 'ledger' | 'withdrawals';
@@ -95,6 +135,7 @@ export async function streamMyFinance(
   }
 }
 export interface ReconciliationRow {
+  businessCode?: string;
   id: string;
   direction: 'in' | 'out';
   amount: string;
@@ -127,14 +168,17 @@ export interface WalletLedgerResult {
 }
 export interface DisputeEligibleRow {
   bookingId: string;
+  bookingCode?: string | null;
   venueId: string;
   gross: string;
   endAt: string;
   deadlineAt: string;
 }
 export interface DisputeRow {
+  businessCode?: string;
   id: string;
   bookingId: string;
+  bookingCode?: string | null;
   raiserUserId: string;
   reason: string;
   contactPhone: string | null;
@@ -208,11 +252,12 @@ export const createMatchOrganizerContributionSepayIntent = (matchId: string) =>
   api<SepayIntent>(`/matches/${matchId}/organizer-contribution/pay/sepay`, {
     method: 'POST',
   });
-export const getMyRevenue = (filters?: { venueId?: string; from?: string; to?: string }) => {
-  const query = new URLSearchParams(
-    Object.entries(filters ?? {}).filter((entry): entry is [string, string] => Boolean(entry[1])),
-  );
-  return api<RevenueRow[]>(`/providers/me/revenue${query.size ? `?${query}` : ''}`);
+export const getMyFinancialTransparency = (filters: {
+  venueId?: string; from?: string; to?: string; status?: string; page: number; pageSize: number;
+}) => {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value !== '' && value !== undefined) query.set(key, String(value)); });
+  return api<ProviderTransparencyResult>(`/providers/me/financial-transparency?${query}`);
 };
 export const getMyWithdrawals = () => api<WithdrawalRow[]>('/providers/me/withdrawals');
 export const createWithdrawal = (body: {
@@ -231,6 +276,8 @@ export const createPersonalWithdrawal = (body: { amount: string; bankCode: strin
   api<WithdrawalRow>('/players/me/withdrawals', { method: 'POST', body: JSON.stringify(body) });
 export const cancelMyPersonalWithdrawal = (id: string) => api(`/players/me/withdrawals/${id}/cancel`, { method: 'POST' });
 export const getAdminWithdrawals = () => api<WithdrawalRow[]>('/admin/withdrawals');
+export const getAdminFinancialTransparency = (page: number, pageSize: number, range: { from?: string; to?: string } = {}) =>
+  api<AdminTransparencyResult>(`/admin/financial-transparency?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), ...(range.from ? { from: range.from } : {}), ...(range.to ? { to: range.to } : {}) })}`);
 export const rejectWithdrawal = (id: string, reason: string) =>
   api(`/admin/withdrawals/${id}/reject`, {
     method: 'POST',
@@ -293,3 +340,30 @@ export const resolveDispute = (
     method: 'POST',
     body: JSON.stringify(body),
   });
+
+export type FlowTab = 'revenue' | 'platform' | 'refund' | 'topup' | 'match' | 'withdraw' | 'reward' | 'wallets' | 'bank';
+export type FlowTone = 'ok' | 'wait' | 'bad' | 'info' | 'mute';
+export interface FlowRow {
+  id: string; title: string; titleNote: string; party: string; partyNote: string; counterpart: string; counterpartNote: string;
+  status: string; tone: FlowTone; amount: string; sign: '+' | '-' | ''; amountNote: string;
+  from: string; fromNote: string; to: string; toNote: string;
+  steps: Array<{ title: string; detail: string; tone: FlowTone }>; facts: Array<{ k: string; v: string }>; refIds: string[];
+}
+export interface FlowResult extends FinancePage<FlowRow> { kpis: Array<{ label: string; value: string; note: string; tone: FlowTone }> }
+export interface FlowLedgerEntry { id: string; walletType: 'personal' | 'business' | 'platform'; userId: string | null; type: string; refType: string; amount: string; ts: string }
+export const getAdminFinancialFlows = (query: { tab: FlowTab; filter?: string; ownerId?: string; from?: string; to?: string; q?: string; userIds?: string; page: number; pageSize: number }) => {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+  return api<FlowResult>(`/admin/financial-flows?${params}`);
+};
+export const getAdminFlowLedger = (refIds: string[]) =>
+  api<FlowLedgerEntry[]>(`/admin/financial-flows/ledger?refIds=${encodeURIComponent(refIds.join(','))}`);
+
+export type ProviderFlowTab = 'revenue' | 'deduct' | 'withdraw' | 'ledger' | 'venues';
+export const getMyFinancialFlows = (query: { tab: ProviderFlowTab; filter?: string; venueId?: string; from?: string; to?: string; q?: string; page: number; pageSize: number }) => {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+  return api<FlowResult>(`/providers/me/financial-flows?${params}`);
+};
+export const getMyFlowLedger = (refIds: string[]) =>
+  api<FlowLedgerEntry[]>(`/providers/me/financial-flows/ledger?refIds=${encodeURIComponent(refIds.join(','))}`);

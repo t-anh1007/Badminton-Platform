@@ -22,7 +22,8 @@ export function loadSession(): SessionState | null {
 export function saveSession(result: SessionResult, preferredRole?: UserRole): SessionState {
   const roles = result.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin')
   const storedRole = preferredRole ?? (localStorage.getItem(ACTIVE_ROLE_KEY) as UserRole | null)
-  const activeRole = storedRole && roles.includes(storedRole) ? storedRole : roles[0] ?? 'player'
+  // Mặc định vào vai cao nhất (quản trị viên, rồi chủ sân) trừ khi đã tự chọn vai khác.
+  const activeRole = storedRole && roles.includes(storedRole) ? storedRole : roles.includes('admin') ? 'admin' : roles.includes('provider') ? 'provider' : roles[0] ?? 'player'
   const session = { ...result, userId: userIdFromAccessToken(result.accessToken), roles, activeRole }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session)); localStorage.setItem(ACTIVE_ROLE_KEY, activeRole)
   // Keep existing API clients operational until their token reads are migrated to this module.

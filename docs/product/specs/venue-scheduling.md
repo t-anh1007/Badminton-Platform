@@ -29,6 +29,9 @@ approved: 2026-08-05
 | BR-VEN-04 | Nền tảng là nguồn lịch chính thức duy nhất. Booking ghi tại quầy (VEN-09) khóa lịch y hệt booking từ nền tảng. Ràng buộc bất biến #3. |
 | BR-VEN-05 | Không được lưu thay đổi giờ hoạt động, ngày đóng cửa, hoặc vô hiệu hóa sân con nếu khoảng thời gian bị ảnh hưởng còn booking `confirmed` trong tương lai **hoặc còn `HOLD` chưa hết hạn**. Hệ thống từ chối và liệt kê cả booking lẫn hold đang vướng. **Quyết định D5.** |
 | BR-VEN-05a | Lý do chặn cả `HOLD`: hold sống tối đa 10 phút và có thể chuyển thành booking `confirmed` bất cứ lúc nào trong khoảng đó qua `PaymentCompleted`. Nếu chỉ chặn theo booking `confirmed`, một khoảng vừa bị đóng cửa vẫn có thể sinh ra booking hợp lệ ngay sau đó, tạo booking trên sân đã đóng. Chủ sân bị chặn vì hold chỉ cần chờ tối đa 10 phút rồi thao tác lại. |
+| BR-VEN-05b | **Ngoại lệ D55 cho thao tác ngừng hoạt động:** chủ sân không phải hủy thủ công từng booking. Họ chọn `winding_down`, `scheduled_close` hoặc `emergency`; hệ thống khóa cam kết mới tại command boundary và tạo tác vụ idempotent cho từng booking bị ảnh hưởng. Ngoại lệ này không áp dụng cho chỉnh giờ hoạt động hoặc thêm ngày nghỉ thông thường. |
+| BR-VEN-13 | `winding_down` giữ nguyên hold/booking đã tồn tại nhưng không cho gia hạn quá mốc đã chụp. `scheduled_close` lấy `effectiveAt` là 00:00 ngày đã chọn theo giờ Việt Nam và ảnh hưởng booking có `endAt > effectiveAt`. `emergency` ảnh hưởng mọi booking có `endAt > now`, kể cả ca đang diễn ra. Booking đã hủy không được phục hồi khi chuyển chế độ hoặc kích hoạt lại. |
+| BR-VEN-14 | Trạng thái vận hành (`active`, `winding_down`, `scheduled_close`, `inactive`) tách khỏi trạng thái xử lý nghĩa vụ (`not_required`, `processing`, `completed`, `needs_attention`). Lỗi hủy/hoàn tiền không được tự mở lại sân. |
 | BR-VEN-06 | Thay đổi biểu giá không ảnh hưởng booking đã tạo. Mỗi booking giữ `priceSnapshot` tại thời điểm tạo. |
 | BR-VEN-07 | Giá niêm yết theo giờ. Tổng tiền một booking bằng tổng các đoạn thời gian nhân đơn giá của khung giá tương ứng, khi booking bắc qua nhiều khung giá. |
 | BR-VEN-08 | **Định nghĩa booking nội bộ:** một bản ghi chỉ để khóa lịch cho lượt đặt diễn ra ngoài marketplace. Nền tảng **không thu tiền, không hoàn tiền, không tính hoa hồng và không tính vào doanh thu nền tảng** cho bản ghi này. Việc khách trả tiền cho chủ sân bằng cách nào nằm ngoài phạm vi hệ thống. |
@@ -54,7 +57,10 @@ suspended ──(ACC-08 khôi phục)──> approved
 > `rejected` là trạng thái **bổ sung** so với [data-model.md](../../architecture/data-model.md),
 > vốn chỉ có `pending|approved|suspended`. Xem giả định A-VEN-01.
 
-**`COURT.active`**: `true ↔ false`, chuyển đổi chịu ràng buộc BR-VEN-05.
+**`COURT.active`** tiếp tục phục vụ tương thích với các màn hình cũ. Luồng D55
+dùng `OperationalShutdown` làm nguồn trạng thái vận hành; `Closure` vẫn chỉ là
+ngày nghỉ ngoại lệ. Kích hoạt lại là thao tác riêng và không phục hồi booking,
+match, JOIN hoặc bút toán đã kết thúc.
 
 ---
 
@@ -170,9 +176,9 @@ suspended ──(ACC-08 khôi phục)──> approved
 | Điều kiện trước | Cơ sở đã tồn tại |
 | Sự kiện kích hoạt | Thêm sân, đổi tên sân, hoặc vô hiệu hóa sân |
 | Workflow chính | 1. Mở cơ sở → 2. Thêm sân con với tên gọi và 1–5 ảnh → 3. Chọn thiết lập lịch, giá và quy tắc chung hoặc riêng → 4. Lưu, sân ở trạng thái `active=true` → 5. Có thể mở lại từng sân để sửa cấu hình và ảnh |
-| Luồng thay thế | Vô hiệu hóa sân: hệ thống kiểm tra booking `confirmed` trong tương lai **và `HOLD` chưa hết hạn**. Không có gì vướng → đặt `active=false`. Có → chặn theo BR-VEN-05 |
-| Luồng lỗi | Vô hiệu hóa sân còn booking tương lai → từ chối kèm danh sách booking vướng và hướng dẫn hủy qua BOK-10; Còn `HOLD` chưa hết hạn → từ chối kèm thời điểm hold hết hạn để chủ sân biết khi nào thao tác lại được; Tên sân trùng trong cùng cơ sở → từ chối |
-| Business Rules | BR-VEN-02, BR-VEN-05, BR-VEN-09, BR-VEN-11, BR-VEN-12 |
+| Luồng thay thế | **Ngừng hoạt động sân/cơ sở (D55):** chọn một trong ba chế độ, xem trước booking/hold/kèo bị ảnh hưởng và tổng tiền hoàn, xác nhận hậu quả, sau đó hệ thống khóa cam kết mới và xử lý nghĩa vụ. Có thể chuyển chế độ an toàn; emergency đã có hiệu lực không được hạ xuống chế độ nhẹ hơn. |
+| Luồng lỗi | Không phải chủ sở hữu → từ chối; emergency thiếu lý do → từ chối; scheduled thiếu/ngày đóng không hợp lệ → từ chối; item xử lý quá ngưỡng retry → giữ sân đóng và chuyển sang trạng thái cần Admin hỗ trợ. |
+| Business Rules | BR-VEN-02, BR-VEN-05, BR-VEN-05b, BR-VEN-09, BR-VEN-11, BR-VEN-12, BR-VEN-13, BR-VEN-14 |
 | Trạng thái liên quan | `COURT.active: true ↔ false` |
 | Quyền hạn | Chỉ chủ sở hữu cơ sở |
 | Dữ liệu vào | Tên sân, trạng thái hoạt động, 1–5 ảnh, lịch, giá và quy tắc đặt sân |

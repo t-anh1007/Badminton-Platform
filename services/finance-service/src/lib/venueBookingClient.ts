@@ -55,6 +55,6 @@ export async function resolveMatchBooking(input: {
       venueRevision: input.venueRevision,
     }),
   });
-  if (!res.ok) throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'KhÃ´ng chÃ³t Ä‘Æ°á»£c booking kÃ¨o.', 502);
+  if (!res.ok) throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'Không chốt được booking kèo.', 502);
   return (await res.json()) as MatchBookingResolutionPayload;
 }

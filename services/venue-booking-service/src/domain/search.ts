@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { vietnamMinuteToInstant, vietnamWeekday } from '../lib/vietnamTime.js';
+import { canCommitDuringShutdown } from './operationalShutdownPolicy.js';
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -13,6 +14,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 export interface VenueSearchResult {
   venueId: string;
+  businessCode?: string;
   name: string;
   lat: number;
   lng: number;
@@ -71,15 +73,25 @@ export async function searchVenues(
       },
     },
   });
+  const shutdowns = await prisma.operationalShutdown.findMany({ where: { endedAt: null, OR: [
+    { scopeType: 'venue', scopeId: { in: venues.map((venue) => venue.id) } },
+    { scopeType: 'court', scopeId: { in: venues.flatMap((venue) => venue.courts.map((court) => court.id)) } },
+  ] } });
   const results: VenueSearchResult[] = [];
 
   for (const venue of venues) {
+    const offeredCourts = venue.courts.filter((court) => shutdowns
+      .filter((shutdown) => shutdown.scopeType === 'venue' && shutdown.scopeId === venue.id
+        || shutdown.scopeType === 'court' && shutdown.scopeId === court.id)
+      .every((shutdown) => canCommitDuringShutdown({ ...shutdown, createdAt: shutdown.modeStartedAt }, now)));
+    if (offeredCourts.length === 0) continue;
     const distanceKm = haversineKm(lat, lng, venue.lat, venue.lng);
     if (radiusKm !== undefined && distanceKm > radiusKm) continue;
     // BR-BOK-01: chỉ cơ sở thỏa BR-VEN-03 (approved + sân active + giờ + giá).
 
     results.push({
       venueId: venue.id,
+      businessCode: venue.businessCode,
       name: venue.name,
       lat: venue.lat,
       lng: venue.lng,
@@ -87,8 +99,8 @@ export async function searchVenues(
       amenities: venue.amenities,
       images: venue.images,
       distanceKm,
-      lowestPrice: lowestPriceForVenue(venue.courts),
-      courtCount: venue.courts.length,
+      lowestPrice: lowestPriceForVenue(offeredCourts),
+      courtCount: offeredCourts.length,
     });
   }
 
@@ -133,9 +145,17 @@ export async function filterAndSortVenues(
           none: { expiresAt: { gt: now }, startAt: { lt: endAt }, endAt: { gt: startAt } },
         },
       },
-      select: { venueId: true },
+      select: { id: true, venueId: true },
     });
-    const venueIdsWithFreeCourt = new Set(freeCourts.map((court) => court.venueId));
+    const shutdowns = await prisma.operationalShutdown.findMany({ where: { endedAt: null, OR: [
+      { scopeType: 'venue', scopeId: { in: results.map((result) => result.venueId) } },
+      { scopeType: 'court', scopeId: { in: freeCourts.map((court) => court.id) } },
+    ] } });
+    const venueIdsWithFreeCourt = new Set(freeCourts.filter((court) => shutdowns
+      .filter((shutdown) => shutdown.scopeType === 'venue' && shutdown.scopeId === court.venueId
+        || shutdown.scopeType === 'court' && shutdown.scopeId === court.id)
+      .every((shutdown) => canCommitDuringShutdown({ ...shutdown, createdAt: shutdown.modeStartedAt }, endAt)))
+      .map((court) => court.venueId));
     results = results.filter((result) => venueIdsWithFreeCourt.has(result.venueId));
   }
 

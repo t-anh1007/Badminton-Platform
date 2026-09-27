@@ -74,7 +74,7 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
       },
     });
     await matchmakingPrisma.passport.create({
-      data: {
+      data: { discipline: 'doubles',
         userId,
         declaredTier: 'intermediate_plus',
         ratingMu: 1700,
@@ -82,8 +82,9 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
         ratingSigma: 0.06,
       },
     });
-    const startAt = new Date(Date.now() + 24 * 60 * 60_000);
-    startAt.setUTCMinutes(0, 0, 0);
+    // BR-CM-02: còn ít nhất 24 giờ. Cố định 10:00 giờ Việt Nam để slot không vắt qua nửa đêm.
+    const startAt = new Date(Date.now() + 48 * 60 * 60_000);
+    startAt.setUTCHours(3, 0, 0, 0);
     const court = await venuePrisma.court.create({
       data: {
         name: 'Sân E2E',
@@ -98,9 +99,10 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
     await venuePrisma.pricingRule.create({
       data: {
         courtId: court.id,
-        weekday: startAt.getUTCDay(),
-        startMinute: startAt.getUTCHours() * 60,
-        endMinute: startAt.getUTCHours() * 60 + 60,
+        // Bảng giá theo giờ Việt Nam (UTC+7), như calculateBookingPrice.
+        weekday: new Date(startAt.getTime() + 7 * 3_600_000).getUTCDay(),
+        startMinute: new Date(startAt.getTime() + 7 * 3_600_000).getUTCHours() * 60,
+        endMinute: new Date(startAt.getTime() + 7 * 3_600_000).getUTCHours() * 60 + 60,
         price: 400000n,
         effectiveFrom: new Date(startAt.getTime() - 60_000),
       },
@@ -131,7 +133,7 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
     const createdResponses = await Promise.all(Array.from({ length: 6 }, () => request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${token}`)
-      .send({ holdId: hold.id, capacity: 4, feeMode: 'split' })
+      .send({ holdId: hold.id, mode: 'friendly', discipline: 'doubles', ratio: '5:5', format: 'bo3' })
       .expect(201)));
     const [created] = createdResponses;
     matchId = created!.body.id;
@@ -141,7 +143,8 @@ describeServiceE2E('P2-M2 real HTTP service chain', () => {
     expect(await matchmakingPrisma.outbox.count({
       where: { aggregateId: matchId, eventType: 'MatchCreated' },
     })).toBe(1);
-    const detail = await request(app).get(`/matches/${matchId}`).expect(200);
+    // Kèo nguồn hold chờ chủ kèo đặt cọc: chỉ chủ kèo xem được.
+    const detail = await request(app).get(`/matches/${matchId}`).set('Authorization', `Bearer ${token}`).expect(200);
 
     expect(created.body.feePerSlot).toBe('100000');
     expect(detail.body).toMatchObject({

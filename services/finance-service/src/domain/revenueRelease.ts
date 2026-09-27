@@ -1,3 +1,4 @@
+import { withBookingReferences } from './bookingReferences.js';
 import { prisma } from '../lib/prisma.js';
 import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
@@ -23,7 +24,7 @@ export async function listBusinessRevenue(businessUserId: string, filters: Reven
     select: { bookingId: true },
   });
   const blocked = new Set(open.map((row) => row.bookingId));
-  return rows.map((row) => ({ ...row, disputeOpen: blocked.has(row.bookingId) }));
+  return withBookingReferences(rows.map((row) => ({ ...row, disputeOpen: blocked.has(row.bookingId) })));
 }
 
 /** FIN-09/BR-FIN-16: chuyển phân vùng nội bộ, không sinh ledger. */

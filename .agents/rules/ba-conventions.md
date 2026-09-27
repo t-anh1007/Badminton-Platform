@@ -1,6 +1,6 @@
 # BA Conventions
 
-> Common rules cho mọi BA skills (`$brainstorm`, `/urd`, `/brd`, `/prd-epic`, `/srs`, `/usecase`, `/userstory`, `/ac`). Mỗi skill MUST reference file này trong Constraints + References.
+> Common rules cho mọi BA skills (`/urd`, `/brd`, `/prd-epic`, `/srs`, `/usecase`, `/userstory`, `/ac`). Mỗi skill MUST reference file này trong Constraints + References.
 
 ## 0. Doc sạch — không meta-text trong template/doc
 

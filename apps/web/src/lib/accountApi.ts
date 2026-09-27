@@ -31,13 +31,16 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface SessionResult { accessToken: string; refreshToken: string; roles: string[] }
 export interface ProfileResult {
+  businessCode?: string;
   id: string; email: string; phone: string | null; roles: string[];
   playerProfile: { displayName: string; avatarUrl: string | null; visibility: 'public' | 'private' } | null;
 }
 export interface AdminAccountRow {
+  businessCode?: string;
   id: string; email: string; displayName: string | null; status: 'active' | 'locked'; roles: string[];
 }
-export interface AdminAccountIdentity { id: string; email: string; displayName: string | null }
+export interface AdminAccountIdentity {
+  businessCode?: string; id: string; email: string; displayName: string | null }
 export interface AvatarUploadAuthorization { objectKey: string; uploadUrl: string; headers: Record<string, string>; expiresAt: string }
 
 export const register = (body: { email: string; password: string; displayName: string }) =>

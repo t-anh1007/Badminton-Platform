@@ -76,6 +76,7 @@ services:
         condition: service_healthy
     environment:
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-khoaluantn-media}
+      OBJECT_STORAGE_PRIVATE_BUCKET: ${OBJECT_STORAGE_PRIVATE_BUCKET:-khoaluantn-private}
       OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
       OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
     entrypoint:
@@ -84,6 +85,7 @@ services:
       - >-
         mc alias set local http://minio:9000 "$${OBJECT_STORAGE_ACCESS_KEY}" "$${OBJECT_STORAGE_SECRET_KEY}";
         mc mb --ignore-existing "local/$${OBJECT_STORAGE_BUCKET}";
+        mc mb --ignore-existing "local/$${OBJECT_STORAGE_PRIVATE_BUCKET}";
 
 volumes:
   pgdata:

@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { lockShutdownScope } from './operationalShutdown.js';
+import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
 
 async function getOwnedCourtOrThrow(userId: string, courtId: string) {
   const court = await prisma.court.findUniqueOrThrow({
@@ -40,11 +42,15 @@ export async function addCourt(userId: string, venueId: string, name: string, im
   }
   const trimmed = name.trim();
   if (!trimmed) throw new AppError('COURT_NAME_REQUIRED', 'Tên sân không được để trống.', 400);
-
-  const dup = await prisma.court.findFirst({ where: { venueId, name: trimmed } });
-  if (dup) throw new AppError('DUPLICATE_COURT_NAME', 'Tên sân đã tồn tại trong cơ sở này.', 409);
-
-  return prisma.court.create({ data: { venueId, name: trimmed, active: true, images: validateCourtImages(images) } });
+  return prisma.$transaction(async (tx) => {
+    await lockShutdownScope(tx, { type: 'venue', id: venueId });
+    if (await tx.operationalShutdown.findFirst({ where: { scopeType: 'venue', scopeId: venueId, endedAt: null } })) {
+      throw new AppError('VENUE_SHUTTING_DOWN', 'Cơ sở đang ngừng hoạt động. Hãy hoàn tất hoặc thay đổi kế hoạch trước khi thêm sân.', 409);
+    }
+    const dup = await tx.court.findFirst({ where: { venueId, name: trimmed } });
+    if (dup) throw new AppError('DUPLICATE_COURT_NAME', 'Tên sân đã tồn tại trong cơ sở này.', 409);
+    return tx.court.create({ data: { venueId, name: trimmed, active: true, images: validateCourtImages(images) } });
+  });
 }
 
 export async function updateCourt(userId: string, courtId: string, input: { name?: string; images?: unknown }) {
@@ -142,7 +148,14 @@ export async function deactivateVenueCourts(userId: string, venueId: string): Pr
 /** Kích hoạt lại sân con; chỉ đổi cờ active nên toàn bộ lịch sử booking/doanh thu được giữ nguyên. */
 export async function activateCourt(userId: string, courtId: string): Promise<void> {
   const court = await getOwnedCourtOrThrow(userId, courtId);
-  await prisma.court.update({ where: { id: court.id }, data: { active: true } });
+  await prisma.$transaction(async (tx) => {
+    await lockCourtSchedule(tx, court.id);
+    const shutdown = await tx.operationalShutdown.findFirst({ where: { endedAt: null, OR: [
+      { scopeType: 'court', scopeId: courtId }, { scopeType: 'venue', scopeId: court.venueId },
+    ] } });
+    if (shutdown) throw new AppError('SHUTDOWN_REACTIVATION_REQUIRED', 'Hãy dùng thao tác kích hoạt lại sau khi sân ngừng hoạt động.', 409);
+    await tx.court.update({ where: { id: court.id }, data: { active: true } });
+  });
 }
 
 /** Kích hoạt lại toàn bộ sân con của cơ sở mà không thay đổi dữ liệu lịch sử. */
@@ -151,8 +164,17 @@ export async function activateVenueCourts(userId: string, venueId: string): Prom
   if (venue.provider.userId !== userId) {
     throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở này.', 403);
   }
-  const result = await prisma.court.updateMany({ where: { venueId, active: false }, data: { active: true } });
-  return result.count;
+  return prisma.$transaction(async (tx) => {
+    await lockShutdownScope(tx, { type: 'venue', id: venueId });
+    const courtIds = (await tx.court.findMany({ where: { venueId }, select: { id: true } })).map((court) => court.id).sort();
+    for (const courtId of courtIds) await lockCourtSchedule(tx, courtId);
+    const shutdown = await tx.operationalShutdown.findFirst({ where: { endedAt: null, OR: [
+      { scopeType: 'venue', scopeId: venueId }, { scopeType: 'court', scopeId: { in: courtIds } },
+    ] } });
+    if (shutdown) throw new AppError('SHUTDOWN_REACTIVATION_REQUIRED', 'Hãy dùng thao tác kích hoạt lại sau khi cơ sở ngừng hoạt động.', 409);
+    const result = await tx.court.updateMany({ where: { venueId, active: false }, data: { active: true } });
+    return result.count;
+  });
 }
 
 /** VEN-04 — Lịch sử booking của sân (AC-VEN-04-4) — không lọc theo active. */

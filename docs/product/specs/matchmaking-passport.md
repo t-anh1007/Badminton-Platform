@@ -4,11 +4,16 @@ module: matchmaking-passport
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-08
+updated: 2026-09-25
 source: docs/SCOPE_BASELINE.md §2.5, docs/product/phasing.md §4, docs/architecture/system-architecture.md §6.3
 ---
 
 # Functional Spec — `matchmaking-passport` (MMP + F-01/02/03/04/07)
+
+> **Authority update 2026-09-25:** các rule về tạo/funding kèo, kết quả,
+> khai trình độ, rating đơn/đôi, BXH, badge và thưởng đã được thay thế/mở rộng bởi
+> [`competitive-matches.md`](competitive-matches.md) theo D56. Nội dung cũ dưới
+> đây chỉ còn hiệu lực khi không mâu thuẫn với spec mới.
 
 11 UC nền + 5 tính năng mới, Giai đoạn 2. Service: `matchmaking-service` (schema `matchmaking`,
 schema-per-service D17 — không FK/query xuyên schema, chỉ giao tiếp qua API/event).
@@ -45,7 +50,7 @@ Phí kèo **góp trả tiền sân qua platform**, KHÔNG chuyển ngang hàng (
 1. Người tổ chức tạo kèo trên một slot đã **giữ chỗ** (reuse hold 10' GĐ1) hoặc một booking `held`.
 2. Người đầu tiên giữ được slot sẽ **trả `feePerSlot` trong 10 phút** → finance ghi khoản này vào ví `platform`
    ở trạng thái giữ tạm (reserved), tham chiếu `matchId`.
-3. Khi kèo đủ người và tới ngưỡng xác nhận → tổng phí đã gom **thanh toán cho `bookingId`** (đường
+3. Khi kèo đủ người, kèo ở `filled` nhưng booking vẫn `held` tới `cutoffAt`. Tại cutoff, nếu vẫn đủ người/tiền thì tổng phí đã gom **thanh toán cho `bookingId`** (đường
    thanh toán booking chuẩn GĐ1). Booking `held → confirmed`. Phần chênh (nếu tổ chức góp thêm/bù)
    theo BR-MMP-11.
 4. Hủy kèo / rút trước hạn → **hoàn phí về ví cá nhân** người tham gia (SePay không refund — bất
@@ -89,6 +94,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | BR-MMP-12 | Rating/Passport chỉ cập nhật từ kèo `completed` có đánh giá hợp lệ (đã qua F-07). Kèo `cancelled` không ảnh hưởng rating. |
 | BR-MMP-13 | **D41:** Đánh giá sau trận chỉ mở cho JOIN `confirmed` của kèo `completed`, trong 72 giờ sau `BookingCompleted`; chỉ đánh giá người CÙNG kèo; không tự đánh giá mình. |
 | BR-MMP-14 | Quyền: người tổ chức chỉ thao tác kèo của mình; người tham gia chỉ thấy/thao tác JOIN của mình. Kiểm ở tầng API. |
+| BR-MMP-15 | Trước tạo kèo, giữ slot tham gia hoặc mở thanh toán JOIN, hệ thống tổng hợp booking/kèo đang hoạt động của player có khoảng thời gian giao nhau. Có xung đột thì dừng để cảnh báo và yêu cầu xác nhận tường minh; không hard-block vì có trường hợp đặt hộ (D54). |
 
 ## 5. Sự kiện phát/tiêu thụ (khớp system-architecture §6.3)
 
@@ -98,6 +104,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 | `JoinApproved` | matchmaking | finance (mở khoản chờ phí FIN-05) |
 | `MatchConfirmed` | matchmaking | finance (gom phí → thanh toán booking) |
 | `MatchCancelled` | matchmaking | finance (hoàn phí về ví cá nhân) |
+| `BookingCancelled` do ngừng hoạt động | venue-booking | matchmaking (hủy kèo/JOIN theo `bookingId`, thông báo bắt buộc) |
 | `BookingConfirmed` | venue-booking | matchmaking (đánh dấu kèo confirmed) |
 | `BookingCompleted` | venue-booking | matchmaking (mở đánh giá MMP-10) |
 | `PaymentCompleted` | finance | matchmaking (xác nhận chỗ đã trả phí) |
@@ -175,7 +182,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - `AC-MMP-06-1` — Given JOIN `approved` và số dư đủ, When trả phí, Then JOIN `confirmed`, phí vào ví platform (reserved, ref matchId).
 - `AC-MMP-06-2` — Given hai người cùng trả phí cho chỗ cuối đồng thời, When xử lý, Then chỉ một `confirmed`, người kia bị từ chối/hoàn (BR-MMP-06, chống chồng chỗ tầng CSDL).
 - `AC-MMP-06-3` — Given kèo miễn phí, When player bấm tham gia, Then JOIN `confirmed` ngay không cần trả phí.
-- `AC-MMP-06-4` — Given tổng người `confirmed` đủ ngưỡng, When chỗ cuối `confirmed`, Then kèo `filled`, phát `MatchConfirmed`, settlement booking ngay và cả booking/kèo chuyển `confirmed` sau quyết định Venue (bảo toàn giá trị BR-MMP-11, D39, D50).
+- `AC-MMP-06-4` — Given tổng người `confirmed` đủ ngưỡng trước cutoff, When chỗ cuối `confirmed`, Then kèo `filled` nhưng booking vẫn `held` và chưa phát `MatchConfirmed`; tới cutoff nếu vẫn đủ người/tiền mới settlement và cả booking/kèo chuyển `confirmed` (bảo toàn giá trị BR-MMP-11, D39, D53).
 
 ### MMP-07 — Rút khỏi kèo
 - **Actor**: người chơi (`approved`/`confirmed`). **Workflow**: rút → JOIN `withdrawn`; nếu đã trả
@@ -183,8 +190,7 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 - **BR**: BR-MMP-09.
 
 **AC**
-- `AC-MMP-07-1` — Given JOIN `confirmed` đã trả phí, trước `cutoffAt` và booking còn `held`, When
-  rút, Then `withdrawn` + hoàn phí về ví cá nhân + chỗ trống lại. Nếu booking đã confirmed thì D36 không hoàn riêng.
+- `AC-MMP-07-1` — Given JOIN `confirmed` đã trả phí và còn trước `cutoffAt`, When rút, Then booking còn `held`, JOIN thành `withdrawn`, hoàn 100% về ví cá nhân và kèo mở chỗ lại. Booking chỉ có thể đã confirmed trước cutoff trong race/legacy; khi đó D36 vẫn bảo vệ bảo toàn tiền.
 - `AC-MMP-07-2` — Given JOIN `confirmed`, từ `cutoffAt` trở đi và kèo vẫn diễn ra, When rút,
   Then `withdrawn` KHÔNG hoàn phí; nếu cả kèo về sau bị hủy thì D35 hoàn lại contribution đó.
 - `AC-MMP-07-3` — Given rút một chỗ khiến kèo `filled` tụt dưới ngưỡng trước khi booking confirmed, Then kèo về `open` (còn chỗ) — không phá bảo toàn tiền.
@@ -198,10 +204,15 @@ approved|confirmed ─(MMP-07 rút | MMP-08 kèo hủy)─> withdrawn (hoàn ph�
 **AC**
 - `AC-MMP-08-1` — Given kèo có 2 người đã trả phí, When tổ chức hủy, Then kèo `cancelled` + cả 2 được hoàn phí về ví cá nhân + booking sân nhả.
 - `AC-MMP-08-2` — Given tới `cutoffAt` chưa đủ người, When hệ thống chốt, Then kèo tự `cancelled` + hoàn phí + nhả sân.
+- `AC-MMP-08-4` — Given tới `cutoffAt` kèo `filled` và mọi contribution hợp lệ, When hệ thống chốt, Then phát đúng một `MatchConfirmed` để settlement thay vì hủy kèo.
 - `AC-MMP-08-3` — Given kèo đã `confirmed` (booking đã confirmed), When tổ chức muốn hủy, Then
   áp `policySnapshot` bậc thang GĐ1 của booking; mỗi người nhận cùng tỷ lệ trên đúng phần đã góp
   theo D33. D37 floor phần participant và giao phần dư làm tròn cho organizer để tổng hoàn khớp
   booking. KHÔNG hủy tự do, không P2P và tổng hoàn không vượt tổng góp.
+- `AC-MMP-08-4` — Given booking gắn với kèo bị đóng cửa theo ngày hoặc ngừng ngay do sự cố, When
+  matchmaking nhận `BookingCancelled`, Then kèo chưa kết thúc chuyển `cancelled`, JOIN
+  `approved|confirmed` chuyển terminal phù hợp, organizer và những người tham gia bị ảnh hưởng
+  nhận thông báo bắt buộc đúng một lần, kể cả khi đã tắt thông báo kèo.
 
 ### MMP-09 — Khai báo trình độ chuẩn hóa
 - **Actor**: người chơi. **Workflow**: chọn 1 trong 5 bậc (Mới chơi/Y/TB/TB+/BC) → hệ thống khởi

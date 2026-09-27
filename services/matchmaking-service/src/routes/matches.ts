@@ -3,13 +3,15 @@ import { z } from 'zod';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
 import type { MatchmakerExplanationClient } from '@khoaluantn/ai';
-import { configureMatchSkillRange, createMatch, findPublicMatches, getPublicMatchDetail, listMyConfirmedMatches, requestJoin } from '../domain/matches.js';
+import { configureMatchSkillRange, createMatch, findPublicMatches, matchFundingView, getPublicMatchDetail, listMyConfirmedMatches, previewMatchFunding, requestJoin } from '../domain/matches.js';
 import { suggestAiMatches } from '../domain/aiMatchmaker.js';
+import { RATIO_FROM_DB } from '../domain/matchRules.js';
 import { approveJoin, listPendingJoins, rejectJoin } from '../domain/joins.js';
 import { optionalAuth, requireAdmin, requireAuth, requirePlayer, type AuthenticatedRequest } from '../middleware/auth.js';
 import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
 import { listAdminEvaluations, reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
+import { findPlayerScheduleConflicts } from '../domain/scheduleConflicts.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -55,8 +57,10 @@ function inferCriteriaFromMessage(message: string): NormalizedMatchCriteria {
 const createSchema = z.object({
   bookingId: z.string().uuid().optional(),
   holdId: z.string().uuid().optional(),
-  capacity: z.number().int().min(2),
-  feeMode: z.enum(['free', 'split']),
+  mode: z.enum(['friendly', 'ranked']),
+  discipline: z.enum(['singles', 'doubles']),
+  ratio: z.enum(['5:5', '6:4', '7:3']),
+  format: z.enum(['bo3', 'bo5']),
   skillMin: skillTier.optional(),
   skillMax: skillTier.optional(),
 }).strict().refine((input) => Boolean(input.bookingId) !== Boolean(input.holdId), {
@@ -78,6 +82,11 @@ const evaluationSchema = z.object({
 }).strict();
 
 const evaluationReviewSchema = z.object({ decision: z.enum(['approve', 'reject']) }).strict();
+const scheduleConflictSchema = z.object({
+  startAt: z.coerce.date(),
+  endAt: z.coerce.date(),
+  excludeMatchId: z.string().uuid().optional(),
+}).refine((input) => input.startAt < input.endAt, { message: 'startAt must be before endAt' });
 
 export function createMatchRouter(
   venueBookingClient: VenueBookingClient,
@@ -85,6 +94,16 @@ export function createMatchRouter(
   matchmakerClient?: MatchmakerExplanationClient,
 ) {
   const router = Router();
+  // Màn tạo kèo xem trước dòng tiền bằng đúng công thức backend; React không tự tính số tiền.
+  router.get('/funding-preview', withErrorHandling(async (req, res) => {
+    const input = z.object({
+      price: z.string().regex(/^[1-9]\d*$/).transform(BigInt),
+      ratio: z.enum(['5:5', '6:4', '7:3']),
+      discipline: z.enum(['singles', 'doubles']),
+      sourceType: z.enum(['hold', 'paid_booking']),
+    }).parse(req.query);
+    res.status(200).json({ preview: previewMatchFunding(input) });
+  }));
   router.get('/admin/evaluations', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
     const { reviewStatus } = z.object({
       reviewStatus: z.enum(['pending', 'approved', 'rejected']).default('pending'),
@@ -100,7 +119,13 @@ export function createMatchRouter(
       req.headers.authorization!,
       input,
     );
-    res.status(201).json({ ...match, feePerSlot: match.feePerSlot.toString() });
+    res.status(201).json({
+      ...match,
+      feePerSlot: match.feePerSlot.toString(),
+      bookingPrice: match.bookingPrice?.toString() ?? null,
+      ratio: RATIO_FROM_DB[match.ratio],
+      funding: matchFundingView(match, { id: userId, joinStatus: null }),
+    });
   }));
   router.get('/', withErrorHandling(async (req, res) => {
     const filters = searchSchema.parse(req.query);
@@ -140,7 +165,21 @@ export function createMatchRouter(
   router.post('/:matchId/joins', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);
     const userId = (req as AuthenticatedRequest).user!.id;
-    res.status(201).json(await requestJoin(matchId, userId));
+    const { teamSide } = z.object({ teamSide: z.enum(['A', 'B']) }).strict().parse(req.body);
+    res.status(201).json(await requestJoin(matchId, userId, teamSide));
+  }));
+  router.get('/me/schedule-conflicts', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = scheduleConflictSchema.parse(req.query);
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(200).json({
+      conflicts: await findPlayerScheduleConflicts(
+        venueBookingClient,
+        userId,
+        input.startAt,
+        input.endAt,
+        input.excludeMatchId,
+      ),
+    });
   }));
   router.get('/me/history', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const userId = (req as AuthenticatedRequest).user!.id;
@@ -196,7 +235,7 @@ export function createMatchRouter(
       userId,
       req.headers.authorization!,
     );
-    res.status(200).json({ ...match, feePerSlot: match.feePerSlot.toString() });
+    res.status(200).json({ ...match, feePerSlot: match.feePerSlot.toString(), bookingPrice: match.bookingPrice?.toString() ?? null });
   }));
   router.get('/:matchId', optionalAuth, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);

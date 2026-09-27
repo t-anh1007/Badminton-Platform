@@ -1,14 +1,13 @@
 ---
 paths:
   - ".agents/skills/meet/**"
-  - ".agents/skills/brainstorm/**"
   - ".agents/skills/reverse-doc/**"
   - ".agents/skills/discover/**"
 ---
 
 # Keyword Detection Patterns
 
-> Patterns để skill `/meet`, `$brainstorm`, `/reverse-doc` extract structured info từ unstructured text (transcript, notes, tài liệu cũ). Hỗ trợ tiếng Việt + tiếng Anh.
+> Patterns để skill `/meet` và `/reverse-doc` extract structured info từ unstructured text (transcript, notes, tài liệu cũ). Hỗ trợ tiếng Việt + tiếng Anh.
 
 ## Language detection
 

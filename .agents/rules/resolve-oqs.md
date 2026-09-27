@@ -1,7 +1,6 @@
 ---
 paths:
   - "docs/**/*.md"
-  - ".agents/skills/brainstorm/**"
   - ".agents/skills/urd/**"
   - ".agents/skills/brd/**"
   - ".agents/skills/prd-epic/**"
@@ -12,7 +11,7 @@ paths:
 
 # Resolve Open Questions (Phase E)
 
-> Canonical pattern cho mọi BA skill (`/prd`, `$brainstorm`, `/urd`, `/brd`, `/prd-epic`, `/srs`) chạy SAU Write doc, TRƯỚC khi suggest downstream skills. Mục đích: không để OQ debt accumulate cross-stage — buộc resolve hoặc ack hold ngay.
+> Canonical pattern cho mọi BA skill (`/prd`, `/urd`, `/brd`, `/prd-epic`, `/srs`) chạy SAU Write doc, TRƯỚC khi suggest downstream skills. Mục đích: không để OQ debt accumulate cross-stage — buộc resolve hoặc ack hold ngay.
 
 ## Trigger
 
@@ -28,7 +27,6 @@ Skill gom 2 nguồn OQs:
 | Skill | Upstream chain để inherit OQs |
 |---|---|
 | `/prd` | (none — PRD sản phẩm là gốc cấp sản phẩm; chỉ own OQs Mục 11) |
-| `$brainstorm` | (none — brainstorm là gốc cấp feature) |
 | `/urd` | `docs/{feature}/brainstorms/*.md` Mục "Open Questions" |
 | `/brd` | brainstorm + `{feature}-urd.md` |
 | `/prd-epic` | brainstorm + `{feature}-urd.md` + `{feature}-brd.md` |
@@ -91,7 +89,6 @@ Nếu doc hiện tại không phải cuối chain, skill scan downstream docs tr
 | Resolve qua skill | Scan downstream docs |
 |---|---|
 | `/prd` (project-level) | cascade scan **trong chính `docs/_product/prd.md`** (Assumptions/Risks/Constraints/Feature Map — per topic map 3.5.3); KHÔNG scan feature doc (chưa tồn tại lúc PRD sản phẩm). `docs/_product/roadmap.md` đọc 1 chiều từ Feature Map nên KHÔNG cascade OQ sang đó — muốn đồng bộ thì chạy lại `/roadmap`. |
-| `$brainstorm` | `{feature}-urd.md`, `{feature}-brd.md`, `{feature}-prd.md`, `srs/{feature}-spec.md` (nếu tồn tại) |
 | `/urd` | `{feature}-brd.md`, `{feature}-prd.md`, `srs/{feature}-spec.md` |
 | `/brd` | `{feature}-prd.md`, `srs/{feature}-spec.md` |
 | `/prd-epic` | `srs/{feature}-spec.md`, `srs/{feature}-flows.md`, `srs/{feature}-erd.md`, `ascii-wireframe/*.md` |
@@ -191,7 +188,7 @@ Nếu user skip Phase E:
 - ❌ Update upstream OQ silent (không L2 diff).
 - ❌ Hỏi OQ đã resolved ở upstream.
 - ❌ **Mark `[x]` xong nhưng bỏ qua cascade scan** — Assumptions/Risks/Next Steps vẫn ghi giả định cũ là vô nghĩa.
-- ❌ Bỏ qua downstream docs — OQ resolved ở `$brainstorm` nhưng URD đã viết vẫn còn "OQ-3 chờ resolve" trong Next Steps.
+- ❌ Bỏ qua downstream docs — OQ đã resolve ở tài liệu upstream nhưng URD vẫn còn "OQ-3 chờ resolve" trong Next Steps.
 
 ## Tóm tắt
 

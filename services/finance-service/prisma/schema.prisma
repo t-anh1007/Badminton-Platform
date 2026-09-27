@@ -43,6 +43,26 @@ enum MatchFundingStatus {
   cancelled
 }
 
+/// Kèo cạnh tranh v2: nguồn tiền sân của kèo.
+enum MatchFundingSource {
+  hold
+  paid_booking
+}
+
+/// Vòng đời phần tiền giữ chờ kết quả (competitive-matches.md §10.2).
+enum ResultReserveStatus {
+  none
+  locked
+  released
+  refunded
+}
+
+/// cash: người chơi nộp qua số dư/SePay; booking_payment: phần chủ kèo đã trả bằng booking hiện có.
+enum MatchContributionSource {
+  cash
+  booking_payment
+}
+
 enum MatchContributionRole {
   participant
   organizer
@@ -155,6 +175,7 @@ model PaymentIntent {
 }
 
 model SepayEvent {
+  businessCode String @unique @default(dbgenerated("('GD-'::text || lpad((nextval('sepay_events_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id          String         @id @default(uuid())
   direction   SepayDirection
   amount      BigInt
@@ -284,6 +305,7 @@ model FinanceAudit {
 }
 
 model Dispute {
+  businessCode String @unique @default(dbgenerated("('KN-'::text || lpad((nextval('disputes_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id              String        @id @default(uuid())
   refType         String
   refId           String
@@ -317,6 +339,16 @@ model MatchFunding {
   bookingPrice          BigInt
   organizerContribution BigInt
   cutoffAt              DateTime
+  sourceType            MatchFundingSource @default(hold)
+  discipline            String             @default("singles")
+  ratio                 String             @default("5:5")
+  /// bookingPrice + resultReserve; bằng tổng contribution của cả kèo.
+  totalContribution     BigInt
+  resultReserve         BigInt             @default(0)
+  resultReserveStatus   ResultReserveStatus @default(none)
+  /// Nguồn booking đã thanh toán: phần chủ kèo trả dư được hoàn vào ví cá nhân lúc chốt kèo.
+  organizerRebalance    BigInt             @default(0)
+  resultFinalizedAt     DateTime?
   status                MatchFundingStatus @default(collecting)
   settlementAttemptId   String?
   settlementVenueRevision Int @default(0)
@@ -336,6 +368,11 @@ model MatchContribution {
   joinId          String?                 @unique
   userId          String
   role            MatchContributionRole
+  /// Đội; null cho contribution trước v2.
+  teamSide        String?
+  /// Thời điểm JOIN gốc từ Matchmaking; null cho contribution cũ (dùng createdAt).
+  joinedAt        DateTime?
+  source          MatchContributionSource @default(cash)
   amount          BigInt
   status          MatchContributionStatus @default(pending)
   expiresAt       DateTime?
@@ -347,4 +384,48 @@ model MatchContribution {
 
   @@index([matchId, status])
   @@map("match_contributions")
+}
+
+/// BR-CM-68..70: chi thưởng thủ công từ ngân sách riêng; không có ví/ledger. Thông tin ngân hàng chỉ ở Finance.
+enum RewardPayoutStatus {
+  awaiting_information
+  ready_to_pay
+  paid
+  cancelled
+}
+
+model RewardPayout {
+  id                     String             @id @default(uuid())
+  awardId                String             @unique
+  programId              String
+  programName            String
+  rank                   Int
+  userId                 String
+  amount                 BigInt
+  claimDeadlineAt        DateTime
+  recipientName          String?
+  email                  String?
+  phone                  String?
+  address                String?
+  bankCode               String?
+  bankAccountNumber      String?
+  bankAccountName        String?
+  informationSubmittedAt DateTime?
+  payoutDeadlineAt       DateTime?
+  status                 RewardPayoutStatus @default(awaiting_information)
+  transactionReference   String?            @unique
+  proofObjectKey         String?
+  proofMimeType          String?
+  proofSize              Int?
+  proofChecksumSha256    String?
+  paidAt                 DateTime?
+  paidByUserId           String?
+  cancelledAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, claimDeadlineAt])
+  @@index([programId])
+  @@map("reward_payouts")
 }

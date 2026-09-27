@@ -7,6 +7,7 @@ export type ReportStatus = 'open' | 'actioned' | 'dismissed';
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
 export interface CommunityPost {
+  businessCode?: string;
   id: string;
   authorUserId: string;
   authorDisplayName?: string | null;
@@ -36,6 +37,7 @@ export interface UploadAuthorization {
 }
 
 export interface CommunityComment {
+  businessCode?: string;
   id: string;
   postId: string;
   authorUserId: string;
@@ -51,16 +53,19 @@ export interface CommunityPostDetail extends CommunityPost {
 }
 
 export interface CommunityReport {
+  businessCode?: string;
   id: string;
   reporterUserId: string;
   targetType: ReportTarget;
   targetId: string;
+  targetCode?: string | null;
   reason: string;
   status: ReportStatus;
   createdAt: string;
 }
 
 export interface SupportTicket {
+  businessCode?: string;
   id: string;
   requesterUserId: string;
   subject: string;

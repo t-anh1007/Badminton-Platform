@@ -7,9 +7,14 @@ import { prisma } from '../src/lib/prisma.js';
 import type { VenueBookingClient, VenueMatchContext } from '../src/clients/venueBooking.js';
 import type { AccountClient } from '../src/clients/account.js';
 import { releaseExpiredApprovedJoins, startJoinExpiryScheduler } from '../src/domain/joins.js';
+import { handleShutdownBookingCancellation } from '../src/lib/matchLifecycleEventConsumer.js';
 
 class FakeVenueBookingClient implements VenueBookingClient {
   readonly contexts = new Map<string, VenueMatchContext>();
+  readonly bookingConflicts: Array<{
+    bookingId: string; startAt: string; endAt: string;
+    court: { id: string; name: string }; venue: { id: string; name: string; address: string };
+  }> = [];
 
   async getMatchContext(bookingId: string): Promise<VenueMatchContext | null> {
     return this.contexts.get(bookingId) ?? null;
@@ -24,6 +29,10 @@ class FakeVenueBookingClient implements VenueBookingClient {
 
   async cancelConfirmedBooking(): Promise<{ refundPercent: number }> {
     return { refundPercent: 50 };
+  }
+
+  async getPlayerScheduleConflicts() {
+    return this.bookingConflicts;
   }
 }
 
@@ -43,6 +52,7 @@ const bookingIds: string[] = [];
 const createdMatchIds: string[] = [];
 const passportUserIds: string[] = [];
 const eventAggregateIds: string[] = [];
+const shutdownEventIds: string[] = [];
 
 function playerToken(userId: string): string {
   return jwt.sign(
@@ -69,6 +79,8 @@ function context(bookingId: string, startAt: Date): VenueMatchContext {
       lat: 10.77,
       lng: 106.7,
     },
+    providerUserId: randomUUID(),
+    provinceCode: 'ho-chi-minh',
   };
 }
 
@@ -89,6 +101,7 @@ async function createMatch(input: {
       organizerUserId: randomUUID(),
       bookingId,
       capacity: input.capacity ?? 4,
+      discipline: (input.capacity ?? 4) === 4 ? 'doubles' : 'singles',
       feePerSlot: 100000n,
       cutoffAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
       deadlineAt: input.cutoffAt ?? new Date(Date.now() + 2 * 60 * 60_000),
@@ -138,10 +151,12 @@ beforeEach(async () => {
     });
   }
   venueBookingClient.contexts.clear();
+  venueBookingClient.bookingConflicts.length = 0;
   accountClient.displayNames.clear();
 });
 
 afterAll(async () => {
+  await prisma.processedEvent.deleteMany({ where: { eventId: { in: shutdownEventIds } } });
   await prisma.outbox.deleteMany({
     where: { aggregateId: { in: eventAggregateIds } },
   });
@@ -166,6 +181,76 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe('player schedule conflict warnings', () => {
+  it('combines active match participation with owned booking conflicts', async () => {
+    const userId = randomUUID();
+    const match = await createMatch({ capacity: 2 });
+    await prisma.match.update({ where: { id: match.id }, data: { organizerUserId: userId } });
+    const matchContext = venueBookingClient.contexts.get(match.bookingId)!;
+    venueBookingClient.bookingConflicts.push({
+      bookingId: randomUUID(),
+      startAt: matchContext.startAt,
+      endAt: matchContext.endAt,
+      court: { id: randomUUID(), name: 'Sân đặt riêng' },
+      venue: { id: randomUUID(), name: 'Cơ sở B', address: 'Quận 3' },
+    });
+
+    const response = await request(app)
+      .get('/matches/me/schedule-conflicts')
+      .query({ startAt: matchContext.startAt, endAt: matchContext.endAt })
+      .set('Authorization', `Bearer ${playerToken(userId)}`)
+      .expect(200);
+
+    expect(response.body.conflicts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'match', role: 'organizer', startAt: matchContext.startAt }),
+      expect.objectContaining({ kind: 'booking', role: 'booker', venue: expect.objectContaining({ name: 'Cơ sở B' }) }),
+    ]));
+  });
+});
+
+describe('operational shutdown match cancellation', () => {
+  it('withdraws every active join but notifies only the organizer and approved participants', async () => {
+    const match = await createMatch({ status: 'filled', organizerContributionPaidAt: new Date() });
+    const joinUsers = ['pending', 'approved', 'confirmed', 'rejected'].map(() => randomUUID());
+    const statuses = ['pending', 'approved', 'confirmed', 'rejected'] as const;
+    const joins = await Promise.all(statuses.map((status, index) => prisma.join.create({
+      data: {
+        matchId: match.id,
+        participantUserId: joinUsers[index]!,
+        status,
+        ...(status === 'approved' || status === 'confirmed' ? { feePaidAt: new Date() } : {}),
+      },
+    })));
+    const eventId = randomUUID();
+    shutdownEventIds.push(eventId);
+    const notifiedUsers = [match.organizerUserId, ...joinUsers.slice(1, 3)];
+    const notificationIds = notifiedUsers.map((userId) => `match.shutdown_emergency:${match.id}:${userId}`);
+    eventAggregateIds.push(...notificationIds);
+    const payload = {
+      bookingId: match.bookingId,
+      shutdownId: randomUUID(),
+      mode: 'emergency' as const,
+      bookingBusinessCode: 'BK-00004219',
+      wasConfirmed: false,
+    };
+
+    await handleShutdownBookingCancellation(eventId, payload);
+    await handleShutdownBookingCancellation(eventId, payload);
+
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'cancelled' });
+    const storedJoins = await prisma.join.findMany({ where: { id: { in: joins.map((join) => join.id) } }, orderBy: { id: 'asc' } });
+    expect(storedJoins.map((join) => join.status).sort()).toEqual(['rejected', 'withdrawn', 'withdrawn', 'withdrawn'].sort());
+    expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } })).toBe(1);
+    const notifications = await prisma.outbox.findMany({ where: { aggregateId: { in: notificationIds }, eventType: 'UserNotificationRequested' } });
+    expect(notifications).toHaveLength(3);
+    expect(notifications.map((item) => (item.payload as { bookingBusinessCode: string }).bookingBusinessCode))
+      .toEqual(Array(3).fill(payload.bookingBusinessCode));
+    const cancellation = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } });
+    expect((cancellation.payload as { paidJoinIds: string[] }).paidJoinIds.sort())
+      .toEqual([joins[1]!.id, joins[2]!.id].sort());
+  });
+});
+
 describe('MMP-01 — public match search', () => {
   it('D50: keeps open and filled matches visible in the public list', async () => {
     await Promise.all([createMatch({}), createMatch({}), createMatch({}), createMatch({ status: 'filled' })]);
@@ -173,6 +258,7 @@ describe('MMP-01 — public match search', () => {
     const response = await request(app).get('/matches').expect(200);
 
     expect(response.body.matches).toHaveLength(4);
+    expect(response.body.matches.every((match: { businessCode?: string }) => /^KEO-\d{8}$/.test(match.businessCode ?? ''))).toBe(true);
     expect(response.body.matches.filter((match: { status: string }) => match.status === 'filled')).toHaveLength(1);
   });
 
@@ -219,7 +305,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(201);
     createdMatchIds.push(response.body.id);
 
@@ -247,7 +333,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(422);
 
     expect(response.body.error.code).toBe('MATCH_SLOT_NOT_HELD');
@@ -263,7 +349,7 @@ describe('MMP-02 — create and publish a match', () => {
     const response = await request(app)
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
-      .send({ holdId, capacity: 2, feeMode: 'split' })
+      .send({ holdId, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' })
       .expect(422);
 
     expect(response.body.error.code).toBe('MATCH_LEAD_TOO_SHORT');
@@ -281,7 +367,7 @@ describe('MMP-02 — create and publish a match', () => {
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('AC-MMP-02-4: kèo miễn phí ngoài scope mô hình cọc -> từ chối', async () => {
+  it('AC-MMP-02-4: client không còn tự đặt capacity/feeMode -> từ chối', async () => {
     const organizerUserId = randomUUID();
     const holdId = randomUUID();
     bookingIds.push(holdId);
@@ -292,9 +378,10 @@ describe('MMP-02 — create and publish a match', () => {
       .post('/matches')
       .set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
       .send({ holdId, capacity: 2, feeMode: 'free' })
-      .expect(422);
+      .expect(400);
 
-    expect(response.body.error.code).toBe('MATCH_DEPOSIT_SPLIT_ONLY');
+    // v2: capacity/phí do server suy ra; trường cũ bị từ chối bởi schema strict.
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -307,7 +394,7 @@ describe('MMP-03 — public match detail', () => {
     passportUserIds.push(match.organizerUserId);
     accountClient.displayNames.set(match.organizerUserId, 'Nguyễn Minh');
     await prisma.passport.create({
-      data: {
+      data: { discipline: match.discipline,
         userId: match.organizerUserId,
         declaredTier: 'intermediate_plus',
         ratingMu: 1700,
@@ -358,7 +445,7 @@ describe('MMP-03 — public match detail', () => {
 
     const response = await request(app).get(`/matches/${match.id}`).expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: false,
       canPayOrganizerContribution: false,
@@ -384,7 +471,7 @@ describe('MMP-03 — public match detail', () => {
       .set('Authorization', `Bearer ${playerToken(participantUserId)}`)
       .expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: false,
       canPayOrganizerContribution: false,
@@ -404,7 +491,7 @@ describe('MMP-03 — public match detail', () => {
       .set('Authorization', `Bearer ${playerToken(match.organizerUserId)}`)
       .expect(200);
 
-    expect(response.body.actions).toEqual({
+    expect(response.body.actions).toMatchObject({
       canJoin: false,
       isOrganizer: true,
       canPayOrganizerContribution: false,
@@ -487,6 +574,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${playerToken(participantUserId)}`)
+      .send({ teamSide: 'B' })
       .expect(201);
 
     expect(response.body).toMatchObject({
@@ -506,12 +594,13 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const match = await createMatch({});
     const participantUserId = randomUUID();
     const token = playerToken(participantUserId);
-    const created = await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).expect(201);
+    const created = await request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${token}`).send({ teamSide: 'B' }).expect(201);
     eventAggregateIds.push(created.body.id);
 
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${token}`)
+      .send({ teamSide: 'B' })
       .expect(409);
 
     expect(response.body.error.code).toBe('JOIN_ALREADY_ACTIVE');
@@ -523,6 +612,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
     const response = await request(app)
       .post(`/matches/${match.id}/joins`)
       .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
+      .send({ teamSide: 'B' })
       .expect(409);
 
     expect(response.body.error.code).toBe('MATCH_NOT_OPEN');
@@ -531,7 +621,7 @@ describe('MMP-04 — reserve a slot and pay', () => {
   it('D50: only the first concurrent player reserves the last slot', async () => {
     const match = await createMatch({ capacity: 2 });
     const responses = await Promise.all([randomUUID(), randomUUID()].map((userId) =>
-      request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${playerToken(userId)}`),
+      request(app).post(`/matches/${match.id}/joins`).set('Authorization', `Bearer ${playerToken(userId)}`).send({ teamSide: 'B' }),
     ));
     expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     expect(await prisma.join.count({ where: { matchId: match.id, status: 'approved' } })).toBe(1);
@@ -552,7 +642,7 @@ describe('MMP-05 — organizer join review', () => {
     const { match, join } = await pendingJoinFixture();
     passportUserIds.push(join.participantUserId);
     await prisma.passport.create({
-      data: {
+      data: { discipline: match.discipline,
         userId: join.participantUserId,
         ratingMu: 1500,
         ratingRd: 120,
@@ -790,5 +880,132 @@ describe('post-payment skill setup', () => {
       .set('Authorization', `Bearer ${playerToken(randomUUID())}`)
       .send({ skillMin: 'beginner', skillMax: 'advanced' })
       .expect(403);
+  });
+});
+
+describe('Competitive matches v2 — create from hold or paid booking, choose a team', () => {
+  const body = { mode: 'friendly', discipline: 'doubles', ratio: '6:4', format: 'bo3' } as const;
+  function paidBooking(organizerUserId: string, overrides: Partial<VenueMatchContext> = {}) {
+    const bookingId = randomUUID();
+    bookingIds.push(bookingId);
+    const slot = context(bookingId, new Date(Date.now() + 72 * 3_600_000));
+    venueBookingClient.contexts.set(bookingId, {
+      ...slot, ownerUserId: organizerUserId, status: 'confirmed', holdExpiresAt: null, priceSnapshot: '200001', ...overrides,
+    });
+    return bookingId;
+  }
+
+  it('AC-CM-01/06: a paid booking opens immediately without touching the booking and shows the owner rebalance', async () => {
+    const organizerUserId = randomUUID();
+    accountClient.displayNames.set(organizerUserId, 'Minh Anh');
+    const bookingId = paidBooking(organizerUserId);
+    let holdConversions = 0;
+    const original = venueBookingClient.createBookingFromHold.bind(venueBookingClient);
+    venueBookingClient.createBookingFromHold = async (holdId: string) => { holdConversions += 1; return original(holdId); };
+    try {
+      const response = await request(app).post('/matches').set('Authorization', `Bearer ${playerToken(organizerUserId)}`)
+        .send({ bookingId, ...body }).expect(201);
+      createdMatchIds.push(response.body.id);
+      expect(response.body).toMatchObject({
+        status: 'open', sourceType: 'paid_booking', discipline: 'doubles', ratio: '6:4', capacity: 4, feePerSlot: '60000',
+        bookingPrice: '200001', provinceCode: 'ho-chi-minh',
+        funding: {
+          bookingPrice: '200001', totalContribution: '240001', resultHeldAmount: '40000', regularSlotAmount: '60000',
+          organizerContribution: '60001', viewerAdditionalAmountDue: '0', organizerRefundAtLock: '140000', organizerRefundWithdrawable: true,
+        },
+      });
+      expect(holdConversions).toBe(0);
+      const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: response.body.id, eventType: 'MatchCreated' } });
+      expect(event.payload).toMatchObject({
+        sourceType: 'paid_booking', mode: 'friendly', discipline: 'doubles', ratio: '6:4', teamSize: 2,
+        bookingPrice: '200001', resultReserve: '40000', totalContribution: '240001', feePerSlot: '60000', organizerContribution: '60001',
+      });
+      expect(event.payload).not.toHaveProperty('depositExpiresAt');
+
+      const stranger = await request(app).get(`/matches/${response.body.id}`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).expect(200);
+      expect(stranger.body.funding).toMatchObject({ regularSlotAmount: '60000', viewerAdditionalAmountDue: '60000', organizerContribution: null, organizerRefundAtLock: null });
+      expect(stranger.body.actions).toMatchObject({ canJoinTeamA: true, canJoinTeamB: true });
+      expect(stranger.body.teamSlots).toEqual([{ side: 'A', size: 2, open: 1 }, { side: 'B', size: 2, open: 2 }]);
+    } finally {
+      venueBookingClient.createBookingFromHold = original;
+    }
+  });
+
+  it('rejects a paid booking owned by someone else, ranked without province, and BO5 on a 60-minute booking', async () => {
+    const organizerUserId = randomUUID();
+    const token = `Bearer ${playerToken(organizerUserId)}`;
+    const foreign = paidBooking(randomUUID());
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: foreign, ...body }).expect(422)).body.error.code).toBe('MATCH_BOOKING_NOT_OWNED');
+    // DB local có thể đang có kỳ xếp hạng; chọn sẵn khu vực để chỉ kiểm tra lỗi sân thiếu tỉnh.
+    const season = await prisma.season.findFirst({ where: { closedAt: null, startAt: { lte: new Date() }, endAt: { gt: new Date() } } });
+    if (season) await prisma.playerSeasonProfile.create({ data: { seasonId: season.id, userId: organizerUserId, provinceCode: 'ho-chi-minh', lockedAt: new Date() } });
+    const noProvince = paidBooking(organizerUserId, { provinceCode: null });
+    // Kèo xếp hạng cần Passport của loại hình trước mọi kiểm tra khác về sân.
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: noProvince, ...body, mode: 'ranked' }).expect(409)).body.error.code).toBe('PASSPORT_REQUIRED');
+    passportUserIds.push(organizerUserId);
+    await prisma.passport.create({ data: { userId: organizerUserId, discipline: body.discipline, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 350, ratingSigma: 0.06, declaredAt: new Date() } });
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: noProvince, ...body, mode: 'ranked' }).expect(422)).body.error.code).toBe('MATCH_PROVINCE_REQUIRED');
+    const short = paidBooking(organizerUserId);
+    expect((await request(app).post('/matches').set('Authorization', token).send({ bookingId: short, ...body, format: 'bo5' }).expect(422)).body.error.code).toBe('MATCH_FORMAT_NOT_ALLOWED');
+  });
+
+  it('AC-CM-02: a retried create returns the same match and a different config for the same booking is refused', async () => {
+    const organizerUserId = randomUUID();
+    const token = `Bearer ${playerToken(organizerUserId)}`;
+    const bookingId = paidBooking(organizerUserId);
+    const first = await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body }).expect(201);
+    createdMatchIds.push(first.body.id);
+    const retry = await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body }).expect(201);
+    expect(retry.body.id).toBe(first.body.id);
+    await request(app).post('/matches').set('Authorization', token).send({ bookingId, ...body, ratio: '7:3' }).expect(409);
+    expect(await prisma.match.count({ where: { bookingId } })).toBe(1);
+  });
+
+  it('BR-CM-05: doubles keeps one A slot and two B slots under concurrent joins; singles has no A slot', async () => {
+    const doubles = await createMatch({ capacity: 4 });
+    const joinAs = (side: 'A' | 'B') => request(app).post(`/matches/${doubles.id}/joins`)
+      .set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({ teamSide: side });
+    const lastA = await Promise.all([joinAs('A'), joinAs('A')]);
+    expect(lastA.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(lastA.find((r) => r.status === 409)!.body.error.code).toBe('MATCH_TEAM_FULL');
+    const b = await Promise.all([joinAs('B'), joinAs('B')]);
+    expect(b.map((r) => r.status)).toEqual([201, 201]);
+    expect(await prisma.join.groupBy({ by: ['teamSide'], where: { matchId: doubles.id, status: 'approved' }, _count: true }))
+      .toEqual(expect.arrayContaining([{ teamSide: 'A', _count: 1 }, { teamSide: 'B', _count: 2 }]));
+    const event = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: lastA.find((r) => r.status === 201)!.body.id, eventType: 'JoinApproved' } });
+    expect(event.payload).toMatchObject({ teamSide: 'A' });
+    eventAggregateIds.push(...[...lastA, ...b].filter((r) => r.status === 201).map((r) => r.body.id));
+
+    const singles = await createMatch({ capacity: 2 });
+    const refused = await request(app).post(`/matches/${singles.id}/joins`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({ teamSide: 'A' }).expect(409);
+    expect(refused.body.error.code).toBe('MATCH_TEAM_FULL');
+    await request(app).post(`/matches/${singles.id}/joins`).set('Authorization', `Bearer ${playerToken(randomUUID())}`).send({}).expect(400);
+  });
+});
+
+describe('Competitive matches v2 — payment action closes at the lock deadline', () => {
+  it('turns canPay off once cutoffAt has passed even while the 10-minute JOIN hold is still running', async () => {
+    const match = await createMatch({ capacity: 2 });
+    accountClient.displayNames.set(match.organizerUserId, 'Chủ kèo');
+    const participantUserId = randomUUID();
+    await prisma.join.create({ data: { matchId: match.id, participantUserId, status: 'approved', approvedAt: new Date(), teamSide: 'B' } });
+    const detail = () => request(app).get(`/matches/${match.id}`).set('Authorization', `Bearer ${playerToken(participantUserId)}`).expect(200);
+
+    expect((await detail()).body.actions.canPay).toBe(true);
+    await prisma.match.update({ where: { id: match.id }, data: { cutoffAt: new Date(Date.now() - 60_000) } });
+    expect((await detail()).body.actions).toMatchObject({ canPay: false, canWithdrawBeforeLock: false });
+  });
+});
+
+describe('G5 — funding preview for the create screen', () => {
+  it('returns the organizer money flow from the backend formula', async () => {
+    const response = await request(app).get('/matches/funding-preview?price=200000&ratio=7:3&discipline=singles&sourceType=paid_booking').expect(200);
+    expect(response.body.preview).toEqual({
+      bookingPrice: '200000', resultHeldAmount: '80000', regularSlotAmount: '140000', organizerContribution: '140000',
+      alreadyPaid: '200000', additionalOwnerCharge: '0', organizerRefundAtLock: '60000', netCostIfWin: '60000', netCostIfLose: '140000',
+    });
+    const hold = await request(app).get('/matches/funding-preview?price=200000&ratio=6:4&discipline=doubles&sourceType=hold').expect(200);
+    expect(hold.body.preview).toMatchObject({ additionalOwnerCharge: hold.body.preview.organizerContribution, alreadyPaid: '0', organizerRefundAtLock: '0' });
+    await request(app).get('/matches/funding-preview?price=0&ratio=7:3&discipline=singles&sourceType=hold').expect(400);
   });
 });

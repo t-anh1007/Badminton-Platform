@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createMatchOrganizerContributionSepayIntent, getMyWallets, payMatchOrganizerContributionBalance, type SepayIntent } from '../lib/financeApi.js'
 import { formatMoneyVnd } from '../lib/formatters.js'
-import { waitForMatchOpen } from '../lib/matchApi.js'
+import { getMatchDetail, waitForMatchOpen } from '../lib/matchApi.js'
 import { SepayPayBox } from './SepayPayBox.js'
 import { Button, SelectInput } from './ui.js'
 
@@ -39,7 +39,8 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
   const expired = useRef(false)
   const mounted = useRef(true)
   const phaseRef = useRef<Phase>('selecting')
-  const deposit = (BigInt(fullPrice) / 2n).toString()
+  // Phần góp của chủ kèo do backend tính theo tỷ lệ/hình thức; React không tự chia giá sân.
+  const [deposit, setDeposit] = useState<string | null>(null)
 
   const updatePhase = (next: Phase) => { phaseRef.current = next; setPhase(next) }
 
@@ -50,6 +51,14 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
     mounted.current = true
     return () => { mounted.current = false }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    void getMatchDetail(matchId)
+      .then((detail) => { if (active) setDeposit(detail.funding?.organizerContribution ?? detail.funding?.viewerAdditionalAmountDue ?? null) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [matchId])
 
   useEffect(() => {
     let active = true
@@ -114,9 +123,9 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
   return <div className="mt-5 space-y-4" aria-live="polite">
     <div className="rounded-xl bg-canvas p-4 text-sm text-ink-600">
       <div className="flex justify-between gap-3"><span>Giá sân</span><strong className="text-figures text-ink-900">{formatMoneyVnd(fullPrice)}</strong></div>
-      <div className="mt-2 flex justify-between gap-3"><span className="font-semibold text-ink-900">Cọc tạo kèo (50%)</span><strong className="text-figures text-brand-navy">{formatMoneyVnd(deposit)}</strong></div>
-      <p className="mt-3">Khoản cọc giữ sân và mở kèo đơn tìm đối thủ. Đối thủ thanh toán 50% còn lại.</p>
-      <p className="mt-1">Nếu không tìm được đối trước hạn, tiền cọc được hoàn vào ví của bạn.</p>
+      <div className="mt-2 flex justify-between gap-3"><span className="font-semibold text-ink-900">Phần góp của chủ kèo</span><strong className="text-figures text-brand-navy">{deposit ? formatMoneyVnd(deposit) : 'Đang tải…'}</strong></div>
+      <p className="mt-3">Khoản này giữ sân và mở kèo tìm người chơi. Người tham gia đóng phần của mình trước hạn chốt kèo.</p>
+      <p className="mt-1">Không đủ người trước hạn chốt kèo thì kèo tự hủy và tiền được hoàn vào ví của bạn.</p>
     </div>
     <p className="text-sm text-ink-500">Thời gian thanh toán còn {Math.floor(remaining / 60_000).toString().padStart(2, '0')}:{Math.floor((remaining % 60_000) / 1_000).toString().padStart(2, '0')}</p>
     <label className="block text-sm font-medium">Phương thức thanh toán cọc<SelectInput className="mt-1" value={method} disabled={disabled} onChange={(event) => setMethod(event.target.value as 'balance' | 'sepay')}><option value="balance">Số dư — {walletBalance !== null ? formatMoneyVnd(walletBalance) : walletBalanceUnavailable ? 'Không khả dụng' : 'Đang tải…'}</option><option value="sepay">SePay</option></SelectInput></label>

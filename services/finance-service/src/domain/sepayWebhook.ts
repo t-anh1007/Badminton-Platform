@@ -93,16 +93,7 @@ export async function handleIncomingTransfer(transfer: IncomingTransfer): Promis
           await creditAdditionalMatchFeeReceipt(tx, transfer, intent, contribution.id);
           return;
         }
-        const wallet = await getOrCreateWallet(tx, intent.userId, 'personal');
-        const entry = await postLedgerEntry(tx, {
-          walletId: wallet.id,
-          amount: transfer.amount,
-          type: 'topup',
-          refType: 'late_match_fee',
-          refId: contribution.id,
-        });
-        await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'failed' } });
-        await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
+        await creditLateMatchFee(tx, transfer, intent, contribution.id);
       });
       return;
     }
@@ -267,6 +258,8 @@ async function creditLateMatchFee(
     type: 'topup',
     refType: 'late_match_fee',
     refId: contributionId,
+    // BR-CM-16: tiền kèo đến khi không còn nhận được ghi có toàn bộ và rút được.
+    withdrawableDelta: transfer.amount,
   });
   await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'failed' } });
   await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
@@ -285,6 +278,8 @@ async function creditAdditionalMatchFeeReceipt(
     type: 'topup',
     refType: 'late_match_fee',
     refId: contributionId,
+    // BR-CM-16: tiền kèo đến khi không còn nhận được ghi có toàn bộ và rút được.
+    withdrawableDelta: transfer.amount,
   });
   await recordSepayEvent(tx, transfer, intent.id, [{ kind: 'topup', amount: transfer.amount, refId: entry.id }]);
 }

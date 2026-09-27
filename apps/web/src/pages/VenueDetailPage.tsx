@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, EmptyState, SurfaceCard } from '../components/ui';
@@ -97,7 +98,7 @@ export function VenueDetailPage() {
     <main className="min-h-screen bg-canvas pb-24 pt-8 sm:pb-12 sm:pt-10">
       <div className="page-container">
         <nav aria-label="Điều hướng" className="mb-6 text-sm text-ink-500"><Link to="/venues" className="hover:text-green-700">Sân</Link><span aria-hidden> › </span><span className="text-ink-700">{venue.name}</span></nav>
-        <PageHeader eyebrow="Cơ sở cầu lông" title={venue.name} description={venue.address || undefined} />
+        <PageHeader eyebrow="Cơ sở cầu lông" title={venue.name} description={venue.address || undefined} /><BusinessCode code={venue.businessCode} label="Mã cơ sở" />
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
           <div className="space-y-6">
@@ -106,7 +107,7 @@ export function VenueDetailPage() {
               <h2 className="text-h2">Sân con</h2>
               {hasCourts ? (
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {venue.courts.map((court) => <li key={court.id} className="rounded-xl border border-line bg-canvas px-4 py-3 text-sm font-medium text-ink-700">{court.name}</li>)}
+                  {venue.courts.map((court) => <li key={court.id} className="rounded-xl border border-line bg-canvas px-4 py-3 text-sm font-medium text-ink-700">{court.name}<BusinessCode code={court.businessCode} label="Mã sân" /></li>)}
                 </ul>
               ) : <p className="mt-3 text-sm text-ink-500">Sân đang cập nhật lịch.</p>}
             </SurfaceCard>

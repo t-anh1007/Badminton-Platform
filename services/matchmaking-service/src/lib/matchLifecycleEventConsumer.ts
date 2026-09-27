@@ -1,17 +1,17 @@
 import { shouldRequeue } from '@khoaluantn/eventbus';
 import type { Channel, ConsumeMessage } from 'amqplib';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { connectRabbitMQ } from '@khoaluantn/eventbus';
 import type {
   BookingConfirmedPayload,
   BookingCompletedPayload,
-  MatchConfirmedPayload,
   MatchFeePaymentCompletedPayload,
   MatchFeeRefundRequestedPayload,
   MatchCancelledPayload,
   MatchBookingResolutionPayload,
   MatchSettlementTooLatePayload,
+  MatchFundingCompletedPayload,
 } from '@khoaluantn/shared';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import { HttpVenueBookingClient } from '../clients/venueBooking.js';
@@ -20,6 +20,8 @@ import { writeMatchOutcomeNotifications } from './notificationOutbox.js';
 import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
 import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
+import { requestFundingIfReadyInTransaction } from '../domain/matchSettlement.js';
+import { openResultCase } from '../domain/matchResults.js';
 
 const QUEUE_NAME = 'matchmaking.match-lifecycle';
 
@@ -44,55 +46,70 @@ const bookingConfirmedSchema = z.object({
   source: z.enum(['marketplace', 'internal']),
 }).passthrough();
 
+const shutdownCancellationSchema = z.object({
+  bookingId: z.string().uuid(),
+  shutdownId: z.string().uuid(),
+  mode: z.enum(['scheduled_close', 'emergency']),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/),
+  wasConfirmed: z.boolean(),
+}).strict();
+
+export async function handleShutdownBookingCancellation(eventId: string, raw: unknown) {
+  const payload = shutdownCancellationSchema.parse(raw);
+  const match = await prisma.match.findUnique({ where: { bookingId: payload.bookingId } });
+  if (!match) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${match.id}, 0))`;
+    if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
+    const current = await tx.match.findUniqueOrThrow({ where: { id: match.id } });
+    if (current.status === 'cancelled') {
+      if (!payload.wasConfirmed) {
+        const paidJoins = await tx.join.findMany({ where: { matchId: match.id, feePaidAt: { not: null } }, select: { id: true } });
+        await writeOutbox(tx, { aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled', payload: {
+          matchId: match.id, bookingId: payload.bookingId, reason: 'shutdown',
+          paidJoinIds: paidJoins.map((join) => join.id), refundPercent: 100,
+          shutdownId: payload.shutdownId, bookingBusinessCode: payload.bookingBusinessCode,
+        } satisfies MatchCancelledPayload });
+      }
+      await tx.processedEvent.create({ data: { eventId } });
+      return;
+    }
+    const joins = await tx.join.findMany({
+      where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
+      select: { id: true, participantUserId: true, status: true, feePaidAt: true },
+    });
+    const kind = payload.mode === 'emergency' ? 'match.shutdown_emergency' : 'match.shutdown_scheduled';
+    const notificationUserIds = joins
+      .filter((join) => join.status === 'approved' || join.status === 'confirmed')
+      .map((join) => join.participantUserId);
+    for (const userId of new Set([current.organizerUserId, ...notificationUserIds])) {
+      await writeOutbox(tx, { aggregateType: 'Notification', aggregateId: `${kind}:${match.id}:${userId}`,
+        eventType: 'UserNotificationRequested', payload: {
+          recipient: { type: 'user', userId, targetRole: 'player' },
+          category: 'match', kind, deliveryPolicy: 'required', bookingBusinessCode: payload.bookingBusinessCode,
+          title: 'Kèo đã được hủy',
+          body: `Sân của kèo gắn với lịch đặt ${payload.bookingBusinessCode} đã ngừng hoạt động. Khoản đã thanh toán sẽ được hoàn 100%.`,
+          priority: 'update', entityType: 'match', entityId: match.id,
+          actionKind: 'match.view', actionExpiresAt: null,
+        },
+      });
+    }
+    await tx.join.updateMany({ where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' } });
+    await tx.match.update({ where: { id: match.id }, data: { status: 'cancelled' } });
+    await writeOutbox(tx, { aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCancelled', payload: {
+      matchId: match.id, bookingId: payload.bookingId,
+      reason: payload.wasConfirmed ? 'confirmed_booking_policy' : 'shutdown',
+      paidJoinIds: joins.filter((join) => join.feePaidAt).map((join) => join.id),
+      refundPercent: 100, shutdownId: payload.shutdownId, bookingBusinessCode: payload.bookingBusinessCode,
+    } satisfies MatchCancelledPayload });
+    await tx.processedEvent.create({ data: { eventId } });
+  });
+}
+
 function eventIdOf(message: ConsumeMessage): string {
   const type = message.fields.routingKey;
   if (message.properties.messageId) return `${type}:${message.properties.messageId}`;
   return `${type}:${createHash('sha256').update(message.content).digest('hex')}`;
-}
-
-async function requestFundingIfReady(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  matchId: string,
-  context: VenueMatchContext,
-  now: Date,
-) {
-  const match = await tx.match.findUniqueOrThrow({ where: { id: matchId } });
-  if (
-    match.status !== 'filled'
-    || !match.organizerContributionPaidAt
-    || match.fundingRequestedAt
-  ) return;
-  if (context.status !== 'held' || context.bookingId !== match.bookingId) {
-    throw new Error('Filled match booking is not held for settlement');
-  }
-  const participantCount = await tx.join.count({ where: { matchId, status: 'confirmed' } });
-  if (participantCount !== match.capacity - 1) return;
-  const bookingPrice = BigInt(context.priceSnapshot);
-  const participantFees = match.feePerSlot * BigInt(participantCount);
-  const organizerContribution = bookingPrice - participantFees;
-  if (organizerContribution <= 0n || participantFees + organizerContribution !== bookingPrice) {
-    throw new Error('Match funding violates D29 conservation');
-  }
-  const attemptId = randomUUID();
-  await tx.match.update({
-    where: { id: match.id },
-    data: { fundingRequestedAt: now, settlementAttemptId: attemptId },
-  });
-  await writeOutbox(tx, {
-    aggregateType: 'Match',
-    aggregateId: match.id,
-    eventType: 'MatchConfirmed',
-    payload: {
-      matchId: match.id,
-      bookingId: match.bookingId,
-      attemptId,
-      venueRevision: match.settlementVenueRevision,
-      participantCount,
-      participantFees: participantFees.toString(),
-      organizerContribution: organizerContribution.toString(),
-      bookingPrice: bookingPrice.toString(),
-    } satisfies MatchConfirmedPayload,
-  });
 }
 
 export async function handleMatchFeePaymentCompleted(
@@ -116,7 +133,14 @@ export async function handleMatchFeePaymentCompleted(
   if (payload.role === 'organizer' && matchSnapshot.status === 'awaiting_deposit') {
     if (!matchSnapshot.deadlineAt) throw new Error('awaiting_deposit match missing deadlineAt');
     try {
-      await venueBookingClient.activateMatchHold(payload.bookingId, payload.userId, matchSnapshot.deadlineAt);
+      // Keep a small venue-owned grace after the business cutoff so the
+      // scheduler can atomically settle or cancel without losing the hold to
+      // timer jitter at the exact cutoff instant.
+      await venueBookingClient.activateMatchHold(
+        payload.bookingId,
+        payload.userId,
+        new Date(matchSnapshot.deadlineAt.getTime() + 5 * 60_000),
+      );
     } catch (err) {
       if (err instanceof Error && /failed with 409/.test(err.message)) depositTooLate = true;
       else throw err;
@@ -210,8 +234,30 @@ export async function handleMatchFeePaymentCompleted(
         });
       }
     }
-    await requestFundingIfReady(tx, match.id, context, now);
+    await requestFundingIfReadyInTransaction(tx, match.id, context, now);
     await tx.processedEvent.create({ data: { eventId } });
+  });
+}
+
+/** Finance đã chốt phần tiền sân (hold: sau khi Venue xác nhận; booking đã thanh toán: sau khi hoàn chênh lệch).
+ * Idempotent: kèo đã confirmed qua BookingConfirmed thì không đổi gì. */
+export async function handleMatchFundingCompleted(eventId: string, raw: MatchFundingCompletedPayload, now = new Date()) {
+  const payload = z.object({
+    matchId: z.string().uuid(), bookingId: z.string().uuid(), sourceType: z.enum(['hold', 'paid_booking']),
+  }).strict().parse(raw);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.matchId}, 0))`;
+    if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
+    const match = await tx.match.findUnique({ where: { id: payload.matchId } });
+    if (match && match.bookingId === payload.bookingId && match.status === 'filled' && match.fundingRequestedAt) {
+      await tx.match.update({ where: { id: match.id }, data: { status: match.completedAt ? 'completed' : 'confirmed' } });
+      if (match.completedAt) await openResultCase(tx, match);
+      await writeMatchOutcomeNotifications(tx, {
+        matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
+        title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất phần tiền kèo trước hạn chốt kèo.',
+      });
+    }
+    await tx.processedEvent.create({ data: { eventId, processedAt: now } });
   });
 }
 
@@ -225,11 +271,14 @@ export async function handleBookingConfirmedForMatch(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.bookingId}, 0))`;
     if (await tx.processedEvent.findUnique({ where: { eventId } })) return;
     const match = await tx.match.findUnique({ where: { bookingId: payload.bookingId } });
-    if (match && match.status === 'filled' && (match.fundingRequestedAt || match.feePerSlot === 0n)) {
+    // Kèo từ booking đã thanh toán chỉ xác nhận bằng MatchFundingCompleted (sau khi hoàn chênh lệch);
+    // BookingConfirmed của booking gốc có thể đến trễ và không nói gì về funding của kèo.
+    if (match && match.sourceType === 'hold' && match.status === 'filled' && (match.fundingRequestedAt || match.feePerSlot === 0n)) {
       await tx.match.update({
         where: { id: match.id },
         data: { status: match.completedAt ? 'completed' : 'confirmed' },
       });
+      if (match.completedAt) await openResultCase(tx, match);
       await writeMatchOutcomeNotifications(tx, {
         matchId: match.id, organizerUserId: match.organizerUserId, kind: 'match.confirmed',
         title: 'Kèo đã được xác nhận', body: 'Cả nhóm đã hoàn tất thanh toán và lịch sân được giữ chỗ.',
@@ -338,6 +387,7 @@ export async function handleBookingCompletedForMatch(eventId: string, raw: Booki
           completedAt: new Date(payload.completedAt),
         },
       });
+      if (match.status === 'confirmed' || match.status === 'completed') await openResultCase(tx, match);
     }
     await tx.processedEvent.create({ data: { eventId } });
   });
@@ -366,12 +416,16 @@ async function consumeMessage(
         eventIdOf(message),
         envelope.payload as BookingConfirmedPayload,
       );
+    } else if (envelope.type === 'MatchFundingCompleted') {
+      await handleMatchFundingCompleted(eventIdOf(message), envelope.payload as MatchFundingCompletedPayload);
     } else if (envelope.type === 'MatchSettlementFailed') {
       await handleMatchSettlementFailed(eventIdOf(message), envelope.payload as MatchSettlementTooLatePayload);
     } else if (envelope.type === 'BookingCompleted') {
       await handleBookingCompletedForMatch(eventIdOf(message), envelope.payload as BookingCompletedPayload);
     } else if (envelope.type === 'MatchBookingResolved') {
       await handleMatchBookingResolved(eventIdOf(message), envelope.payload as MatchBookingResolutionPayload);
+    } else if (envelope.type === 'ShutdownBookingCancellationRequested') {
+      await handleShutdownBookingCancellation(eventIdOf(message), envelope.payload);
     }
     channel.ack(message);
   } catch (error) {
@@ -395,8 +449,10 @@ export async function bootstrapMatchLifecycleEventConsumption(
   await channel.bindQueue(queueName, 'domain-events', 'PaymentCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'BookingConfirmed');
   await channel.bindQueue(queueName, 'domain-events', 'MatchSettlementFailed');
+  await channel.bindQueue(queueName, 'domain-events', 'MatchFundingCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'BookingCompleted');
   await channel.bindQueue(queueName, 'domain-events', 'MatchBookingResolved');
+  await channel.bindQueue(queueName, 'domain-events', 'ShutdownBookingCancellationRequested');
   const inFlight = new Set<Promise<void>>();
   const { consumerTag } = await channel.consume(queueName, (message) => {
     const task = consumeMessage(channel, message, venueBookingClient);

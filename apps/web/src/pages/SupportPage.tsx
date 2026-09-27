@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -252,7 +253,7 @@ export function SupportPage() {
                     className={`block w-full border-b border-line p-4 text-left transition last:border-0 ${selectedId === ticket.id ? 'bg-green-50' : 'hover:bg-canvas'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-2 text-sm font-semibold text-ink-900">{ticket.subject}</p>
+                      <p className="line-clamp-2 text-sm font-semibold text-ink-900">{ticket.subject}</p><BusinessCode code={ticket.businessCode} label="Mã hỗ trợ" />
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </div>
                     <p className="mt-2 text-caption">
@@ -287,7 +288,7 @@ export function SupportPage() {
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
                     <p className="text-caption">YÊU CẦU HỖ TRỢ</p>
-                    <h2 className="mt-1 text-h2">{detail.subject}</h2>
+                    <h2 className="mt-1 text-h2">{detail.subject}</h2><BusinessCode code={detail.businessCode} label="Mã hỗ trợ" />
                     <p className="mt-2 text-sm text-ink-500">Tạo lúc {formatDate(detail.createdAt)}</p>
                   </div>
                   <Badge tone={statusMap[detail.status].tone}>{statusMap[detail.status].label}</Badge>

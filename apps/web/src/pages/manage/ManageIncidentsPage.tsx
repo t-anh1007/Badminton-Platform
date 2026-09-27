@@ -11,6 +11,7 @@ import {
 import { formatTimeVi } from '../../lib/formatters'
 
 type IncidentBooking = {
+  businessCode?: string
   id: string
   courtId: string
   kind: 'booking' | 'hold'
@@ -120,7 +121,7 @@ export function ManageIncidentsPage() {
     <SurfaceCard>
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-h3">1. Chọn booking bị ảnh hưởng</h3><p className="mt-1 text-sm text-ink-500">Chỉ hiển thị các booking thuộc cơ sở bạn quản lý trong ngày đã chọn.</p></div>{selectedBooking && <Badge tone="warning">Đang chọn</Badge>}</div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-semibold text-ink-700">Cơ sở<SelectInput value={venueId} onChange={(event) => { setVenueId(event.target.value); void loadBookings(event.target.value) }}>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</SelectInput></label><label className="grid gap-1.5 text-sm font-semibold text-ink-700">Ngày<input type="date" aria-label="Ngày sự cố" className="w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-ink-900 transition focus:border-brand-navy focus:ring-4 focus:ring-green-100" value={date} onChange={(event) => { setDate(event.target.value); void loadBookings(venueId, toIsoDate(event.target.value)) }} /></label></div>
-      <label className="mt-3 grid gap-1.5 text-sm font-semibold text-ink-700">Booking<SelectInput aria-label="Booking đã chọn" value={bookingId} onChange={(event) => { setBookingId(event.target.value); setCourts([]); setCourtId(''); setResolution(''); setStep(1) }}><option value="">Chưa chọn booking</option>{bookings.map((booking) => <option key={booking.id} value={booking.id}>{formatTimeVi(booking.startAt)}–{formatTimeVi(booking.endAt)}</option>)}</SelectInput></label>
+      <label className="mt-3 grid gap-1.5 text-sm font-semibold text-ink-700">Booking<SelectInput aria-label="Booking đã chọn" value={bookingId} onChange={(event) => { setBookingId(event.target.value); setCourts([]); setCourtId(''); setResolution(''); setStep(1) }}><option value="">Chưa chọn booking</option>{bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.businessCode ?? 'Chưa có mã'} · {formatTimeVi(booking.startAt)}–{formatTimeVi(booking.endAt)}</option>)}</SelectInput></label>
       {selectedBooking && <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-canvas p-4 text-sm"><span className="text-figures text-lg font-bold text-brand-navy">{formatTimeVi(selectedBooking.startAt)}–{formatTimeVi(selectedBooking.endAt)}</span><span className="text-ink-500">Booking đã xác nhận · Sân bị ảnh hưởng</span></div>}
       <div className="mt-5 flex flex-wrap gap-2"><Button disabled={!bookingId || busy} onClick={() => void loadReplacementCourts()}>Tải sân thay thế</Button><Button tone="secondary" disabled={!bookingId || busy} onClick={chooseCancellation}>Hủy do lỗi phía sân</Button></div>
     </SurfaceCard>

@@ -55,6 +55,7 @@ enum NotificationPriority {
 }
 
 model User {
+  businessCode String @unique @default(dbgenerated("('ND-'::text || lpad((nextval('users_business_code_seq'::regclass))::text, 8, '0'::text))"))
   id           String   @id @default(uuid())
   email        String   @unique
   phone        String?
@@ -137,10 +138,14 @@ model Notification {
   priority        NotificationPriority
   entityType      String?
   entityId        String?
+  bookingBusinessCode String?
   actionKind      String?
   actionExpiresAt DateTime?
   sourceEventId   String
   readAt          DateTime?
+  /// Email giao dịch bắt buộc: gửi sau khi đã ghi inbox; null = chưa gửi thành công (retry được).
+  emailLastAttemptAt DateTime?
+  emailSentAt     DateTime?
   createdAt       DateTime             @default(now())
 
   @@unique([sourceEventId, userId, targetRole])

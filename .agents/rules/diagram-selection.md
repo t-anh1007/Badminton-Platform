@@ -16,7 +16,7 @@ paths:
 
 # Diagram Selection — Khi nào dùng diagram nào
 
-> Guide cho IT-BA: chọn đúng loại diagram cho từng tình huống. Áp dụng khi viết `/srs`, `$brainstorm`, hoặc khi user hỏi "vẽ diagram cho X".
+> Guide cho IT-BA: chọn đúng loại diagram cho từng tình huống. Áp dụng khi viết `/srs` hoặc khi user hỏi "vẽ diagram cho X".
 
 ## Decision matrix
 

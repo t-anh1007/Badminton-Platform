@@ -1,11 +1,16 @@
 import { prisma } from '../lib/prisma.js';
+import { writeOutbox } from '../lib/outbox.js';
 import { getOrCreateWallet, postLedgerEntry } from './wallet.js';
 
 export interface PaymentTooLatePayload {
   bookingId: string;
   userId: string | null;
   amount: string;
+  shutdownId?: string;
+  bookingBusinessCode?: string;
 }
+
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 
 /** FIN-06 / BR-BOK-04 — Consumer `PaymentTooLate` (venue-booking-service
  * phát khi `PaymentCompleted` tới sau lúc hold đã hết hạn, xem
@@ -31,6 +36,33 @@ export async function creditLatePayment(eventId: string, payload: PaymentTooLate
       refType: 'late_payment', // AC-FIN-06-3: lịch sử nêu rõ tiền về muộn
       refId: payload.bookingId,
     });
+    if (payload.shutdownId) {
+      await writeOutbox(tx, {
+        aggregateType: 'Booking',
+        aggregateId: payload.bookingId,
+        eventType: 'BookingRefundCompleted',
+        payload: { bookingId: payload.bookingId, shutdownId: payload.shutdownId },
+      });
+      await writeOutbox(tx, {
+        aggregateType: 'Notification',
+        aggregateId: `shutdown.late-payment-return:${payload.bookingId}:${payload.userId}`,
+        eventType: 'UserNotificationRequested',
+        payload: {
+          recipient: { type: 'user', userId: payload.userId, targetRole: 'player' },
+          category: 'finance',
+          kind: 'finance.shutdown_refund_completed',
+          deliveryPolicy: 'required',
+          bookingBusinessCode: payload.bookingBusinessCode ?? null,
+          title: 'Bạn đã nhận được tiền hoàn',
+          body: `${vnd.format(BigInt(payload.amount))} đã được chuyển vào Số dư COURTIN cho lịch đặt ${payload.bookingBusinessCode ?? 'của bạn'}.`,
+          priority: 'update',
+          entityType: 'booking',
+          entityId: payload.bookingId,
+          actionKind: 'booking.view',
+          actionExpiresAt: null,
+        },
+      });
+    }
     await tx.processedEvent.create({ data: { eventId } });
   });
 }

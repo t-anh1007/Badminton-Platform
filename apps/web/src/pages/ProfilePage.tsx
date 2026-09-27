@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookingCancellationPanel } from '../components/BookingCancellationPanel';
@@ -242,7 +243,7 @@ export function ProfilePage() {
             </label>
             <h1 className="mt-4 text-h2">Hồ sơ của tôi</h1>
             <p className="mt-1 font-semibold text-ink-900">{profile?.playerProfile?.displayName}</p>
-            <p className="mt-1 text-sm text-ink-500">{profile?.email}</p>
+            <p className="mt-1 text-sm text-ink-500">{profile?.email}</p><BusinessCode code={profile?.businessCode} label="Mã tài khoản" />
             <div className="mt-3 flex flex-wrap gap-2" aria-label="Vai trò tài khoản">{profile?.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin').map((role) => <RoleBadge key={role} role={role} />)}</div>
             <div className="mt-5 space-y-3 border-y border-line py-4 text-sm">
               <p><span className="text-ink-500">Sắp tới</span><strong className="float-right text-figures">{upcoming.filter((booking) => booking.status !== 'cancelled').length}</strong></p>
@@ -272,7 +273,7 @@ export function ProfilePage() {
                   <div className="space-y-3">
                     {matchesForPeriod.map((match) => (
                       <Link key={match.id} to={`/matches/${match.id}`} className="block rounded-xl border border-green-600/30 bg-green-50 p-4 transition hover:border-green-600">
-                        <div className="flex justify-between gap-3"><div><p className="font-semibold">{match.venue.name} — {match.court.name}</p><p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(match.startAt)}</p><p className="mt-1 text-xs font-semibold text-green-700">Kèo đã tham gia · Đã xác nhận</p></div><strong>{formatMoneyVnd(match.feePerSlot)}</strong></div>
+                        <div className="flex justify-between gap-3"><div><p className="font-semibold">{match.venue.name} — {match.court.name}</p><BusinessCode code={match.businessCode} label="Mã kèo" /><p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(match.startAt)}</p><p className="mt-1 text-xs font-semibold text-green-700">Kèo đã tham gia · Đã xác nhận</p></div><strong>{formatMoneyVnd(match.feePerSlot)}</strong></div>
                       </Link>
                     ))}
                   </div>

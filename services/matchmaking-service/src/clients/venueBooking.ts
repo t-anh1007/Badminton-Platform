@@ -3,6 +3,14 @@ import { venueMatchContextSchema, type MatchBookingResolutionPayload, type Venue
 
 export type { VenueMatchContext };
 
+export interface VenueScheduleConflict {
+  bookingId: string;
+  startAt: string;
+  endAt: string;
+  court: { id: string; name: string };
+  venue: { id: string; name: string; address: string };
+}
+
 function internalServiceHeaders(): Record<string, string> {
   const token = process.env.INTERNAL_SERVICE_TOKEN;
   if (!token) throw new Error('Missing INTERNAL_SERVICE_TOKEN for mutating Venue command');
@@ -12,6 +20,12 @@ function internalServiceHeaders(): Record<string, string> {
 export interface VenueBookingClient {
   getMatchContext(bookingId: string): Promise<VenueMatchContext | null>;
   getMatchContexts?(bookingIds: string[]): Promise<Array<VenueMatchContext | null>>;
+  getPlayerScheduleConflicts?(
+    userId: string,
+    startAt: Date,
+    endAt: Date,
+    excludeBookingIds?: string[],
+  ): Promise<VenueScheduleConflict[]>;
   createBookingFromHold(holdId: string, authorization: string): Promise<string>;
   /** PLAN_MATCH-DEPOSIT: gia hạn hold+booking kèo tới hạn X sau khi trả cọc. */
   activateMatchHold(bookingId: string, userId: string, deadlineAt: Date): Promise<void>;
@@ -47,6 +61,31 @@ export class HttpVenueBookingClient implements VenueBookingClient {
     });
     if (!response.ok) throw new Error(`venue-booking batch match context failed with ${response.status}`);
     return z.object({ contexts: z.array(venueMatchContextSchema.nullable()) }).parse(await response.json()).contexts;
+  }
+
+  async getPlayerScheduleConflicts(
+    userId: string,
+    startAt: Date,
+    endAt: Date,
+    excludeBookingIds: string[] = [],
+  ): Promise<VenueScheduleConflict[]> {
+    const query = new URLSearchParams({
+      userId,
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+    });
+    excludeBookingIds.forEach((bookingId) => query.append('excludeBookingId', bookingId));
+    const response = await fetch(`${this.baseUrl}/internal/players/schedule-conflicts?${query}`, {
+      headers: internalServiceHeaders(),
+    });
+    if (!response.ok) throw new Error(`venue-booking schedule conflict lookup failed with ${response.status}`);
+    return z.object({
+      conflicts: z.array(z.object({
+        bookingId: z.string().uuid(), startAt: z.string().datetime(), endAt: z.string().datetime(),
+        court: z.object({ id: z.string().uuid(), name: z.string() }),
+        venue: z.object({ id: z.string().uuid(), name: z.string(), address: z.string() }),
+      })),
+    }).parse(await response.json()).conflicts;
   }
 
   async activateMatchHold(bookingId: string, userId: string, deadlineAt: Date): Promise<void> {

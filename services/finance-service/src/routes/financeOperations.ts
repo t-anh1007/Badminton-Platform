@@ -1,4 +1,7 @@
+import { withBookingReferences } from '../domain/bookingReferences.js';
 import { Router } from 'express';
+import { FLOW_TABS, listAdminFinancialFlows, listLedgerForRefs } from '../domain/adminFinancialFlows.js';
+import { PROVIDER_FLOW_TABS, listProviderFinancialFlows, listProviderLedgerForRefs } from '../domain/providerFinancialFlows.js';
 import { z } from 'zod';
 import {
   MAX_IMAGE_BYTES, createObjectStorageClientFromEnv,
@@ -14,6 +17,9 @@ import {
 } from '../domain/reconciliation.js';
 import { prisma } from '../lib/prisma.js';
 import {
+  getAdminFinancialTransparency, listProviderFinancialTransparency, listProviderWithdrawalTransparency,
+} from '../domain/financialTransparency.js';
+import {
   createDispute, listAdminDisputes, listEligibleDisputeBookings,
   listMyDisputes, resolveDispute,
 } from '../domain/dispute.js';
@@ -26,6 +32,10 @@ const withdrawalSchema = z.object({
   bankAccountName: z.string().trim().min(1),
 });
 const reasonSchema = z.object({ reason: z.string().trim().min(1) });
+const transparencyPagination = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
 const createDisputeSchema = reasonSchema.extend({
   bookingId: z.string().uuid(), contactPhone: z.string().trim().min(1),
   evidence: z.array(z.string().trim().min(1)).max(5).default([]),
@@ -88,6 +98,36 @@ financeOperationsRouter.get('/providers/me/revenue', requireAuth, requireRole('p
   res.json(rows.map((row) => ({ ...row, gross: row.gross.toString(), net: row.net.toString(), commission: row.commission.toString() })));
 }));
 
+financeOperationsRouter.get('/providers/me/financial-transparency', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const query = transparencyPagination.extend({
+    venueId: z.string().uuid().optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(),
+    status: z.enum(['pending', 'available', 'disputed', 'cancelled']).optional(),
+  }).parse(req.query);
+  res.json(await listProviderFinancialTransparency(userId, query));
+}));
+
+financeOperationsRouter.get('/providers/me/financial-flows', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const query = transparencyPagination.extend({
+    tab: z.enum(PROVIDER_FLOW_TABS), filter: z.string().max(40).optional(), venueId: z.string().uuid().optional(), courtId: z.string().uuid().optional(),
+    from: z.coerce.date().optional(), to: z.coerce.date().optional(), q: z.string().max(80).optional(),
+  }).parse(req.query);
+  res.json(await listProviderFinancialFlows(userId, query));
+}));
+
+financeOperationsRouter.get('/providers/me/financial-flows/ledger', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const { refIds } = z.object({ refIds: z.string().max(4000).default('') }).parse(req.query);
+  res.json(await listProviderLedgerForRefs(userId, refIds.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 40)));
+}));
+
+financeOperationsRouter.get('/providers/me/withdrawal-transparency', requireAuth, requireRole('provider'), h(async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const { page, pageSize } = transparencyPagination.parse(req.query);
+  res.json(await listProviderWithdrawalTransparency(userId, page, pageSize));
+}));
+
 financeOperationsRouter.get('/providers/me/withdrawals', requireAuth, requireRole('provider'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
   const rows = await prisma.withdrawalRequest.findMany({ where: { sellerUserId: userId, walletType: 'business' }, orderBy: { createdAt: 'desc' } });
@@ -131,6 +171,26 @@ financeOperationsRouter.get('/admin/reconciliation', requireAuth, requireRole('a
   res.json(rows.map((row) => ({ ...row, amount: row.amount.toString() })));
 }));
 
+financeOperationsRouter.get('/admin/financial-transparency', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const { page, pageSize, from, to } = transparencyPagination.extend({ from: z.coerce.date().optional(), to: z.coerce.date().optional() }).parse(req.query);
+  res.json(await getAdminFinancialTransparency(page, pageSize, { from, to }));
+}));
+
+financeOperationsRouter.get('/admin/financial-flows', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const query = transparencyPagination.extend({
+    tab: z.enum(FLOW_TABS), filter: z.string().max(40).optional(), ownerId: z.string().uuid().optional(),
+    from: z.coerce.date().optional(), to: z.coerce.date().optional(),
+    q: z.string().max(80).optional(), userIds: z.string().max(4000).optional(),
+    venueId: z.string().uuid().optional(), courtId: z.string().uuid().optional(),
+  }).parse(req.query);
+  res.json(await listAdminFinancialFlows({ ...query, userIds: query.userIds?.split(',').filter((id) => z.string().uuid().safeParse(id).success).slice(0, 50) }));
+}));
+
+financeOperationsRouter.get('/admin/financial-flows/ledger', requireAuth, requireRole('admin'), h(async (req, res) => {
+  const { refIds } = z.object({ refIds: z.string().max(4000).default('') }).parse(req.query);
+  res.json(await listLedgerForRefs(refIds.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 40)));
+}));
+
 financeOperationsRouter.post('/admin/reconciliation/:id/incoming', requireAuth, requireRole('admin'), h(async (req, res) => {
   const actor = (req as AuthenticatedRequest).user!.id;
   const body = reasonSchema.extend({ userId: z.string().uuid() }).parse(req.body);
@@ -154,16 +214,16 @@ financeOperationsRouter.post('/admin/reconciliation/:id/out-of-scope', requireAu
 
 financeOperationsRouter.get('/players/me/dispute-eligible', requireAuth, requireRole('player'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
-  const rows = await listEligibleDisputeBookings(userId);
+  const rows = await withBookingReferences(await listEligibleDisputeBookings(userId));
   res.json(rows.map((row) => ({
-    bookingId: row.bookingId, venueId: row.venueId, gross: row.gross.toString(),
+    bookingId: row.bookingId, bookingCode: row.bookingCode, venueId: row.venueId, gross: row.gross.toString(),
     endAt: row.endAt, deadlineAt: row.releaseAt,
   })));
 }));
 
 financeOperationsRouter.get('/players/me/disputes', requireAuth, requireRole('player'), h(async (req, res) => {
   const userId = (req as AuthenticatedRequest).user!.id;
-  const rows = await listMyDisputes(userId);
+  const rows = await withBookingReferences(await listMyDisputes(userId));
   res.json(await Promise.all(rows.map(async (row) => ({
     ...row, evidence: await evidenceForRead(resolveStorage, row.evidence), resolutionAmount: row.resolutionAmount?.toString() ?? null,
   }))));
@@ -188,7 +248,7 @@ financeOperationsRouter.post('/players/me/disputes', requireAuth, requireRole('p
 }));
 
 financeOperationsRouter.get('/admin/disputes', requireAuth, requireRole('admin'), h(async (_req, res) => {
-  const rows = await listAdminDisputes();
+  const rows = await withBookingReferences(await listAdminDisputes());
   res.json(await Promise.all(rows.map(async (row) => ({
     ...row,
     evidence: await evidenceForRead(resolveStorage, row.evidence),

@@ -4,12 +4,17 @@ module: finance-disputes
 phase: 2
 status: draft-for-po-review
 author: Claude Code
-updated: 2026-08-09
+updated: 2026-09-25
 extends: docs/product/specs/finance-disputes.md
 source: docs/product/phasing.md §4.2, docs/architecture/system-architecture.md §6.3
 ---
 
 # Functional Spec (phụ lục GĐ2) — FIN-05 Thanh toán phí tham gia kèo
+
+> **Authority update 2026-09-25:** mô hình chia đều đúng `P` dưới đây đã được
+> thay thế bởi contribution + result reserve 5:5/6:4/7:3 trong
+> [`competitive-matches.md`](competitive-matches.md) theo D56. Các bất biến
+> ledger, idempotency, fencing và service ownership không mâu thuẫn vẫn giữ.
 
 Phụ lục cho `finance-disputes.md` (GĐ1). FIN-05 là chức năng GĐ1 duy nhất có phụ thuộc ngược nên
 dời sang GĐ2 (D2, phasing §4.2): `finance-service` consume sự kiện của `matchmaking-service`.
@@ -37,7 +42,7 @@ Ký hiệu: kèo có `capacity = N`, giá booking sân = `P`, phí participant
 Mỗi participant (không tính tổ chức) trả feePerSlot:
   ví cá nhân participant  ──payment(-feePerSlot)──>  ví platform (reserved, ref matchId)
 
-Khi kèo đủ người + xác nhận (MatchConfirmed):
+Khi tới cutoff và kèo vẫn đủ người + xác nhận (MatchConfirmed):
   Tổng participant góp = (N-1)*feePerSlot
   Organizer góp = P − (N-1)*feePerSlot
   Tổng giữ tạm ở platform = participant contributions + organizer contribution = P  ✓ (bảo toàn)
@@ -57,7 +62,7 @@ Khi hủy kèo / rút trước cutoff (MatchCancelled / withdraw):
 | Mã | Quy tắc |
 |---|---|
 | BR-FIN-05-1 | Phí tham gia thu vào ví `platform` ở `reserved`, ref `matchId` + `participantUserId`, append-only. |
-| BR-FIN-05-2 | Chỉ khi `MatchConfirmed`: tổng phí gom + phần tổ chức = giá booking `P`; thanh toán booking qua luồng chuẩn; giải phóng `reserved` tương ứng. **Bảo toàn**: tổng vào = tổng ra. |
+| BR-FIN-05-2 | Participant đủ người trước cutoff vẫn giữ contribution ở `reserved`; chỉ tại cutoff mới phát `MatchConfirmed`: tổng phí gom + phần tổ chức = giá booking `P`; thanh toán booking qua luồng chuẩn; giải phóng `reserved` tương ứng. **Bảo toàn**: tổng vào = tổng ra. D53. |
 | BR-FIN-05-3 | Idempotency: mỗi (matchId, participantUserId) chỉ một khoản phí `confirmed`; webhook/redelivery không thu/hoàn hai lần (khóa như FIN-03/04). |
 | BR-FIN-05-4 | Hoàn phí hủy kèo hoặc rút trước cutoff khi booking còn `held` ghi có ví cá nhân, append-only; không vượt số đã thu. D36 không hoàn riêng nếu booking đã confirmed. |
 | BR-FIN-05-5 | Rút từ cutoff trở đi KHÔNG hoàn khi kèo vẫn diễn ra. Nếu cả kèo cuối cùng bị hủy và booking/hold được nhả, D35 ghi đè và hoàn contribution của cả người rút trễ; platform không giữ tiền khi dịch vụ sân không được dùng. |
@@ -84,7 +89,7 @@ hoàn phí) — matchmaking consume để cập nhật JOIN/MATCH.
 ## 5. Acceptance Criteria
 
 - `AC-FIN-05-1` — Given kèo N=4, P=200k, feePerSlot=50k, When 3 participant trả phí, Then ví platform reserved += 150k (ref matchId), mỗi ví cá nhân −50k, ledger append-only.
-- `AC-FIN-05-2` — Given 3 participant đã trả + tổ chức thanh toán 50k, When `MatchConfirmed`, Then booking thanh toán đúng 200k, reserved giải phóng 150k, **tổng vào = tổng ra** (bảo toàn giá trị).
+- `AC-FIN-05-2` — Given đủ participant đã trả và organizer đã góp, When còn trước cutoff, Then booking vẫn held và tiền vẫn reserved; When tới cutoff phát `MatchConfirmed`, Then booking thanh toán đúng giá, reserved giải phóng, **tổng vào = tổng ra** (bảo toàn giá trị).
 - `AC-FIN-05-3` — Given webhook phí gửi lại (redelivery), When xử lý, Then không thu phí lần hai (idempotent, BR-FIN-05-3).
 - `AC-FIN-05-4` — Given kèo bị hủy sau khi 3 người đã trả phí, When `MatchCancelled`, Then 3 ví cá nhân được hoàn đúng 50k mỗi ví, reserved platform về 0 cho matchId đó.
 - `AC-FIN-05-5` — Given participant rút trước cutoff khi booking còn `held`, Then hoàn 50k + chỗ

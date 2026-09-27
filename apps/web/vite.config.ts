@@ -18,32 +18,32 @@ function apiProxy() {
   return {
     proxy: {
       '/api/account': {
-        target: 'http://localhost:3001',
+        target: process.env.ACCOUNT_SERVICE_URL ?? 'http://localhost:3001',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/account/, ''),
       },
       '/api/venue': {
-        target: 'http://localhost:3002',
+        target: process.env.VENUE_BOOKING_SERVICE_URL ?? 'http://localhost:3002',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/venue/, ''),
       },
       '/api/finance': {
-        target: 'http://localhost:3003',
+        target: process.env.FINANCE_SERVICE_URL ?? 'http://localhost:3003',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/finance/, ''),
       },
       '/api/matchmaking': {
-        target: 'http://localhost:3004',
+        target: process.env.MATCHMAKING_SERVICE_URL ?? 'http://localhost:3004',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/matchmaking/, ''),
       },
       '/api/community': {
-        target: 'http://localhost:3005',
+        target: process.env.COMMUNITY_SERVICE_URL ?? 'http://localhost:3005',
         changeOrigin: true,
         rewrite: (path: string) => path.replace(/^\/api\/community/, ''),
       },
       '/socket.io': {
-        target: 'http://localhost:3004',
+        target: process.env.MATCHMAKING_SERVICE_URL ?? 'http://localhost:3004',
         changeOrigin: true,
         ws: true,
       },

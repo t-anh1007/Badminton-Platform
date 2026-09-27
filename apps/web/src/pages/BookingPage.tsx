@@ -8,7 +8,8 @@ import { PageHeader } from '../components/courtin/PageHeader'
 import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/ui'
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
 import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
-import { abandonMatch, cancelMatch, createMatch, MATCH_MIN_LEAD_HOURS, MatchApiError } from '../lib/matchApi.js'
+import { ScheduleConflictWarning } from '../components/ScheduleConflictWarning.js'
+import { cancelMatch, createMatch, getMyScheduleConflicts, MATCH_MIN_LEAD_HOURS, MatchApiError, type ScheduleConflict } from '../lib/matchApi.js'
 import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js'
 import { vietnamDateInput } from '../lib/formatters.js'
 import {
@@ -103,6 +104,7 @@ export function BookingPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [error, setError] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
+  const [scheduleWarning, setScheduleWarning] = useState<{ conflicts: ScheduleConflict[]; action: 'booking' | 'match' } | null>(null)
   const [matchEligibilityCheckedAt, setMatchEligibilityCheckedAt] = useState(() => Date.now())
   const retryAfterAuth = useRef<(() => void) | null>(null)
   const availabilityRequestId = useRef(0)
@@ -119,11 +121,10 @@ export function BookingPage() {
   const meetsMinDuration = !bookingRule || !selection || selection.durationMinutes >= bookingRule.minDurationMinutes
 
   useCheckoutAbandonment(
+    // Kèo chờ đóng phần góp không tự hủy khi rời trang: slot tự nhả khi hết hạn giữ.
     booking
       ? () => checkoutCompleted.current ? Promise.resolve() : abandonMyBooking(booking.id)
-      : matchCheckout
-        ? () => checkoutCompleted.current ? Promise.resolve() : abandonMatch(matchCheckout.matchId)
-        : null,
+      : null,
   )
 
   const clearFlow = () => {
@@ -255,7 +256,7 @@ export function BookingPage() {
     if (courtId) void loadAvailability(courtId, nextDate)
   }
 
-  const confirm = () => run(async () => {
+  const confirm = async () => {
     if (!selection) return
     const nextHold = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
     setHold(nextHold)
@@ -263,7 +264,7 @@ export function BookingPage() {
     const next = await createBooking(nextHold.id)
     setBooking(next)
     setMessage('Hoàn tất thanh toán trước khi lượt giữ chỗ hết hạn.')
-  })
+  }
 
   // DM3: slot còn dưới 24 giờ thì không tạo được kèo — chặn trước khi giữ chỗ để không khóa slot vô ích.
   const opponentLeadTooShort = selection ? isMatchLeadTooShort(selection.startAt, matchEligibilityCheckedAt) : false
@@ -287,7 +288,7 @@ export function BookingPage() {
     if (courtId) await loadAvailability(courtId, date)
   }
 
-  const findOpponent = () => {
+  const findOpponent = async () => {
     if (!selection || matchCheckout || findOpponentInFlight.current) return
     const checkedAt = Date.now()
     if (isMatchLeadTooShort(selection.startAt, checkedAt)) {
@@ -295,8 +296,7 @@ export function BookingPage() {
       return
     }
     findOpponentInFlight.current = true
-    void run(async () => {
-      try {
+    try {
         let nextHold = pendingMatchHold.current
         if (!nextHold) {
           nextHold = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
@@ -305,16 +305,28 @@ export function BookingPage() {
           updateSelectedSlots('held')
         }
         const matchHold = nextHold
-        const match = await createMatch({ holdId: matchHold.id, capacity: 2, feeMode: 'split' }).catch(async (caught: unknown) => {
+        const match = await createMatch({ holdId: matchHold.id, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' }).catch(async (caught: unknown) => {
           if (isMatchRejected(caught)) await releaseMatchHold(matchHold)
           throw caught
         })
         pendingMatchHold.current = null
         setMatchCheckout({ matchId: match.id, holdExpiresAt: matchHold.expiresAt })
         setMessage('Hoàn tất đặt cọc trước khi lượt giữ chỗ hết hạn.')
-      } finally {
-        findOpponentInFlight.current = false
+    } finally {
+      findOpponentInFlight.current = false
+    }
+  }
+
+  const executeScheduleAction = (action: 'booking' | 'match') => action === 'booking' ? confirm() : findOpponent()
+  const attemptScheduleAction = (action: 'booking' | 'match') => {
+    if (!selection) return
+    void run(async () => {
+      const result = await getMyScheduleConflicts({ startAt: selection.startAt, endAt: selection.endAt })
+      if (result.conflicts.length > 0) {
+        setScheduleWarning({ conflicts: result.conflicts, action })
+        return
       }
+      await executeScheduleAction(action)
     })
   }
 
@@ -411,15 +423,24 @@ export function BookingPage() {
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
             {selection && !booking && !matchCheckout && (meetsMinDuration
-              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => void confirm()}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => void findOpponent()}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho slot còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
+              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => attemptScheduleAction('booking')}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => attemptScheduleAction('match')}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho slot còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
-            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { checkoutCompleted.current = true; navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}
+            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>
       </div>
       <Modal open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
+      <ScheduleConflictWarning
+        conflicts={scheduleWarning?.conflicts ?? []}
+        onClose={() => setScheduleWarning(null)}
+        onContinue={() => {
+          const action = scheduleWarning?.action
+          setScheduleWarning(null)
+          if (action) void run(() => executeScheduleAction(action))
+        }}
+      />
     </main>
   )
 }

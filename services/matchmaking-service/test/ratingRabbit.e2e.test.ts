@@ -39,7 +39,7 @@ describeRabbit('F-01 — RabbitMQ runtime path', () => {
     createdUsers.push(userId);
     processedEventIds.push(processedEventId);
     await prisma.passport.create({
-      data: {
+      data: { discipline: 'singles',
         userId,
         declaredTier: 'intermediate',
         ratingMu: 1500,
@@ -57,11 +57,11 @@ describeRabbit('F-01 — RabbitMQ runtime path', () => {
 
     publishEvent(publisher.channel, 'RatingPeriodReady', payload, { messageId });
     await waitUntilProcessed(processedEventId);
-    const afterFirst = await prisma.passport.findUniqueOrThrow({ where: { userId } });
+    const afterFirst = await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId, discipline: 'singles' } } });
 
     publishEvent(publisher.channel, 'RatingPeriodReady', payload, { messageId });
     await new Promise((resolve) => setTimeout(resolve, 250));
-    const afterReplay = await prisma.passport.findUniqueOrThrow({ where: { userId } });
+    const afterReplay = await prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId, discipline: 'singles' } } });
 
     expect(afterFirst.ratingMu).toBeGreaterThan(1500);
     expect(afterFirst.matchesPlayed).toBe(1);

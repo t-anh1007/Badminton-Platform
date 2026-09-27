@@ -1,5 +1,6 @@
 import { reapExpiredHolds } from '../domain/hold.js';
 import { completeEndedBookings, reapExpiredHeldBookings } from '../domain/booking.js';
+import { processOperationalShutdownItems, refreshOperationalShutdownStatuses, retryPendingShutdownRefunds } from '../domain/operationalShutdown.js';
 
 /** Tác vụ nền định kỳ: dọn HOLD hết hạn (BR-BOK-02, AC-BOK-06-3) và chuyển
  * booking `held` quá hạn -> `cancelled` (AC-BOK-07-5). Trước G4-fix hai hàm này
@@ -8,9 +9,12 @@ import { completeEndedBookings, reapExpiredHeldBookings } from '../domain/bookin
 export function startReapScheduler(intervalMs = 30_000): () => void {
   const tick = async () => {
     try {
+      await processOperationalShutdownItems();
+      await retryPendingShutdownRefunds();
       await reapExpiredHolds();
       await reapExpiredHeldBookings();
       await completeEndedBookings();
+      await refreshOperationalShutdownStatuses();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[reap-scheduler] error:', err);

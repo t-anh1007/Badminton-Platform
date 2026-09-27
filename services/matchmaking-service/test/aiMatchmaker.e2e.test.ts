@@ -78,6 +78,13 @@ async function createOpenMatch(skillMin: 'beginner' | 'intermediate' | 'advanced
     },
   });
   matchIds.push(match.id);
+  // JOIN cần MatchCreated đã ghi outbox (dữ liệu chia phí), như kèo tạo qua API.
+  await prisma.outbox.create({
+    data: {
+      aggregateType: 'Match', aggregateId: match.id, eventType: 'MatchCreated',
+      payload: { matchId: match.id, bookingId, capacity: 4, feePerSlot: '100000' },
+    },
+  });
   return { match, organizerUserId };
 }
 
@@ -104,7 +111,7 @@ afterAll(async () => {
 describe('AI-01 matchmaker', () => {
   it('revalidates chat criteria and returns deterministic F-02 suggestions without action execution', async () => {
     const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
-    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await prisma.passport.create({ data: { discipline: 'singles', userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
     await createOpenMatch('intermediate');
     const response = await request(app).post('/matches/suggestions/ai/chat').set('Authorization', `Bearer ${playerToken(playerUserId)}`).send({ message: 'Tìm kèo tối nay', criteria: { area: 'Quận 1', feeMax: '120000' } }).expect(200);
     expect(response.body.normalizedCriteria.area).toBe('Quận 1'); expect(response.body.suggestions[0]).toMatchObject({ score: expect.any(Number), matchId: expect.any(String) }); expect(await prisma.join.count({ where: { participantUserId: playerUserId } })).toBe(0);
@@ -112,7 +119,7 @@ describe('AI-01 matchmaker', () => {
 
   it('falls back from invalid normalized criteria and returns a navigation CTA for action requests', async () => {
     const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
-    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await prisma.passport.create({ data: { discipline: 'singles', userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
     await createOpenMatch('intermediate');
     const response = await request(app)
       .post('/matches/suggestions/ai/chat')
@@ -127,7 +134,7 @@ describe('AI-01 matchmaker', () => {
 
   it('normalizes only criteria grounded in the player message before recomputing suggestions', async () => {
     const playerUserId = randomUUID(); passportUserIds.push(playerUserId);
-    await prisma.passport.create({ data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
+    await prisma.passport.create({ data: { discipline: 'singles', userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 } });
     await createOpenMatch('intermediate');
     const response = await request(app)
       .post('/matches/suggestions/ai/chat')
@@ -141,7 +148,7 @@ describe('AI-01 matchmaker', () => {
     const playerUserId = randomUUID();
     passportUserIds.push(playerUserId);
     await prisma.passport.create({
-      data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 },
+      data: { discipline: 'singles', userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 },
     });
     const [{ match: lowMatch }, { match: highMatch }, { match: middleMatch, organizerUserId }] = await Promise.all([
       createOpenMatch('advanced'), createOpenMatch('intermediate'), createOpenMatch('beginner'),
@@ -169,6 +176,7 @@ describe('AI-01 matchmaker', () => {
     await request(app)
       .post(topSuggestion.joinPath)
       .set('Authorization', `Bearer ${playerToken(playerUserId)}`)
+      .send({ teamSide: 'B' })
       .expect(201);
   });
 
@@ -176,7 +184,7 @@ describe('AI-01 matchmaker', () => {
     const playerUserId = randomUUID();
     passportUserIds.push(playerUserId);
     await prisma.passport.create({
-      data: { userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 },
+      data: { discipline: 'singles', userId: playerUserId, ratingMu: 1500, ratingRd: 80, ratingSigma: 0.06 },
     });
     await Promise.all([createOpenMatch('intermediate'), createOpenMatch('advanced'), createOpenMatch('beginner')]);
 

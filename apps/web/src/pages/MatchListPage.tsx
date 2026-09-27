@@ -1,3 +1,4 @@
+import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { QuickMatchPanel } from '../components/QuickMatchPanel';
@@ -14,8 +15,8 @@ import {
   Toast,
 } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
-import { configureMatchSkillRange, createMatch, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
-import { getMyMatchSources, type MatchBookingSource, type MatchHoldSource } from '../lib/venueBookingApi';
+import { configureMatchSkillRange, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
+import { MatchCreatePanel } from '../components/MatchCreatePanel.js';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
@@ -28,7 +29,6 @@ const tierLabels: Record<SkillTier, string> = {
 };
 const tierOptions = Object.entries(tierLabels) as Array<[SkillTier, string]>;
 type HydratedMatch = MatchRow;
-type MatchSource = ({ kind: 'booking' } & MatchBookingSource) | ({ kind: 'hold' } & MatchHoldSource);
 const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : formatMoneyVnd(value));
 const skillRange = (row: MatchRow) =>
   row.skillMin || row.skillMax
@@ -86,6 +86,7 @@ export function MatchListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const createdMatchId = searchParams.get('created');
   const setupRequested = searchParams.get('setup') === '1';
+  const createOpen = searchParams.get('create') === '1';
   const createdCardRef = useRef<HTMLAnchorElement>(null);
   const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(createdMatchId);
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
@@ -97,9 +98,6 @@ export function MatchListPage() {
   const [priceMax, setPriceMax] = useState('');
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [customDate, setCustomDate] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [matchSources, setMatchSources] = useState<MatchSource[]>([]);
-  const [sourceKey, setSourceKey] = useState('');
   const [notice, setNotice] = useState('');
   const [skillSetupOpen, setSkillSetupOpen] = useState(false);
   const [setupSkillMin, setSetupSkillMin] = useState<SkillTier | ''>('');
@@ -225,40 +223,38 @@ export function MatchListPage() {
     setCustomDate('');
   };
 
-  const openCreate = async () => {
+  // Màn 01: tạo kèo ở chính trang danh sách (?create=1) để có thể liên kết trực tiếp.
+  const openCreate = () => {
     if (!window.localStorage.getItem('accessToken')) {
       navigate('/auth');
       return;
     }
-    setCreateOpen(true);
     setNotice('');
-    try {
-      const result = await getMyMatchSources();
-      // Kèo cọc chỉ tạo từ slot đang GIỮ (hold) — organizer đặt cọc để chốt.
-      const sources: MatchSource[] = result.holds.map((hold) => ({ ...hold, kind: 'hold' as const }));
-      setMatchSources(sources);
-      setSourceKey(sources[0] ? `${sources[0].kind}:${sources[0].id}` : '');
-    } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'Không thể tải slot đang giữ.');
-    }
+    const next = new URLSearchParams(searchParams);
+    next.set('create', '1');
+    setSearchParams(next);
   };
-  const submitCreate = async () => {
-    if (!sourceKey) return;
-    try {
-      const [, id] = sourceKey.split(':') as ['hold', string];
-      // Kèo đơn cọc: 2 người, chia đôi phí. Sau khi tạo -> trang chi tiết đặt cọc.
-      const match = await createMatch({ holdId: id, capacity: 2, feeMode: 'split' });
-      setCreateOpen(false);
-      navigate(`/matches/${match.id}`);
-    } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'Không thể tạo kèo.');
-    }
+  const closeCreate = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('create');
+    setSearchParams(next);
   };
+
+  if (createOpen) {
+    return (
+      <div className="page-container py-8 sm:py-10">
+        <PageHeader eyebrow="Booking thành kèo cạnh tranh" title="Tạo kèo mới" description="Chọn booking, cấu hình kèo và kiểm tra toàn bộ dòng tiền trước khi công bố." />
+        <div className="mt-6">
+          <MatchCreatePanel onCancel={closeCreate} onCreated={(match) => navigate(`/matches/${match.id}`)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.includes('thành công') || notice.includes('hoàn tất') ? 'success' : 'error'} />}
-      <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={() => void openCreate()}>Tạo kèo từ slot đang giữ</Button>} />
+      <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={openCreate}>Tạo kèo</Button>} />
       {createdMatchId && !setupRequested && <div role="status" className="mt-5 rounded-xl border border-success bg-success-bg p-4 text-sm text-success">Kèo đã được tạo và đang tìm đối thủ.{!loading && !matches.some((match) => match.id === createdMatchId) && <> <Link className="font-bold underline" to={`/matches/${encodeURIComponent(createdMatchId)}`}>Xem kèo vừa tạo</Link></>}</div>}
       <div className="mt-6">
         <QuickMatchPanel />
@@ -400,7 +396,7 @@ export function MatchListPage() {
             action={
               hasActiveFilters
                 ? <Button tone="secondary" onClick={resetFilters}>Đặt lại bộ lọc</Button>
-                : <Button onClick={() => void openCreate()}>Tạo kèo</Button>
+                : <Button onClick={openCreate}>Tạo kèo</Button>
             }
           />
         </div>
@@ -417,9 +413,9 @@ export function MatchListPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-caption">
-                    {match.capacity === 2 ? 'Kèo đơn' : 'Kèo đôi'} · {match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang chờ thanh toán' : match.openSlots > 0 ? 'Mở' : 'Đầy'}
+                    {match.mode === 'ranked' ? 'Xếp hạng' : 'Giao lưu'} · {(match.discipline ?? (match.capacity === 2 ? 'singles' : 'doubles')) === 'singles' ? 'Kèo đơn' : 'Kèo đôi'} · {match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang chờ thanh toán' : match.openSlots > 0 ? 'Mở' : 'Đầy'}
                   </p>
-                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2>
+                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2><BusinessCode code={match.businessCode} label="Mã kèo" />
                 </div>
                 <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ slot' : `Còn ${match.openSlots} chỗ`}</Badge>
               </div>
@@ -453,42 +449,6 @@ export function MatchListPage() {
           ))}
         </div>
       )}
-      <Modal open={createOpen} title="Tạo kèo đơn từ slot đang giữ" onClose={() => setCreateOpen(false)}>
-        {matchSources.length === 0 ? (
-          <EmptyState
-            title="Chưa có slot đang giữ"
-            description="Hãy giữ một khung giờ (cách giờ đá ít nhất 24 giờ) trước khi mở kèo đơn."
-            action={<Button onClick={() => navigate('/venues')}>Chọn sân</Button>}
-          />
-        ) : (
-          <div className="space-y-4">
-            <label className="block text-sm font-medium">
-              Sân và thời gian đã giữ
-              <SelectInput aria-label="Nguồn tạo kèo" className="mt-1" value={sourceKey} onChange={(event) => setSourceKey(event.target.value)}>
-                {matchSources.map((source) => (
-                  <option key={`${source.kind}:${source.id}`} value={`${source.kind}:${source.id}`}>
-                    {source.court.venue.name} · {source.court.name} · {formatDateTimeVi(source.startAt)} · Đang giữ
-                  </option>
-                ))}
-              </SelectInput>
-            </label>
-            <div className="rounded-xl bg-canvas p-3 text-sm text-ink-600">
-              <p className="font-semibold text-ink-900">Kèo đơn 2 người · chia đôi phí</p>
-              <ul className="mt-1 list-disc space-y-1 pl-5">
-                <li>Bạn <b>đặt cọc = 1/2 giá sân</b> để chốt sân và mở kèo tìm đối.</li>
-                <li>Đối tham gia trả 1/2 còn lại; đủ tiền là kèo được xác nhận.</li>
-                <li>Không tìm được đối trước hạn → kèo tự hủy, <b>hoàn cọc vào ví</b>.</li>
-              </ul>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button tone="secondary" onClick={() => setCreateOpen(false)}>
-                Đóng
-              </Button>
-              <Button onClick={() => void submitCreate()}>Tạo kèo & đặt cọc</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
       <Modal open={skillSetupOpen} title="Thiết lập bậc trình độ" dismissible={false} onClose={() => undefined}>
         <div className="space-y-4">
           <p className="text-sm text-ink-600">Chọn khoảng trình độ phù hợp. Kèo sẽ xuất hiện để tìm đối thủ ngay sau khi lưu.</p>

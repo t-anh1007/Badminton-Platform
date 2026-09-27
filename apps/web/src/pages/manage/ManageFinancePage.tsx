@@ -1,28 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, EmptyState, Skeleton } from '../../components/ui';
 import {
-  cancelMyWithdrawal, createWithdrawal, getMyRevenue, getMyWithdrawals, getMyWallets, getWalletLedger,
-  type RevenueRow, type WalletLedgerEntry, type WalletRow, type WithdrawalRow,
+  cancelMyWithdrawal, createWithdrawal, getMyFinancialTransparency, getMyWithdrawals, getMyWallets,
+  type ProviderTransparencyResult, type WalletRow, type WithdrawalRow,
 } from '../../lib/financeApi.js';
 import { getMyManagedVenues, type ManagedVenue } from '../../lib/venueBookingApi.js';
-import { parseDateFieldVi } from '../../lib/formatters.js';
-import { FinanceActivityList } from './FinanceActivityList.js';
-import { FinanceOverview } from './FinanceOverview.js';
+import { newPeriod, periodQuery } from '../../components/PeriodFilter.js';
+import { FinanceRevenueExplorer, type FinanceFilter } from './FinanceRevenueExplorer.js';
+import { ProviderFinanceFlows } from './ProviderFinanceFlows.js';
+import type { FlowNavState, FlowSync } from '../../components/FinanceFlows.js';
+import type { ProviderFlowTab } from '../../lib/financeApi.js';
 import { useFinanceRealtime } from './useFinanceRealtime.js';
 import { WithdrawalModal } from './WithdrawalModal.js';
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 
 const ACTIVE_STATUSES = new Set(['pending', 'partially_paid']);
-const vietnamDayBoundary = (date: string, edge: 'start' | 'end') => `${date}T${edge === 'start' ? '00:00:00.000' : '23:59:59.999'}+07:00`;
-const todayVi = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
 
 export function ManageFinancePage() {
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [venues, setVenues] = useState<ManagedVenue[]>([]);
-  const [revenue, setRevenue] = useState<RevenueRow[]>([]);
+  const [transparency, setTransparency] = useState<ProviderTransparencyResult | null>(null);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
-  const [ledger, setLedger] = useState<WalletLedgerEntry[]>([]);
-  const [filters, setFilters] = useState({ venueId: '', from: todayVi(), to: todayVi() });
+  // Mặc định: từ ngày bỏ trống, đến hôm nay = toàn bộ booking tới hiện tại.
+  const [filters, setFilters] = useState<FinanceFilter>({ venueId: '', period: newPeriod('range') });
+  const [flowNav, setFlowNav] = useState<FlowNavState<ProviderFlowTab>>({ tab: 'revenue', nonce: 0 });
+  const [flowSync, setFlowSync] = useState<FlowSync>({ nonce: 0 });
+  const pushSync = (next: Omit<FlowSync, 'nonce'>) => setFlowSync((current) => ({ ...next, nonce: current.nonce + 1 }));
+  const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -30,20 +34,16 @@ export function ManageFinancePage() {
   const [message, setMessage] = useState('');
 
   const load = async (nextFilters = filters) => {
-    const from = parseDateFieldVi(nextFilters.from);
-    const to = parseDateFieldVi(nextFilters.to);
-    if (!from || !to) { setError('Ngày cần theo định dạng dd/MM/yyyy.'); return; }
     try {
       const wallets = await getMyWallets();
       const business = wallets.find((row) => row.walletType === 'business') ?? null;
-      const [nextVenues, nextRevenue, nextWithdrawals, nextLedger] = await Promise.all([
+      const [nextVenues, nextTransparency, nextWithdrawals] = await Promise.all([
         getMyManagedVenues().catch(() => [] as ManagedVenue[]),
-        getMyRevenue({ venueId: nextFilters.venueId, from: vietnamDayBoundary(from, 'start'), to: vietnamDayBoundary(to, 'end') }),
+        getMyFinancialTransparency({ venueId: nextFilters.venueId, ...periodQuery(nextFilters.period), page: 1, pageSize: 1 }),
         getMyWithdrawals(),
-        business ? getWalletLedger(business.id).then((result) => result.entries) : Promise.resolve([]),
       ]);
-      setWallet(business); setVenues(nextVenues); setRevenue(nextRevenue); setWithdrawals(nextWithdrawals); setLedger(nextLedger);
-      setFilters(nextFilters); setError('');
+      setWallet(business); setVenues(nextVenues); setTransparency(nextTransparency); setWithdrawals(nextWithdrawals);
+      setFilters(nextFilters); setVersion((current) => current + 1); setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể tải dữ liệu tài chính.');
     } finally { setLoading(false); }
@@ -52,8 +52,11 @@ export function ManageFinancePage() {
   useEffect(() => { void load(); /* Initial finance snapshot only. */ }, []);
   const { status } = useFinanceRealtime(() => load());
   useLiveDataRefresh(() => { if (!withdrawOpen) return load(); });
+  const openFlows = (tab: ProviderFlowTab, filter?: string) => {
+    setFlowNav((current) => ({ tab, filter, nonce: current.nonce + 1 }));
+    window.setTimeout(() => document.getElementById('finance-flows')?.scrollIntoView({ behavior: 'smooth' }), 0);
+  };
   const activeWithdrawal = useMemo(() => withdrawals.find((row) => ACTIVE_STATUSES.has(row.status)) ?? null, [withdrawals]);
-  const today = useMemo(() => revenue.reduce((total, row) => total + BigInt(row.net), 0n), [revenue]);
 
   const submitWithdrawal = async (body: { amount: string; bankCode: string; bankAccountNumber: string; bankAccountName: string }) => {
     if (busy) return;
@@ -78,8 +81,16 @@ export function ManageFinancePage() {
 
   return <div className="grid gap-7">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-caption text-ink-500">QUẢN LÝ TÀI CHÍNH</p><h2 className="mt-1 text-h1">Dòng tiền hôm nay</h2><p className="mt-1 text-sm text-ink-500">Xem tiền có thể rút và hoạt động mới nhất của các cơ sở.</p></div><Button tone="ghost" size="sm" onClick={() => void load()}>Tải lại</Button></header>
-    <FinanceOverview available={wallet.available} pending={wallet.pending} todayNet={today.toString()} todayCount={revenue.length} activeWithdrawal={activeWithdrawal} status={status} onWithdraw={() => setWithdrawOpen(true)} />
-    <FinanceActivityList ledger={ledger} withdrawals={withdrawals} venues={venues} onApplyFilter={(nextFilters) => void load(nextFilters)} />
+    <section className="overflow-hidden rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-raised)] sm:p-8"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-sm text-surface/70">Số dư có thể rút</p><p className="text-figures mt-2 text-4xl font-bold">{new Intl.NumberFormat('vi-VN').format(BigInt(wallet.available))}đ</p><p className="mt-2 text-xs text-surface/70">{status === 'live' ? '● Đang cập nhật trực tiếp' : '○ Đang kết nối lại'}</p></div><div className="flex flex-wrap gap-2"><Button tone="ghost" onClick={() => openFlows('ledger')} className="text-surface hover:bg-surface/10">Số dư này gồm những khoản nào?</Button><Button aria-label="Tạo yêu cầu rút tiền" onClick={() => setWithdrawOpen(true)} className="bg-brand-yellow text-brand-navy hover:bg-brand-yellow-hover">Rút tiền</Button></div></div></section>
+    {transparency ? <FinanceRevenueExplorer data={transparency} venues={venues} filters={filters}
+      onChange={(next) => { setFilters(next); pushSync({ period: next.period, venueId: next.venueId }); void load(next); }}
+      onPickDay={(picked) => { pushSync({ period: { ...newPeriod('day'), day: picked } }); openFlows('revenue'); }}
+      onPickVenue={(venueId) => { const next = { ...filters, venueId }; setFilters(next); pushSync({ venueId }); void load(next); openFlows('revenue'); }}
+      onShowPending={() => { const next = { ...filters, period: newPeriod('all') }; setFilters(next); pushSync({ period: next.period }); void load(next); openFlows('revenue', 'pending'); }} /> : null}
+    <section id="finance-flows" className="grid scroll-mt-24 gap-3">
+      <h3 className="text-h2">Chi tiết dòng tiền</h3>
+      <ProviderFinanceFlows nav={flowNav} venues={venues} sync={flowSync} initialPeriod={filters.period} version={version} />
+    </section>
     {error && <p role="alert" className="rounded-2xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</p>}
     {message && !error && <p role="status" className="rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">{message}</p>}
     <WithdrawalModal open={withdrawOpen} available={wallet.available} active={activeWithdrawal} busy={busy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />

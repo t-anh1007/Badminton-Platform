@@ -125,10 +125,11 @@ export async function calculateBookingPrice(courtId: string, startAt: Date, endA
   // Court schedules and pricing windows are Vietnam wall-clock minutes, while
   // booking instants are stored as UTC. Vietnam has a fixed UTC+7 offset.
   const vietnamStart = new Date(startAt.getTime() + 7 * 60 * 60_000);
-  const vietnamEnd = new Date(endAt.getTime() + 7 * 60 * 60_000);
   const weekday = vietnamStart.getUTCDay();
   const startMinute = vietnamStart.getUTCHours() * 60 + vietnamStart.getUTCMinutes();
-  const endMinute = vietnamEnd.getUTCHours() * 60 + vietnamEnd.getUTCMinutes();
+  // Tính theo thời lượng, không theo giờ đồng hồ của endAt: slot kết thúc đúng 24:00 (00:00 hôm sau)
+  // phải là phút 1440 chứ không phải 0, nếu không slot cuối ngày bị tính giá 0.
+  const endMinute = Math.min(24 * 60, startMinute + Math.round((endAt.getTime() - startAt.getTime()) / 60_000));
   const windows = await getEffectivePricingWindows(courtId, weekday, startAt);
 
   let total = 0n;

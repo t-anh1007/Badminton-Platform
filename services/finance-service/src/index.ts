@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { bootstrapEventConsumption } from './lib/eventConsumer.js';
 import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { startRevenueReleaseScheduler } from './lib/revenueScheduler.js';
+import { cancelExpiredClaims } from './domain/rewardPayout.js';
 import { FinanceRealtimeHub } from './realtime/financeRealtimeHub.js';
 import { bootstrapFinanceRealtimeConsumer } from './realtime/financeRealtimeConsumer.js';
 
@@ -26,6 +27,14 @@ startWithIdleRelease({
   label: SERVICE_NAME,
   start: async () => [
     startRevenueReleaseScheduler(),
+    // BR-CM-68: hủy khoản thưởng quá hạn bổ sung thông tin; ready_to_pay không bao giờ tự hủy.
+    (() => {
+      const timer = setInterval(() => {
+        void cancelExpiredClaims().catch((error) => console.error('[finance-service] lỗi hủy thưởng quá hạn:', error));
+      }, 60_000);
+      timer.unref();
+      return () => clearInterval(timer);
+    })(),
     await bootstrapEventConsumption(),
     await bootstrapEventPublishing(),
     await bootstrapFinanceRealtimeConsumer(financeRealtimeHub),

@@ -14,7 +14,7 @@ export function listProviders(status?: 'pending' | 'approved' | 'rejected' | 'su
 export async function getProviderSelf(userId: string) {
   const provider = await prisma.provider.findFirst({
     where: { userId },
-    select: { id: true, orgName: true, contact: true, status: true, decisionReason: true, decidedAt: true },
+    select: { id: true, businessCode: true, orgName: true, contact: true, status: true, decisionReason: true, decidedAt: true },
   });
   return provider;
 }

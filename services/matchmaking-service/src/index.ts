@@ -8,6 +8,11 @@ import { startJoinExpiryScheduler } from './domain/joins.js';
 import { bootstrapMatchLifecycleEventConsumption } from './lib/matchLifecycleEventConsumer.js';
 import { attachQuickMatchGateway } from './lib/quickMatchGateway.js';
 import { startMatchCutoffScheduler } from './domain/matchLifecycle.js';
+import { createPrivateObjectStorageClientFromEnv } from '@khoaluantn/object-storage';
+import { sweepResultEvidenceRetention } from './domain/resultEvidence.js';
+import { sweepResultDeadlines, sweepResultReviews } from './domain/resultLifecycle.js';
+import { sweepRatingAging } from './domain/passport.js';
+import { sweepRewardPrograms } from './domain/rewards.js';
 
 const SERVICE_NAME = 'matchmaking-service';
 const PORT = Number(process.env.MATCHMAKING_PORT ?? 3004);
@@ -29,6 +34,16 @@ const idle = startWithIdleRelease({
   start: async () => [
     startJoinExpiryScheduler(),
     startMatchCutoffScheduler(),
+    // BR-CM-32: hạn khai/phản đối/sự cố chốt trong vòng 5 phút; sweep idempotent.
+    startMatchCutoffScheduler(60_000, sweepResultDeadlines),
+    // BR-CM-39/40: provider quá hạn chuyển Admin, nhắc SLA Admin; không đổi tiền/kết quả.
+    startMatchCutoffScheduler(5 * 60_000, sweepResultReviews),
+    // BR-CM-49: tăng RD theo kỳ 7 ngày không hoạt động; idempotent theo lastAgedAt.
+    startMatchCutoffScheduler(60 * 60_000, () => sweepRatingAging()),
+    // BR-CM-64/65: chuyển trạng thái chương trình thưởng và tính giải khi mọi kết quả đã final.
+    startMatchCutoffScheduler(60_000, () => sweepRewardPrograms()),
+    // Retention bằng chứng kết quả (BR-CM-27); client private tạo lười để thiếu cấu hình chỉ log lỗi.
+    startMatchCutoffScheduler(60 * 60_000, () => sweepResultEvidenceRetention(createPrivateObjectStorageClientFromEnv())),
     await bootstrapRatingEventConsumption(),
     await bootstrapMatchLifecycleEventConsumption(),
     await bootstrapEventPublishing(),

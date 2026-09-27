@@ -19,6 +19,8 @@ Thư mục này là nguồn sự thật cho phạm vi và hành vi sản phẩm 
 - `specs/court-booking.md`: tìm sân, giữ chỗ và booking.
 - `specs/finance-disputes.md`: thanh toán, ví, doanh thu, hoàn tiền, đối soát và
   tranh chấp.
+- `specs/competitive-matches.md`: nguồn có thẩm quyền cho kèo tiền thật
+  5:5/6:4/7:3, kết quả, rating đơn/đôi, BXH theo kỳ và thưởng Admin.
 
 ## Tài liệu thiết kế hỗ trợ
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { vietnamProvinceCodeSchema } from './competitiveMatches.js';
 
 // @khoaluantn/shared — types/DTO/event schema dùng chung (contract only).
 // Gboot: skeleton. Nội dung thật thêm dần ở G0..G7. KHÔNG chứa business logic
@@ -16,10 +17,26 @@ export const SERVICES = [
 
 export type ServiceName = (typeof SERVICES)[number];
 
+export * from './competitiveMatches.js';
+
 /** Event tối giản để service nghiệp vụ yêu cầu tạo thông báo trong ứng dụng.
  * Không chứa URL tự do hoặc dữ liệu nhạy cảm; account-service là nơi dựng inbox. */
 export const notificationCategories = ['booking', 'finance', 'match', 'dispute', 'support', 'security', 'community'] as const;
-export const notificationActionKinds = ['booking.view', 'booking.pay', 'match.view', 'dispute.view', 'support.view', 'withdrawal.view', 'admin.dispute.review', 'admin.withdrawal.review', 'admin.provider.review', 'admin.moderation.review', 'admin.ticket.view'] as const;
+export const notificationActionKinds = [
+  'booking.view', 'booking.pay', 'match.view', 'dispute.view', 'support.view', 'withdrawal.view',
+  'admin.dispute.review', 'admin.withdrawal.review', 'admin.provider.review', 'admin.moderation.review', 'admin.ticket.view',
+  // Kèo cạnh tranh v2 (specs/competitive-matches.md §11).
+  'match.result.view', 'provider.match-result.review', 'admin.match-result.review', 'leaderboard.view',
+  'reward.view', 'reward.payout.view', 'admin.reward-payout.review',
+] as const;
+export const requiredNotificationKinds = [
+  'booking.shutdown_scheduled',
+  'booking.shutdown_emergency',
+  'match.shutdown_scheduled',
+  'match.shutdown_emergency',
+  'finance.shutdown_refund_completed',
+  'finance.shutdown_refund_needs_attention',
+] as const;
 export const userNotificationRequestedSchema = z.object({
   recipient: z.discriminatedUnion('type', [
     z.object({ type: z.literal('user'), userId: z.string().uuid(), targetRole: z.enum(['player', 'provider', 'admin']) }).strict(),
@@ -34,7 +51,16 @@ export const userNotificationRequestedSchema = z.object({
   entityId: z.string().uuid().nullable().default(null),
   actionKind: z.enum(notificationActionKinds).nullable().default(null),
   actionExpiresAt: z.string().datetime().nullable().default(null),
-}).strict();
+  deliveryPolicy: z.enum(['preference_based', 'required']).default('preference_based'),
+  /** Email giao dịch bắt buộc cho thông báo kèo cạnh tranh; account-service gửi sau khi đã ghi inbox. */
+  emailPolicy: z.enum(['required', 'none']).default('none'),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/).nullable().default(null),
+}).strict().superRefine((payload, context) => {
+  if (payload.deliveryPolicy === 'required'
+    && !(requiredNotificationKinds as readonly string[]).includes(payload.kind)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['deliveryPolicy'], message: 'Required delivery is not allowed for this notification kind' });
+  }
+});
 export type UserNotificationRequestedPayload = z.infer<typeof userNotificationRequestedSchema>;
 
 /** Danh tính tài khoản "Test demo / Vãng lai" — cố định để cổng đăng nhập demo
@@ -69,6 +95,8 @@ export const venueMatchContextSchema = z.object({
     lat: z.number(),
     lng: z.number(),
   }).strict(),
+  providerUserId: z.string().uuid(),
+  provinceCode: vietnamProvinceCodeSchema.nullable(),
 }).strict();
 
 export type VenueMatchContext = z.infer<typeof venueMatchContextSchema>;
@@ -89,6 +117,16 @@ export interface MatchCreatedPayload {
    * cho organizer contribution.expiresAt; khác với cutoffAt (=X). Optional để
    * tương thích ngược event legacy (thiếu ⇒ finance dùng cutoffAt như cũ). */
   depositExpiresAt?: string;
+  /** Kèo cạnh tranh v2. Optional để consumer vẫn đọc được event cũ (thiếu ⇒ hold, đơn, 5:5). */
+  sourceType?: 'hold' | 'paid_booking';
+  mode?: 'friendly' | 'ranked';
+  discipline?: 'singles' | 'doubles';
+  ratio?: '5:5' | '6:4' | '7:3';
+  teamSize?: 1 | 2;
+  /** Phần tiền giữ chờ kết quả = totalContribution - bookingPrice. */
+  resultReserve?: string;
+  /** bookingPrice + resultReserve = feePerSlot × (capacity - 1) + organizerContribution. */
+  totalContribution?: string;
 }
 
 export interface JoinApprovedPayload {
@@ -97,6 +135,10 @@ export interface JoinApprovedPayload {
   participantUserId: string;
   fee: string;
   expiresAt: string;
+  /** Đội người tham gia đã chọn trước khi trả tiền (BR-CM-05). */
+  teamSide?: 'A' | 'B';
+  /** Thời điểm JOIN gốc; Finance dùng làm thứ tự JOIN khi chia phần lẻ (D57). */
+  joinedAt?: string;
 }
 
 /** D29: participantFees + organizerContribution phải bằng bookingPrice ở producer và consumer. */
@@ -111,14 +153,27 @@ export interface MatchConfirmedPayload {
   participantFees: string;
   organizerContribution: string;
   bookingPrice: string;
+  /** Kèo cạnh tranh v2; thiếu ⇒ nguồn hold, tổng góp = bookingPrice. */
+  sourceType?: 'hold' | 'paid_booking';
+  resultReserve?: string;
+  totalContribution?: string;
+}
+
+/** Finance phát đúng một lần khi phần tiền sân của kèo đã chốt (cả hai nguồn). */
+export interface MatchFundingCompletedPayload {
+  matchId: string;
+  bookingId: string;
+  sourceType: 'hold' | 'paid_booking';
 }
 
 export interface MatchCancelledPayload {
   matchId: string;
   bookingId: string;
-  reason: 'organizer' | 'cutoff' | 'confirmed_booking_policy';
+  reason: 'organizer' | 'cutoff' | 'confirmed_booking_policy' | 'shutdown';
   paidJoinIds: string[];
   refundPercent?: number;
+  shutdownId?: string;
+  bookingBusinessCode?: string;
 }
 
 export interface MatchFeePaymentCompletedPayload {

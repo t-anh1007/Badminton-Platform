@@ -6,6 +6,7 @@ import type {
   MatchCancelledPayload,
   MatchConfirmedPayload,
   MatchCreatedPayload,
+  MatchFundingCompletedPayload,
   MatchFeePaymentCompletedPayload,
   MatchFeeRefundRequestedPayload,
   MatchBookingResolutionPayload,
@@ -34,6 +35,14 @@ const matchCreatedSchema = z.object({
   cutoffAt: z.string().datetime(),
   // PLAN_MATCH-DEPOSIT: hạn chủ kèo trả cọc (checkout ~10'); khác cutoffAt (=X).
   depositExpiresAt: z.string().datetime().optional(),
+  // Kèo cạnh tranh v2 — thiếu thì là event cũ: nguồn hold, đơn, 5:5, không giữ tiền kết quả.
+  sourceType: z.enum(['hold', 'paid_booking']).default('hold'),
+  mode: z.enum(['friendly', 'ranked']).optional(),
+  discipline: z.enum(['singles', 'doubles']).default('singles'),
+  ratio: z.enum(['5:5', '6:4', '7:3']).default('5:5'),
+  teamSize: z.union([z.literal(1), z.literal(2)]).optional(),
+  resultReserve: nonNegativeMoney.default('0'),
+  totalContribution: positiveMoney.optional(),
 }).strict();
 
 const joinApprovedSchema = z.object({
@@ -42,6 +51,8 @@ const joinApprovedSchema = z.object({
   participantUserId: z.string().uuid(),
   fee: nonNegativeMoney,
   expiresAt: z.string().datetime(),
+  teamSide: z.enum(['A', 'B']).optional(),
+  joinedAt: z.string().datetime().optional(),
 }).strict();
 
 const matchConfirmedSchema = z.object({
@@ -53,14 +64,19 @@ const matchConfirmedSchema = z.object({
   participantFees: nonNegativeMoney,
   organizerContribution: nonNegativeMoney,
   bookingPrice: positiveMoney,
+  sourceType: z.enum(['hold', 'paid_booking']).optional(),
+  resultReserve: nonNegativeMoney.optional(),
+  totalContribution: positiveMoney.optional(),
 }).strict();
 
 const matchCancelledSchema = z.object({
   matchId: z.string().uuid(),
   bookingId: z.string().uuid(),
-  reason: z.enum(['organizer', 'cutoff', 'confirmed_booking_policy']),
+  reason: z.enum(['organizer', 'cutoff', 'confirmed_booking_policy', 'shutdown']),
   paidJoinIds: z.array(z.string().uuid()),
   refundPercent: z.number().int().min(0).max(100).optional(),
+  shutdownId: z.string().uuid().optional(),
+  bookingBusinessCode: z.string().regex(/^BK-[0-9]{8}$/).optional(),
 }).strict();
 
 const refundRequestedSchema = z.object({
@@ -79,10 +95,16 @@ export async function handleMatchCreated(eventId: string, raw: MatchCreatedPaylo
   const fee = BigInt(payload.feePerSlot);
   const price = BigInt(payload.bookingPrice);
   const organizerContribution = BigInt(payload.organizerContribution);
+  const resultReserve = BigInt(payload.resultReserve);
+  const totalContribution = BigInt(payload.totalContribution ?? payload.bookingPrice);
   const expected = fee === 0n
     ? organizerContribution
     : fee * BigInt(payload.capacity - 1) + organizerContribution;
-  if (expected !== price) throw new Error('MatchCreated violates D29 value conservation');
+  // BR-CM-10..15: tổng góp = giá booking + tiền giữ chờ kết quả, bảo toàn từng đồng.
+  if (totalContribution !== price + resultReserve || expected !== totalContribution) {
+    throw new Error('MatchCreated violates competitive-match value conservation');
+  }
+  const paidBooking = payload.sourceType === 'paid_booking';
 
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${payload.matchId}, 0))`;
@@ -100,15 +122,33 @@ export async function handleMatchCreated(eventId: string, raw: MatchCreatedPaylo
           bookingPrice: price,
           organizerContribution,
           cutoffAt: new Date(payload.cutoffAt),
+          sourceType: payload.sourceType,
+          discipline: payload.discipline,
+          ratio: payload.ratio,
+          totalContribution,
+          resultReserve,
           contributions: {
-            create: {
-              contributionKey: `organizer:${payload.matchId}`,
-              userId: payload.organizerUserId,
-              role: 'organizer',
-              amount: organizerContribution,
-              // Cọc phải trả trong cửa sổ checkout, không phải tới hạn tìm đối X.
-              expiresAt: new Date(payload.depositExpiresAt ?? payload.cutoffAt),
-            },
+            create: paidBooking
+              // Booking đã thanh toán là nguồn tiền của chủ kèo: không intent, không bút toán reserve.
+              ? {
+                  contributionKey: `organizer:${payload.matchId}`,
+                  userId: payload.organizerUserId,
+                  role: 'organizer',
+                  teamSide: 'A',
+                  source: 'booking_payment',
+                  amount: organizerContribution,
+                  status: 'paid',
+                  paidAt: new Date(),
+                }
+              : {
+                  contributionKey: `organizer:${payload.matchId}`,
+                  userId: payload.organizerUserId,
+                  role: 'organizer',
+                  teamSide: 'A',
+                  amount: organizerContribution,
+                  // Cọc phải trả trong cửa sổ checkout, không phải tới hạn tìm đối X.
+                  expiresAt: new Date(payload.depositExpiresAt ?? payload.cutoffAt),
+                },
           },
         },
       });
@@ -135,6 +175,8 @@ export async function handleJoinApproved(eventId: string, raw: JoinApprovedPaylo
           joinId: payload.joinId,
           userId: payload.participantUserId,
           role: 'participant',
+          teamSide: payload.teamSide ?? 'B',
+          joinedAt: payload.joinedAt ? new Date(payload.joinedAt) : null,
           amount: fee,
           expiresAt: new Date(payload.expiresAt),
         },
@@ -296,6 +338,9 @@ async function refundPaidContribution(tx: Prisma.TransactionClient, contribution
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${contributionId}, 0))`;
   const contribution = await tx.matchContribution.findUnique({ where: { id: contributionId } });
   if (!contribution || contribution.status === 'refunded' || contribution.status === 'pending') return;
+  // Phần của chủ kèo đến từ booking đã thanh toán, chưa từng vào platform.reserved: không có tiền mặt để hoàn.
+  // Booking vẫn thuộc chủ kèo (BR-CM-18/21).
+  if (contribution.source === 'booking_payment') return;
   if (contribution.status !== 'paid') {
     throw new Error('Settled contribution must be refunded through BookingCancelled');
   }
@@ -345,7 +390,7 @@ export async function handleMatchFeeRefundRequested(
 
 function assertFullyReservedFunding(funding: {
   capacity: number;
-  bookingPrice: bigint;
+  totalContribution: bigint;
   organizerContribution: bigint;
   contributions: Array<{ role: string; status: string; amount: bigint }>;
 }) {
@@ -354,7 +399,7 @@ function assertFullyReservedFunding(funding: {
   const participantFees = participants.reduce((sum, item) => sum + item.amount, 0n);
   if (!organizer || participants.length !== funding.capacity - 1 || organizer.status !== 'paid'
     || organizer.amount !== funding.organizerContribution
-    || participantFees + organizer.amount !== funding.bookingPrice) {
+    || participantFees + organizer.amount !== funding.totalContribution) {
     throw new Error('Match settlement violates FIN-05 conservation');
   }
 }
@@ -370,6 +415,31 @@ async function refundCollectingFunding(
   await tx.matchFunding.update({
     where: { matchId: funding.matchId }, data: { status: 'cancelled', cancelledAt: now },
   });
+}
+
+async function writeHeldShutdownRefundOutcome(
+  tx: Prisma.TransactionClient,
+  payload: z.infer<typeof matchCancelledSchema>,
+  refundedContributions: Array<{ id: string; userId: string; amount: bigint }>,
+) {
+  if (payload.reason !== 'shutdown' || !payload.shutdownId) return;
+  if (await tx.outbox.findFirst({ where: { aggregateType: 'Booking', aggregateId: payload.bookingId, eventType: 'BookingRefundCompleted' } })) return;
+  await writeOutbox(tx, { aggregateType: 'Booking', aggregateId: payload.bookingId,
+    eventType: 'BookingRefundCompleted', payload: { bookingId: payload.bookingId, shutdownId: payload.shutdownId },
+  });
+  for (const contribution of refundedContributions) {
+    await writeOutbox(tx, { aggregateType: 'Notification', aggregateId: `shutdown.refund:${contribution.id}`,
+      eventType: 'UserNotificationRequested', payload: {
+        recipient: { type: 'user', userId: contribution.userId, targetRole: 'player' },
+        category: 'finance', kind: 'finance.shutdown_refund_completed', deliveryPolicy: 'required',
+        bookingBusinessCode: payload.bookingBusinessCode ?? null,
+        title: 'Bạn đã nhận được tiền hoàn',
+        body: `${contribution.amount.toString()}đ đã được hoàn vào Số dư COURTIN cho lịch đặt ${payload.bookingBusinessCode ?? ''}.`,
+        priority: 'update', entityType: 'booking', entityId: payload.bookingId,
+        actionKind: 'booking.view', actionExpiresAt: null,
+      },
+    });
+  }
 }
 
 /** D39 phase 1: finance verifies every reserved contribution, records only a
@@ -401,8 +471,15 @@ export async function handleMatchConfirmed(eventId: string, raw: MatchConfirmedP
     if (participants.length !== payload.participantCount
       || participantFees !== BigInt(payload.participantFees)
       || funding.organizerContribution !== BigInt(payload.organizerContribution)
-      || funding.bookingPrice !== BigInt(payload.bookingPrice)) {
+      || funding.bookingPrice !== BigInt(payload.bookingPrice)
+      || (payload.sourceType !== undefined && payload.sourceType !== funding.sourceType)
+      || (payload.resultReserve !== undefined && BigInt(payload.resultReserve) !== funding.resultReserve)) {
       throw new Error('MatchConfirmed payload violates FIN-05 conservation');
+    }
+    if (funding.sourceType === 'paid_booking') {
+      await settlePaidBookingFunding(tx, funding, now);
+      await markProcessed(tx, eventId);
+      return;
     }
     await tx.matchFunding.update({
       where: { matchId: funding.matchId },
@@ -420,6 +497,60 @@ export async function handleMatchConfirmed(eventId: string, raw: MatchConfirmedP
     });
     await markProcessed(tx, eventId);
   });
+}
+
+async function writeFundingCompleted(
+  tx: Prisma.TransactionClient,
+  funding: { matchId: string; bookingId: string; sourceType: 'hold' | 'paid_booking' },
+) {
+  await writeOutbox(tx, {
+    aggregateType: 'MatchFunding', aggregateId: funding.matchId, eventType: 'MatchFundingCompleted',
+    payload: { matchId: funding.matchId, bookingId: funding.bookingId, sourceType: funding.sourceType } satisfies MatchFundingCompletedPayload,
+  });
+}
+
+/**
+ * BR-CM-12..14 / AC-CM-06: booking đã thanh toán giữ nguyên payment, BookingRevenue và hoa hồng hiện có.
+ * Không gọi Venue settle, không ghi settlement/doanh thu/hoa hồng mới. Chỉ hoàn phần chủ kèo đã trả dư
+ * (P - phần góp của chủ kèo) từ tiền mặt người tham gia vào ví cá nhân rút được; đúng phần giữ chờ kết quả ở lại.
+ */
+async function settlePaidBookingFunding(
+  tx: Prisma.TransactionClient,
+  funding: { matchId: string; bookingId: string; organizerUserId: string; bookingPrice: bigint; organizerContribution: bigint; resultReserve: bigint; sourceType: 'hold' | 'paid_booking' },
+  now: Date,
+) {
+  // Caller đã giữ khóa matchId; thêm khóa bookingId (cùng khóa của refundCancelledBooking) rồi mới đọc
+  // doanh thu, để hủy booking và hoàn chênh lệch không thể xen nhau.
+  await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${funding.bookingId}))) AS booking_lock`;
+  const revenue = await tx.bookingRevenue.findUnique({ where: { bookingId: funding.bookingId } });
+  if (!revenue || revenue.gross !== funding.bookingPrice || revenue.cancelledAt) {
+    // Fail closed để Admin điều tra; không tự tạo doanh thu thay thế.
+    throw new Error('Paid-booking match requires the existing uncancelled BookingRevenue with gross = P');
+  }
+  const rebalance = funding.bookingPrice - funding.organizerContribution;
+  if (rebalance > 0n) {
+    const [platform, personal] = await Promise.all([
+      tx.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } }),
+      getOrCreateWallet(tx, funding.organizerUserId, 'personal'),
+    ]);
+    await postLedgerEntry(tx, {
+      walletId: platform.id, amount: -rebalance, type: 'refund',
+      refType: 'matchOwnerRebalance', refId: funding.matchId, field: 'reserved',
+    });
+    await postLedgerEntry(tx, {
+      walletId: personal.id, amount: rebalance, type: 'refund',
+      refType: 'matchOwnerRebalance', refId: funding.matchId, withdrawableDelta: rebalance,
+    });
+  }
+  await tx.matchContribution.updateMany({ where: { matchId: funding.matchId, status: 'paid' }, data: { status: 'settled' } });
+  await tx.matchFunding.update({
+    where: { matchId: funding.matchId },
+    data: {
+      status: 'settled', settledAt: now, organizerRebalance: rebalance,
+      resultReserveStatus: funding.resultReserve > 0n ? 'locked' : 'none',
+    },
+  });
+  await writeFundingCompleted(tx, funding);
 }
 
 /** The finance outbox dispatch is durable. A retry invokes the same Venue
@@ -485,10 +616,15 @@ export async function handleMatchBookingResolved(
         refType: 'booking', refId: funding.bookingId, field: 'reserved',
       });
       await tx.matchContribution.updateMany({ where: { matchId: funding.matchId, status: 'paid' }, data: { status: 'settled' } });
+      // Settlement booking tiêu đúng P; phần tiền giữ chờ kết quả còn lại trong platform.reserved.
       await tx.matchFunding.update({
         where: { matchId: funding.matchId },
-        data: { status: 'settled', settledAt: now, settlementVenueRevision: revision },
+        data: {
+          status: 'settled', settledAt: now, settlementVenueRevision: revision,
+          resultReserveStatus: funding.resultReserve > 0n ? 'locked' : 'none',
+        },
       });
+      await writeFundingCompleted(tx, funding);
       await writeOutbox(tx, {
         aggregateType: 'MatchFunding', aggregateId: funding.matchId, eventType: 'PaymentCompleted',
         payload: {
@@ -563,6 +699,7 @@ export async function handleMatchCancelled(eventId: string, raw: MatchCancelledP
       include: { contributions: true },
     });
     if (!funding) {
+      await writeHeldShutdownRefundOutcome(tx, payload, []);
       await markProcessed(tx, eventId);
       return;
     }
@@ -574,7 +711,12 @@ export async function handleMatchCancelled(eventId: string, raw: MatchCancelledP
       throw new Error('MatchCancelled awaits D39 settlement resolution');
     }
     if (funding.status === 'collecting' || funding.status === 'settling') {
+      const paid = funding.contributions.filter((contribution) => contribution.status === 'paid');
       await refundCollectingFunding(tx, funding, now);
+      await writeHeldShutdownRefundOutcome(tx, payload, paid);
+    } else if (funding.status === 'cancelled') {
+      await writeHeldShutdownRefundOutcome(tx, payload,
+        funding.contributions.filter((contribution) => contribution.status === 'refunded'));
     } else if (funding.status === 'settled' && payload.reason !== 'confirmed_booking_policy') {
       throw new Error('Settled match can only cancel through booking policy');
     }

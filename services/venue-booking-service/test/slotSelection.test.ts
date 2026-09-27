@@ -3,6 +3,7 @@ import request from 'supertest';
 import { prisma } from '../src/lib/prisma.js';
 import { createApp } from '../src/app.js';
 import { selectSlot } from '../src/domain/slotSelection.js';
+import { vietnamMinuteToInstant, vietnamWeekday } from '../src/lib/vietnamTime.js';
 import { createApprovedProvider, createVenueWithCourt, signTestAccessToken, fakeUserId } from './helpers.js';
 
 afterAll(async () => {
@@ -11,16 +12,16 @@ afterAll(async () => {
 
 const app = createApp();
 
-function tomorrowAt(hour: number, minute = 0) {
+function tomorrowAt(hourVietnam: number, minute = 0) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + 1);
-  d.setUTCHours(hour, minute, 0, 0);
-  return d;
+  d.setUTCHours(0, 0, 0, 0);
+  return vietnamMinuteToInstant(d, hourVietnam * 60 + minute);
 }
 
 async function setupCourtWithRule(providerId: string) {
   const { court } = await createVenueWithCourt(providerId);
-  const weekday = tomorrowAt(0).getUTCDay();
+  const weekday = vietnamWeekday(tomorrowAt(0));
   await prisma.operatingHour.create({ data: { courtId: court.id, weekday, openMinute: 0, closeMinute: 24 * 60 } });
   await prisma.bookingRule.create({ data: { courtId: court.id, stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 } });
   return court;
@@ -30,7 +31,7 @@ describe('BOK-05 — Chọn slot và thời lượng đặt sân', () => {
   it('AC-BOK-05-1: bước 30, tối thiểu 60, tối đa 180 -> chọn 90 phút -> chấp nhận, hiển thị tổng tiền', async () => {
     const provider = await createApprovedProvider();
     const court = await setupCourtWithRule(provider.id);
-    const weekday = tomorrowAt(0).getUTCDay();
+    const weekday = vietnamWeekday(tomorrowAt(0));
     await prisma.pricingRule.create({
       data: { courtId: court.id, weekday, startMinute: 0, endMinute: 24 * 60, price: 100000n, effectiveFrom: new Date(Date.now() - 1000) },
     });
@@ -58,7 +59,7 @@ describe('BOK-05 — Chọn slot và thời lượng đặt sân', () => {
   it('AC-BOK-05-3: booking 18h-20h bắc qua khung 100k/giờ và 150k/giờ -> tổng hiển thị 250k', async () => {
     const provider = await createApprovedProvider();
     const court = await setupCourtWithRule(provider.id);
-    const weekday = tomorrowAt(0).getUTCDay();
+    const weekday = vietnamWeekday(tomorrowAt(0));
     await prisma.pricingRule.create({
       data: { courtId: court.id, weekday, startMinute: 0, endMinute: 19 * 60, price: 100000n, effectiveFrom: new Date(Date.now() - 1000) },
     });

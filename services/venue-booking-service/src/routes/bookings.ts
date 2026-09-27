@@ -1,12 +1,45 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { activateMatchHold, createBookingFromHold, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
+import { prisma } from '../lib/prisma.js';
+import { HttpAccountDisplayNameClient } from '../clients/account.js';
+import { activateMatchHold, createBookingFromHold, findPlayerScheduleConflicts, getMatchContext, getMatchContexts, getPaymentStatus, listAdminBookings, listMyBookings, listMyMatchSources, getMyBookingDetail, resolveMatchBooking } from '../domain/booking.js';
 import { requireAuth, requireInternalService, type AuthenticatedRequest } from '../middleware/auth.js';
 import { requireRole } from '../middleware/auth.js';
 import { cancelBookingByAdmin, cancelBookingByPlayer, cancelBookingByProvider, changeBookingCourt, listReplacementCourts } from '../domain/cancellation.js';
 
 export const bookingRouter = Router();
+// Read-only metadata for authorized service callers; existing UUID routes stay unchanged.
+bookingRouter.post('/internal/bookings/references', requireInternalService, h(async (req, res) => {
+  const { bookingIds = [], businessCodes = [] } = z.object({
+    bookingIds: z.array(z.string().uuid()).max(500).optional(),
+    businessCodes: z.array(z.string().regex(/^BK-\d{8}$/)).max(50).optional(),
+  }).strict().refine((body) => (body.bookingIds?.length ?? 0) + (body.businessCodes?.length ?? 0) > 0).parse(req.body);
+  const rows = await prisma.booking.findMany({
+    where: { OR: [{ id: { in: bookingIds } }, { businessCode: { in: businessCodes } }] },
+    select: { id: true, businessCode: true, startAt: true, userId: true, guestName: true, cancellationReason: true, courtId: true, court: { select: { name: true, venue: { select: { name: true } } } } },
+  });
+  // Presentation-only metadata for finance screens; never used to authorize money movement.
+  // Tên khách là phần phụ: account nhận tối đa 200 id/lần và có thể đang ngủ (Railway) —
+  // chia lô và chỉ chờ 1,5 giây để mã booking/tên sân vẫn về kịp giới hạn 3 giây của finance.
+  const names = new Map<string, string>();
+  const userIds = [...new Set(rows.flatMap((row) => row.userId ? [row.userId] : []))];
+  const client = new HttpAccountDisplayNameClient();
+  await Promise.race([
+    (async () => {
+      for (let offset = 0; offset < userIds.length; offset += 200) {
+        for (const profile of await client.getPublicDisplayNames(userIds.slice(offset, offset + 200))) if (profile.displayName) names.set(profile.userId, profile.displayName);
+      }
+    })().catch(() => undefined),
+    new Promise((resolve) => setTimeout(resolve, 1500)),
+  ]);
+  const references = rows.map(({ court, ...row }) => ({ ...row, venueName: court.venue.name, courtName: court.name, customerName: row.userId ? names.get(row.userId) ?? null : row.guestName }));
+  res.json({ references });
+}));
+// Danh sách cơ sở + sân con cho bộ lọc tài chính của admin (chỉ tên, không dữ liệu nhạy cảm).
+bookingRouter.get('/admin/venues/options', requireAuth, requireRole('admin'), h(async (_req, res) => {
+  res.json(await prisma.venue.findMany({ select: { id: true, name: true, courts: { select: { id: true, name: true }, orderBy: { name: 'asc' } } }, orderBy: { name: 'asc' } }));
+}));
 bookingRouter.get('/admin/bookings', requireAuth, requireRole('admin'), h(async (req, res) => {
   const input = z.object({ query: z.string().max(120).optional(), status: z.enum(['held', 'confirmed', 'completed', 'cancelled']).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query);
   const result = await listAdminBookings(input);
@@ -70,6 +103,25 @@ bookingRouter.post(
   }),
 );
 
+bookingRouter.get(
+  '/internal/players/schedule-conflicts',
+  requireInternalService,
+  h(async (req, res) => {
+    const input = z.object({
+      userId: z.string().uuid(),
+      startAt: z.coerce.date(),
+      endAt: z.coerce.date(),
+      excludeBookingId: z.union([z.string().uuid(), z.array(z.string().uuid())]).optional(),
+    }).refine((value) => value.startAt < value.endAt, { message: 'startAt must be before endAt' }).parse(req.query);
+    const excluded = input.excludeBookingId
+      ? Array.isArray(input.excludeBookingId) ? input.excludeBookingId : [input.excludeBookingId]
+      : [];
+    res.status(200).json({
+      conflicts: await findPlayerScheduleConflicts(input.userId, input.startAt, input.endAt, excluded),
+    });
+  }),
+);
+
 // D39: internal, idempotent command seam for the match settlement race. The
 // venue database owns both the command receipt and the booking fence; callers
 // never write or query venue tables directly.
@@ -120,8 +172,7 @@ bookingRouter.get(
 );
 
 bookingRouter.get('/players/me/match-sources', requireAuth, h(async (req, res) => {
-  const result = await listMyMatchSources((req as AuthenticatedRequest).user!.id);
-  res.status(200).json({ holds: result.holds.map((hold) => ({ id: hold.id, startAt: hold.startAt, endAt: hold.endAt, expiresAt: hold.expiresAt, court: { name: hold.court.name, venue: { name: hold.court.venue.name } } })), bookings: result.bookings.map(serializeBooking) });
+  res.status(200).json(await listMyMatchSources((req as AuthenticatedRequest).user!.id));
 }));
 
 bookingRouter.get(

@@ -161,7 +161,7 @@ describe('F-07 — fair evaluation assistant', () => {
     const ratee = player();
     const raters = [player(), player(), player(), player()];
     await prisma.passport.create({
-      data: { userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
+      data: { discipline: 'singles', userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
     });
     const match = await completedMatch([...raters, ratee]);
     for (const rater of raters.slice(0, 3)) {
@@ -202,7 +202,7 @@ describe('F-07 — fair evaluation assistant', () => {
     const ratee = player();
     const raters = [player(), player(), player(), player()];
     await prisma.passport.create({
-      data: { userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
+      data: { discipline: 'singles', userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
     });
     const match = await completedMatch([...raters, ratee]);
     for (const rater of raters.slice(0, 3)) {
@@ -216,7 +216,7 @@ describe('F-07 — fair evaluation assistant', () => {
       .get('/passports/me')
       .set('Authorization', `Bearer ${ratee.token}`)
       .expect(200);
-    expect(passport.body).toMatchObject({ rating: 1500, rd: 100, matchesPlayed: 0, evaluationCount: 3 });
+    expect(passport.body).toMatchObject({ singles: { rating: 1500, matchesPlayed: 0 }, evaluationCount: 3 });
   });
 
   it('AC-F07-2: the third reciprocal top-tier evaluation in 30 days is flagged for Admin', async () => {
@@ -275,7 +275,7 @@ describe('F-07 — fair evaluation assistant', () => {
     const ratee = player();
     const raters = [player(), player(), player(), player()];
     await prisma.passport.create({
-      data: { userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
+      data: { discipline: 'singles', userId: ratee.id, declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 100, ratingSigma: 0.06 },
     });
     const match = await completedMatch([...raters, ratee]);
     for (const rater of raters.slice(0, 3)) {

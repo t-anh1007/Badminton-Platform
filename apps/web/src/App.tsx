@@ -7,7 +7,6 @@ import { BookingPage } from './pages/BookingPage';
 import { BookingConfirmationPage } from './pages/BookingConfirmationPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminLayout } from './admin/AdminLayout';
-import { AdminOverviewPage } from './pages/admin/AdminOverviewPage';
 import { AdminAccountsPage } from './pages/admin/AdminAccountsPage';
 import { AdminProvidersPage } from './pages/admin/AdminProvidersPage';
 import { AdminBookingsPage } from './pages/admin/AdminBookingsPage';
@@ -16,19 +15,27 @@ import { AdminDisputesPage } from './pages/admin/AdminDisputesPage';
 import { AdminModerationPage } from './pages/admin/AdminModerationPage';
 import { AdminEvaluationsPage } from './pages/admin/AdminEvaluationsPage';
 import { AdminTicketsPage } from './pages/admin/AdminTicketsPage';
+import { AdminMatchResultsPage } from './pages/admin/AdminMatchResultsPage';
+import { AdminSeasonsPage } from './pages/admin/AdminSeasonsPage';
+import { AdminRewardProgramsPage } from './pages/admin/AdminRewardProgramsPage';
+import { AdminRewardPayoutsPage } from './pages/admin/AdminRewardPayoutsPage';
+import { ManageMatchResultsPage } from './pages/manage/ManageMatchResultsPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { VenueDetailPage } from './pages/VenueDetailPage';
 import { VenueListPage } from './pages/VenueListPage';
 import { MatchListPage } from './pages/MatchListPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
 import { PassportPage } from './pages/PassportPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
+import { RewardPayoutsPage, RewardProgramDetailPage, RewardProgramsPage } from './pages/RewardPages';
 import { CommunityPage } from './pages/CommunityPage';
 import { CommunityDetailPage } from './pages/CommunityDetailPage';
 import { SupportPage } from './pages/SupportPage';
 import { ProviderOnboardingPage } from './pages/ProviderOnboardingPage';
-import { ManageLayout } from './manage/ManageLayout'; import { ManageOverviewPage } from './pages/manage/ManageOverviewPage'; import { ManageVenuesPage } from './pages/manage/ManageVenuesPage'; import { ManageVenueDetailPage } from './pages/manage/ManageVenueDetailPage'; import { ManageSchedulePage } from './pages/manage/ManageSchedulePage'; import { ManagePricingPage } from './pages/manage/ManagePricingPage';
+import { ManageLayout } from './manage/ManageLayout'; import { ManageVenuesPage } from './pages/manage/ManageVenuesPage'; import { ManageVenueDetailPage } from './pages/manage/ManageVenueDetailPage'; import { ManageSchedulePage } from './pages/manage/ManageSchedulePage'; import { ManagePricingPage } from './pages/manage/ManagePricingPage';
 import { ManageCalendarPage } from './pages/manage/ManageCalendarPage'; import { ManageIncidentsPage } from './pages/manage/ManageIncidentsPage';
 import { ManageFinancePage } from './pages/manage/ManageFinancePage';
+import { ManageBookingsPage } from './pages/manage/ManageBookingsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationProvider } from './notifications/NotificationProvider';
 import { FooterInformationPage } from './pages/FooterInformationPage';
@@ -50,6 +57,11 @@ function App() {
           <Route path="/matches/:id" element={<MatchDetailPage />} />
           <Route path="/passport" element={<PassportPage />} />
           <Route path="/passport/:userId" element={<PassportPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/rewards" element={<RewardProgramsPage />} />
+          <Route path="/rewards/payouts" element={<RewardPayoutsPage />} />
+          <Route path="/rewards/payouts/:payoutId" element={<RewardPayoutsPage />} />
+          <Route path="/rewards/:programId" element={<RewardProgramDetailPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/community/:postId" element={<CommunityDetailPage />} />
           <Route path="/support" element={<SupportPage />} />
@@ -61,8 +73,8 @@ function App() {
           <Route path="/cancellation-policy" element={<FooterInformationPage />} />
           <Route path="/privacy" element={<FooterInformationPage />} />
           <Route path="/provider-onboarding" element={<ProviderOnboardingPage />} />
-          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageOverviewPage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="finance" element={<ManageFinancePage/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
-          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminLayout />}><Route index element={<AdminOverviewPage />} /><Route path="accounts" element={<AdminAccountsPage />} /><Route path="providers" element={<AdminProvidersPage />} /><Route path="bookings" element={<AdminBookingsPage />} /><Route path="finance" element={<AdminFinancePage />} /><Route path="disputes" element={<AdminDisputesPage />} /><Route path="moderation" element={<AdminModerationPage />} /><Route path="evaluations" element={<AdminEvaluationsPage />} /><Route path="tickets" element={<AdminTicketsPage />} /></Route></Route>
+          <Route element={<RoleGuard allow={['provider']} />}><Route path="/manage" element={<ManageLayout />}><Route index element={<ManageFinancePage/>}/><Route path="venues" element={<ManageVenuesPage/>}/><Route path="venues/:venueId" element={<ManageVenueDetailPage/>}/><Route path="venues/:venueId/schedule" element={<ManageSchedulePage/>}/><Route path="venues/:venueId/pricing" element={<ManagePricingPage/>}/><Route path="calendar" element={<ManageCalendarPage/>}/><Route path="bookings" element={<ManageBookingsPage/>}/><Route path="incidents" element={<ManageIncidentsPage/>}/><Route path="match-results" element={<ManageMatchResultsPage/>}/><Route path="finance" element={<Navigate to="/manage" replace/>}/><Route path="pricing" element={<ManagePricingPage/>}/></Route></Route>
+          <Route element={<RoleGuard allow={['admin']} />}><Route path="/admin" element={<AdminLayout />}><Route index element={<AdminFinancePage />} /><Route path="accounts" element={<AdminAccountsPage />} /><Route path="providers" element={<AdminProvidersPage />} /><Route path="bookings" element={<AdminBookingsPage />} /><Route path="finance" element={<Navigate to="/admin" replace />} /><Route path="disputes" element={<AdminDisputesPage />} /><Route path="moderation" element={<AdminModerationPage />} /><Route path="evaluations" element={<AdminEvaluationsPage />} /><Route path="tickets" element={<AdminTicketsPage />} /><Route path="match-results" element={<AdminMatchResultsPage />} /><Route path="seasons" element={<AdminSeasonsPage />} /><Route path="reward-programs" element={<AdminRewardProgramsPage />} /><Route path="reward-payouts" element={<AdminRewardPayoutsPage />} /><Route path="reward-payouts/:payoutId" element={<AdminRewardPayoutsPage />} /></Route></Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

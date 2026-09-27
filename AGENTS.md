@@ -20,6 +20,28 @@ nguồn trạng thái chính; chúng chỉ là metadata tương thích trỏ v�
 
 ## Nguyên tắc thực thi
 
+- **Karpathy rule là ràng buộc bắt buộc cho mọi task và mọi agent trong repo.**
+  Trước khi sửa phải nêu giả định/điểm chưa rõ; chọn giải pháp đơn giản nhất đáp
+  ứng đúng yêu cầu; chỉ thay đổi những dòng truy nguyên trực tiếp về task, không
+  thêm tính năng, abstraction, refactor hay dọn dẹp ngoài phạm vi; và xác định
+  tiêu chí thành công cùng bằng chứng kiểm chứng. Nếu yêu cầu còn mơ hồ hoặc có
+  nhiều cách hiểu làm thay đổi kết quả, phải dừng và hỏi thay vì tự đoán. Skill
+  `karpathy-guidelines` luôn bật mặc định và phải được áp dụng.
+- **Bốn skill/rule luôn bật mặc định:** `karpathy-guidelines`, `ponytail`,
+  `caveman` và `i-have-adhd`. Dùng `ponytail` để giảm code, abstraction,
+  dependency và kích thước diff không cần thiết. Dùng `i-have-adhd` để trả lời
+  theo hướng hành động, có cấu trúc, thể hiện tiến độ và dễ theo dõi. Dùng
+  `caveman` để giao tiếp ngắn gọn; tạm giảm hoặc tắt riêng skill này khi cần bằng
+  chứng debug chi tiết, phân tích kiến trúc, log, rủi ro hoặc giải thích đầy đủ.
+  Nếu một skill làm giảm đáng kể chất lượng task, chỉ tạm bỏ skill đó và phải nói
+  ngắn gọn lý do. Không được hy sinh tính đúng đắn, kiểm chứng cần thiết, test,
+  bảo mật, xử lý lỗi hoặc bằng chứng quan trọng để rút ngắn code hay câu trả lời.
+- **Các bộ skill ưu tiên, không bắt buộc:** chỉ gọi skill trực tiếp phù hợp khi
+  task thực sự cần; không gọi cả bộ theo thói quen. Các bộ ưu tiên gồm Ponytail
+  plugin, Superpowers, Matt Pocock Engineering, toàn bộ Vercel, Railway, Browser
+  và điều khiển máy, Tài liệu và Office, Site hosting, Codex/plugin/skill
+  development; cùng nhóm UI/frontend/design, đặc biệt `ui-ux-pro-max`,
+  `web-design-guidelines` và `vercel-react-best-practices`.
 - Nêu rõ giả định và điểm chưa chắc chắn trước khi thay đổi hành vi.
 - Chỉ làm đúng phạm vi được giao; không thêm tính năng suy đoán.
 - Thay đổi tối thiểu, giữ phong cách hiện có và tránh dọn dẹp ngoài phạm vi.

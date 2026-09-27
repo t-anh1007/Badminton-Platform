@@ -285,9 +285,11 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
 
   it('admin booking queue is role-protected, searchable and safely serialized', async () => {
     const { playerId, court, booking } = await setupConfirmedBooking(32);
+    const courtName = `San admin ${fakeUserId()}`;
+    await prisma.court.update({ where: { id: court.id }, data: { name: courtName } });
     await request(app).get('/admin/bookings').set('Authorization', `Bearer ${signTestAccessToken(playerId, ['player'])}`).expect(403);
     const response = await request(app)
-      .get(`/admin/bookings?query=${encodeURIComponent(court.name)}&status=confirmed`)
+      .get(`/admin/bookings?query=${encodeURIComponent(courtName)}&status=confirmed`)
       .set('Authorization', `Bearer ${signTestAccessToken(fakeUserId(), ['admin'])}`)
       .expect(200);
     expect(response.body.items).toEqual(expect.arrayContaining([expect.objectContaining({
@@ -295,7 +297,7 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       status: 'confirmed',
       priceSnapshot: '200000',
       player: { label: 'Người chơi đã đăng nhập' },
-      court: { name: court.name, venue: expect.objectContaining({ name: expect.any(String) }) },
+      court: expect.objectContaining({ name: courtName, venue: expect.objectContaining({ name: expect.any(String) }) }),
     })]));
     expect(response.body).toMatchObject({ page: 1, pageSize: 20 });
     expect(response.body.items[0]).not.toHaveProperty('userId');

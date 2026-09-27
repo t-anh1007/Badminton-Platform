@@ -5,6 +5,10 @@ import { HttpAccountClient, type AccountClient } from './clients/account.js';
 import { HttpVenueBookingClient, type VenueBookingClient } from './clients/venueBooking.js';
 import { createPassportRouter } from './routes/passports.js';
 import { createMatchRouter } from './routes/matches.js';
+import { createMatchResultRouter } from './routes/matchResults.js';
+import { createCompetitionRouter } from './routes/competition.js';
+import { createRewardRouter } from './routes/rewards.js';
+import { createPrivateObjectStorageClientFromEnv, type PrivateObjectStorageClient } from '@khoaluantn/object-storage';
 
 const SERVICE_NAME = 'matchmaking-service';
 
@@ -12,6 +16,7 @@ export function createApp(dependencies?: {
   venueBookingClient?: VenueBookingClient;
   accountClient?: AccountClient;
   matchmakerClient?: MatchmakerExplanationClient;
+  resultStorage?: PrivateObjectStorageClient;
 }) {
   const venueBookingClient = dependencies?.venueBookingClient ?? new HttpVenueBookingClient();
   const accountClient = dependencies?.accountClient ?? new HttpAccountClient();
@@ -23,8 +28,13 @@ export function createApp(dependencies?: {
   app.get('/health', (_req, res) => {
     res.status(200).json({ service: SERVICE_NAME, status: 'ok', ts: new Date().toISOString() });
   });
+  // Bằng chứng kết quả chỉ nằm ở bucket private; client tạo lười để service vẫn chạy khi thiếu cấu hình.
+  const resolveResultStorage = () => dependencies?.resultStorage ?? createPrivateObjectStorageClientFromEnv();
+  app.use('/matches', createMatchResultRouter(venueBookingClient, accountClient, resolveResultStorage));
   app.use('/matches', createMatchRouter(venueBookingClient, accountClient, matchmakerClient));
   app.use('/passports', createPassportRouter(accountClient));
+  app.use('/competition', createCompetitionRouter(accountClient));
+  app.use('/rewards', createRewardRouter(accountClient));
   return app;
 }
 
