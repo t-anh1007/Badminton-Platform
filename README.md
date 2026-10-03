@@ -25,7 +25,10 @@
 
 ## Mục lục
 
-0. [Performance Benchmarks](#0-performance-benchmarks)
+0. [Bắt đầu nhanh](#0-bắt-đầu-nhanh)
+   - 0.1. [Quy trình nghiệp vụ](#01-quy-trình-nghiệp-vụ)
+   - 0.2. [Hướng dẫn chạy dự án](#02-hướng-dẫn-chạy-dự-án)
+   - 0.3. [Performance Benchmarks](#03-performance-benchmarks)
 1. [Bài toán & lý do kiến trúc](#1-bài-toán--lý-do-kiến-trúc)
 2. [Tính năng theo vai trò](#2-tính-năng-theo-vai-trò)
 3. [Kiến trúc tổng thể](#3-kiến-trúc-tổng-thể)
@@ -38,9 +41,42 @@
 
 ---
 
-## 0. Performance Benchmarks
+## 0. Bắt đầu nhanh
 
-### Internal Microbenchmarks
+### 0.1. Quy trình nghiệp vụ
+
+Tóm tắt **ai làm gì – hệ thống xử lý ra sao – ai tiếp nhận** cho 11 chuỗi
+nghiệp vụ chính (đặt sân, hủy & hoàn tiền, tranh chấp, doanh thu chủ sân, rút
+tiền, đối soát SePay, kèo & ký quỹ, duyệt chủ sân, điểm xếp hạng & thưởng,
+cộng đồng & hỗ trợ), kèm bản đồ liên kết giữa Người chơi · Chủ sân · Admin:
+
+📄 [docs/product/tom-tat-luong-nghiep-vu.md](docs/product/tom-tat-luong-nghiep-vu.md)
+
+### 0.2. Hướng dẫn chạy dự án
+
+Yêu cầu: **Node ≥ 20**, **Docker** (cho PostgreSQL 16 · Redis 7 · RabbitMQ 3.13 · MinIO).
+
+```bash
+cp .env.example .env          # điền JWT_SECRET, INTERNAL_SERVICE_TOKEN, SePay/Gemini/email nếu cần
+npm install                   # postinstall tự prisma generate
+npm run infra:up              # docker compose: Postgres · Redis · RabbitMQ · MinIO
+npm run prisma:migrate        # áp migration cho từng schema service
+npm run dev                   # gateway + 5 service (watch)
+npm run dev -w apps/web       # frontend (terminal khác)
+```
+
+| Thành phần | Cổng |
+|---|---|
+| Frontend (Vite) | `5173` |
+| API Gateway | `3000` |
+| account · venue-booking · finance · matchmaking · community | `3001` · `3002` · `3003` · `3004` · `3005` |
+| PostgreSQL · Redis · RabbitMQ · MinIO | `5432` · `6379` · `5672` · `9000` |
+
+Kiểm tra: `npm run build` (type-check toàn workspace) · `npm test -w <workspace>`
+(Vitest) · `npm run e2e` (Playwright, cần `.env` và stack đang chạy).
+Dừng hạ tầng: `npm run infra:down`.
+
+### 0.3. Performance Benchmarks
 
 Số đo thực hiện trên máy local — **12th Gen Intel Core i7-12700H**, Windows 11,
 Node 22.18, PostgreSQL 16, ngày 2026-08-20–2026-08-21.
@@ -138,21 +174,36 @@ thay vì distributed transaction.
 ### 👤 Người chơi
 - Đăng ký/đăng nhập, xác minh email, quản lý hồ sơ và quyền riêng tư
 - Tìm sân theo **danh sách + bản đồ** (react-leaflet + OpenStreetMap), xem lịch
-  trống và giá, giữ slot 10 phút rồi đặt
-- Ví cá nhân: nạp tiền (VietQR/SePay), thanh toán, xem lịch sử giao dịch
-- Ghép kèo live theo **trình độ 5 bậc**, xin tham gia, được duyệt → trả phí →
-  xác nhận chỗ; Player Passport và đánh giá hai chiều
-- Tham gia cộng đồng: bài viết, bình luận, báo cáo nội dung; chatbot CSKH
+  trống, giá và **bản đồ nhiệt giờ đông/vắng**; giữ slot 10 phút rồi thanh toán
+- Hủy sân theo chính sách chốt lúc đặt (≥24h 100% · 6–24h 50% · <6h 0%),
+  tiền hoàn về ví; gửi **tranh chấp giao dịch** trong 24h sau ca
+- Ví cá nhân: nạp (VietQR/SePay), thanh toán, lịch sử; **rút phần tiền hoàn /
+  tiền thắng kèo** (tiền nạp chủ động không rút)
+- **Kèo giao lưu / xếp hạng**, đơn hoặc đôi, ký quỹ theo tỷ lệ **5:5 · 6:4 · 7:3**;
+  giữ chỗ 10 phút, mời đồng đội đích danh (tự trả hoặc chủ kèo trả thay), hạn
+  chốt theo thời gian dẫn; gợi ý kèo bằng AI có giải thích
+- **Khai kết quả** (chủ kèo nhập tỷ số + ảnh), xác nhận / khiếu nại / báo sự cố;
+  điểm xếp hạng **Glicko-2** đơn/đôi trên thang **5 bậc**, BXH theo kỳ, huy hiệu,
+  nhận thưởng chương trình
+- Cộng đồng: bài viết, bình luận, báo cáo nội dung; ticket hỗ trợ có ảnh;
+  bong bóng chat CSKH (AI)
 
 ### 🏟️ Chủ sân (provider)
-- Quản lý nhà cung cấp, sân, giờ hoạt động, quy tắc giá và quy tắc đặt
-- Xem/điều chỉnh booking phía sân, chính sách hủy
-- Ví doanh nghiệp: doanh thu giữ `pending → available` sau 24h, yêu cầu rút tiền
+- Quản lý cơ sở, sân con (1–5 ảnh), giờ hoạt động, ngày nghỉ, biểu giá theo
+  khung giờ, quy tắc đặt; lịch sân hợp nhất và booking tại quầy
+- Đổi sân con / hủy booking phía sân (hoàn 100%); **ngừng hoạt động** 3 chế độ
+  (ngừng dần · đóng từ ngày · khẩn cấp) với hủy + hoàn tự động
+- Ví kinh doanh: doanh thu `pending → available` sau 24h không tranh chấp,
+  báo cáo doanh thu, gợi ý khung giờ ế, yêu cầu rút tiền
+- Đề xuất (không ràng buộc) kết quả kèo bị khiếu nại tại sân mình
 
 ### 🛡️ Admin
-- Duyệt nhà cung cấp, khóa/khôi phục tài khoản
-- Kiểm duyệt nội dung (moderation case), xử lý ticket hỗ trợ
-- Đối soát rút tiền thủ công qua webhook SePay, giải quyết tranh chấp
+- Duyệt nhà cung cấp, khóa (ngắt phiên ngay) / khôi phục tài khoản
+- Hàng chờ rút tiền, **đối soát giao dịch SePay chưa khớp**, giải quyết tranh chấp
+  giao dịch
+- Quyết định cuối kết quả kèo tranh chấp (SLA 48h, xác nhận 2 bước)
+- Quản lý kỳ xếp hạng, chương trình thưởng và chi thưởng
+- Kiểm duyệt nội dung, xử lý ticket hỗ trợ (kể cả điều chỉnh trình độ)
 
 ---
 
@@ -311,8 +362,10 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-Tương tự: `WithdrawalRequest: pending → paid`;
-`WaitlistEntry: pending → approved → confirmed → withdrawn`.
+Tương tự: `WithdrawalRequest: pending → paid | partially_paid | rejected`;
+`Match: awaiting_deposit → open → filled → confirmed → completed | cancelled`;
+`Join: approved → confirmed → withdrawn` (hold 10' hết hạn → `rejected`);
+`MatchResultCase` — xem [6.3](#63-kèo-cạnh-tranh-ký-quỹ--kết-quả).
 → Chuyển trạng thái hợp lệ được kiểm soát, dễ suy luận và test.
 
 ---
@@ -335,10 +388,10 @@ sequenceDiagram
     alt Còn trong hold
         VB->>VB: Booking confirmed
         VB--)FIN: BookingConfirmed
-        Note over FIN: Doanh thu vào pending,<br/>giải phóng sau 24h khiếu nại
+        Note over FIN: 90% vào pending ví business,<br/>10% hoa hồng vào ví platform;<br/>pending → available sau 24h không tranh chấp
     else Hold đã hết hạn
-        VB--)FIN: cần hoàn → RefundIssued
-        Note over FIN: Ghi có ví nội bộ,<br/>không phục hồi booking
+        VB--)FIN: PaymentTooLate
+        Note over FIN: Ghi có ví cá nhân,<br/>không phục hồi booking
     end
 ```
 
@@ -350,20 +403,108 @@ sequenceDiagram
     participant U as 👤 Người chơi
     participant VB as 🏟️ venue-booking
     participant FIN as 💰 finance
-    U->>VB: Hủy booking
-    VB->>VB: Áp policySnapshot<br/>(chính sách hủy chốt lúc đặt)
-    VB--)FIN: BookingCancelled
-    FIN->>FIN: Tính hoàn theo policy → bút toán đảo
-    FIN--)U: RefundIssued (ghi có ví nội bộ)
+    participant P as 🏟️ Chủ sân
+    U->>VB: Hủy booking (hoặc chủ sân hủy / ngừng hoạt động)
+    VB->>VB: Áp policySnapshot<br/>(người chơi: 100/50/0% · phía sân: 100%)
+    VB--)FIN: BookingCancelled{refundRate}
+    FIN->>FIN: Đảo 3 vế trong 1 transaction:<br/>ví cá nhân +f · pending business −f×90% · platform −f×10%
+    FIN--)VB: BookingRefundCompleted
+    VB-->>U: "Đã hoàn tiền" (trước đó hiện "Đang hoàn tiền")
+    FIN-->>P: Doanh thu pending giảm tương ứng
 ```
 
 > Thanh toán đến muộn thì ghi có ví, **không** phục hồi booking đã hết hạn — quy
-> tắc rõ ràng tránh trạng thái mập mờ.
+> tắc rõ ràng tránh trạng thái mập mờ. Tổng người chơi trả luôn bằng phần đã hoàn
+> \+ phần chủ sân giữ + phần hoa hồng còn lại (bảo toàn giá trị).
 
-Luồng ghép kèo live và đối soát rút tiền: xem
-[system-architecture.md §8](docs/architecture/system-architecture.md).
+### 6.3. Kèo cạnh tranh: ký quỹ & kết quả
 
-### 6.3. Danh mục sự kiện liên service (event flow)
+Kèo gắn với slot đang giữ hoặc booking đã trả của chủ kèo (tạo trước giờ chơi
+≥ 24h). Mỗi người ký quỹ theo mức tối đa có thể thua: tỷ lệ **thua : thắng**
+`5:5 · 6:4 · 7:3` → mỗi đội nộp `0,5P · 0,6P · 0,7P`, phần vượt giá sân `P` là
+**result reserve** khóa ở ví platform tới khi có kết quả cuối.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant H as 👤 Chủ kèo
+    participant J as 👤 Người tham gia
+    participant MM as 🤝 matchmaking
+    participant FIN as 💰 finance
+    participant VB as 🏟️ venue-booking
+    participant A as 🛡️ Admin
+    H->>MM: Tạo kèo (mode · đơn/đôi · ratio · BO3/BO5)
+    MM--)FIN: MatchCreated (mở MatchFunding)
+    J->>MM: Tham gia → giữ chỗ 10'
+    MM--)FIN: JoinApproved
+    J->>FIN: Nộp contribution (ví / VietQR)
+    FIN--)MM: PaymentCompleted → Join confirmed
+    Note over MM: Cutoff = createdAt + 6/12/18/24h theo thời gian dẫn
+    alt Đủ roster + tiền tại cutoff
+        MM--)FIN: MatchConfirmed
+        FIN->>FIN: Settlement đúng P một lần (hoặc reuse booking đã trả)
+        FIN--)MM: MatchFundingCompleted
+    else Thiếu
+        MM--)FIN: MatchCancelled → hoàn contribution vào ví cá nhân
+        MM--)VB: MatchCancelled → nhả hold / giữ booking cho chủ kèo
+    end
+    H->>MM: Khai tỷ số + 1–3 ảnh (12h)
+    J->>MM: Đồng ý / khiếu nại / báo sự cố (12h)
+    opt Có khiếu nại
+        Note over MM: Khóa reserve + rating · chủ sân đề xuất 24h (non-binding)
+        A->>MM: Quyết định cuối (SLA 48h, xác nhận 2 bước)
+    end
+    MM--)FIN: MatchResultFinalized → reserve trả đội thắng (ví cá nhân, rút được)
+    MM->>MM: Cập nhật Glicko-2 nếu ranked + có đội thắng
+```
+
+Vòng đời hồ sơ kết quả:
+
+```mermaid
+stateDiagram-v2
+    [*] --> declaration_open: booking.endAt
+    declaration_open --> provisional: Chủ kèo khai (mở 12h phản hồi)
+    declaration_open --> incident_window: 12h không ai khai (NO_RESULT tạm + 12h)
+    provisional --> final: Không phản đối / đối thủ xác nhận
+    provisional --> provider_review: Khiếu nại / sự cố
+    incident_window --> final: Không sự cố → NO_RESULT (50:50)
+    incident_window --> provider_review: Có sự cố
+    provisional --> admin_review: Chủ sân là người trong kèo
+    provider_review --> admin_review: Chủ sân đề xuất hoặc hết 24h
+    admin_review --> final: Admin quyết định
+    final --> [*]
+```
+
+### 6.4. Rút tiền & đối soát SePay
+
+Chủ sân rút từ ví business (`available`), người chơi rút phần `withdrawable` của
+ví cá nhân (tiền hoàn / thắng kèo); cả hai vào **chung hàng chờ Admin**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as 🏟️/👤 Người rút
+    participant FIN as 💰 finance
+    participant A as 🛡️ Admin
+    participant SP as 🏦 SePay
+    S->>FIN: Yêu cầu rút (≥ 10.000đ, không có yêu cầu pending khác)
+    FIN->>FIN: available → reserved (chưa ghi ledger)
+    FIN-->>A: Hàng chờ rút + nội dung CK sinh sẵn
+    A->>SP: Chuyển khoản tay đúng nội dung
+    SP--)FIN: Webhook "tiền ra" (HMAC-SHA256)
+    alt Khớp số tiền + nội dung
+        FIN->>FIN: Ghi payout, reserved −amount → paid
+        FIN--)S: PayoutCompleted (thông báo)
+    else Không khớp
+        FIN-->>A: Hàng chờ đối soát SepayEvent
+        A->>FIN: Gán yêu cầu (đủ → paid · thiếu → partially_paid · thừa → out_of_scope)
+    end
+```
+
+Từ chối chỉ hợp lệ khi **chưa có bút toán payout** nào; tiền vào không khớp mã
+được Admin gán thành `topup` vào ví cá nhân (không xác nhận booking hộ).
+
+### 6.5. Danh mục sự kiện liên service (event flow)
 
 Tất cả sự kiện đi qua một **topic exchange `domain-events`** trên RabbitMQ,
 routing key chính là `eventType`; consumer `bindQueue` theo từng loại. Sơ đồ
@@ -384,23 +525,21 @@ graph LR
 
     VB -->|ProviderApproved| FIN
     VB -->|ProviderApproved| ACC
-    VB -->|BookingConfirmed| FIN
-    VB -->|BookingConfirmed| MM
-    VB -->|BookingCancelled| FIN
-    VB -->|BookingCompleted| MM
+    VB -->|"BookingConfirmed · BookingCancelled<br/>PaymentTooLate · MatchSettlementTooLate"| FIN
+    VB -->|"BookingConfirmed · BookingCompleted<br/>ShutdownBookingCancellationRequested"| MM
     VB -->|MatchBookingResolved| FIN
     VB -->|MatchBookingResolved| MM
 
-    FIN -->|PaymentCompleted| VB
-    FIN -->|PaymentCompleted| MM
-    FIN -->|MatchSettlementFailed| MM
+    FIN -->|"PaymentCompleted · BookingRefundCompleted"| VB
+    FIN -->|"PaymentCompleted · MatchFundingCompleted<br/>MatchSettlementFailed"| MM
 
+    MM -->|"MatchCreated · JoinApproved · MatchConfirmed<br/>MatchFeeRefundRequested · MatchSlotBeneficiaryChanged<br/>MatchResultFinalized · RewardAwardsFinalized"| FIN
     MM -->|MatchCancelled| FIN
     MM -->|MatchCancelled| VB
-    MM -->|MatchFeeRefundRequested| FIN
-    MM -->|MatchSettlementRequested| FIN
 
-    COM -.->|ContentReported<br/>moderation nội bộ| COM
+    COM -->|RatingCorrectionApproved| MM
+
+    VB & FIN & MM & COM -.->|UserNotificationRequested| ACC
 
     classDef acc fill:#fef9c3,stroke:#ca8a04,color:#713f12;
     classDef vb fill:#dcfce7,stroke:#16a34a,color:#14532d;
@@ -417,15 +556,28 @@ graph LR
 | Sự kiện | Producer | Consumer | Ý nghĩa |
 |---|---|---|---|
 | `UserRegistered` | account | finance | Khởi tạo ví cá nhân |
-| `ProviderApproved` | venue-booking | finance, account | Tạo ví doanh nghiệp + cấp vai trò provider |
+| `ProviderApproved` | venue-booking | finance, account | Tạo ví business + cấp vai trò provider |
 | `AccountLocked` | account | venue-booking, community | Khóa hành động, ẩn sân khỏi tìm kiếm |
-| `BookingConfirmed` | venue-booking | finance, matchmaking | Giữ tiền 24h; kèo gắn booking được kích hoạt |
-| `BookingCancelled` | venue-booking | finance | Hoàn tiền theo policy |
-| `BookingCompleted` | venue-booking | matchmaking | Mở đánh giá kèo |
+| `BookingConfirmed` | venue-booking | finance, matchmaking | Ghi doanh thu pending + hoa hồng; kèo gắn booking được kích hoạt |
+| `BookingCancelled` | venue-booking | finance | Hoàn tiền theo `refundRate` (đảo 3 vế) |
+| `BookingRefundCompleted` | finance | venue-booking | Booking chuyển "Đã hoàn tiền" sau khi ledger commit |
+| `BookingCompleted` | venue-booking | matchmaking | Mở khai kết quả / đánh giá kèo |
+| `PaymentTooLate` / `MatchSettlementTooLate` | venue-booking | finance | Tiền về sau hạn hold → ghi có ví cá nhân, không phục hồi booking |
+| `ShutdownBookingCancellationRequested` | venue-booking | matchmaking | Sân ngừng hoạt động → hủy kèo gắn booking bị ảnh hưởng |
 | `PaymentCompleted` | finance | venue-booking, matchmaking | Xác nhận booking / xác nhận chỗ kèo |
-| `MatchCancelled` | matchmaking | finance, venue-booking | Hoàn phí, nhả booking gắn kèo |
-| `MatchFeeRefundRequested` / `MatchSettlementRequested` | matchmaking / finance | finance | Vòng đối soát phí tham gia kèo |
-| `ContentReported` | community | community | Tạo moderation case nội bộ |
+| `MatchCreated` · `JoinApproved` · `MatchSlotBeneficiaryChanged` | matchmaking | finance | Mở funding kèo, mở contribution, đổi người thụ hưởng slot trả thay |
+| `MatchConfirmed` | matchmaking | finance | Đủ roster tại cutoff → settlement booking |
+| `MatchFundingCompleted` / `MatchSettlementFailed` | finance | matchmaking | Kết quả settlement tại cutoff |
+| `MatchBookingResolved` | venue-booking | finance, matchmaking | Booking gắn kèo được xác nhận hoặc thu hồi |
+| `MatchCancelled` · `MatchFeeRefundRequested` | matchmaking | finance (+ venue-booking với `MatchCancelled`) | Hoàn contribution, nhả hold / trả booking về chủ kèo |
+| `MatchResultFinalized` | matchmaking | finance | Phân bổ result reserve theo kết quả cuối |
+| `RewardAwardsFinalized` | matchmaking | finance | Tạo hồ sơ chi thưởng chương trình |
+| `RatingCorrectionApproved` | community | matchmaking | Admin duyệt ticket chỉnh trình độ → chỉnh rating |
+| `UserNotificationRequested` | mọi service nghiệp vụ | account | Gửi thông báo in-app / email tập trung |
+
+Sự kiện nội bộ một service (không vẽ): `MatchSettlementRequested`,
+`FinanceUiInvalidated` (finance), `RatingPeriodReady` (matchmaking),
+`ContentReported`, `ObjectCleanupScheduled` (community).
 
 > **Độ tin cậy**: mỗi cạnh trong sơ đồ được bảo vệ bởi **outbox** (bên phát, ghi
 > cùng transaction) và **idempotent consumer** (`processedEventId`, bên nhận) —
@@ -435,8 +587,19 @@ graph LR
 
 ## 7. Mô hình dữ liệu
 
-Mỗi service sở hữu schema riêng; tham chiếu người dùng bằng `userId`, **không FK
-chéo schema**. ERD hai service quan hệ nhất (venue-booking + finance):
+Mỗi service sở hữu schema riêng; tham chiếu người dùng và thực thể service khác
+bằng ID (`userId`, `bookingId`, `matchId`), **không FK chéo schema**. Mọi service
+có cặp bảng hạ tầng `Outbox` + `ProcessedEvent`.
+
+| Service | Model chính |
+|---|---|
+| account | `User` · `PlayerProfile` · `Verification` · `PasswordReset` · `AccountAudit` · `Notification` · `NotificationPreference` |
+| venue-booking | `Provider` · `Venue` · `Court` · `OperatingHour` · `Closure` · `BookingRule` · `PricingRule` · `Hold` · `Booking` · `MatchBookingCommand` · `OperationalShutdown(+Item, +Transition)` |
+| finance | `Wallet` · `LedgerEntry` · `PaymentIntent` · `SepayEvent` · `SepayAllocation` · `WithdrawalRequest` · `BookingRevenue` · `Dispute` · `MatchFunding` · `MatchContribution` · `RewardPayout` · `FinanceAudit` · `QuarantinedEvent` |
+| matchmaking | `Match` · `Join` · `PartnerInvite` · `MatchResolution` · `MatchResultCase` · `ResultClaim` · `ResultSet` · `ResultResponse` · `ResultEvidence` · `ProviderRecommendation` · `AdminResultDecision` · `Passport` · `PassportCorrection` · `MatchRatingChange` · `RatedEncounter` · `Season` · `PlayerSeasonProfile` · `SeasonStat` · `RewardProgram` · `RewardTier` · `RewardAward` · `PlayerBadge` · `Evaluation` |
+| community | `Post` · `PostImage` · `Comment` · `Report` · `ModerationAudit` · `Ticket` · `TicketImage` · `TicketMessage` · `AccountLock` |
+
+### 7.1. Sân & tiền (venue-booking + finance)
 
 ```mermaid
 erDiagram
@@ -445,11 +608,16 @@ erDiagram
     COURT ||--o{ PRICING_RULE : priced_by
     COURT ||--o{ HOLD : temp_locks
     COURT ||--o{ BOOKING : booked_as
+    VENUE ||--o{ OPERATIONAL_SHUTDOWN : stops
     BOOKING }o--|| USER_REF : by
 
     WALLET ||--o{ LEDGER_ENTRY : records
     WALLET }o--|| USER_REF : owned_by
-    WITHDRAWAL ||--o| SEPAY_EVENT : reconciled_by
+    WALLET ||--o{ BOOKING_REVENUE : earns
+    BOOKING_REVENUE |o--|| BOOKING : "ref bookingId"
+    DISPUTE |o--|| BOOKING : "ref bookingId"
+    WITHDRAWAL_REQUEST }o--|| USER_REF : "sellerUserId + walletType"
+    SEPAY_EVENT ||--o{ SEPAY_ALLOCATION : explained_by
     LEDGER_ENTRY }o--o| BOOKING : ref
 
     BOOKING {
@@ -458,6 +626,14 @@ erDiagram
         tstzrange timeRange
         string status
         jsonb policySnapshot
+        bigint priceSnapshot
+    }
+    WALLET {
+        string walletType "personal | business | platform"
+        bigint available
+        bigint withdrawable "personal"
+        bigint pending "business"
+        bigint reserved
     }
     LEDGER_ENTRY {
         uuid id
@@ -469,12 +645,69 @@ erDiagram
     }
 ```
 
+### 7.2. Kèo, kết quả & xếp hạng (matchmaking + finance)
+
+```mermaid
+erDiagram
+    MATCH ||--o{ JOIN : roster
+    MATCH ||--o{ PARTNER_INVITE : invites
+    MATCH ||--o| MATCH_RESULT_CASE : result
+    MATCH_RESULT_CASE ||--o{ RESULT_CLAIM : declared_by
+    RESULT_CLAIM ||--o{ RESULT_SET : scores
+    MATCH_RESULT_CASE ||--o{ RESULT_RESPONSE : responses
+    MATCH_RESULT_CASE ||--o{ RESULT_EVIDENCE : evidence
+    MATCH_RESULT_CASE ||--o{ PROVIDER_RECOMMENDATION : provider_review
+    MATCH_RESULT_CASE ||--o| ADMIN_RESULT_DECISION : decided_by
+    MATCH ||--o{ MATCH_RATING_CHANGE : rates
+    PASSPORT ||--o{ MATCH_RATING_CHANGE : history
+
+    SEASON ||--o{ PLAYER_SEASON_PROFILE : participants
+    SEASON ||--o{ REWARD_PROGRAM : programs
+    REWARD_PROGRAM ||--o{ REWARD_TIER : tiers
+    REWARD_PROGRAM ||--o{ REWARD_AWARD : awards
+    SEASON ||--o{ PLAYER_BADGE : badges
+
+    MATCH ||--|| MATCH_FUNDING : "ref matchId (finance)"
+    MATCH_FUNDING ||--o{ MATCH_CONTRIBUTION : contributions
+    JOIN |o--|| MATCH_CONTRIBUTION : "ref joinId"
+    REWARD_AWARD ||--o| REWARD_PAYOUT : "ref awardId (finance)"
+
+    MATCH {
+        uuid bookingId
+        string mode "friendly | ranked"
+        string ratio "5:5 | 6:4 | 7:3"
+        string format "bo3 | bo5"
+        string status
+        datetime cutoffAt
+    }
+    MATCH_CONTRIBUTION {
+        uuid userId "payer"
+        uuid beneficiaryUserId
+        string status
+    }
+    PASSPORT {
+        uuid userId
+        string discipline "singles | doubles"
+        string declaredTier "5 bậc"
+        float ratingMu
+        float ratingRd
+        float ratingSigma
+    }
+```
+
 Điểm thiết kế đáng chú ý:
 - **`LedgerEntry` append-only** với `before`/`after` — số dư luôn tái dựng được
   từ lịch sử, mọi biến động tiền có dấu vết audit.
+- **Ví một bảng, nhiều ngăn** — `available`/`withdrawable`/`pending`/`reserved`
+  chuyển ngăn nội bộ không sinh bút toán; chỉ tiền thật rời hệ thống mới ghi `payout`.
+- **`SepayAllocation`** — mỗi giao dịch ngân hàng ánh xạ tới tập đối ứng có tổng
+  đúng bằng số tiền sự kiện (topup / thanh toán booking / payout / out_of_scope).
 - **`timeRange` kiểu `tstzrange`** — cho phép ràng buộc chống chồng lấn ở tầng DB.
-- **`policySnapshot` (jsonb)** — chính sách hủy được “đóng băng” lúc đặt, không
-  bị thay đổi hồi tố khi provider sửa chính sách sau này.
+- **`policySnapshot` (jsonb) / `priceSnapshot`** — chính sách hủy và giá được
+  “đóng băng” lúc đặt, không bị thay đổi hồi tố.
+- **Tiền kèo nằm ở finance (`MatchFunding`), kết quả nằm ở matchmaking
+  (`MatchResultCase`)** — hai service nối bằng `matchId` và sự kiện, payer
+  (`userId`) tách khỏi người thụ hưởng (`beneficiaryUserId`) cho slot trả thay.
 - **Ảnh/venue** lưu `objectKey` thô; route public map `objectKey → read URL`,
   route managed giữ objectKey để round-trip.
 
@@ -499,7 +732,8 @@ packages/
   eventbus/                RabbitMQ + outbox relay
   object-storage/          Cloudflare R2 (S3 API)
   ai/                      Rating · compat · group · LLM (Gemini)
-infra/                     docker compose (PostgreSQL · Redis · RabbitMQ)
+infra/                     Script khởi tạo PostgreSQL (schema per service)
+docker-compose.infrastructure.yml   PostgreSQL · Redis · RabbitMQ · MinIO (local)
 docs/                      Sản phẩm · kiến trúc · quyết định · kế hoạch
 e2e/                       Playwright
 ```
