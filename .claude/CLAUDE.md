@@ -62,6 +62,13 @@ Vi phạm bất kỳ dòng nào dưới đây là lỗi, kể cả khi code ch�
   rating số có độ bất định. Không thay đổi thang này khi làm matchmaking.
 - **WebSocket được phép** (chính cho ghép kèo, không giới hạn ở đó).
 - **Trợ lý AI** chỉ là bong bóng chat CSKH nổi, không có trang `/assistant`.
+- **Đổi chữ hàng loạt**: CẤM script thay chuỗi trên cả file (sed/python thay
+  mọi chỗ khớp). Chỉ được thay bên trong chuỗi hiển thị đã khoanh rõ (literal
+  thông báo/JSX text), có loại trừ `${...}`, định danh, key, route, className.
+  Sau khi thay phải rà diff chứng minh chỉ phần chữ thay đổi. `tsc` xanh KHÔNG
+  chứng minh được điều này.
+- **Không rẽ nhánh theo câu chữ**: FE không so khớp `error.message` (vì câu chữ
+  sẽ bị Việt hóa/sửa); rẽ nhánh theo mã lỗi `code` (vd `BOOKING_NOT_FOUND`).
 - **Tài chính**: ledger append-only, bảo toàn giá trị; dừng lại nếu spec, data
   model và quy tắc phân bổ chưa thống nhất (xem AGENTS.md).
 
