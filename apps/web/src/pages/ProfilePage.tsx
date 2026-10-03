@@ -279,7 +279,7 @@ export function ProfilePage() {
                   </div>
                 </section>
               )}
-              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có booking" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
+              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có lượt đặt sân" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
             </div>
           )}
 

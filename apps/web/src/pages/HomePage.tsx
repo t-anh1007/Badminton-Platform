@@ -4,7 +4,7 @@ import { demoLogin } from '../lib/accountApi';
 import { useSession } from '../session/SessionProvider';
 import { VenueListPage } from './VenueListPage';
 const features = [{ number: '01', title: 'Đặt sân rõ lịch', body: 'Kiểm tra khung giờ trống, giữ chỗ 10 phút và chốt sân trong cùng một hành trình.', to: '/venues' }, { number: '02', title: 'Tìm đúng người chơi', body: 'Khám phá kèo công khai phù hợp theo luồng xác nhận hiện có.', to: '/matches' }, { number: '03', title: 'Kết nối sau trận', body: 'Chia sẻ kinh nghiệm và theo dõi cộng đồng cầu lông.', to: '/community' }] as const;
-const faq = [['Tôi giữ sân được bao lâu?', 'Một slot được giữ trong 10 phút. Hết thời gian, slot tự mở lại cho người khác.'], ['Hủy sân có được hoàn tiền không?', 'Từ 24 giờ trước giờ bắt đầu hoàn 100%; từ 6 đến dưới 24 giờ hoàn 50%; dưới 6 giờ không hoàn.'], ['Tôi có thể tìm kèo ở đâu?', 'Bạn sẽ thấy các kèo công khai phù hợp trong mục Tìm kèo.'], ['Tôi thanh toán bằng cách nào?', 'Bạn có thể dùng số dư nội bộ hoặc tạo mã chuyển khoản SePay ở bước thanh toán.']] as const;
+const faq = [['Tôi giữ sân được bao lâu?', 'Một khung giờ được giữ trong 10 phút. Hết thời gian, khung giờ tự mở lại cho người khác.'], ['Hủy sân có được hoàn tiền không?', 'Từ 24 giờ trước giờ bắt đầu hoàn 100%; từ 6 đến dưới 24 giờ hoàn 50%; dưới 6 giờ không hoàn.'], ['Tôi có thể tìm kèo ở đâu?', 'Bạn sẽ thấy các kèo công khai phù hợp trong mục Tìm kèo.'], ['Tôi thanh toán bằng cách nào?', 'Bạn có thể dùng số dư nội bộ hoặc tạo mã chuyển khoản SePay ở bước thanh toán.']] as const;
 export function HomePage() {
   const { session, establish } = useSession();
   const navigate = useNavigate();

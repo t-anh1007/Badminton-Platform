@@ -25,14 +25,14 @@ interface BubbleMessage {
 const GREETING: BubbleMessage = {
   id: 'greeting',
   role: 'assistant',
-  body: 'Chào bạn 👋 Mình là trợ lý CourtIn. Hỏi mình về chính sách, booking của bạn, hoặc nhờ mình gợi ý kèo phù hợp nhé.',
+  body: 'Chào bạn 👋 Mình là trợ lý CourtIn. Hỏi mình về chính sách, lượt đặt sân của bạn, hoặc nhờ mình gợi ý kèo phù hợp nhé.',
   at: 0,
 }
 
 const QUICK_REPLIES: Array<{ label: string; text: string; intent: Intent }> = [
   { label: 'Tìm kèo phù hợp', text: 'Gợi ý kèo phù hợp với tôi', intent: 'match' },
   { label: 'Chính sách hủy sân', text: 'Chính sách hủy sân thế nào?', intent: 'support' },
-  { label: 'Booking gần nhất của tôi', text: 'Booking gần nhất của tôi khi nào?', intent: 'support' },
+  { label: 'Lượt đặt sân gần nhất của tôi', text: 'Lượt đặt sân gần nhất của tôi khi nào?', intent: 'support' },
 ]
 
 const clock = (at: number) => new Date(at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })

@@ -29,7 +29,7 @@ export async function identities(accountClient: AccountClient, userIds: string[]
 /**
  * BR-CM-57..60: chỉ người đủ điều kiện (>= 5 kết quả trong kỳ, RD < 200; bảng tỉnh cần thêm 5 trận
  * thuộc tỉnh chính) theo nhóm rating hiện tại, nên vượt 1600 là chuyển bảng ngay. Đồng hạng khi
- * rating làm tròn bằng nhau. Đọc thẳng season_stats/passports, không cache.
+ * rating cắt phần lẻ bằng nhau (cắt xuống để 1599,6 không hiện thành 1.600 ở bảng dưới 1600). Đọc thẳng season_stats/passports, không cache.
  */
 export type BoardKey = Pick<LeaderboardQuery, 'discipline' | 'scope' | 'provinceCode' | 'band'> & { seasonId: string };
 
@@ -45,8 +45,8 @@ export function rankedBoardSql(key: BoardKey) {
   const query = key;
   return Prisma.sql`
     WITH ranked AS (
-      SELECT s."userId", r."provinceCode", ROUND(COALESCE(s."finalRating", p."ratingMu"))::int AS rating, s."matchesPlayed", s.wins,
-             RANK() OVER (ORDER BY ROUND(COALESCE(s."finalRating", p."ratingMu")) DESC) AS rank
+      SELECT s."userId", r."provinceCode", FLOOR(COALESCE(s."finalRating", p."ratingMu"))::int AS rating, s."matchesPlayed", s.wins,
+             RANK() OVER (ORDER BY FLOOR(COALESCE(s."finalRating", p."ratingMu")) DESC) AS rank
       FROM season_stats s
       JOIN passports p ON p."userId" = s."userId" AND p.discipline = s.discipline
       LEFT JOIN player_season_profiles r ON r."seasonId" = s."seasonId" AND r."userId" = s."userId"

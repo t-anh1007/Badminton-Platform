@@ -79,7 +79,7 @@ export async function deactivateCourt(userId: string, courtId: string): Promise<
   if (futureConfirmed.length > 0) {
     throw new AppError(
       'BLOCKED_BY_FUTURE_BOOKINGS',
-      `Còn ${futureConfirmed.length} booking đã xác nhận trong tương lai. Hủy qua BOK-10 trước khi vô hiệu hóa.`,
+      `Còn ${futureConfirmed.length} lượt đặt sân đã xác nhận trong tương lai. Hủy qua BOK-10 trước khi vô hiệu hóa.`,
       409,
       { bookings: futureConfirmed },
     );
@@ -122,7 +122,7 @@ export async function deactivateVenueCourts(userId: string, venueId: string): Pr
   if (futureConfirmed.length > 0) {
     throw new AppError(
       'BLOCKED_BY_FUTURE_BOOKINGS',
-      `Còn ${futureConfirmed.length} booking đã xác nhận trong tương lai. Hủy qua BOK-10 trước khi ngừng cơ sở.`,
+      `Còn ${futureConfirmed.length} lượt đặt sân đã xác nhận trong tương lai. Hủy qua BOK-10 trước khi ngừng cơ sở.`,
       409,
       { bookings: futureConfirmed },
     );

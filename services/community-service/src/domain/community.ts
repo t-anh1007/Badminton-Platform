@@ -10,7 +10,7 @@ export type ModerationAction = 'hide' | 'remove' | 'dismiss';
 export type TicketCloseStatus = 'resolved' | 'closed';
 
 function normalizeTicketEvidence(evidence: string[]): string[] {
-  if (evidence.length > 5) throw new AppError(400, 'TICKET_EVIDENCE_LIMIT', 'Mỗi ticket chỉ có tối đa 5 ảnh bằng chứng.');
+  if (evidence.length > 5) throw new AppError(400, 'TICKET_EVIDENCE_LIMIT', 'Mỗi yêu cầu hỗ trợ chỉ có tối đa 5 ảnh bằng chứng.');
   if (new Set(evidence).size !== evidence.length) throw new AppError(400, 'TICKET_EVIDENCE_DUPLICATE', 'Ảnh bằng chứng không được trùng.');
   return evidence;
 }
@@ -429,7 +429,7 @@ export async function getTicket(ticketId: string, userId: string, isAdmin: boole
     where: { id: ticketId },
     include: { messages: { orderBy: { createdAt: 'asc' } }, evidence: { orderBy: { position: 'asc' } } },
   });
-  if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
+  if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy yêu cầu hỗ trợ.');
   if (!isAdmin && ticket.requesterUserId !== userId) forbidden('Bạn không có quyền xem ticket này.');
   return ticket;
 }
@@ -444,10 +444,10 @@ export async function addTicketMessage(
   if (!isAdmin) await requireEligiblePlayer(accountClient, senderUserId);
   return prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
-    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
+    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy yêu cầu hỗ trợ.');
     if (!isAdmin && ticket.requesterUserId !== senderUserId) forbidden('Bạn không có quyền trả lời ticket này.');
     if (ticket.status === 'resolved' || ticket.status === 'closed') {
-      throw new AppError(409, 'TICKET_CLOSED', 'Ticket đã được giải quyết hoặc đóng.');
+      throw new AppError(409, 'TICKET_CLOSED', 'Yêu cầu hỗ trợ đã được giải quyết hoặc đóng.');
     }
     if (isAdmin && ticket.status === 'open') {
       await tx.ticket.update({
@@ -485,15 +485,15 @@ export async function decideRatingCorrection(
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${ticketId}, 0))`;
     const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
-    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
+    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy yêu cầu hỗ trợ.');
     if (ticket.type !== 'rating_correction') {
-      throw new AppError(409, 'TICKET_NOT_RATING_CORRECTION', 'Ticket này không phải yêu cầu sửa khai báo trình độ.');
+      throw new AppError(409, 'TICKET_NOT_RATING_CORRECTION', 'Yêu cầu hỗ trợ này không phải yêu cầu sửa khai báo trình độ.');
     }
     if (ticket.correctionDecision !== null) {
       throw new AppError(409, 'RATING_CORRECTION_DECIDED', 'Yêu cầu này đã được quyết định.');
     }
     if (ticket.status === 'resolved' || ticket.status === 'closed') {
-      throw new AppError(409, 'TICKET_CLOSED', 'Ticket đã được giải quyết hoặc đóng.');
+      throw new AppError(409, 'TICKET_CLOSED', 'Yêu cầu hỗ trợ đã được giải quyết hoặc đóng.');
     }
     const request = ticket.metadata as RatingCorrectionRequest;
     const approvedTier = input.decision === 'approve' ? input.approvedTier ?? request.requestedTier : null;
@@ -530,11 +530,11 @@ export async function decideRatingCorrection(
 export async function setTicketStatus(ticketId: string, status: TicketCloseStatus) {
   return prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
-    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy ticket.');
+    if (!ticket) throw new AppError(404, 'TICKET_NOT_FOUND', 'Không tìm thấy yêu cầu hỗ trợ.');
     const allowed =
       (ticket.status === 'in_progress' && status === 'resolved') ||
       (ticket.status === 'resolved' && status === 'closed');
-    if (!allowed) throw new AppError(409, 'INVALID_TICKET_TRANSITION', 'Chuyển trạng thái ticket không hợp lệ.');
+    if (!allowed) throw new AppError(409, 'INVALID_TICKET_TRANSITION', 'Chuyển trạng thái yêu cầu hỗ trợ không hợp lệ.');
     return tx.ticket.update({ where: { id: ticketId }, data: { status } });
   });
 }

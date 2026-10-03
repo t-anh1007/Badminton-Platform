@@ -7,7 +7,7 @@ import { resolveNotificationRoute } from '../../notifications/notificationRoutes
 afterEach(cleanup);
 
 describe('provider booking navigation', () => {
-  it('puts Tài chính first and Quản lý booking after Lịch in the provider sidebar', () => {
+  it('puts Tài chính first and Quản lý đặt sân after Lịch in the provider sidebar', () => {
     render(
       <MemoryRouter initialEntries={['/manage']}>
         <Routes>
@@ -23,11 +23,11 @@ describe('provider booking navigation', () => {
       '💰Tài chính',
       '🏸Sân',
       '📅Lịch',
-      '📋Quản lý booking',
+      '📋Quản lý đặt sân',
       '⚠️Sự cố',
       '🏆Hồ sơ kèo',
     ]);
-    expect(screen.getByRole('link', { name: /Quản lý booking/ })).toHaveAttribute('href', '/manage/bookings');
+    expect(screen.getByRole('link', { name: /Quản lý đặt sân/ })).toHaveAttribute('href', '/manage/bookings');
   });
 
   it('maps provider booking notifications to the drawer', () => {

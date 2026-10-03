@@ -133,7 +133,7 @@ async function createMatchViaUi(page: Page, organizer: User, options: { ratio: '
   // Nạp trước: rời/tải lại trang khi đang chờ cọc sẽ tự hủy kèo (useCheckoutAbandonment).
   if (!options.paidBooking) await seedPersonalBalance(organizer.id, 1_000_000n);
   await page.goto('/matches?create=1');
-  if (options.paidBooking) await page.getByText('Booking đã thanh toán', { exact: true }).click();
+  if (options.paidBooking) await page.getByText('Lượt đặt sân đã thanh toán', { exact: true }).click();
   await expect(page.getByLabel('Nguồn tạo kèo')).toBeVisible();
   if (options.ranked) await page.getByText('Xếp hạng', { exact: true }).click();
   if (options.doubles) await page.getByText('Đánh đôi', { exact: true }).click();
@@ -401,8 +401,8 @@ test('2. Booking đã trả -> đôi 6:4 -> ba người trả -> chốt kèo kh�
   await providerPage.getByText('thắng (Đội B)').first().click();
   await providerPage.getByLabel('Lý do đề xuất').fill('Camera sân cho thấy đội B thắng set 2.');
   await shot(providerPage, 's09-provider');
-  await providerPage.getByRole('button', { name: 'Gửi đề xuất cho Admin' }).click();
-  await expect(providerPage.getByText('Chờ Admin quyết định', { exact: true })).toBeVisible();
+  await providerPage.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' }).click();
+  await expect(providerPage.getByText('Chờ quản trị viên quyết định', { exact: true })).toBeVisible();
   expect(await financeDb.matchFunding.findUniqueOrThrow({ where: { matchId } })).toMatchObject({ resultReserveStatus: 'locked', resultFinalizedAt: null });
 
   // Màn 10: Admin xem trước rồi xác nhận quyết định cuối.

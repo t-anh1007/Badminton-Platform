@@ -80,12 +80,12 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-caption font-bold uppercase tracking-[0.12em] text-ink-500">Thông tin vận hành</p>
-            <h2 id={titleId} className="mt-1 text-h2">Chi tiết booking</h2>
+            <h2 id={titleId} className="mt-1 text-h2">Chi tiết lượt đặt sân</h2>
           </div>
           <button
             ref={closeRef}
             type="button"
-            aria-label="Đóng chi tiết booking"
+            aria-label="Đóng chi tiết lượt đặt sân"
             onClick={onClose}
             className="grid h-11 w-11 place-items-center rounded-full text-2xl text-ink-500 hover:bg-canvas hover:text-brand-navy"
           >
@@ -101,7 +101,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
         ) : detail ? (
           <div className="mt-5 space-y-5">
             <section className="rounded-2xl bg-canvas p-4">
-              <p className="text-caption text-ink-500">Mã booking</p>
+              <p className="text-caption text-ink-500">Mã đặt sân</p>
               <p className="mt-1 text-sm font-bold text-brand-navy">{detail.businessCode}</p>
               <Badge className="mt-3" tone={providerBookingBadgeTone(detail.status)}>
                 {providerBookingStatusLabel(detail.status, detail.matchDepositPaid)}
@@ -114,7 +114,7 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
               <p className="text-sm text-ink-500">{detail.court.venue.address}</p>
               {detail.manualCustomerNotificationRequired && <p className="mt-3 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
               <p className="mt-3 text-sm">{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</p>
-              <p className="mt-1 text-sm text-ink-500">{detail.source === 'internal' ? 'Booking tại quầy' : 'Đặt qua COURTIN'}</p>
+              <p className="mt-1 text-sm text-ink-500">{detail.source === 'internal' ? 'Lượt đặt sân tại quầy' : 'Đặt qua COURTIN'}</p>
               {detail.courtChangedAt ? <p className="mt-2 text-sm text-warning">Đã đổi sân lúc {formatDateTimeVi(detail.courtChangedAt)}</p> : null}
             </section>
 

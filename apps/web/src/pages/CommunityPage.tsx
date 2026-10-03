@@ -249,7 +249,7 @@ export function CommunityPage() {
       setReportTarget(null);
       setReportReason('');
       setNotice({
-        message: 'Đã gửi báo cáo. Nội dung vẫn công khai cho đến khi Admin xử lý.',
+        message: 'Đã gửi báo cáo. Nội dung vẫn công khai cho đến khi quản trị viên xử lý.',
         tone: 'success',
       });
     } catch (cause) {
@@ -475,7 +475,7 @@ export function CommunityPage() {
               {session && (
                 <div className="mt-5 border-t border-line pt-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-caption uppercase">Ticket của tôi</p>
+                    <p className="text-caption uppercase">Yêu cầu của tôi</p>
                     <Link to="/support" className="text-xs font-semibold text-green-700 hover:underline">
                       Xem tất cả
                     </Link>
@@ -483,7 +483,7 @@ export function CommunityPage() {
                   {activityLoading ? (
                     <Skeleton className="mt-3 h-20" />
                   ) : tickets.length === 0 ? (
-                    <p className="mt-3 text-sm text-ink-500">Chưa có ticket.</p>
+                    <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu.</p>
                   ) : (
                     <div className="mt-3 space-y-3">
                       {tickets.slice(0, 3).map((ticket) => {
@@ -527,7 +527,7 @@ export function CommunityPage() {
       </Modal>
       <Modal open={supportOpen} title="Hỗ trợ riêng tư" onClose={() => setSupportOpen(false)}>
         <div className="rounded-xl bg-green-50 p-4">
-          <p className="font-semibold text-green-700">Ticket không xuất hiện trên bảng tin</p>
+          <p className="font-semibold text-green-700">Yêu cầu không xuất hiện trên bảng tin</p>
           <p className="mt-1 text-sm text-ink-500">Trao đổi bất đồng bộ chỉ giữa bạn và đội ngũ vận hành.</p>
         </div>
         <Button className="mt-4 w-full" onClick={() => (session ? navigate('/support') : setAuthOpen(true))}>
@@ -535,9 +535,9 @@ export function CommunityPage() {
         </Button>
         {session && (
           <div className="mt-5 border-t border-line pt-4">
-            <p className="text-caption uppercase">Ticket gần đây</p>
+            <p className="text-caption uppercase">Yêu cầu gần đây</p>
             {tickets.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-500">Chưa có ticket.</p>
+              <p className="mt-2 text-sm text-ink-500">Chưa có yêu cầu.</p>
             ) : (
               <div className="mt-3 space-y-2">
                 {tickets.slice(0, 3).map((ticket) => {
@@ -559,7 +559,7 @@ export function CommunityPage() {
         )}
       </Modal>
       <Modal open={Boolean(reportTarget)} title="Báo cáo nội dung" onClose={() => setReportTarget(null)}>
-        <p className="text-sm text-ink-500">Báo cáo sẽ chuyển tới Admin xem xét và không tự động gỡ nội dung.</p>
+        <p className="text-sm text-ink-500">Báo cáo sẽ chuyển tới quản trị viên xem xét và không tự động gỡ nội dung.</p>
         <label className="mt-4 block text-sm font-medium">
           Lý do
           <TextArea

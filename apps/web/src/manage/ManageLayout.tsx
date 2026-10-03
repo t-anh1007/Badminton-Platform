@@ -4,7 +4,7 @@ const links = [
   { to: '/manage', label: 'Tài chính', icon: '💰', end: true },
   { to: '/manage/venues', label: 'Sân', icon: '🏸', end: false },
   { to: '/manage/calendar', label: 'Lịch', icon: '📅', end: false },
-  { to: '/manage/bookings', label: 'Quản lý booking', icon: '📋', end: false },
+  { to: '/manage/bookings', label: 'Quản lý đặt sân', icon: '📋', end: false },
   { to: '/manage/incidents', label: 'Sự cố', icon: '⚠️', end: false },
   { to: '/manage/match-results', label: 'Hồ sơ kèo', icon: '🏆', end: false },
 ] as const;

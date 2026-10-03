@@ -220,6 +220,6 @@ it('closes a resolved support ticket', async () => {
   vi.mocked(listSupportTickets).mockResolvedValueOnce({ tickets: [{ id: 't2', requesterUserId: 'u2', subject: 'Đã hỗ trợ xong', status: 'resolved', createdAt: '2026-08-15T00:00:00Z' }] })
   vi.mocked(getSupportTicket).mockResolvedValueOnce({ id: 't2', requesterUserId: 'u2', subject: 'Đã hỗ trợ xong', status: 'resolved', createdAt: '2026-08-15T00:00:00Z', messages: [] })
   render(<AdminTicketsPage />)
-  fireEvent.click(await screen.findByRole('button', { name: 'Đóng ticket' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Đóng yêu cầu' }))
   await waitFor(() => expect(setSupportTicketStatus).toHaveBeenCalledWith('t2', 'closed'))
 })

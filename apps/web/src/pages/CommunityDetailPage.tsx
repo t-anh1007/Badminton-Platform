@@ -108,7 +108,7 @@ export function CommunityDetailPage() {
       setReportTarget(null);
       setReportReason('');
       setNotice({
-        message: 'Đã gửi báo cáo. Nội dung sẽ được Admin xem xét.',
+        message: 'Đã gửi báo cáo. Nội dung sẽ được quản trị viên xem xét.',
         tone: 'success',
       });
     } catch (cause) {
@@ -354,7 +354,7 @@ export function CommunityDetailPage() {
         </div>
       </Modal>
       <Modal open={Boolean(reportTarget)} title="Báo cáo nội dung" onClose={() => setReportTarget(null)}>
-        <p className="text-sm text-ink-500">Báo cáo không tự động gỡ nội dung. Admin sẽ xem xét lý do bạn cung cấp.</p>
+        <p className="text-sm text-ink-500">Báo cáo không tự động gỡ nội dung. Quản trị viên sẽ xem xét lý do bạn cung cấp.</p>
         <label className="mt-4 block text-sm font-medium">
           Lý do
           <TextArea

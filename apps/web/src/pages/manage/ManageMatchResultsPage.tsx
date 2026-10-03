@@ -33,7 +33,7 @@ export function ManageMatchResultsPage() {
   return (
     <div>
       <h2 className="text-h1">Xem xét kết quả kèo</h2>
-      <p className="mt-2 text-ink-500">Kiểm tra khai báo và bằng chứng trước khi gửi đề xuất cho Admin.</p>
+      <p className="mt-2 text-ink-500">Kiểm tra khai báo và bằng chứng trước khi gửi đề xuất cho quản trị viên.</p>
       <div className="mt-5 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
         <SurfaceCard className="h-fit">
           <div className="flex items-center justify-between">
@@ -42,7 +42,7 @@ export function ManageMatchResultsPage() {
           </div>
           <SelectInput aria-label="Trạng thái hồ sơ" className="mt-3" value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }}>
             <option value="provider_review">Chờ chủ sân đề xuất</option>
-            <option value="admin_review">Đã đề xuất - chờ Admin quyết định</option>
+            <option value="admin_review">Đã đề xuất - chờ quản trị viên quyết định</option>
             <option value="final">Đã có kết quả</option>
           </SelectInput>
           {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
@@ -110,7 +110,7 @@ function ProviderCase({ caseId }: { caseId: string }) {
       </div>
       <div className="mt-4"><CaseSummary detail={detail} /></div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <CaseStatements detail={detail} />
+        <CaseStatements detail={detail} evidenceLockedNote={detail.status === 'provider_review' ? undefined : 'Ảnh chỉ xem được khi hồ sơ đang chờ chủ sân đề xuất.'} />
         <SurfaceCard className="h-fit">
           <h3 className="text-h3">Đề xuất của chủ sân</h3>
           {detail.actions.canRecommend ? (
@@ -121,12 +121,12 @@ function ProviderCase({ caseId }: { caseId: string }) {
                 Đề xuất chưa có hiệu lực. Việc gửi đề xuất không chia tiền, không đổi điểm và không tự trở thành kết quả cuối, kể cả khi Admin xử lý trễ.
               </p>
               {submitError && <p role="alert" className="mt-3 text-sm text-danger">{submitError}</p>}
-              <AsyncButton className="mt-3 w-full" pending={pending} disabled={!outcome || !reason.trim()} onClick={() => void submit()}>Gửi đề xuất cho Admin</AsyncButton>
+              <AsyncButton className="mt-3 w-full" pending={pending} disabled={!outcome || !reason.trim()} onClick={() => void submit()}>Gửi đề xuất cho quản trị viên</AsyncButton>
             </>
           ) : (
             <div className="mt-3 space-y-2 text-sm">
-              <Badge tone="warning">Chờ Admin quyết định</Badge>
-              {detail.providerRecommendation && <p>Đề xuất đã gửi - chưa có hiệu lực. Admin sẽ ra quyết định cuối.</p>}
+              <Badge tone="warning">Chờ quản trị viên quyết định</Badge>
+              {detail.providerRecommendation && <p>Đề xuất đã gửi - chưa có hiệu lực. Quản trị viên sẽ ra quyết định cuối.</p>}
             </div>
           )}
         </SurfaceCard>

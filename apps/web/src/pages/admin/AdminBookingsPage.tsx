@@ -71,13 +71,13 @@ export function AdminBookingsPage() {
       <h2 className="text-h1">Đặt sân toàn hệ thống</h2>
       <div className="mt-5 grid gap-2 md:grid-cols-5">
         <TextInput
-          aria-label="Tìm booking"
+          aria-label="Tìm lượt đặt sân"
           placeholder="Tên cơ sở hoặc sân"
           value={filters.query}
           onChange={(event) => setFilters({ ...filters, query: event.target.value })}
         />
         <SelectInput
-          aria-label="Trạng thái booking"
+          aria-label="Trạng thái lượt đặt sân"
           value={filters.status}
           onChange={(event) => setFilters({ ...filters, status: event.target.value })}
         >
@@ -88,13 +88,13 @@ export function AdminBookingsPage() {
           <option value="cancelled">Đã hủy</option>
         </SelectInput>
         <TextInput
-          aria-label="Từ ngày booking"
+          aria-label="Từ ngày lượt đặt sân"
           type="date"
           value={filters.from}
           onChange={(event) => setFilters({ ...filters, from: event.target.value })}
         />
         <TextInput
-          aria-label="Đến ngày booking"
+          aria-label="Đến ngày lượt đặt sân"
           type="date"
           value={filters.to}
           onChange={(event) => setFilters({ ...filters, to: event.target.value })}
@@ -111,7 +111,7 @@ export function AdminBookingsPage() {
             className="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
-              <p className="font-bold">{row.court.venue.name} · {row.court.name}</p><BusinessCode code={row.businessCode} label="Mã booking" />
+              <p className="font-bold">{row.court.venue.name} · {row.court.name}</p><BusinessCode code={row.businessCode} label="Mã đặt sân" />
               <p className="mt-1 text-sm text-ink-700">{row.player.label}</p>
               <p className="text-sm text-ink-500">
                 {formatDateTimeVi(row.startAt)} · {formatMoneyVnd(row.priceSnapshot)}
@@ -124,10 +124,10 @@ export function AdminBookingsPage() {
             </div>
           </article>
         )) : (
-          <EmptyState title="Không có booking" description="Thử đổi bộ lọc." />
+          <EmptyState title="Không có lượt đặt sân" description="Thử đổi bộ lọc." />
         )}
       </div>
-      {total > 0 && <nav className="mt-5 flex items-center justify-between gap-3" aria-label="Phân trang booking">
+      {total > 0 && <nav className="mt-5 flex items-center justify-between gap-3" aria-label="Phân trang lượt đặt sân">
         <p className="text-sm text-ink-500">Hiển thị {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} / {total} booking</p>
         <div className="flex gap-2">
           <Button tone="secondary" disabled={page === 1} onClick={() => void load(page - 1)}>Trước</Button>
@@ -135,10 +135,10 @@ export function AdminBookingsPage() {
         </div>
       </nav>}
 
-      <Modal open={Boolean(target)} title="Hủy booking do lỗi nền tảng" onClose={() => setTarget(null)}>
-        <p className="text-sm text-ink-500">Booking sẽ được hủy và hoàn 100% theo luồng Admin.</p>
+      <Modal open={Boolean(target)} title="Hủy lượt đặt sân do lỗi nền tảng" onClose={() => setTarget(null)}>
+        <p className="text-sm text-ink-500">Lượt đặt sân sẽ được hủy và hoàn 100% theo luồng quản trị viên.</p>
         <TextArea
-          aria-label="Lý do hủy booking"
+          aria-label="Lý do hủy lượt đặt sân"
           className="mt-4"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -146,16 +146,16 @@ export function AdminBookingsPage() {
         <Button className="mt-4" tone="danger" onClick={() => void cancel()}>Xác nhận hủy</Button>
       </Modal>
 
-      <Modal open={Boolean(detail)} title="Chi tiết booking" onClose={() => setDetail(null)}>
+      <Modal open={Boolean(detail)} title="Chi tiết lượt đặt sân" onClose={() => setDetail(null)}>
         {detail && <dl className="grid gap-3 text-sm">
           <div><dt className="text-ink-500">Người chơi</dt><dd className="font-semibold">{detail.player.label}</dd></div>
           <div><dt className="text-ink-500">Cơ sở · sân</dt><dd className="font-semibold">{detail.court.venue.name} · {detail.court.name}</dd></div>
           <div><dt className="text-ink-500">Địa chỉ</dt><dd>{detail.court.venue.address}</dd></div>
           <div><dt className="text-ink-500">Thời gian</dt><dd>{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</dd></div>
-          <div><dt className="text-ink-500">Giá trị booking</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
+          <div><dt className="text-ink-500">Giá trị lượt đặt sân</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
           <div><dt className="text-ink-500">Trạng thái</dt><dd>{statusText(detail)}</dd></div>
           {detail.holdExpiresAt && <div><dt className="text-ink-500">Giữ chỗ đến</dt><dd>{formatDateTimeVi(detail.holdExpiresAt)}</dd></div>}
-          <div><dt className="text-ink-500">Mã booking</dt><dd className="font-semibold">{detail.businessCode}</dd></div>
+          <div><dt className="text-ink-500">Mã đặt sân</dt><dd className="font-semibold">{detail.businessCode}</dd></div>
         </dl>}
         {detail && <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
           <Button tone="danger" onClick={() => void openShutdown('court', detail.court.id, detail.court.name)}>Ngừng hoạt động sân</Button>

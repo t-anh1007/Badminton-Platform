@@ -36,7 +36,7 @@ export function AdminEvaluationsPage() {
   return (
     <>
       <h2 className="text-h1">Đánh giá bị gắn cờ</h2>
-      <p className="mt-2 text-ink-500">Chỉ quyết định rõ ràng của Admin mới đưa đánh giá vào tổng hợp trình độ.</p>
+      <p className="mt-2 text-ink-500">Chỉ quyết định rõ ràng của quản trị viên mới đưa đánh giá vào tổng hợp trình độ.</p>
       <div className="mt-5 max-w-xs">
         <SelectInput aria-label="Trạng thái duyệt đánh giá" value={status} onChange={(event) => { const next = event.target.value as AdminEvaluationRow['reviewStatus']; setStatus(next); void load(next) }}>
           <option value="pending">Chờ duyệt</option><option value="approved">Đã chấp thuận</option><option value="rejected">Đã từ chối</option>
@@ -50,7 +50,7 @@ export function AdminEvaluationsPage() {
               <div>
                 <p className="font-bold">{row.rater.label} → {row.ratee.label}</p>
                 <p className="mt-1 text-sm text-ink-500">Mức cảm nhận: {tierLabel[row.perceivedTier ?? ''] ?? 'Chưa xác định'}</p>
-                <p className="text-sm text-ink-500">{reasonLabel[row.flagReason ?? ''] ?? 'Cần Admin xác minh'}</p>
+                <p className="text-sm text-ink-500">{reasonLabel[row.flagReason ?? ''] ?? 'Cần quản trị viên xác minh'}</p>
                 <p className="text-caption">Gửi lúc {formatDateTimeVi(row.createdAt)}</p>
               </div>
               <Badge tone={row.reviewStatus === 'pending' ? 'warning' : row.reviewStatus === 'approved' ? 'success' : 'danger'}>{row.reviewStatus === 'pending' ? 'Chờ duyệt' : row.reviewStatus === 'approved' ? 'Đã chấp thuận' : 'Đã từ chối'}</Badge>

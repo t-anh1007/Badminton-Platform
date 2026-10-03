@@ -268,7 +268,7 @@ export function ManageVenuesPage() {
                 <label className="grid gap-1.5 text-sm font-medium">Giá mỗi giờ<TextInput aria-label="Giá mỗi giờ chung" inputMode="numeric" value={formatVndInput(hourlyPrice)} onChange={(event) => setHourlyPrice(event.target.value.replace(/\D/g, ''))} /></label>
                 <label className="grid gap-1.5 text-sm font-medium">Hiệu lực từ<TextInput aria-label="Ngày hiệu lực chung" type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} /></label>
               </div>
-              <p className="text-xs text-ink-500">Slot 30 phút, tối thiểu 60 phút; tối đa theo giờ hoạt động.</p>
+              <p className="text-xs text-ink-500">Mỗi khung giờ 30 phút. Đặt ít nhất 60 phút, trong giờ sân hoạt động.</p>
             </div>
           )}
 

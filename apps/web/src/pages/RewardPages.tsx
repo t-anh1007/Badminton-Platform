@@ -31,11 +31,11 @@ export function RewardProgramsPage() {
   useEffect(() => { listRewardPrograms().then((result) => setPrograms(result.items), (cause) => setError(errorText(cause, 'Không thể tải chương trình thưởng.'))); }, []);
   return (
     <div className="page-container py-8 sm:py-10">
-      <PageHeader eyebrow="Bảng xếp hạng" title="Chương trình thưởng" description="Giải thưởng do Admin, ngân sách marketing hoặc nhà tài trợ chi trả; không lấy từ tiền booking hay tiền kèo." />
+      <PageHeader eyebrow="Bảng xếp hạng" title="Chương trình thưởng" description="Giải thưởng do quản trị viên, ngân sách marketing hoặc nhà tài trợ chi trả; không lấy từ tiền lượt đặt sân hay tiền kèo." />
       <div className="mt-6">
         {error ? <RouteState variant="error" title="Chưa thể tải chương trình" description={error} />
           : !programs ? <RouteState variant="loading" title="Đang tải chương trình thưởng" />
-          : programs.length === 0 ? <RouteState variant="empty" title="Chưa có chương trình thưởng" description="Chương trình mới sẽ xuất hiện khi Admin công bố." />
+          : programs.length === 0 ? <RouteState variant="empty" title="Chưa có chương trình thưởng" description="Chương trình mới sẽ xuất hiện khi quản trị viên công bố." />
           : (
             <div className="grid gap-4 md:grid-cols-2">
               {programs.map((program) => (
@@ -116,7 +116,7 @@ export function RewardProgramDetailPage() {
             {[
               ['Hệ thống tự tính thứ hạng', `Xếp theo tiêu chí: ${program.criterionLabel.toLowerCase()}.`],
               ['Chờ các trận đúng hạn hoàn tất xử lý', 'Trận kết thúc trong thời gian chương trình vẫn được tính sau khi có kết quả cuối cùng.'],
-              ['Admin duyệt danh sách cuối', 'Admin chỉ duyệt danh sách do hệ thống tính, không sửa điểm hoặc thứ hạng.'],
+              ['Quản trị viên duyệt danh sách cuối', 'Quản trị viên chỉ duyệt danh sách do hệ thống tính, không sửa điểm hoặc thứ hạng.'],
               ['Đồng hạng được chia đều', 'Tiền của các vị trí đồng hạng được cộng lại và chia đều cho những người cùng hạng.'],
             ].map(([title, body], index) => (
               <li key={title} className="flex gap-3">
@@ -149,7 +149,7 @@ export function RewardProgramDetailPage() {
           {program.status !== 'final' && program.status !== 'cancelled' && (
             <p className="mt-4 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-xs text-ink-700">Thứ hạng có thể thay đổi đến khi chương trình kết thúc và các kết quả liên quan được xử lý xong.</p>
           )}
-          <p className="mt-3 rounded-xl bg-success-bg p-3 text-xs text-ink-700">Giải thưởng do Admin, ngân sách marketing hoặc nhà tài trợ chi trả; không lấy từ tiền booking hoặc tiền kèo của người chơi.</p>
+          <p className="mt-3 rounded-xl bg-success-bg p-3 text-xs text-ink-700">Giải thưởng do quản trị viên, ngân sách marketing hoặc nhà tài trợ chi trả; không lấy từ tiền lượt đặt sân hoặc tiền kèo của người chơi.</p>
           <Link to="/leaderboard" className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line font-bold text-brand-navy hover:bg-canvas">Quay lại bảng xếp hạng</Link>
         </SurfaceCard>
       </div>
@@ -273,7 +273,7 @@ function RewardPayoutDetail({ payoutId }: { payoutId: string }) {
         recipientName: form.recipientName.trim(), email: form.email.trim(), address: form.address.trim(), bankAccountName: form.bankAccountName.trim(),
       });
       setPayout((prev) => ({ ...prev!, ...result.payout }));
-      setNotice('Đã lưu thông tin nhận thưởng. Admin sẽ chuyển thưởng trong 7 ngày.');
+      setNotice('Đã lưu thông tin nhận thưởng. Quản trị viên sẽ chuyển thưởng trong 7 ngày.');
     } catch (cause) {
       setNotice(errorText(cause, 'Không thể lưu thông tin nhận thưởng.'));
     } finally {
@@ -287,7 +287,7 @@ function RewardPayoutDetail({ payoutId }: { payoutId: string }) {
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-extrabold text-brand-navy sm:text-4xl">Hoàn tất thông tin nhận thưởng</h1>
-          <p className="mt-1 text-sm text-ink-500">Cung cấp thông tin liên hệ và tài khoản ngân hàng để Admin chuyển thưởng.</p>
+          <p className="mt-1 text-sm text-ink-500">Cung cấp thông tin liên hệ và tài khoản ngân hàng để quản trị viên chuyển thưởng.</p>
         </div>
         <Badge tone={payoutTone(payout.status)}>{PAYOUT_STATUS_LABELS[payout.status]}</Badge>
       </div>
@@ -311,7 +311,7 @@ function RewardPayoutDetail({ payoutId }: { payoutId: string }) {
           <SurfaceCard>
             <h2 className="text-h2">Thông tin người nhận</h2>
             <p className="mt-1 text-sm text-ink-500">Tất cả các trường đều bắt buộc để nhận thưởng.</p>
-            {payout.status === 'ready_to_pay' && <p className="mt-3 rounded-xl bg-success-bg p-3 text-sm">Bạn đã gửi đủ thông tin. Gửi lại biểu mẫu nếu cần cập nhật trước khi Admin chuyển thưởng.</p>}
+            {payout.status === 'ready_to_pay' && <p className="mt-3 rounded-xl bg-success-bg p-3 text-sm">Bạn đã gửi đủ thông tin. Gửi lại biểu mẫu nếu cần cập nhật trước khi quản trị viên chuyển thưởng.</p>}
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field id="payout-recipientName" label="Họ và tên" error={errors.recipientName}><TextInput autoComplete="name" {...fieldProps('recipientName')} /></Field>
               <Field id="payout-email" label="Email" error={errors.email}><TextInput type="email" autoComplete="email" {...fieldProps('email')} /></Field>
@@ -336,7 +336,7 @@ function RewardPayoutDetail({ payoutId }: { payoutId: string }) {
           <SurfaceCard className="h-fit">
             <h2 className="text-h2">{payout.status === 'ready_to_pay' ? 'Hạn chuyển thưởng' : 'Thời hạn hoàn tất'}</h2>
             <p className="mt-1 text-sm text-ink-500">
-              {payout.status === 'ready_to_pay' ? 'Admin chuyển thưởng trong 7 ngày kể từ khi bạn gửi đủ thông tin.' : 'Thời hạn tính từ lúc danh sách nhận giải được thông báo.'}
+              {payout.status === 'ready_to_pay' ? 'Quản trị viên chuyển thưởng trong 7 ngày kể từ khi bạn gửi đủ thông tin.' : 'Thời hạn tính từ lúc danh sách nhận giải được thông báo.'}
             </p>
             {deadline && (
               <div className="mt-4 rounded-xl bg-danger-bg p-4">
@@ -350,7 +350,7 @@ function RewardPayoutDetail({ payoutId }: { payoutId: string }) {
                 Nếu quá thời hạn 7 ngày, bạn mất quyền nhận giải; phần thưởng bị hủy và không chuyển cho người xếp hạng tiếp theo.
               </p>
             )}
-            <p className="mt-3 rounded-xl bg-canvas p-3 text-xs text-ink-700">Thông tin liên hệ và ngân hàng chỉ được dùng để Admin thực hiện việc trả thưởng.</p>
+            <p className="mt-3 rounded-xl bg-canvas p-3 text-xs text-ink-700">Thông tin liên hệ và ngân hàng chỉ được dùng để quản trị viên thực hiện việc trả thưởng.</p>
             {notice && <p role="status" className={`mt-3 text-sm ${notice.startsWith('Đã') ? 'text-success' : 'text-danger'}`}>{notice}</p>}
             {editable ? (
               <AsyncButton type="submit" className="mt-4 w-full" pending={pending}>Lưu thông tin nhận thưởng</AsyncButton>

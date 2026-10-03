@@ -181,8 +181,8 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
 
       <p className="text-xs text-ink-500">
         {value
-          ? `Đã chọn: ${value.lat.toFixed(6)}, ${value.lng.toFixed(6)} — click hoặc kéo marker để chỉnh.`
-          : 'Tìm địa chỉ hoặc click lên bản đồ để đặt vị trí sân.'}
+          ? `Đã chọn: ${value.lat.toFixed(6)}, ${value.lng.toFixed(6)} — bấm trên bản đồ hoặc kéo ghim để đổi vị trí.`
+          : 'Tìm địa chỉ hoặc bấm lên bản đồ để đặt vị trí sân.'}
       </p>
     </div>
   );

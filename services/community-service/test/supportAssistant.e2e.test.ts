@@ -145,7 +145,7 @@ describe('AI-02 — grounded support assistant', () => {
     const response = await request(app).post('/assistant/chat').set('Authorization', playerAuthorization())
       .send({ question: 'Booking gần nhất của tôi khi nào?' }).expect(200);
 
-    expect(response.body.answer).toContain('Không thể tải dữ liệu booking');
+    expect(response.body.answer).toContain('Không thể tải dữ liệu đặt sân');
     expect(response.body.actionPath).toBe('/players/me/bookings');
     expect(response.body.answer).not.toContain('Trợ lý tạm bận');
   });

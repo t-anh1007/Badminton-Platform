@@ -243,7 +243,7 @@ function OwnPassportView() {
         </>
       )}
       <Modal open={evaluationTarget !== null} title="Đánh giá sau trận" onClose={() => setEvaluationTarget(null)}>
-        <p className="text-sm text-ink-500">Chọn bậc bạn cảm nhận cho người chơi cùng kèo. Đánh giá bất thường chỉ được gắn cờ chờ Admin, không tự phạt hay đổi điểm.</p>
+        <p className="text-sm text-ink-500">Chọn bậc bạn cảm nhận cho người chơi cùng kèo. Đánh giá bất thường chỉ được gắn cờ chờ quản trị viên, không tự phạt hay đổi điểm.</p>
         <label className="mt-4 block text-sm font-medium">
           Bậc cảm nhận
           <SelectInput className="mt-1" value={evaluationTier} onChange={(event) => setEvaluationTier(event.target.value as SkillTier)}>

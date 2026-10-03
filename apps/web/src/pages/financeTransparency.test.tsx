@@ -24,7 +24,7 @@ it('chủ sân: tổng quan dùng ngôn ngữ nghiệp vụ, đổi cơ sở t�
   expect(screen.queryByText(/ledger|wallet|database/i)).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Lọc cơ sở'), { target: { value: 'venue-1' } });
   expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ venueId: 'venue-1' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Xem các booking đang chờ đủ 24 giờ' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Xem các lượt đặt sân đang chờ đủ 24 giờ' }));
   expect(props.onShowPending).toHaveBeenCalled();
 });
 
@@ -72,7 +72,7 @@ it('chủ sân xem chi tiết dòng tiền: 5 tab, tên khách đầy đủ, k�
   expect(await screen.findAllByText('Nguyễn Minh Khoa')).not.toHaveLength(0);
   await waitFor(() => expect(flows).toHaveBeenLastCalledWith(expect.objectContaining({ tab: 'revenue', from: '2026-08-30T00:00:00.000+07:00', to: '2026-08-30T23:59:59.999+07:00', pageSize: 5 })));
   expect(await screen.findByText('Ví của bạn', { exact: false, selector: 'span' })).toBeInTheDocument();
-  expect(screen.getAllByRole('button', { name: /Doanh thu booking|Hoàn tiền và khoản bị trừ|Rút tiền|Sổ ví|Theo cơ sở \/ sân/ })).toHaveLength(5);
+  expect(screen.getAllByRole('button', { name: /Doanh thu đặt sân|Hoàn tiền và khoản bị trừ|Rút tiền|Sổ ví|Theo cơ sở \/ sân/ })).toHaveLength(5);
   expect(screen.getByLabelText('Lọc sân con')).toBeDisabled();
   fireEvent.change(screen.getByLabelText('Lọc cơ sở trong chi tiết dòng tiền'), { target: { value: 'venue-1' } });
   fireEvent.change(screen.getByLabelText('Lọc sân con'), { target: { value: 'court-1' } });

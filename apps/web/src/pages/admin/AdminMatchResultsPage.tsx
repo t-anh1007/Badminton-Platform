@@ -48,7 +48,7 @@ export function AdminMatchResultsPage() {
           </SelectInput>
           {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
             : !queue ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p>
-            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'admin_review' ? 'Không có hồ sơ chờ Admin quyết định.' : 'Chưa có hồ sơ nào đã có kết quả.'}</p>
+            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'admin_review' ? 'Không có hồ sơ chờ quản trị viên quyết định.' : 'Chưa có hồ sơ nào đã có kết quả.'}</p>
             : (
               <ul className="mt-3 space-y-2">
                 {queue.items.map((item) => (
@@ -155,7 +155,7 @@ function AdminCase({ caseId, onDecided }: { caseId: string; onDecided: () => voi
         <SurfaceCard className="h-fit">
           <h3 className="text-h3">Kết quả bạn sắp xác nhận</h3>
           {!detail.actions.canPreviewDecision ? (
-            <p className="mt-3 text-sm text-ink-500">Hồ sơ không còn ở bước Admin quyết định.</p>
+            <p className="mt-3 text-sm text-ink-500">Hồ sơ không còn ở bước quản trị viên quyết định.</p>
           ) : (
             <>
               <p className="mt-1 text-sm text-ink-500">Đây là quyết định cuối và chỉ áp dụng sau bước xác nhận.</p>

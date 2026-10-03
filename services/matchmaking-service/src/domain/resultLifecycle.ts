@@ -458,7 +458,7 @@ export async function previewAdminDecision(
 ) {
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { resultCase: true } });
   if (!match?.resultCase || match.resultCase.status !== 'admin_review') {
-    throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước Admin quyết định.');
+    throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước quản trị viên quyết định.');
   }
   const teams = await resultTeams(prisma, match);
   const reserve = match.bookingPrice === null ? 0n
@@ -489,7 +489,7 @@ export async function decideAdminResult(
     await lockMatch(tx, matchId);
     const resultCase = await tx.matchResultCase.findUnique({ where: { matchId } });
     if (!resultCase || resultCase.status !== 'admin_review') {
-      throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước Admin quyết định.');
+      throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước quản trị viên quyết định.');
     }
     if (resultCase.version !== input.caseVersion) {
       throw new AppError(409, 'RESULT_CASE_VERSION_CONFLICT', 'Hồ sơ đã thay đổi; hãy xem lại tác động trước khi xác nhận.');

@@ -47,7 +47,7 @@ it('shows the locked configuration, authoritative booking and backend money with
   expect(await screen.findByText('Thông tin đã khóa')).toBeInTheDocument()
   expect(screen.getByText('Kèo xếp hạng - Đánh đơn')).toBeInTheDocument()
   expect(screen.getByText('7 : 3')).toBeInTheDocument()
-  expect(screen.getByText('BO3 - 21 điểm - giới hạn 30')).toBeInTheDocument()
+  expect(screen.getByText('BO3 (thắng 2 trong 3 ván) - 21 điểm - giới hạn 30')).toBeInTheDocument()
   expect(screen.getByText('123 Nguyễn Thị Thập')).toBeInTheDocument()
   expect(screen.getByText(/Hạn chốt kèo -/)).toBeInTheDocument()
   const money = screen.getByRole('heading', { name: 'Tình trạng tiền kèo' }).closest('section')!

@@ -62,7 +62,7 @@ export async function createMatch(
   const sourceType = input.bookingId ? 'paid_booking' as const : 'hold' as const;
   let bookingId: string;
   if (sourceType === 'hold') {
-    if (!input.holdId) throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ slot trước khi tạo kèo.');
+    if (!input.holdId) throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ khung giờ trước khi tạo kèo.');
     bookingId = await venueBookingClient.createBookingFromHold(input.holdId, authorization);
   } else {
     bookingId = input.bookingId!;
@@ -74,18 +74,18 @@ export async function createMatch(
     : context?.status === 'confirmed' && context.ownerUserId === organizerUserId;
   if (!context || !ownedSource) {
     throw sourceType === 'hold'
-      ? new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Slot sân không còn được organizer giữ hợp lệ.')
-      : new AppError(422, 'MATCH_BOOKING_NOT_OWNED', 'Chỉ booking đã thanh toán của chính bạn mới chuyển được thành kèo.');
+      ? new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Khung giờ sân không còn được chủ kèo giữ hợp lệ.')
+      : new AppError(422, 'MATCH_BOOKING_NOT_OWNED', 'Chỉ lượt đặt sân đã thanh toán của chính bạn mới chuyển được thành kèo.');
   }
 
   const startAt = new Date(context.startAt);
   const endAt = new Date(context.endAt);
   // BR-CM-02: chỉ cho tạo kèo khi slot còn ít nhất 24h tới giờ đá.
   if (startAt.getTime() - now.getTime() < MIN_LEAD_HOURS * HOUR_MS) {
-    throw new AppError(422, 'MATCH_LEAD_TOO_SHORT', 'Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.');
+    throw new AppError(422, 'MATCH_LEAD_TOO_SHORT', 'Chỉ tạo được kèo cho khung giờ còn ít nhất 24 giờ nữa.');
   }
   if (!formatAllowed(input.format, startAt, endAt)) {
-    throw new AppError(422, 'MATCH_FORMAT_NOT_ALLOWED', 'Booking từ 90 phút trở xuống chỉ áp dụng thể thức BO3.');
+    throw new AppError(422, 'MATCH_FORMAT_NOT_ALLOWED', 'Lượt đặt sân từ 90 phút trở xuống chỉ áp dụng thể thức BO3.');
   }
   if (input.mode === 'ranked' && !context.provinceCode) {
     throw new AppError(422, 'MATCH_PROVINCE_REQUIRED', 'Cơ sở chưa có tỉnh/thành nên chưa tạo được kèo xếp hạng.');
@@ -111,7 +111,7 @@ export async function createMatch(
         existing.skillMin === (input.skillMin ?? null) &&
         existing.skillMax === (input.skillMax ?? null);
       if (!sameRequest) {
-        throw new AppError(409, 'BOOKING_MATCH_ALREADY_EXISTS', 'Booking đã được dùng cho một kèo khác.');
+        throw new AppError(409, 'BOOKING_MATCH_ALREADY_EXISTS', 'Lượt đặt sân đã được dùng cho một kèo khác.');
       }
       return existing;
     }

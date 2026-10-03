@@ -19,7 +19,7 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
       if (Date.now() < new Date(holdExpiresAt).getTime()) return
       setRemaining(0)
       setPhase('expired')
-      setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại slot.')
+      setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại khung giờ.')
       const result = await waitForBookingTerminal(bookingId, { timeoutMs: 0 })
       if (result.booking.terminalStatus === 'confirmed') { setPhase('confirmed'); onConfirmed(result) }
     }
@@ -47,7 +47,7 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
       setPhase('confirming')
       const result = await waitForBookingTerminal(bookingId, waitOptions)
       if (result.booking.terminalStatus === 'confirmed') { setPhase('confirmed'); onConfirmed(result); return }
-      setPhase('expired'); setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại slot.')
+      setPhase('expired'); setMessage('Lượt giữ chỗ đã hết hạn hoặc đã bị hủy. Hãy chọn lại khung giờ.')
     } catch (error) { setPhase('failed'); setMessage(error instanceof Error ? error.message : 'Không thể xác nhận thanh toán.') }
   }
   const recover = () => { if (!recovered.current) { recovered.current = true; onRecover() } }
@@ -58,6 +58,6 @@ export function BookingPaymentPanel({ bookingId, holdExpiresAt, onConfirmed, onR
     <Button className="w-full" disabled={disabled} onClick={() => void pay()}>{phase === 'confirming' ? 'Đang xác nhận…' : method === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>
     {payment && <div className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={payment} /></div>}
     {message && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
-    {phase === 'expired' && <Button tone="secondary" className="w-full" onClick={recover}>Chọn lại slot</Button>}
+    {phase === 'expired' && <Button tone="secondary" className="w-full" onClick={recover}>Chọn lại khung giờ</Button>}
   </div>
 }

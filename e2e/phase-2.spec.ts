@@ -120,7 +120,7 @@ test('HT9 P2: player khám phá kèo, gửi JOIN và nhận gợi ý AI chỉ d�
   await page.getByRole('button', { name: 'Chat hỗ trợ' }).click();
   await page.getByPlaceholder(/Hỏi về chính sách hoặc booking/).fill('Hủy booking giúp tôi');
   await page.getByRole('button', { name: 'Gửi câu hỏi' }).click();
-  await expect(page.getByText(/không thể tự hủy booking/i)).toBeVisible();
+  await expect(page.getByText(/không thể tự hủy lượt đặt sân/i)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Mở booking của tôi' })).toBeVisible();
 });
 

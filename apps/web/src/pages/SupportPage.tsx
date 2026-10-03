@@ -38,7 +38,7 @@ const statusMap: Record<
   open: {
     label: 'Mới gửi',
     tone: 'warning',
-    description: 'Ticket đang chờ đội ngũ hỗ trợ tiếp nhận.',
+    description: 'Yêu cầu đang chờ đội ngũ hỗ trợ tiếp nhận.',
   },
   in_progress: {
     label: 'Đang xử lý',
@@ -48,7 +48,7 @@ const statusMap: Record<
   resolved: {
     label: 'Đã giải quyết',
     tone: 'success',
-    description: 'Ticket đã có phương án giải quyết và không nhận thêm tin nhắn.',
+    description: 'Yêu cầu đã có phương án giải quyết và không nhận thêm tin nhắn.',
   },
   closed: {
     label: 'Đã đóng',
@@ -100,7 +100,7 @@ export function SupportPage() {
         setSearchParams({}, { replace: true });
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không thể tải ticket hỗ trợ.');
+      setError(cause instanceof Error ? cause.message : 'Không thể tải yêu cầu hỗ trợ.');
     } finally {
       setLoading(false);
     }
@@ -143,11 +143,11 @@ export function SupportPage() {
       setEvidence([]);
       setEvidencePickerVersion((version) => version + 1);
       setCreateOpen(false);
-      setNotice({ message: 'Đã gửi ticket hỗ trợ.', tone: 'success' });
+      setNotice({ message: 'Đã gửi yêu cầu hỗ trợ.', tone: 'success' });
       await loadTickets(ticket.id);
     } catch (cause) {
       setNotice({
-        message: cause instanceof Error ? cause.message : 'Không thể tạo ticket.',
+        message: cause instanceof Error ? cause.message : 'Không thể tạo yêu cầu.',
         tone: 'error',
       });
     } finally {
@@ -187,8 +187,8 @@ export function SupportPage() {
         </header>
         <div className="mx-auto mt-6 max-w-2xl">
           <EmptyState
-            title="Đăng nhập để tạo ticket"
-            description="Ticket là kênh riêng tư giữa bạn và Admin, vì vậy chỉ tài khoản đã đăng nhập mới có thể truy cập."
+            title="Đăng nhập để tạo yêu cầu"
+            description="Yêu cầu là kênh riêng tư giữa bạn và quản trị viên, vì vậy chỉ tài khoản đã đăng nhập mới có thể truy cập."
             action={<Button onClick={() => navigate('/auth')}>Đăng nhập</Button>}
           />
         </div>
@@ -212,10 +212,10 @@ export function SupportPage() {
             Trao đổi bất đồng bộ với đội ngũ vận hành. Ticket và tin nhắn chỉ hiển thị cho bạn và Admin.
           </p>
         </div>
-        {canCreate && <Button onClick={(event) => { event.currentTarget.focus(); setCreateOpen(true); }}>Tạo ticket mới</Button>}
+        {canCreate && <Button onClick={(event) => { event.currentTarget.focus(); setCreateOpen(true); }}>Tạo yêu cầu mới</Button>}
       </header>
 
-      {error && <div className="mt-6"><RouteState variant="error" title="Không thể tải ticket hỗ trợ" description={error} onRetry={() => void loadTickets()} /></div>}
+      {error && <div className="mt-6"><RouteState variant="error" title="Không thể tải yêu cầu hỗ trợ" description={error} onRetry={() => void loadTickets()} /></div>}
 
       <div className="mt-6 grid min-h-[560px] items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         <SurfaceCard className="overflow-hidden p-0 sm:p-0">
@@ -224,13 +224,13 @@ export function SupportPage() {
             <Badge>{tickets.length}</Badge>
           </div>
           {loading ? (
-            <div className="p-4"><RouteState variant="loading" title="Đang tải ticket" className="min-h-64" /></div>
+            <div className="p-4"><RouteState variant="loading" title="Đang tải yêu cầu" className="min-h-64" /></div>
           ) : tickets.length === 0 ? (
             <div className="p-4">
               <EmptyState
-                title="Chưa có ticket"
+                title="Chưa có yêu cầu"
                 description={
-                  canCreate ? 'Tạo ticket khi bạn cần đội ngũ vận hành hỗ trợ.' : 'Chưa có yêu cầu hỗ trợ nào.'
+                  canCreate ? 'Tạo yêu cầu khi bạn cần đội ngũ vận hành hỗ trợ.' : 'Chưa có yêu cầu hỗ trợ nào.'
                 }
                 action={
                   canCreate ? (
@@ -272,15 +272,15 @@ export function SupportPage() {
           ) : detailError ? (
             <RouteState
               variant="error"
-              title="Không thể mở ticket"
+              title="Không thể mở yêu cầu"
               description={detailError}
               onRetry={() => selectedId && void loadDetail(selectedId)}
             />
           ) : !detail ? (
             <EmptyState
-              title="Chọn một ticket"
-              description="Chọn ticket ở danh sách để xem trạng thái và toàn bộ cuộc trao đổi."
-              action={canCreate ? <Button onClick={() => setCreateOpen(true)}>Tạo ticket mới</Button> : undefined}
+              title="Chọn một yêu cầu"
+              description="Chọn yêu cầu ở danh sách để xem trạng thái và toàn bộ cuộc trao đổi."
+              action={canCreate ? <Button onClick={() => setCreateOpen(true)}>Tạo yêu cầu mới</Button> : undefined}
             />
           ) : (
             <SurfaceCard className="overflow-hidden p-0 sm:p-0">
@@ -349,7 +349,7 @@ export function SupportPage() {
                   </>
                 ) : (
                   <div className="rounded-xl bg-canvas p-4 text-center">
-                    <p className="font-medium">Ticket không nhận thêm phản hồi</p>
+                    <p className="font-medium">Yêu cầu không nhận thêm phản hồi</p>
                     <p className="mt-1 text-sm text-ink-500">
                       Trạng thái hiện tại: {statusMap[detail.status].label.toLowerCase()}.
                     </p>
@@ -361,15 +361,15 @@ export function SupportPage() {
         </section>
       </div>
 
-      <Modal open={createOpen} title="Tạo ticket hỗ trợ" onClose={() => setCreateOpen(false)} initialFocusRef={subjectRef}>
-        <p className="text-sm text-ink-500">Mô tả một vấn đề mỗi ticket để đội ngũ hỗ trợ theo dõi rõ trạng thái.</p>
+      <Modal open={createOpen} title="Tạo yêu cầu hỗ trợ" onClose={() => setCreateOpen(false)} initialFocusRef={subjectRef}>
+        <p className="text-sm text-ink-500">Mô tả một vấn đề mỗi yêu cầu để đội ngũ hỗ trợ theo dõi rõ trạng thái.</p>
         <label className="mt-4 block text-sm font-medium">
           Chủ đề
           <input
             ref={subjectRef}
             maxLength={120}
             className="mt-1 w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2.5 text-ink-900 placeholder:text-ink-300"
-            placeholder="Ví dụ: Không thấy booking trong tài khoản"
+            placeholder="Ví dụ: Không thấy lượt đặt sân trong tài khoản"
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
           />
@@ -389,14 +389,14 @@ export function SupportPage() {
         <p className="mt-1 text-right text-caption">{ticketBody.length} / 1.000</p>
         <div className="mt-4">
           <p className="mb-2 text-sm font-medium">Ảnh bằng chứng <span className="font-normal text-ink-500">(không bắt buộc, tối đa 5)</span></p>
-          <ImageUploadPicker key={evidencePickerVersion} label="Thêm ảnh bằng chứng cho ticket" maxFiles={5} authorize={authorizeTicketEvidence} upload={uploadAuthorizedFile} onUploadedChange={setEvidence} />
+          <ImageUploadPicker key={evidencePickerVersion} label="Thêm ảnh bằng chứng cho yêu cầu" maxFiles={5} authorize={authorizeTicketEvidence} upload={uploadAuthorizedFile} onUploadedChange={setEvidence} />
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button tone="secondary" onClick={() => setCreateOpen(false)}>
             Hủy
           </Button>
           <Button disabled={submitting || !subject.trim() || !ticketBody.trim() || evidence.some((image) => image.status !== 'uploaded')} onClick={() => void createTicket()}>
-            {submitting ? 'Đang gửi…' : 'Gửi ticket'}
+            {submitting ? 'Đang gửi…' : 'Gửi yêu cầu'}
           </Button>
         </div>
       </Modal>

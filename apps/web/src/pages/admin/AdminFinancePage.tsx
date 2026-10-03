@@ -68,7 +68,7 @@ export function AdminFinancePage() {
       <section id="finance-flows" className="surface-card mt-6 scroll-mt-36 p-4">
         <h3 className="text-h2">Chi tiết dòng tiền</h3>
         <p className="mt-1 text-sm text-ink-500">Mỗi con số ở trên mở ra danh sách giao dịch cấu thành nó: tiền của ai, cho ai, vì nội dung gì, khớp giao dịch ngân hàng nào. Có bộ lọc kỳ xem và tìm kiếm riêng.</p>
-        <div className="mt-4"><AdminFinanceFlows nav={flowNav} owners={(overview?.byOwner ?? []).map((row) => ({ id: row.key, name: ownerNames.get(row.key) ?? `Chủ sân #${row.key.slice(0, 8)}` }))} /></div>
+        <div className="mt-4"><AdminFinanceFlows nav={flowNav} owners={(overview?.byOwner ?? []).map((row) => ({ id: row.key, name: ownerNames.get(row.key) ?? 'Chưa rõ chủ sân' }))} /></div>
       </section>
       <section id="finance-withdrawals" className="surface-card mt-6 scroll-mt-36 p-4">
         <h3 className="text-h2">Yêu cầu rút tiền</h3>

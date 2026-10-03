@@ -43,11 +43,11 @@ const informationByPath: Record<string, InformationPage> = {
   '/cancellation-policy': {
     eyebrow: 'CHÍNH SÁCH HỦY',
     title: 'Hủy sân minh bạch theo thời điểm',
-    lead: 'Mức hoàn được xác định từ chính sách đã lưu cùng booking của bạn tại thời điểm đặt.',
+    lead: 'Mức hoàn được xác định từ chính sách đã lưu cùng lượt đặt sân của bạn tại thời điểm đặt.',
     sections: [
       { title: 'Các mốc hoàn tiền', body: 'Theo chính sách mặc định, hủy từ 24 giờ trước giờ chơi được hoàn 100%; từ 6 đến dưới 24 giờ được hoàn 50%; dưới 6 giờ không hoàn tiền.' },
-      { title: 'Cách hủy booking', body: 'Mở Hồ sơ, chọn booking sắp diễn ra, xem mức hoàn dự kiến rồi xác nhận hủy. Booking đã bắt đầu không thể hủy trên ứng dụng.' },
-      { title: 'Điều cần lưu ý', body: 'Chính sách snapshot của booking là căn cứ cuối cùng vì từng sân có thể có cấu hình hoàn tiền khác nhau khi bạn đặt sân.' },
+      { title: 'Cách hủy lượt đặt sân', body: 'Mở Hồ sơ, chọn lượt đặt sân sắp diễn ra, xem mức hoàn dự kiến rồi xác nhận hủy. Lượt đặt sân đã bắt đầu không thể hủy trên ứng dụng.' },
+      { title: 'Điều cần lưu ý', body: 'Chính sách snapshot của lượt đặt sân là căn cứ cuối cùng vì từng sân có thể có cấu hình hoàn tiền khác nhau khi bạn đặt sân.' },
     ],
   },
   '/privacy': {
@@ -56,7 +56,7 @@ const informationByPath: Record<string, InformationPage> = {
     lead: 'COURTIN xử lý dữ liệu cần thiết để vận hành tài khoản, đặt sân, thanh toán và các tính năng cộng đồng.',
     sections: [
       { title: 'Thông tin được sử dụng', body: 'Bao gồm thông tin tài khoản, liên hệ, lịch đặt, giao dịch và nội dung bạn chủ động gửi để sử dụng các chức năng của nền tảng.' },
-      { title: 'Mục đích xử lý', body: 'Dữ liệu được dùng để xác thực, thực hiện booking và thanh toán, hỗ trợ người dùng, ngăn ngừa gian lận và cải thiện dịch vụ.' },
+      { title: 'Mục đích xử lý', body: 'Dữ liệu được dùng để xác thực, thực hiện đặt sân và thanh toán, hỗ trợ người dùng, ngăn ngừa gian lận và cải thiện dịch vụ.' },
       { title: 'Bảo vệ tài khoản', body: 'Không chia sẻ mật khẩu hoặc mã xác thực. Nếu thấy hoạt động bất thường, hãy đổi mật khẩu và gửi yêu cầu hỗ trợ ngay.' },
     ],
   },

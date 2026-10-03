@@ -72,16 +72,16 @@ export async function createDispute(userId: string, rawInput: CreateDisputeInput
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${input.bookingId}))) AS booking_lock`;
     const revenue = await tx.bookingRevenue.findUnique({ where: { bookingId: input.bookingId } });
-    if (!revenue) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy giao dịch booking.', 404);
+    if (!revenue) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy giao dịch đặt sân.', 404);
     const payment = await tx.paymentIntent.findFirst({
       where: { userId, refType: 'booking', refId: input.bookingId, status: 'completed' },
     });
-    if (!payment) throw new AppError('FORBIDDEN', 'Không có quyền tranh chấp booking này.', 403);
-    if (revenue.cancelledAt) throw new AppError('BOOKING_CANCELLED', 'Booking đã hủy nên không thể mở tranh chấp.', 409);
-    if (now < revenue.endAt) throw new AppError('BOOKING_NOT_ENDED', 'Ca chơi chưa kết thúc; hãy dùng luồng hủy booking.', 409);
+    if (!payment) throw new AppError('FORBIDDEN', 'Không có quyền tranh chấp lượt đặt sân này.', 403);
+    if (revenue.cancelledAt) throw new AppError('BOOKING_CANCELLED', 'Lượt đặt sân đã hủy nên không thể mở tranh chấp.', 409);
+    if (now < revenue.endAt) throw new AppError('BOOKING_NOT_ENDED', 'Ca chơi chưa kết thúc; hãy dùng luồng hủy lượt đặt sân.', 409);
     if (now > revenue.releaseAt || revenue.releasedAt) throw new AppError('DISPUTE_EXPIRED', 'Đã hết hạn khiếu nại 24 giờ.', 409);
     if (await tx.dispute.findUnique({ where: { bookingId: input.bookingId } })) {
-      throw new AppError('DISPUTE_EXISTS', 'Booking đã có tranh chấp.', 409);
+      throw new AppError('DISPUTE_EXISTS', 'Lượt đặt sân đã có tranh chấp.', 409);
     }
     const dispute = await tx.dispute.create({
       data: {
@@ -118,11 +118,11 @@ export async function resolveDispute(adminUserId: string, disputeId: string, raw
     const remainingGross = revenue.net + revenue.commission;
     const refundGross = input.decision === 'rejected' ? 0n
       : input.decision === 'full_refund' ? remainingGross : input.amount;
-    if (refundGross > remainingGross) throw new AppError('INVALID_REFUND', 'Số tiền hoàn vượt giá trị còn lại của booking.', 409);
+    if (refundGross > remainingGross) throw new AppError('INVALID_REFUND', 'Số tiền hoàn vượt giá trị còn lại của lượt đặt sân.', 409);
     const commissionReversal = (refundGross * COMMISSION_RATE_PERCENT) / 100n;
     const businessReversal = refundGross - commissionReversal;
     if (businessReversal > revenue.net || commissionReversal > revenue.commission) {
-      throw new AppError('INVALID_REFUND', 'Số tiền hoàn không khớp phân bổ booking.', 409);
+      throw new AppError('INVALID_REFUND', 'Số tiền hoàn không khớp phân bổ lượt đặt sân.', 409);
     }
 
     const business = await tx.wallet.findUniqueOrThrow({ where: { id: revenue.businessWalletId } });

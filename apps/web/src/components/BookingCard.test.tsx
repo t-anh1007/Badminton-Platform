@@ -47,16 +47,16 @@ it('reveals cancelled-booking details only on request, using the provider bookin
     court: { name: 'Sân 1', venue: { name: 'Nhà thi đấu', address: '12 Nguyễn Trãi, Quận 1' } },
   }
   render(<BookingCard booking={cancelled} preview={null} onPreview={vi.fn()} onConfirm={vi.fn()} onDismiss={vi.fn()} />)
-  const toggle = screen.getByRole('button', { name: 'Xem chi tiết booking' })
+  const toggle = screen.getByRole('button', { name: 'Xem chi tiết lượt đặt sân' })
   expect(toggle).toHaveAttribute('aria-expanded', 'false')
   expect(screen.queryByText('BK-00001234')).not.toBeInTheDocument()
   expect(screen.queryByText('12 Nguyễn Trãi, Quận 1')).not.toBeInTheDocument()
   fireEvent.click(toggle)
-  expect(screen.getByRole('button', { name: 'Ẩn chi tiết booking' })).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('button', { name: 'Ẩn chi tiết lượt đặt sân' })).toHaveAttribute('aria-expanded', 'true')
   expect(screen.getByText('BK-00001234')).toBeInTheDocument()
   expect(screen.getByText('12 Nguyễn Trãi, Quận 1')).toBeInTheDocument()
   expect(screen.getByText('Ngày đặt:')).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Ẩn chi tiết booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ẩn chi tiết lượt đặt sân' }))
   expect(screen.queryByText('BK-00001234')).not.toBeInTheDocument()
 })
 

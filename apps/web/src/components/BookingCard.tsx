@@ -46,7 +46,7 @@ export function BookingCard({ booking, preview, busy = false, cancellable = true
       <div>
         <p className="font-semibold">{booking.court?.venue?.name ?? 'Cơ sở'} — {booking.court?.name ?? 'Sân'}</p>
         <p className="mt-1 text-sm text-ink-500">{formatBookingRange(booking.startAt, booking.endAt)}</p>
-        {!cancelled && <BusinessCode code={booking.businessCode} label="Mã booking" />}
+        {!cancelled && <BusinessCode code={booking.businessCode} label="Mã đặt sân" />}
         {cancelled && <p className="mt-1 text-xs font-bold text-danger">Lịch đặt đã hủy</p>}
         {held && <p className="mt-1 text-xs font-semibold text-ink-500">{booking.matchDepositPaid ? 'Đang giữ chỗ · đã đặt cọc' : 'Đang giữ chỗ · chưa thanh toán'}</p>}
       </div>
@@ -54,14 +54,14 @@ export function BookingCard({ booking, preview, busy = false, cancellable = true
     </div>
     <div className="mt-3 flex flex-wrap gap-2">
       <Button tone="secondary" size="sm" aria-expanded={showDetails} aria-controls={detailsId} onClick={() => setShowDetails((visible) => !visible)}>
-        {showDetails ? 'Ẩn chi tiết booking' : 'Xem chi tiết booking'}
+        {showDetails ? 'Ẩn chi tiết lượt đặt sân' : 'Xem chi tiết lượt đặt sân'}
       </Button>
       {cancellable && !cancelled && <Button disabled={busy} tone="danger" size="sm" onClick={held ? onConfirm : onPreview}>
         {held ? 'Hủy giữ chỗ' : 'Xem mức hoàn'}
       </Button>}
     </div>
     {showDetails && <div id={detailsId} className="mt-3 rounded-xl bg-ink-50 p-3 text-sm">
-      <BusinessCode code={booking.businessCode} label="Mã booking" />
+      <BusinessCode code={booking.businessCode} label="Mã đặt sân" />
       <p className="mt-1"><span className="text-ink-500">Cơ sở:</span> {booking.court?.venue?.name ?? 'Chưa có thông tin'}</p>
       <p className="mt-1"><span className="text-ink-500">Địa chỉ:</span> {booking.court?.venue?.address ?? 'Chưa có thông tin'}</p>
       <p className="mt-1"><span className="text-ink-500">Sân:</span> {booking.court?.name ?? 'Chưa có thông tin'}</p>
@@ -74,7 +74,7 @@ export function BookingCard({ booking, preview, busy = false, cancellable = true
     </div>}
     {preview !== null && cancellable && !cancelled && !held && <div className="mt-3 rounded-xl bg-brand-yellow/30 p-3">
       <p>Bạn sẽ được hoàn {preview}% — {formatMoneyVnd(Math.round(refund))}.</p>
-      <div className="mt-2 flex gap-2"><Button disabled={busy} tone="danger" size="sm" onClick={onConfirm}>Xác nhận hủy</Button><Button disabled={busy} tone="secondary" size="sm" onClick={onDismiss}>Giữ booking</Button></div>
+      <div className="mt-2 flex gap-2"><Button disabled={busy} tone="danger" size="sm" onClick={onConfirm}>Xác nhận hủy</Button><Button disabled={busy} tone="secondary" size="sm" onClick={onDismiss}>Giữ lượt đặt sân</Button></div>
     </div>}
   </article>
 }

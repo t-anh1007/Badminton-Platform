@@ -243,7 +243,7 @@ export function MatchListPage() {
   if (createOpen) {
     return (
       <div className="page-container py-8 sm:py-10">
-        <PageHeader eyebrow="Booking thành kèo cạnh tranh" title="Tạo kèo mới" description="Chọn booking, cấu hình kèo và kiểm tra toàn bộ dòng tiền trước khi công bố." />
+        <PageHeader eyebrow="Biến lượt đặt sân thành kèo cạnh tranh" title="Tạo kèo mới" description="Chọn lượt đặt sân, cấu hình kèo và kiểm tra toàn bộ dòng tiền trước khi công bố." />
         <div className="mt-6">
           <MatchCreatePanel onCancel={closeCreate} onCreated={(match) => navigate(`/matches/${match.id}`)} />
         </div>
@@ -392,7 +392,7 @@ export function MatchListPage() {
         <div className="mt-4">
           <EmptyState
             title="Chưa có kèo phù hợp"
-            description={hasActiveFilters ? 'Thử nới bộ lọc hoặc đặt lại để xem tất cả kèo đang mở.' : 'Đổi bộ lọc hoặc tạo kèo từ một booking đang giữ của bạn.'}
+            description={hasActiveFilters ? 'Thử nới bộ lọc hoặc đặt lại để xem tất cả kèo đang mở.' : 'Đổi bộ lọc hoặc tạo kèo từ một lượt đặt sân đang giữ của bạn.'}
             action={
               hasActiveFilters
                 ? <Button tone="secondary" onClick={resetFilters}>Đặt lại bộ lọc</Button>
@@ -417,7 +417,7 @@ export function MatchListPage() {
                   </p>
                   <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2><BusinessCode code={match.businessCode} label="Mã kèo" />
                 </div>
-                <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ slot' : `Còn ${match.openSlots} chỗ`}</Badge>
+                <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ chỗ' : `Còn ${match.openSlots} chỗ`}</Badge>
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <Avatar label={match.organizer?.displayName ?? 'T'} src={match.organizer?.avatarUrl} alt={`Ảnh đại diện ${match.organizer?.displayName ?? 'Người tổ chức'}`} />
