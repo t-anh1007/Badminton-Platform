@@ -379,7 +379,7 @@ export function ManageCalendarPage() {
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Nguồn</dt><dd className="font-medium text-ink-800">{sourceLabel(selected.source)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Giá</dt><dd className="font-bold text-ink-900">{selected.priceSnapshot ? formatMoneyVnd(selected.priceSnapshot) : '—'}</dd></div>
             </dl>
-            <p className="mt-auto text-xs text-ink-400">Thao tác đổi sân / hủy booking sẽ bổ sung ở bước sau.</p>
+            <p className="mt-auto text-xs text-ink-500">Cần đổi sân hoặc hủy booking do sự cố? Dùng mục <a href="/manage/incidents" className="font-semibold text-brand-navy underline">Xử lý sự cố</a>.</p>
           </aside>
         </div>
       )}

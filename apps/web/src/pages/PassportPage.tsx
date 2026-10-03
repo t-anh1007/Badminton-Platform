@@ -446,7 +446,7 @@ function HistoryPanel({ discipline }: { discipline: Discipline }) {
                 <Link to={`/matches/${item.matchId}`} className="font-semibold hover:underline">
                   {win ? 'Thắng' : 'Thua'} {opponents}{item.scoreLabel ? ` · ${item.scoreLabel}` : ''}
                 </Link>
-                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao hữu' : item.ratingDelta === null ? 'Kèo xếp hạng - không tính điểm' : 'Kèo xếp hạng'}</p>
+                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao lưu' : item.ratingDelta === null ? 'Kèo xếp hạng - không tính điểm' : 'Kèo xếp hạng'}</p>
               </div>
               <div className="text-right">
                 <p className={`text-xs font-bold ${win ? 'text-success' : 'text-danger'}`}>{win ? 'Thắng' : 'Thua'}</p>

@@ -17,6 +17,7 @@ import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBook
 import { HttpVenueBookingClient } from '../clients/venueBooking.js';
 import { writeOutbox } from './outbox.js';
 import { writeMatchOutcomeNotifications } from './notificationOutbox.js';
+import { markPrepaidSlotPaid, markSelfPayPartnerAccepted } from '../domain/partnerInvites.js';
 import { prisma } from './prisma.js';
 import { applyMatchBookingResolution } from '../domain/matchLifecycle.js';
 import { JOIN_HOLD_MINUTES } from '../domain/joins.js';
@@ -156,10 +157,12 @@ export async function handleMatchFeePaymentCompleted(
       const join = payload.joinId
         ? await tx.join.findUnique({ where: { id: payload.joinId } })
         : null;
-      if (!join || join.matchId !== match.id || join.participantUserId !== payload.userId) {
+      // BR-CM-72: slot trả thay do chủ kèo (payerUserId) thanh toán, JOIN đứng tên partner được mời.
+      const payerUserId = join?.payerUserId ?? join?.participantUserId;
+      if (!join || join.matchId !== match.id || payerUserId !== payload.userId) {
         throw new Error('Participant payment does not match JOIN');
       }
-      if (join.paymentContributionId === payload.contributionId && join.status === 'confirmed') {
+      if (join.paymentContributionId === payload.contributionId && ['confirmed', 'reserved'].includes(join.status)) {
         await tx.processedEvent.create({ data: { eventId } });
         return;
       }
@@ -183,10 +186,17 @@ export async function handleMatchFeePaymentCompleted(
           payload: {
             matchId: match.id,
             joinId: join.id,
-            participantUserId: join.participantUserId,
+            participantUserId: payerUserId!,
             reason: confirmedCount + 1 >= match.capacity ? 'capacity_race' : 'payment_expired',
           } satisfies MatchFeeRefundRequestedPayload,
         });
+      } else if (join.payerUserId) {
+        // Tiền trả thay đã về: giữ slot cho partner, lời mời được gửi; partner nhận lời mới thành confirmed.
+        const reserved = await tx.join.update({
+          where: { id: join.id },
+          data: { status: 'reserved', feePaidAt: paidAt, paymentContributionId: payload.contributionId },
+        });
+        await markPrepaidSlotPaid(tx, reserved, now);
       } else {
         await tx.join.update({
           where: { id: join.id },
@@ -199,6 +209,7 @@ export async function handleMatchFeePaymentCompleted(
         if (confirmedCount + 1 === match.capacity - 1) {
           await tx.match.update({ where: { id: match.id }, data: { status: 'filled' } });
         }
+        if (join.teamSide === 'A') await markSelfPayPartnerAccepted(tx, match.id, join.participantUserId, now);
       }
     } else {
       if (payload.userId !== match.organizerUserId || payload.joinId !== null) {

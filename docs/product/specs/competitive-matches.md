@@ -1,7 +1,7 @@
 ---
 type: functional-spec
 status: approved
-updated: 2026-09-25
+updated: 2026-10-01
 approved: 2026-09-25
 owner: Tuan Anh (PO)
 scope: MMP-02, MMP-06..11, FIN-05, F-09, F-10, F-11
@@ -9,7 +9,7 @@ extends:
   - docs/product/specs/matchmaking-passport.md
   - docs/product/specs/finance-match-fee.md
   - docs/product/specs/court-booking.md
-authority: docs/product/decision-log.md D56-D57
+authority: docs/product/decision-log.md D56-D58
 ---
 
 # Functional Spec — Kèo cạnh tranh, kết quả, BXH và thưởng
@@ -99,11 +99,19 @@ Court Credit, XP riêng và level riêng không còn thuộc phạm vi sản ph�
 | BR-CM-02 | Tại lúc tạo, `startAt - now >= 24 giờ`; nếu không thì giữ nguyên booking thường. |
 | BR-CM-03 | Chủ kèo chọn giao lưu/ranked, đơn/đôi, ratio, phạm vi trình độ và thể thức trước khi công bố. Cấu hình bị khóa khi công bố. |
 | BR-CM-04 | Cutoff: thời gian dẫn `<48h` thì `createdAt+6h`; `48..<72h` thì `+12h`; `72..<120h` thì `+18h`; `>=120h` thì `+24h`. |
-| BR-CM-05 | Đơn có hai bên, mỗi bên một người. Đôi có Team A = chủ kèo + một slot và Team B = hai slot; người tham gia tự chọn slot đội trước khi trả tiền. |
+| BR-CM-05 | Đơn có hai bên, mỗi bên một người. Đôi có Team A = chủ kèo + một slot và Team B = hai slot; người tham gia tự chọn slot đội trước khi trả tiền. Slot Team A có thể được giữ cho partner theo BR-CM-71..78. |
 | BR-CM-06 | Hold thanh toán một slot kéo dài 10 phút. Hết hạn chưa trả thì slot tự mở lại. |
 | BR-CM-07 | Trước cutoff người tham gia được rút và nhận lại 100% contribution; sau cutoff không rút tự do, hủy kèo hoặc thay người. |
 | BR-CM-08 | Booking `<=90` phút bắt buộc BO3; booking `>90` phút cho chọn BO3 hoặc BO5. BO3 thắng trước 2 set; BO5 thắng trước 3 set. |
 | BR-CM-09 | Chỉ loạt chính thức ảnh hưởng tiền/rating; các game chơi thêm không thuộc kết quả kèo. |
+| BR-CM-71 | Kèo đôi, cả giao lưu lẫn ranked, cho chủ kèo gửi lời mời đích danh tới một người chơi đã có tài khoản vào slot Team A, trước cutoff và khi slot Team A còn trống. Không áp dụng cho kèo đơn. Partner phải khác chủ kèo; với kèo ranked, partner phải đủ điều kiện ranked như mọi người tham gia khác. |
+| BR-CM-72 | Khi gửi lời mời, chủ kèo chọn "partner tự trả" hoặc "chủ kèo trả thay". Trả thay: chủ kèo thanh toán `feePerSlot` của slot Team A qua luồng giữ slot 10 phút và thanh toán hiện có; chỉ khi thanh toán thành công lời mời mới được gửi. Khoản trả thay gắn với slot, không gắn với người được mời. |
+| BR-CM-73 | Khi có lời mời còn hiệu lực hoặc khoản trả thay đang giữ, slot Team A chỉ dành cho chủ kèo điều phối: người khác không chọn được Team A và hệ thống không tự xếp ai vào Team A. Team B vẫn nhận người bình thường. |
+| BR-CM-74 | Lời mời hiệu lực đến `cutoffAt`. Partner tự trả: chấp nhận thì vào luồng giữ slot 10 phút và thanh toán của D50/BR-CM-06; hết hold chưa trả thì slot quay lại chỉ dành cho partner. Trả thay: chấp nhận thì partner vào Team A ngay, không phải trả. |
+| BR-CM-75 | Trước khi partner vào Team A, chủ kèo được hủy lời mời hoặc đổi sang partner khác (đổi = hủy lời mời cũ và gửi lời mời mới); partner được từ chối. Khi đó, nếu có khoản trả thay thì khoản đó giữ nguyên cho lời mời tiếp theo; nếu chủ kèo hủy mời mà không mời người khác thì khoản trả thay hoàn 100% về ví chủ kèo và slot Team A mở cho mọi người. Không hủy/đổi được khi partner đang trong hold 10 phút. Mọi thay đổi đều gửi thông báo cho người bị ảnh hưởng. |
+| BR-CM-76 | Partner đã vào Team A là participant bình thường về kết quả và rating. Partner tự trả: rút, hoàn tiền, chia tiền theo quy tắc hiện có; rút trước cutoff thì slot mở cho mọi người. Trả thay: rút trước cutoff thì slot quay về chủ kèo điều phối như BR-CM-75, khoản trả thay vẫn giữ. |
+| BR-CM-77 | Tiền của slot trả thay: mọi khoản hoàn (chủ kèo hủy mời, partner rút rồi chủ kèo hủy mời, kèo underfilled/hủy, booking bị hủy) về ví chủ kèo; khoản nhận theo kết quả trận (result reserve khi thắng hoặc chia 50:50 khi không có kết quả) về partner. Tổng phân bổ vẫn khớp tuyệt đối như BR tài chính hiện có. |
+| BR-CM-78 | Đến `cutoffAt` mà slot Team A chưa có partner vào: lời mời hết hạn, khoản trả thay (nếu có) hoàn 100% về ví chủ kèo, và kèo xử lý theo quy tắc thiếu người hiện có. |
 
 ## 4. Ký quỹ, settlement và hoàn tiền
 
@@ -155,12 +163,12 @@ thua chịu 140.000.
 | Mã | Quy tắc |
 |---|---|
 | BR-CM-23 | Cửa sổ khai báo bắt đầu tại `booking.endAt` và kéo dài 12 giờ. |
-| BR-CM-24 | Bất kỳ thành viên roster đã khóa được nhập điểm từng set; không bắt buộc tất cả nhập. Hệ thống tự suy ra bên thắng từ dữ liệu hợp lệ. |
+| BR-CM-24 | Chỉ chủ kèo được nhập điểm từng set (PO 01/10/2026), mỗi hồ sơ một bản khai. Người còn lại trong roster đồng ý, khiếu nại hoặc báo sự cố. Hệ thống tự suy ra bên thắng từ dữ liệu hợp lệ. |
 | BR-CM-25 | Bản khai đầu bắt buộc 1–3 ảnh JPG/PNG/WebP, tối đa 5 MB/ảnh. Mỗi người tối đa 5 ảnh cho một hồ sơ, kể cả bổ sung. |
 | BR-CM-26 | Ảnh đã commit là bất biến; chỉ được bổ sung khi hồ sơ còn mở. File nằm trong object storage production private, không nằm trên filesystem tạm của container. |
 | BR-CM-27 | Binary evidence được giữ 90 ngày sau khi hồ sơ đóng; hồ sơ đang mở không chạy retention. Sau xóa vẫn giữ metadata, hash, actor và timestamp. |
 | BR-CM-28 | Bản khai hợp lệ đầu tiên mở cửa sổ phản hồi/khiếu nại 12 giờ. |
-| BR-CM-29 | Nhiều bản khai cùng bên thắng không tạo tranh chấp chỉ vì lệch điểm. Nếu chủ kèo có bản khai cùng bên thắng, điểm của chủ kèo là bản hiển thị; nếu không, dùng bản hợp lệ đầu tiên. Mọi bản vẫn được audit. |
+| BR-CM-29 | ~~Nhiều bản khai cùng bên thắng…~~ Hết hiệu lực từ 01/10/2026 vì chỉ chủ kèo khai (BR-CM-24); bản của chủ kèo là bản hiển thị. |
 | BR-CM-30 | Khác bên thắng hoặc có phản đối hợp lệ thì đóng băng result reserve/rating và mở tranh chấp. |
 | BR-CM-31 | Đơn: đối thủ xác nhận thì được chốt sớm. Đôi: một người đội thua xác nhận mở grace 1 giờ cho người còn lại; grace luôn đủ 60 phút và có thể vượt hạn 12 giờ. |
 | BR-CM-32 | Hết hạn không phản đối thì kết quả final ngay; tác vụ kỹ thuật phải idempotent và có mục tiêu hoàn tất trong 5 phút, không tạo cửa sổ chờ nghiệp vụ mới. |
@@ -287,6 +295,11 @@ Kênh: in-app + email; chưa dùng SMS.
 - `AC-CM-08` — Late receipt không fund match và tăng đúng `available+withdrawable` payer một lần.
 - `AC-CM-09` — Commission luôn bằng 10% `P`, không đổi theo ratio.
 - `AC-CM-10` — Booking cancel trước result hoàn reserve đủ và chia phần booking theo 50:50 sau policy.
+- `AC-CM-36` — Kèo đôi có lời mời: người khác chọn Team A bị từ chối, tham gia không chọn đội chỉ vào Team B; partner tự trả chấp nhận, trả đúng `feePerSlot` và vào Team A; hold 10 phút hết hạn thì slot vẫn chỉ dành cho partner.
+- `AC-CM-37` — Trả thay: lời mời chỉ được gửi sau khi thanh toán của chủ kèo thành công; partner chấp nhận vào Team A không phải trả; đổi partner không thu thêm; chủ kèo hủy mời thì hoàn đúng `feePerSlot` về ví chủ kèo đúng một lần và slot mở cho mọi người.
+- `AC-CM-38` — Kèo đơn, partner trùng chủ kèo, partner không đủ điều kiện ranked ở kèo ranked, hoặc hủy/đổi khi partner đang trong hold đều bị từ chối.
+- `AC-CM-39` — Slot trả thay: đội thắng thì phần result reserve của slot về partner; hoàn tiền do hủy/rút/underfilled về chủ kèo; partner rút trước cutoff thì slot quay về chủ kèo, khoản trả thay giữ nguyên.
+- `AC-CM-40` — Đến cutoff mà slot Team A chưa có partner: lời mời hết hạn, khoản trả thay hoàn 100% về chủ kèo đúng một lần, kèo đi theo quy tắc thiếu người.
 
 ### Kết quả và tranh chấp
 

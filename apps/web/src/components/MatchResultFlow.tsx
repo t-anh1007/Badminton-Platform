@@ -159,7 +159,6 @@ export function MatchResultFlow({ matchId, allowIncident = false }: { matchId: s
   const [objectionImages, setObjectionImages] = useState<UploadImageState[]>([]);
   const [incidentOpen, setIncidentOpen] = useState(false);
   const [supplementImages, setSupplementImages] = useState<UploadImageState[]>([]);
-  const [counterClaimOpen, setCounterClaimOpen] = useState(false);
   const [pickerVersion, setPickerVersion] = useState(0);
 
   const load = useCallback(async () => {
@@ -244,11 +243,11 @@ export function MatchResultFlow({ matchId, allowIncident = false }: { matchId: s
               <EvidenceThumbs matchId={matchId} evidence={resultCase.provisional.evidence} />
             </SurfaceCard>
           )}
-          {actions.canClaim && resultCase.provisional && !counterClaimOpen && (
-            // Đã có kết quả tạm: ưu tiên phản hồi; khai bản khác vẫn được phép theo quy tắc nhưng không mở sẵn.
-            <Button tone="secondary" onClick={() => setCounterClaimOpen(true)}>Tôi có tỷ số khác - khai báo</Button>
+          {resultCase.status === 'declaration_open' && !resultCase.provisional && !actions.canClaim && (
+            // Chỉ chủ kèo nhập tỷ số; người còn lại chờ rồi đồng ý hoặc khiếu nại.
+            <SurfaceCard><p className="text-sm text-ink-500">Đang chờ chủ kèo nhập tỷ số. Bạn sẽ được thông báo để đồng ý hoặc khiếu nại.</p></SurfaceCard>
           )}
-          {actions.canClaim && (!resultCase.provisional || counterClaimOpen) && (
+          {actions.canClaim && !resultCase.provisional && (
             <SurfaceCard>
               <h3 className="text-h3">Nhập tỷ số chính thức</h3>
               <p className="text-sm text-ink-500">Chỉ nhập các set đã đánh; set cuối có thể chưa xong nếu hết giờ sân.</p>

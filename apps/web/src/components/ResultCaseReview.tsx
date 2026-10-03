@@ -14,11 +14,15 @@ export const outcomeText = (detail: ReviewCaseDetail, outcome: MatchOutcome) =>
   outcome === 'NO_RESULT' ? 'Không có kết quả' : `${teamNames(detail, outcome === 'TEAM_A_WIN' ? 'A' : 'B')} thắng (Đội ${outcome === 'TEAM_A_WIN' ? 'A' : 'B'})`;
 export const queueTitle = (item: ReviewQueueItem) =>
   `Kèo ${item.mode === 'ranked' ? 'xếp hạng' : 'giao lưu'} - ${item.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}`;
+/** Dòng phân biệt hồ sơ trong hàng chờ: sân + mã kèo/booking. */
+export const queueContext = (item: ReviewQueueItem) =>
+  [[item.venueName, item.courtName].filter(Boolean).join(' - '), item.matchCode, item.bookingCode].filter(Boolean).join(' · ');
 
 export function CaseSummary({ detail }: { detail: ReviewCaseDetail }) {
   const rows = [
     ['Sân và thời gian', detail.booking ? `${detail.booking.venue.name} - ${detail.booking.court.name}` : 'Chưa đọc được booking', detail.booking ? formatDateTimeVi(detail.booking.startAt) : ''],
     ['Người chơi', `${teamNames(detail, 'A')} và ${teamNames(detail, 'B')}`, `${detail.match.format === 'bo5' ? 'BO5' : 'BO3'} - tỷ lệ thua : thắng ${detail.match.ratio.replace(':', ' : ')}`],
+    ['Mã tham chiếu', [detail.matchCode && `Mã kèo ${detail.matchCode}`, detail.bookingCode && `Mã booking ${detail.bookingCode}`].filter(Boolean).join(' · ') || 'Chưa có mã', ''],
   ];
   return (
     <dl className="grid gap-3 sm:grid-cols-2">

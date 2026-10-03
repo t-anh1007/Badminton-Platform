@@ -46,6 +46,18 @@ export async function getPublicDisplayNames(userIds: string[], resolveStorage?: 
   }));
 }
 
+/** D58: chủ kèo mời partner theo email (định danh duy nhất, D6); chỉ trả userId của người chơi hoạt động. */
+export async function findPlayerIdByEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { id: true, verified: true, status: true, roles: true },
+  });
+  if (!user || !user.verified || user.status !== 'active' || !user.roles.includes('player')) {
+    throw new AppError('PLAYER_NOT_FOUND', 'Không tìm thấy người chơi.', 404);
+  }
+  return { userId: user.id };
+}
+
 export async function getPublicMatchProfile(userId: string, resolveStorage?: StorageResolver) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

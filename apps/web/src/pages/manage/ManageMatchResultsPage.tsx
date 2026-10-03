@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AsyncButton, Badge, Pagination, SelectInput, SurfaceCard, TextArea } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
 import { RESULT_STATUS_LABELS, useServerCountdown } from '../../components/MatchResultFlow';
-import { CaseStatements, CaseSummary, OutcomeChoice, queueTitle } from '../../components/ResultCaseReview';
+import { CaseStatements, CaseSummary, OutcomeChoice, queueContext, queueTitle } from '../../components/ResultCaseReview';
 import { formatDateTimeVi } from '../../lib/formatters.js';
 import {
   getProviderResultCase, listProviderResultCases, submitProviderRecommendation,
@@ -55,6 +55,7 @@ export function ManageMatchResultsPage() {
                     <button type="button" onClick={() => setSelectedId(item.caseId)} aria-current={selectedId === item.caseId || undefined}
                       className={`w-full rounded-xl border-2 p-3 text-left ${selectedId === item.caseId ? 'border-brand-navy bg-canvas' : 'border-line'}`}>
                       <span className="block font-semibold text-brand-navy">{queueTitle(item)}</span>
+                      {queueContext(item) && <span className="block text-sm text-ink-700">{queueContext(item)}</span>}
                       {item.startAt && <span className="block text-xs text-ink-500">{formatDateTimeVi(item.startAt)}</span>}
                       {item.providerDeadlineAt && <span className="block text-xs text-danger">Hạn đề xuất {formatDateTimeVi(item.providerDeadlineAt)}</span>}
                     </button>

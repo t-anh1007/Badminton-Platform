@@ -122,7 +122,7 @@ export function createMatchResultRouter(
   }));
 
   router.get('/provider/result-cases', requireAuth, requireProvider, withErrorHandling(async (req, res) => {
-    res.status(200).json(await listProviderResultCases(viewer(req).id, queueSchema.parse(req.query)));
+    res.status(200).json(await listProviderResultCases(venueBookingClient, viewer(req).id, queueSchema.parse(req.query)));
   }));
 
   router.get('/provider/result-cases/:caseId', requireAuth, requireProvider, withErrorHandling(async (req, res) => {
@@ -138,7 +138,7 @@ export function createMatchResultRouter(
   }));
 
   router.get('/admin/result-cases', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
-    res.status(200).json(await listAdminResultCases(queueSchema.parse(req.query)));
+    res.status(200).json(await listAdminResultCases(venueBookingClient, queueSchema.parse(req.query)));
   }));
 
   router.get('/admin/result-cases/:caseId', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {

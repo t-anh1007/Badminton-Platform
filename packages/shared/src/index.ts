@@ -81,6 +81,8 @@ export type PublicMatchProfile = z.infer<typeof publicMatchProfileSchema>;
 
 export const venueMatchContextSchema = z.object({
   bookingId: z.string().uuid(),
+  /** Mã hiển thị BK-xxxxxxxx; tùy chọn để client cũ/fake test vẫn hợp lệ. */
+  bookingCode: z.string().optional(),
   ownerUserId: z.string().uuid().nullable(),
   status: z.enum(['held', 'confirmed', 'completed', 'cancelled']),
   priceSnapshot: z.string().regex(/^\d+$/),
@@ -193,6 +195,15 @@ export interface MatchFeeRefundRequestedPayload {
   joinId: string;
   participantUserId: string;
   reason: 'withdraw_before_cutoff' | 'capacity_race' | 'payment_expired';
+}
+
+/** BR-CM-77 (D58): partner vào/rời slot chủ kèo trả thay. `beneficiaryUserId` null = tiền kết quả về người trả. */
+export interface MatchSlotBeneficiaryChangedPayload {
+  matchId: string;
+  joinId: string;
+  beneficiaryUserId: string | null;
+  /** Tăng dần theo thời điểm thay đổi (ms); Finance bỏ event cũ hơn bản đã áp dụng. */
+  version: number;
 }
 
 export interface BookingConfirmedPayload {

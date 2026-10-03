@@ -144,6 +144,7 @@ export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'
   bookingPrice?: string | null;
   teamSlots?: Array<{ side: TeamSide; size: number; open: number }>;
   participants?: MatchParticipant[];
+  partner?: MatchPartnerView | null;
   funding?: MatchFundingView | null;
   actions: {
     canJoin: boolean;
@@ -156,6 +157,18 @@ export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'
     canWithdrawBeforeLock?: boolean;
     canReportIncident?: boolean;
   };
+}
+/** BR-CM-71..78 (D58): lời mời partner kèo đôi; chỉ trả về cho chủ kèo và người được mời. */
+export type PartnerPayMode = 'self' | 'organizer';
+export interface MatchPartnerView {
+  invite: {
+    id: string;
+    payMode: PartnerPayMode;
+    sent: boolean;
+    invitee: { displayName: string; avatarUrl: string | null };
+  } | null;
+  prepaidJoin: { id: string; status: 'approved' | 'reserved' | 'confirmed'; approvedAt: string | null } | null;
+  actions: { canInvite: boolean; canCancel: boolean; canPayPrepaid: boolean; canRespond: boolean };
 }
 export interface PendingJoin extends OwnJoin {
   participantUserId: string;
@@ -238,6 +251,14 @@ export const rejectMatchJoin = (matchId: string, joinId: string) =>
   });
 export const withdrawMatchJoin = (matchId: string, joinId: string) =>
   api(`/matches/${matchId}/joins/${joinId}/withdraw`, { method: 'POST' });
+export const invitePartner = (matchId: string, email: string, payMode: PartnerPayMode) =>
+  api<{ prepaidJoinId: string | null }>(`/matches/${matchId}/partner-invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, payMode }),
+  });
+export const cancelPartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/cancel`, { method: 'POST' });
+export const acceptPartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/accept`, { method: 'POST' });
+export const declinePartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/decline`, { method: 'POST' });
 export const cancelMatch = (id: string) => api(`/matches/${id}/cancel`, { method: 'POST' });
 /** Body strict của Task 5: nguồn là hold hoặc booking đã thanh toán, cùng cấu hình khóa khi công bố. */
 export const createMatch = (body: ({ bookingId: string; holdId?: never } | { holdId: string; bookingId?: never }) & {
@@ -328,6 +349,7 @@ export function previewOutcome(format: MatchFormat, sets: SetScore[]): { outcome
 /** Task 13: hàng chờ và hồ sơ cho chủ sân (đề xuất không ràng buộc) và Admin (quyết định cuối). */
 export interface ReviewQueueItem {
   caseId: string; matchId: string; status: ResultCaseStatus; version: number;
+  matchCode: string | null; bookingCode: string | null; venueName: string | null; courtName: string | null;
   discipline: MatchDiscipline; mode: MatchMode; startAt: string | null; endAt: string | null;
   providerDeadlineAt: string | null; adminReviewStartedAt: string | null; adminOverdue: boolean;
 }

@@ -12,6 +12,8 @@ import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
 import { listAdminEvaluations, reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
 import { findPlayerScheduleConflicts } from '../domain/scheduleConflicts.js';
+import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner } from '../domain/partnerInvites.js';
+import { AppError } from '../lib/errors.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
 const searchSchema = z.object({
@@ -167,6 +169,30 @@ export function createMatchRouter(
     const userId = (req as AuthenticatedRequest).user!.id;
     const { teamSide } = z.object({ teamSide: z.enum(['A', 'B']) }).strict().parse(req.body);
     res.status(201).json(await requestJoin(matchId, userId, teamSide));
+  }));
+  // BR-CM-71..78 (D58): mời partner vào slot Team A kèo đôi.
+  router.post('/:matchId/partner-invite', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    const { email, payMode } = z.object({
+      email: z.string().trim().email(),
+      payMode: z.enum(['self', 'organizer']),
+    }).strict().parse(req.body);
+    const inviteeUserId = await accountClient.findPlayerIdByEmail?.(email);
+    if (!inviteeUserId) throw new AppError(404, 'PLAYER_NOT_FOUND', 'Không tìm thấy người chơi với email này.');
+    const userId = (req as AuthenticatedRequest).user!.id;
+    res.status(201).json(await invitePartner(matchId, userId, { inviteeUserId, payMode }));
+  }));
+  router.post('/:matchId/partner-invite/cancel', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    res.status(200).json(await cancelPartnerInvite(matchId, (req as AuthenticatedRequest).user!.id));
+  }));
+  router.post('/:matchId/partner-invite/accept', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    res.status(200).json(await acceptPartnerInvite(matchId, (req as AuthenticatedRequest).user!.id));
+  }));
+  router.post('/:matchId/partner-invite/decline', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = z.string().uuid().parse(req.params.matchId);
+    res.status(200).json(await declinePartnerInvite(matchId, (req as AuthenticatedRequest).user!.id));
   }));
   router.get('/me/schedule-conflicts', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const input = scheduleConflictSchema.parse(req.query);

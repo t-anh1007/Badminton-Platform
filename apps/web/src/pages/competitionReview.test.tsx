@@ -16,7 +16,7 @@ vi.mock('../lib/matchApi.js', async (importOriginal) => ({
 
 const person = (userId: string, displayName: string) => ({ userId, displayName, avatarUrl: null })
 const item = (caseId: string, overrides: Partial<ReviewQueueItem> = {}): ReviewQueueItem => ({
-  caseId, matchId: `match-${caseId}`, status: 'provider_review', version: 3, discipline: 'singles', mode: 'ranked',
+  caseId, matchId: `match-${caseId}`, matchCode: null, bookingCode: null, venueName: null, courtName: null, status: 'provider_review', version: 3, discipline: 'singles', mode: 'ranked',
   startAt: '2026-09-26T11:00:00Z', endAt: '2026-09-26T12:00:00Z', providerDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(),
   adminReviewStartedAt: null, adminOverdue: false, ...overrides,
 })

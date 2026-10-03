@@ -110,6 +110,7 @@ export async function getMatchContext(bookingId: string) {
 
   return venueMatchContextSchema.parse({
     bookingId: booking.id,
+    bookingCode: booking.businessCode,
     ownerUserId: booking.userId,
     status: booking.shutdownItems.length > 0 && booking.status === 'held' ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),
@@ -147,6 +148,7 @@ export async function getMatchContexts(bookingIds: string[]) {
   const expired = new Set(expiredIds);
   const byId = new Map(bookings.map((booking) => [booking.id, venueMatchContextSchema.parse({
     bookingId: booking.id,
+    bookingCode: booking.businessCode,
     ownerUserId: booking.userId,
     status: expired.has(booking.id) || (booking.status === 'held' && booking.shutdownItems.length > 0) ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),

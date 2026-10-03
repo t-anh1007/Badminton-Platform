@@ -19,6 +19,7 @@ import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { SepayPayBox } from '../components/SepayPayBox.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 import { ScheduleConflictWarning } from '../components/ScheduleConflictWarning.js';
+import { PartnerInvitePanel } from '../components/PartnerInvitePanel.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi',
@@ -290,6 +291,7 @@ export function MatchDetailPage() {
               )}
               <LockedConfig detail={detail} />
               <TeamRoster detail={detail} onJoin={(side) => void checkScheduleBefore('join', side)} />
+              <PartnerInvitePanel detail={detail} run={(operation, success) => mutate(operation, success)} />
             </div>
             <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
               <MoneyStatus detail={detail} />

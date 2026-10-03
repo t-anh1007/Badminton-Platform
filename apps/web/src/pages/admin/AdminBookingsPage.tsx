@@ -6,6 +6,9 @@ import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js'
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js'
 import { OperationalShutdownDialog } from '../manage/OperationalShutdownDialog.js'
 
+const bookingStatusLabel: Record<string, string> = { held: 'Chờ thanh toán', confirmed: 'Đã xác nhận', completed: 'Đã hoàn thành', cancelled: 'Đã hủy' }
+const statusText = (row: AdminBookingRow) => row.status === 'held' && row.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : bookingStatusLabel[row.status] ?? row.status
+
 export function AdminBookingsPage() {
   const [rows, setRows] = useState<AdminBookingRow[]>([])
   const [total, setTotal] = useState(0)
@@ -113,7 +116,7 @@ export function AdminBookingsPage() {
               <p className="text-sm text-ink-500">
                 {formatDateTimeVi(row.startAt)} · {formatMoneyVnd(row.priceSnapshot)}
               </p>
-              <Badge>{row.status === 'held' && row.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : row.status}</Badge>
+              <Badge>{statusText(row)}</Badge>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button tone="secondary" onClick={() => setDetail(row)}>Xem chi tiết</Button>
@@ -150,7 +153,7 @@ export function AdminBookingsPage() {
           <div><dt className="text-ink-500">Địa chỉ</dt><dd>{detail.court.venue.address}</dd></div>
           <div><dt className="text-ink-500">Thời gian</dt><dd>{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</dd></div>
           <div><dt className="text-ink-500">Giá trị booking</dt><dd>{formatMoneyVnd(detail.priceSnapshot)}</dd></div>
-          <div><dt className="text-ink-500">Trạng thái</dt><dd>{detail.status === 'held' && detail.matchDepositPaid ? 'Đã giữ chỗ · đã đặt cọc' : detail.status}</dd></div>
+          <div><dt className="text-ink-500">Trạng thái</dt><dd>{statusText(detail)}</dd></div>
           {detail.holdExpiresAt && <div><dt className="text-ink-500">Giữ chỗ đến</dt><dd>{formatDateTimeVi(detail.holdExpiresAt)}</dd></div>}
           <div><dt className="text-ink-500">Mã booking</dt><dd className="font-semibold">{detail.businessCode}</dd></div>
         </dl>}

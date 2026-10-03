@@ -63,7 +63,7 @@ export async function postLedgerEntry(
     type: 'topup' | 'payment' | 'refund' | 'payout' | 'commission' | 'release' | 'reserve' | 'settlement';
     refType: string;
     refId: string;
-    referenceSummary?: { kind: 'booking' | 'topup' | 'withdrawal' | 'match'; title: string; subtitle?: string };
+    referenceSummary?: { kind: 'booking' | 'topup' | 'withdrawal' | 'match'; title: string; subtitle?: string; matchId?: string };
     /** ADR 0003 + BR-FIN-16: doanh thu chủ sân (`release`) đọng ở `pending`
      * của ví business chờ hết cửa sổ tranh chấp — mọi bút toán khác đi thẳng
      * `available`. `before`/`after` LUÔN phản ánh field bị đổi thật sự. */

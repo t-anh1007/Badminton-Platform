@@ -116,6 +116,8 @@ export async function submitResultClaim(
   }
   const roster = Object.values(await resultTeams(prisma, match)).flat();
   if (!roster.includes(input.userId)) throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được khai kết quả.');
+  // PO 2026-10-01: chỉ chủ kèo nhập tỷ số; người còn lại đồng ý, khiếu nại hoặc báo sự cố.
+  if (input.userId !== match.organizerUserId) throw new AppError(403, 'RESULT_ORGANIZER_ONLY', 'Chỉ chủ kèo được nhập kết quả trận.');
   const evidence = await inspectResultEvidence(storage, input.userId, input.evidence);
 
   return prisma.$transaction(async (tx) => {
@@ -146,7 +148,7 @@ export async function submitResultClaim(
       });
       // Spec §11: báo roster có bản khai đầu để bên còn lại kịp đồng ý hoặc khiếu nại trong 12 giờ.
       await notifyRoster(tx, match, resultCase.id, 'match.result.provisional', 'Đã có kết quả tạm của trận',
-        'Một người trong kèo đã khai kết quả. Bạn có 12 giờ để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
+        'Chủ kèo đã khai kết quả. Bạn có 12 giờ để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
     } else if (resultCase.outcome !== inferred.outcome) {
       await openResultDispute(tx, resultCase, match, roster, now);
     } else {
@@ -231,7 +233,7 @@ export async function getPlayerResultCase(
       evidence: shown.evidence.map((item) => ({ id: item.id, mimeType: item.mimeType })),
     },
     viewerActions: {
-      canClaim: withinDeclaration && !resultCase.claims.some((claim) => claim.claimantUserId === viewerUserId),
+      canClaim: withinDeclaration && viewerUserId === match.organizerUserId && !resultCase.claims.some((claim) => claim.claimantUserId === viewerUserId),
       canConfirm: responseOpen && loserSide !== null && teams[loserSide].includes(viewerUserId)
         && !resultCase.responses.some((response) => response.kind === 'confirm'),
       canObject: responseOpen,
