@@ -24,7 +24,8 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const topupSchema = z.object({ amount: z.string() });
+// Số nguyên dương (đồng), tối đa 12 chữ số — chặn 0/âm/lẻ/chuỗi rác trước BigInt() và cột BIGINT.
+const topupSchema = z.object({ amount: z.string().regex(/^[1-9]\d{0,11}$/, 'Số tiền nạp phải là số nguyên dương.') });
 
 // FIN-02 bước 1-2
 paymentRouter.post(
