@@ -42,10 +42,10 @@ export function createVenueRouter(resolveStorage: () => ObjectStorageClient) {
   );
 
   const venueSchema = z.object({
-  name: z.string(),
+  name: z.string().trim().min(1).max(120),
   lat: z.number(),
   lng: z.number(),
-  address: z.string(),
+  address: z.string().trim().min(1).max(300),
   provinceCode: vietnamProvinceCodeSchema.optional(),
   amenities: z.unknown().optional(),
   images: z.unknown().optional(),
@@ -95,7 +95,7 @@ venueRouter.post(
 );
 
 const courtImageSchema = z.array(z.object({ objectKey: z.string().trim().min(1) }).strict()).min(1).max(5);
-const courtSchema = z.object({ name: z.string(), images: courtImageSchema });
+const courtSchema = z.object({ name: z.string().trim().min(1).max(60), images: courtImageSchema });
 
 venueRouter.post(
   '/:venueId/courts',
@@ -112,7 +112,7 @@ venueRouter.patch(
   '/courts/:courtId',
   requireAuth,
   h(async (req, res) => {
-    const input = z.object({ name: z.string().trim().min(1).optional(), images: courtImageSchema.optional() }).strict().parse(req.body);
+    const input = z.object({ name: z.string().trim().min(1).max(60).optional(), images: courtImageSchema.optional() }).strict().parse(req.body);
     const userId = (req as AuthenticatedRequest).user!.id;
     const court = await updateCourt(userId, req.params.courtId!, input);
     res.status(200).json(court);

@@ -29,6 +29,11 @@ export async function savePricingRules(
 ) {
   const court = await getOwnedCourtOrThrow(userId, courtId);
 
+  // PL-A1: giá 0/âm làm kèo không chốt được (settlement cần phần đóng > 0).
+  if (rules.some((r) => typeof r.price === 'number' ? !Number.isSafeInteger(r.price) || r.price <= 0 : r.price <= 0n)) {
+    throw new AppError('INVALID_PRICE', 'Giá sân phải là số nguyên dương (đơn vị đồng).', 400);
+  }
+
   // Trường effectiveFrom được nhập theo ngày, không phải một thời điểm trong ngày.
   // Vì vậy 00:00 UTC của hôm nay vẫn hợp lệ dù người dùng lưu vào buổi chiều.
   const now = new Date();
