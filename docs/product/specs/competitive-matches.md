@@ -112,6 +112,9 @@ Court Credit, XP riêng và level riêng không còn thuộc phạm vi sản ph�
 | BR-CM-76 | Partner đã vào Team A là participant bình thường về kết quả và rating. Partner tự trả: rút, hoàn tiền, chia tiền theo quy tắc hiện có; rút trước cutoff thì slot mở cho mọi người. Trả thay: rút trước cutoff thì slot quay về chủ kèo điều phối như BR-CM-75, khoản trả thay vẫn giữ. |
 | BR-CM-77 | Tiền của slot trả thay: mọi khoản hoàn (chủ kèo hủy mời, partner rút rồi chủ kèo hủy mời, kèo underfilled/hủy, booking bị hủy) về ví chủ kèo; khoản nhận theo kết quả trận (result reserve khi thắng hoặc chia 50:50 khi không có kết quả) về partner. Tổng phân bổ vẫn khớp tuyệt đối như BR tài chính hiện có. |
 | BR-CM-78 | Đến `cutoffAt` mà slot Team A chưa có partner vào: lời mời hết hạn, khoản trả thay (nếu có) hoàn 100% về ví chủ kèo, và kèo xử lý theo quy tắc thiếu người hiện có. |
+| BR-CM-79 | Chủ kèo mời đồng đội bằng một trong ba cách: email, số điện thoại, hoặc chọn từ danh sách "từng chơi cùng". Số điện thoại chỉ khớp khi đúng một người chơi đang hoạt động dùng số đó; không có hoặc nhiều hơn một thì báo lỗi (`PLAYER_NOT_FOUND` / `PLAYER_PHONE_AMBIGUOUS`) và gợi ý mời bằng email. |
+| BR-CM-80 | Danh sách "từng chơi cùng" gồm tối đa 20 người gần nhất (đồng đội lẫn đối thủ) đã cùng vào chính thức các kèo đã diễn ra (`completed`, hoặc `confirmed` đã qua giờ kết thúc); nhãn đồng đội/đối thủ theo trận gần nhất; hiển thị 5 người mỗi trang. Chỉ được mời người có trong danh sách của chính chủ kèo. |
+| BR-CM-81 | Lời mời đánh cặp luôn kèm email (bỏ qua tùy chọn tắt nhóm Kèo) có link `/auth?next=/matches/:id`: chưa đăng nhập thì đăng nhập xong quay về kèo, đã đăng nhập thì mở thẳng kèo. |
 
 ## 4. Ký quỹ, settlement và hoàn tiền
 

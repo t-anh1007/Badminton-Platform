@@ -12,7 +12,7 @@ import { withErrorHandling } from './handler.js';
 import { cancelMatchByOrganizer, withdrawJoin } from '../domain/matchLifecycle.js';
 import { listAdminEvaluations, reviewEvaluation, submitEvaluation } from '../domain/evaluations.js';
 import { findPlayerScheduleConflicts } from '../domain/scheduleConflicts.js';
-import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner } from '../domain/partnerInvites.js';
+import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner, listRecentCoPlayers } from '../domain/partnerInvites.js';
 import { AppError } from '../lib/errors.js';
 
 const skillTier = z.enum(['newcomer', 'beginner', 'intermediate', 'intermediate_plus', 'advanced']);
@@ -173,13 +173,34 @@ export function createMatchRouter(
   // BR-CM-71..78 (D58): mời partner vào slot Team A kèo đôi.
   router.post('/:matchId/partner-invite', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const matchId = z.string().uuid().parse(req.params.matchId);
-    const { email, payMode } = z.object({
-      email: z.string().trim().email(),
+    const body = z.object({
+      email: z.string().trim().email().optional(),
+      phone: z.string().trim().regex(/^\+?[0-9 ]{8,20}$/).optional(),
+      userId: z.string().uuid().optional(),
       payMode: z.enum(['self', 'organizer']),
-    }).strict().parse(req.body);
-    const inviteeUserId = await accountClient.findPlayerIdByEmail?.(email);
-    if (!inviteeUserId) throw new AppError(404, 'PLAYER_NOT_FOUND', 'Không tìm thấy người chơi với email này.');
+    }).strict().refine((value) => [value.email, value.phone, value.userId].filter(Boolean).length === 1).parse(req.body);
+    const { payMode } = body;
     const userId = (req as AuthenticatedRequest).user!.id;
+    let inviteeUserId: string;
+    if (body.email) {
+      const found = await accountClient.findPlayerIdByEmail?.(body.email);
+      if (!found) throw new AppError(404, 'PLAYER_NOT_FOUND', 'Không tìm thấy người chơi với email này.');
+      inviteeUserId = found;
+    } else if (body.phone) {
+      const found = await accountClient.findPlayerIdByPhone?.(body.phone);
+      if (found && 'error' in found && found.error === 'ambiguous') {
+        throw new AppError(409, 'PLAYER_PHONE_AMBIGUOUS', 'Có nhiều tài khoản dùng số này. Hãy mời bằng email.');
+      }
+      if (!found || 'error' in found) throw new AppError(404, 'PLAYER_NOT_FOUND', 'Không tìm thấy người chơi với số điện thoại này.');
+      inviteeUserId = found.userId;
+    } else {
+      // Chỉ mời được người nằm trong danh sách từng chơi cùng của chính chủ kèo.
+      const recent = await listRecentCoPlayers(userId);
+      if (!recent.some((person) => person.userId === body.userId)) {
+        throw new AppError(404, 'PLAYER_NOT_FOUND', 'Người này không có trong danh sách từng chơi cùng.');
+      }
+      inviteeUserId = body.userId!;
+    }
     res.status(201).json(await invitePartner(matchId, userId, { inviteeUserId, payMode }));
   }));
   router.post('/:matchId/partner-invite/cancel', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
@@ -205,6 +226,16 @@ export function createMatchRouter(
         input.endAt,
         input.excludeMatchId,
       ),
+    });
+  }));
+  router.get('/me/recent-players', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const people = await listRecentCoPlayers((req as AuthenticatedRequest).user!.id);
+    const profiles = people.length ? await accountClient.getPublicDisplayNames(people.map((person) => person.userId)) : [];
+    res.status(200).json({
+      players: people.map((person) => {
+        const profile = profiles.find((item) => item.userId === person.userId);
+        return { ...person, displayName: profile?.displayName ?? null, avatarUrl: profile?.avatarUrl ?? null };
+      }),
     });
   }));
   router.get('/me/history', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {

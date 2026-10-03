@@ -42,7 +42,7 @@ async function inviteeInHold(tx: Tx, matchId: string, inviteeUserId: string, now
 }
 
 async function notify(
-  tx: Tx, userId: string, matchId: string, kind: string, title: string, body: string, actionRequired = false,
+  tx: Tx, userId: string, matchId: string, kind: string, title: string, body: string, actionRequired = false, email = false,
 ) {
   await writeOutbox(tx, {
     aggregateType: 'Notification', aggregateId: `${kind}:${matchId}:${userId}:${Date.now()}`, eventType: 'UserNotificationRequested',
@@ -50,6 +50,8 @@ async function notify(
       recipient: { type: 'user', userId, targetRole: 'player' }, category: 'match', kind, title, body,
       priority: actionRequired ? 'action_required' : 'update', entityType: 'match', entityId: matchId,
       actionKind: 'match.view', actionExpiresAt: null,
+      // Lời mời đánh cặp luôn kèm email có link về kèo, bỏ qua tùy chọn tắt nhóm Kèo.
+      ...(email ? { emailPolicy: 'required' as const } : {}),
     },
   });
 }
@@ -58,7 +60,7 @@ async function sendInvite(tx: Tx, invite: Pick<PartnerInvite, 'inviteeUserId' | 
   await notify(tx, invite.inviteeUserId, matchId, 'match.partner_invited', 'Bạn được mời đánh cặp',
     invite.payMode === 'organizer'
       ? 'Chủ kèo mời bạn đánh cùng đội và đã trả phần phí của bạn. Mở kèo để nhận lời hoặc từ chối.'
-      : 'Chủ kèo mời bạn đánh cùng đội. Mở kèo để nhận lời và thanh toán phần phí, hoặc từ chối.', true);
+      : 'Chủ kèo mời bạn đánh cùng đội. Mở kèo để nhận lời và thanh toán phần phí, hoặc từ chối.', true, true);
 }
 
 async function emitBeneficiary(tx: Tx, join: Pick<Join, 'id' | 'matchId'>, beneficiaryUserId: string | null, now: Date) {
@@ -269,4 +271,40 @@ export async function releasePrepaidSlot(tx: Tx, join: Join, match: Match, now: 
   await emitBeneficiary(tx, join, null, now);
   await notify(tx, match.organizerUserId, match.id, 'match.partner_left', 'Đồng đội đã rời kèo',
     'Tiền bạn đã trả vẫn được giữ cho chỗ này. Hãy mời người khác hoặc hủy lời mời để nhận lại tiền.');
+}
+
+export const RECENT_PLAYERS_LIMIT = 20;
+
+/**
+ * Người từng chơi cùng (đồng đội/đối thủ) ở kèo đã diễn ra, mới nhất trước, tối đa 20.
+ * Chủ kèo không có JOIN nên mặc định ở đội A; nhãn lấy theo trận gần nhất.
+ */
+export async function listRecentCoPlayers(userId: string, now = new Date()) {
+  const matches = await prisma.match.findMany({
+    where: {
+      OR: [{ status: 'completed' }, { status: 'confirmed', endAt: { lt: now } }],
+      AND: [{ OR: [{ organizerUserId: userId }, { joins: { some: { participantUserId: userId, status: 'confirmed' } } }] }],
+    },
+    include: { joins: { where: { status: 'confirmed' }, select: { participantUserId: true, teamSide: true } } },
+    orderBy: [{ startAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+    take: 200,
+  });
+  const people = new Map<string, { userId: string; relation: 'teammate' | 'opponent'; timesPlayed: number; lastPlayedAt: string }>();
+  for (const match of matches) {
+    const sides = [{ participantUserId: match.organizerUserId, teamSide: 'A' as const }, ...match.joins];
+    const mySide = sides.find((side) => side.participantUserId === userId)?.teamSide;
+    for (const other of sides) {
+      if (other.participantUserId === userId) continue;
+      const seen = people.get(other.participantUserId);
+      if (seen) { seen.timesPlayed += 1; continue; }
+      if (people.size >= RECENT_PLAYERS_LIMIT) continue;
+      people.set(other.participantUserId, {
+        userId: other.participantUserId,
+        relation: mySide && other.teamSide === mySide ? 'teammate' : 'opponent',
+        timesPlayed: 1,
+        lastPlayedAt: (match.startAt ?? match.createdAt).toISOString(),
+      });
+    }
+  }
+  return [...people.values()];
 }

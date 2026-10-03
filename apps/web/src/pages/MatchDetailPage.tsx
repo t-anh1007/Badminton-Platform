@@ -235,7 +235,7 @@ export function MatchDetailPage() {
   const needsDeclaration = Boolean(mayJoinRanked && passport && detail.discipline && passport[detail.discipline] === null);
   const checkScheduleBefore = async (action: 'join' | 'payment', side: TeamSide = 'B') => {
     if (!window.localStorage.getItem('accessToken')) {
-      navigate('/auth');
+      navigate(`/auth?next=${encodeURIComponent(`/matches/${detail.id}`)}`);
       return;
     }
     if (action === 'join' && needsDeclaration) {

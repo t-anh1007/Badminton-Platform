@@ -6,7 +6,7 @@ import { handleMatchFeePaymentCompleted } from '../src/lib/matchLifecycleEventCo
 import { prisma } from '../src/lib/prisma.js';
 import { requestJoin } from '../src/domain/matches.js';
 import { withdrawJoin } from '../src/domain/matchLifecycle.js';
-import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner } from '../src/domain/partnerInvites.js';
+import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner, listRecentCoPlayers } from '../src/domain/partnerInvites.js';
 
 // BR-CM-71..78 / AC-CM-36..40 (D58): mời partner vào Team A kèo đôi.
 
@@ -170,5 +170,50 @@ describe('AC-CM-38: từ chối lời mời không hợp lệ', () => {
     const free = await fixture({ feePerSlot: 0n });
     await expect(invitePartner(free.id, free.organizerUserId, { inviteeUserId: randomUUID(), payMode: 'organizer' }))
       .rejects.toMatchObject({ code: 'PARTNER_PREPAY_FREE_MATCH' });
+  });
+});
+
+describe('BR-CM-80/81 từng chơi cùng và email lời mời', () => {
+  it('liệt kê đồng đội/đối thủ ở kèo đã diễn ra, bỏ kèo chưa diễn ra, tối đa 20 người', async () => {
+    const me = randomUUID();
+    const mate = randomUUID();
+    const rival = randomUUID();
+    const past = await prisma.match.create({
+      data: {
+        bookingId: randomUUID(), organizerUserId: me, discipline: 'doubles', capacity: 4, feePerSlot: 0n,
+        sourceType: 'paid_booking', status: 'completed', cutoffAt: new Date(Date.now() - 3 * 3600_000),
+        startAt: new Date(Date.now() - 2 * 3600_000), endAt: new Date(Date.now() - 3600_000),
+        joins: { create: [
+          { participantUserId: mate, status: 'confirmed', teamSide: 'A' },
+          { participantUserId: rival, status: 'confirmed', teamSide: 'B' },
+        ] },
+      },
+    });
+    const future = await prisma.match.create({
+      data: {
+        bookingId: randomUUID(), organizerUserId: me, discipline: 'doubles', capacity: 4, feePerSlot: 0n,
+        sourceType: 'paid_booking', status: 'confirmed', cutoffAt: new Date(Date.now() + 3600_000),
+        startAt: new Date(Date.now() + 2 * 3600_000), endAt: new Date(Date.now() + 3 * 3600_000),
+        joins: { create: [{ participantUserId: randomUUID(), status: 'confirmed', teamSide: 'B' }] },
+      },
+    });
+    matchIds.push(past.id, future.id);
+    const people = await listRecentCoPlayers(me);
+    expect(people).toHaveLength(2);
+    expect(people).toEqual(expect.arrayContaining([
+      expect.objectContaining({ userId: mate, relation: 'teammate', timesPlayed: 1 }),
+      expect.objectContaining({ userId: rival, relation: 'opponent', timesPlayed: 1 }),
+    ]));
+    // Góc nhìn đối thủ: chủ kèo (đội A) là đối thủ.
+    expect(await listRecentCoPlayers(rival)).toEqual(expect.arrayContaining([expect.objectContaining({ userId: me, relation: 'opponent' })]));
+  });
+
+  it('lời mời gửi tới đồng đội luôn kèm email bắt buộc', async () => {
+    const match = await fixture();
+    const partner = randomUUID();
+    await invitePartner(match.id, match.organizerUserId, { inviteeUserId: partner, payMode: 'self' });
+    const sent = await prisma.outbox.findMany({ where: { aggregateId: { startsWith: `match.partner_invited:${match.id}:${partner}` } } });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.payload).toMatchObject({ kind: 'match.partner_invited', emailPolicy: 'required', entityId: match.id });
   });
 });

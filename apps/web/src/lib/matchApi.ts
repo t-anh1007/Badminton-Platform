@@ -251,11 +251,21 @@ export const rejectMatchJoin = (matchId: string, joinId: string) =>
   });
 export const withdrawMatchJoin = (matchId: string, joinId: string) =>
   api(`/matches/${matchId}/joins/${joinId}/withdraw`, { method: 'POST' });
-export const invitePartner = (matchId: string, email: string, payMode: PartnerPayMode) =>
+export type PartnerInviteTarget = { email: string } | { phone: string } | { userId: string };
+export const invitePartner = (matchId: string, target: PartnerInviteTarget, payMode: PartnerPayMode) =>
   api<{ prepaidJoinId: string | null }>(`/matches/${matchId}/partner-invite`, {
     method: 'POST',
-    body: JSON.stringify({ email, payMode }),
+    body: JSON.stringify({ ...target, payMode }),
   });
+export type RecentCoPlayer = {
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  relation: 'teammate' | 'opponent';
+  timesPlayed: number;
+  lastPlayedAt: string;
+};
+export const getRecentCoPlayers = () => api<{ players: RecentCoPlayer[] }>('/matches/me/recent-players');
 export const cancelPartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/cancel`, { method: 'POST' });
 export const acceptPartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/accept`, { method: 'POST' });
 export const declinePartnerInvite = (matchId: string) => api(`/matches/${matchId}/partner-invite/decline`, { method: 'POST' });

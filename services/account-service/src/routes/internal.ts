@@ -1,6 +1,6 @@
 import { Router, json } from 'express';
 import { z } from 'zod';
-import { findPlayerIdByEmail, getPublicDisplayNames, getPublicMatchProfile } from '../domain/profile.js';
+import { findPlayerIdByEmail, findPlayerIdByPhone,getPublicDisplayNames, getPublicMatchProfile } from '../domain/profile.js';
 import { h } from './handler.js';
 import type { ObjectStorageClient } from '@khoaluantn/object-storage';
 
@@ -15,6 +15,11 @@ internalRouter.get('/players/:userId/public-match-profile', h(async (req, res) =
 internalRouter.get('/players/by-email', h(async (req, res) => {
   const { email } = z.object({ email: z.string().email() }).parse(req.query);
   res.status(200).json(await findPlayerIdByEmail(email));
+}));
+
+internalRouter.get('/players/by-phone', h(async (req, res) => {
+  const { phone } = z.object({ phone: z.string().trim().min(8).max(20) }).parse(req.query);
+  res.status(200).json(await findPlayerIdByPhone(phone));
 }));
 
 const batchSchema = z.object({ userIds: z.array(z.string().uuid()).max(200) }).strict();

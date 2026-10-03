@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Badge, Button, SelectInput, SurfaceCard, TextInput } from './ui';
+import { useEffect, useState } from 'react';
+import { Badge, Button, SegmentedControl, SelectInput, SurfaceCard, TextInput } from './ui';
 import { SepayPayBox } from './SepayPayBox.js';
 import {
   acceptPartnerInvite,
   cancelPartnerInvite,
   declinePartnerInvite,
+  getRecentCoPlayers,
   invitePartner,
+  type RecentCoPlayer,
   type MatchDetail,
   type PartnerPayMode,
 } from '../lib/matchApi';
@@ -25,6 +27,20 @@ export function PartnerInvitePanel({ detail, run }: Props) {
   const [payMode, setPayMode] = useState<PartnerPayMode>('self');
   const [method, setMethod] = useState<'balance' | 'sepay'>('balance');
   const [sepay, setSepay] = useState<SepayPayInstruction | null>(null);
+  const [via, setVia] = useState<InviteVia>('recent');
+  const [phone, setPhone] = useState('');
+  const [recent, setRecent] = useState<RecentCoPlayer[] | null>(null);
+  const [picked, setPicked] = useState('');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const canInvite = Boolean(detail.actions.isOrganizer && partner?.actions.canInvite);
+  useEffect(() => {
+    if (!canInvite || recent) return;
+    getRecentCoPlayers().then(({ players }) => {
+      setRecent(players);
+      if (players.length === 0) setVia('email');
+    }).catch(() => { setRecent([]); setVia('email'); });
+  }, [canInvite, recent]);
   if (!partner) return null;
   const { invite, prepaidJoin, actions } = partner;
   const fee = formatMoneyVnd(detail.feePerSlot);
@@ -64,8 +80,11 @@ export function PartnerInvitePanel({ detail, run }: Props) {
     }
   };
   const send = () => run(async () => {
-    await invitePartner(detail.id, email, payMode);
+    if (via === 'recent' && !picked) throw new Error('Hãy chọn một người trong danh sách.');
+    await invitePartner(detail.id, via === 'email' ? { email } : via === 'phone' ? { phone } : { userId: picked }, payMode);
     setEmail('');
+    setPhone('');
+    setPicked('');
   }, payMode === 'organizer' && prepaidJoin?.status !== 'reserved'
     ? 'Bạn có 10 phút để thanh toán phần của đồng đội; lời mời sẽ được gửi sau khi thanh toán.'
     : 'Đã gửi lời mời tới đồng đội.');
@@ -109,10 +128,23 @@ export function PartnerInvitePanel({ detail, run }: Props) {
           className="mt-4 space-y-3"
           onSubmit={(event) => { event.preventDefault(); void send(); }}
         >
-          <label className="block text-sm font-medium">
-            Email của đồng đội
-            <TextInput className="mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
-          </label>
+          <SegmentedControl options={inviteViaOptions} value={via} onChange={setVia} />
+          {via === 'recent' && (
+            <RecentCoPlayerPicker players={recent} picked={picked} onPick={setPicked} query={query} page={page}
+              onQuery={(value) => { setQuery(value); setPage(0); }} onPage={setPage} />
+          )}
+          {via === 'email' && (
+            <label className="block text-sm font-medium">
+              Email của đồng đội
+              <TextInput className="mt-1" type="email" required placeholder="ban@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </label>
+          )}
+          {via === 'phone' && (
+            <label className="block text-sm font-medium">
+              Số điện thoại của đồng đội
+              <TextInput className="mt-1" type="tel" inputMode="tel" required pattern="\+?[0-9 ]{8,20}" placeholder="0912345678" value={phone} onChange={(event) => setPhone(event.target.value)} />
+            </label>
+          )}
           {prepaidJoin?.status !== 'reserved' && Number(detail.feePerSlot) > 0 && (
             <label className="block text-sm font-medium">
               Ai trả phần phí của đồng đội
@@ -137,5 +169,60 @@ export function PartnerInvitePanel({ detail, run }: Props) {
         </Button>
       )}
     </SurfaceCard>
+  );
+}
+
+type InviteVia = 'recent' | 'email' | 'phone';
+const inviteViaOptions = [
+  { value: 'recent', label: 'Từng chơi cùng' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Số điện thoại' },
+] as const;
+const PAGE_SIZE = 5;
+
+function RecentCoPlayerPicker({ players, picked, onPick, query, page, onQuery, onPage }: {
+  players: RecentCoPlayer[] | null;
+  picked: string;
+  onPick: (userId: string) => void;
+  query: string;
+  page: number;
+  onQuery: (value: string) => void;
+  onPage: (page: number) => void;
+}) {
+  if (!players) return <p className="text-sm text-ink-500">Đang tải danh sách…</p>;
+  if (players.length === 0) return <p className="text-sm text-ink-500">Bạn chưa chơi kèo nào đã diễn ra. Hãy mời bằng email hoặc số điện thoại.</p>;
+  const needle = query.trim().toLowerCase();
+  const filtered = needle ? players.filter((player) => (player.displayName ?? '').toLowerCase().includes(needle)) : players;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(page, pageCount - 1);
+  const shown = filtered.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  return (
+    <div>
+      <TextInput type="search" aria-label="Tìm người từng chơi cùng" placeholder="Tìm theo tên" value={query} onChange={(event) => onQuery(event.target.value)} />
+      <ul className="mt-2 divide-y divide-line">
+        {shown.map((player) => (
+          <li key={player.userId}>
+            <label className="flex cursor-pointer items-center gap-3 py-2 text-sm">
+              <input type="radio" name="recent-co-player" checked={picked === player.userId} onChange={() => onPick(player.userId)} />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{player.displayName ?? 'Người chơi'}</span>
+                <span className="block text-caption text-ink-500">
+                  Chơi cùng {player.timesPlayed} lần · gần nhất {new Date(player.lastPlayedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                </span>
+              </span>
+              <Badge tone={player.relation === 'teammate' ? 'success' : 'warning'}>{player.relation === 'teammate' ? 'Đồng đội' : 'Đối thủ'}</Badge>
+            </label>
+          </li>
+        ))}
+        {shown.length === 0 && <li className="py-2 text-sm text-ink-500">Không có ai khớp với tên này.</li>}
+      </ul>
+      {pageCount > 1 && (
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <Button size="sm" tone="secondary" disabled={current === 0} onClick={() => onPage(current - 1)}>Trước</Button>
+          <span className="text-ink-500">Trang {current + 1}/{pageCount}</span>
+          <Button size="sm" tone="secondary" disabled={current >= pageCount - 1} onClick={() => onPage(current + 1)}>Sau</Button>
+        </div>
+      )}
+    </div>
   );
 }

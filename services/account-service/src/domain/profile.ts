@@ -58,6 +58,17 @@ export async function findPlayerIdByEmail(email: string) {
   return { userId: user.id };
 }
 
+/** SĐT không unique, không xác minh: chỉ trả về khi đúng một người chơi hợp lệ dùng số này. */
+export async function findPlayerIdByPhone(phone: string) {
+  const users = await prisma.user.findMany({
+    where: { phone: phone.replace(/\s+/g, ''), verified: true, status: 'active', roles: { has: 'player' } },
+    select: { id: true }, take: 2,
+  });
+  if (users.length === 0) throw new AppError('PLAYER_NOT_FOUND', 'Không tìm thấy người chơi.', 404);
+  if (users.length > 1) throw new AppError('PLAYER_PHONE_AMBIGUOUS', 'Có nhiều tài khoản dùng số này.', 409);
+  return { userId: users[0]!.id };
+}
+
 export async function getPublicMatchProfile(userId: string, resolveStorage?: StorageResolver) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

@@ -150,11 +150,19 @@ export async function deliverRequiredEmails(
   if (failure) throw failure;
 }
 
+const webOrigin = (process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(',')[0]!.trim();
+
+/** Thông báo gắn kèo có link đăng nhập rồi quay về đúng kèo; loại khác giữ câu chung. */
+function emailFooter(row: Pick<Notification, 'entityType' | 'entityId'>) {
+  if (row.entityType !== 'match' || !row.entityId) return 'Mở Courtin để xem chi tiết.';
+  return `Xem chi tiết: ${webOrigin}/auth?next=${encodeURIComponent(`/matches/${row.entityId}`)}`;
+}
+
 async function sendRequiredEmail(id: string, sender: Pick<EmailSender, 'send'>, now: () => Date) {
   const row = await prisma.notification.findUnique({ where: { id }, include: { user: { select: { email: true } } } });
   if (!row || row.emailSentAt) return;
   await prisma.notification.update({ where: { id }, data: { emailLastAttemptAt: now() } });
-  await sender.send(row.user.email, row.title, `${row.body}\n\nMở Courtin để xem chi tiết.`);
+  await sender.send(row.user.email, row.title, `${row.body}\n\n${emailFooter(row)}`);
   await prisma.notification.update({ where: { id }, data: { emailSentAt: now() } });
 }
 
