@@ -215,9 +215,12 @@ model Closure {
   court   Court    @relation(fields: [courtId], references: [id])
   /// Chỉ phần ngày có ý nghĩa (lưu 00:00 UTC của ngày đó).
   date    DateTime @db.Timestamptz(3)
+  /// VEN-05c — khung khóa [startMinute, endMinute) theo giờ Việt Nam; cả hai null = cả ngày.
+  startMinute Int?
+  endMinute   Int?
   reason  String?
 
-  @@unique([courtId, date])
+  @@index([courtId, date])
   @@map("closures")
 }
 

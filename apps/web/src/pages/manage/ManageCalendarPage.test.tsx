@@ -23,11 +23,11 @@ it('hiển thị lịch xem-only theo sân con, không còn form tạo booking v
   expect(screen.queryByRole('button', { name: /tạo booking/i })).not.toBeInTheDocument()
 })
 
-it('click block mở drawer chi tiết booking', async () => {
+it('click block mở drawer chi tiết lượt đặt sân', async () => {
   render(<ManageCalendarPage />)
   const block = await screen.findByRole('button', { name: /Khách demo/i })
   fireEvent.click(block)
-  expect(await screen.findByRole('dialog', { name: /chi tiết booking/i })).toBeInTheDocument()
+  expect(await screen.findByRole('dialog', { name: /chi tiết lượt đặt sân/i })).toBeInTheDocument()
   expect(screen.getAllByText('Khách demo').length).toBeGreaterThan(0)
   expect(screen.getAllByText('Sân 1').length).toBeGreaterThan(0)
 })

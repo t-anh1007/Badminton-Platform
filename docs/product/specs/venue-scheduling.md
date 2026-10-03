@@ -235,6 +235,28 @@ match, JOIN hoặc bút toán đã kết thúc.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC; AC-VEN-05-3 là kiểm thử tích hợp chạy trọn chuỗi hủy rồi đóng cửa; AC-VEN-05-6 chứng minh không tồn tại khe hở giữa lúc đóng cửa và lúc hold chuyển thành booking.
 
+#### VEN-05c — Khóa lịch theo khung giờ, xem và mở lại (PO chốt 03/10/2026: từ chối khi xung đột theo D5, mở lại = xóa bản ghi, phạm vi từng sân con, sửa kèm kiểm xung đột đúng ngày + HOLD)
+
+Nguồn: QA 03/10/2026 (OW-B1). Hiện chỉ có `POST /courts/:id/closures` đóng cả ngày;
+không xem danh sách, không mở lại, không khóa một phần ngày.
+
+- **Data model**: `Closure` thêm `startMinute`/`endMinute` (nullable; cả hai null = cả ngày).
+  Bỏ ràng buộc `@@unique([courtId, date])`, thay bằng index `(courtId, date)`; một ngày có
+  nhiều khung khóa, không được chồng nhau.
+- **API** (chủ sân, sở hữu sân):
+  - `POST /courts/:id/closures` nhận thêm `startMinute`, `endMinute` (tùy chọn, bội số bước đặt sân).
+  - Danh sách khóa: trả trong `closures` của từng sân ở `GET /providers/me/venues[/:id]` (kèm `startMinute`/`endMinute`); lịch hợp nhất trả `closedAllDay` + `closedRanges`.
+  - `DELETE /courts/:id/closures/:closureId` — mở lại.
+- **Availability/booking**: slot giao với khung khóa là không khả dụng; hold/booking mới bị chặn
+  tương tự ngày đóng hiện nay. Mọi chỗ đang lọc `closures: { none: { date } }` (đổi sân, tìm sân
+  thay thế, search) đổi sang kiểm theo khoảng giờ.
+- **Xung đột (BR-VEN-05, D5)**: khung khóa giao với booking `confirmed` hoặc `HOLD` còn hạn → từ chối,
+  liệt kê booking vướng. Chỉ kiểm **đúng ngày** bị khóa (code hiện tại kiểm mọi ngày cùng thứ — lỗi
+  quá chặt, sửa kèm). Hủy hàng loạt có hoàn tiền vẫn đi luồng ngừng hoạt động D55.
+- **Mở lại**: xóa bản ghi khóa; không ảnh hưởng tiền.
+- **UI**: trang lịch chủ sân có danh sách khóa sắp tới (ngày, khung giờ, lý do, nút "Mở lại") và
+  form khóa có lựa chọn "Cả ngày" / "Theo khung giờ".
+
 ---
 
 ### VEN-06 — Thiết lập biểu giá theo lịch

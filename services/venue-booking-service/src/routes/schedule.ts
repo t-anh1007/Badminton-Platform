@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
-import { setOperatingHours, replaceOperatingHours, addClosure } from '../domain/schedule.js';
+import { setOperatingHours, replaceOperatingHours, addClosure, removeClosure } from '../domain/schedule.js';
 import { savePricingRules } from '../domain/pricing.js';
 import { setBookingRule } from '../domain/bookingRule.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -32,16 +32,32 @@ scheduleRouter.put(
   }),
 );
 
-const closureSchema = z.object({ date: z.coerce.date(), reason: z.string().optional() });
+const closureSchema = z.object({
+  date: z.coerce.date(),
+  reason: z.string().optional(),
+  startMinute: z.number().int().optional(),
+  endMinute: z.number().int().optional(),
+}).refine((v) => (v.startMinute === undefined) === (v.endMinute === undefined), { message: 'Cần cả giờ bắt đầu và giờ kết thúc khóa.' });
 
 scheduleRouter.post(
   '/courts/:courtId/closures',
   requireAuth,
   h(async (req, res) => {
-    const { date, reason } = closureSchema.parse(req.body);
+    const { date, reason, startMinute, endMinute } = closureSchema.parse(req.body);
     const userId = (req as AuthenticatedRequest).user!.id;
-    const result = await addClosure(userId, req.params.courtId!, date, reason);
+    const range = startMinute !== undefined && endMinute !== undefined ? { startMinute, endMinute } : undefined;
+    const result = await addClosure(userId, req.params.courtId!, date, reason, range);
     res.status(200).json(result);
+  }),
+);
+
+scheduleRouter.delete(
+  '/courts/:courtId/closures/:closureId',
+  requireAuth,
+  h(async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user!.id;
+    await removeClosure(userId, req.params.courtId!, req.params.closureId!);
+    res.status(204).end();
   }),
 );
 

@@ -21,7 +21,7 @@ export interface CalendarEntry {
 }
 
 export interface CalendarResult {
-  courts: { courtId: string; courtName: string; closedAllDay: boolean }[];
+  courts: { courtId: string; courtName: string; closedAllDay: boolean; closedRanges: { startMinute: number; endMinute: number }[] }[];
   entries: CalendarEntry[];
 }
 
@@ -57,7 +57,7 @@ export async function getUnifiedCalendar(
     }),
   ]);
 
-  const closedCourtIds = new Set(closures.map((c) => c.courtId));
+  const closedCourtIds = new Set(closures.filter((c) => c.startMinute === null).map((c) => c.courtId));
   const marketplaceUserIds = bookings.flatMap((booking) => booking.userId ? [booking.userId] : []);
   let displayNames = new Map<string, string>();
   try {
@@ -90,6 +90,9 @@ export async function getUnifiedCalendar(
       courtId: c.id,
       courtName: c.name,
       closedAllDay: closedCourtIds.has(c.id),
+      closedRanges: closures
+        .filter((x) => x.courtId === c.id && x.startMinute !== null && x.endMinute !== null)
+        .map((x) => ({ startMinute: x.startMinute!, endMinute: x.endMinute! })),
     })),
     entries,
   };

@@ -1,6 +1,14 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
-import { vietnamMinuteOfDay, vietnamWeekday } from '../lib/vietnamTime.js';
+import { vietnamDateIdentifier, vietnamMinuteOfDay, vietnamMinuteToInstant, vietnamWeekday } from '../lib/vietnamTime.js';
+import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
+import { findClosureOverlapping } from './slotAvailability.js';
+
+/** Giờ Việt Nam dạng HH:mm cho thông báo. */
+function vietnamClock(value: Date): string {
+  const m = vietnamMinuteOfDay(value);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
 
 async function getOwnedCourtOrThrow(userId: string, courtId: string) {
   const court = await prisma.court.findUniqueOrThrow({
@@ -39,7 +47,7 @@ async function assertNoConflictForNarrowedWindow(
   if (conflictingBookings.length > 0) {
     throw new AppError(
       'BLOCKED_BY_FUTURE_BOOKINGS',
-      `Giờ hoạt động mới không phủ ${conflictingBookings.length} booking đã xác nhận. Hủy qua BOK-10 trước.`,
+      `Giờ hoạt động mới không phủ ${conflictingBookings.length} lượt đặt sân đã xác nhận. Hủy qua BOK-10 trước.`,
       409,
       { bookings: conflictingBookings },
     );
@@ -58,7 +66,7 @@ async function assertNoConflictForNarrowedWindow(
   if (conflictingHold) {
     throw new AppError(
       'BLOCKED_BY_ACTIVE_HOLD',
-      `Còn một lượt giữ chỗ chưa hết hạn ở khung này, thử lại sau ${conflictingHold.expiresAt.toISOString()}.`,
+      `Còn một lượt giữ chỗ chưa hết hạn ở khung này, thử lại sau ${vietnamClock(conflictingHold.expiresAt)}.`,
       409,
       { holdExpiresAt: conflictingHold.expiresAt },
     );
@@ -110,17 +118,70 @@ export async function replaceOperatingHours(
   ]);
 }
 
-/** VEN-05 — Thêm ngày đóng cửa ngoại lệ (AC-VEN-05-2,3). */
-export async function addClosure(userId: string, courtId: string, date: Date, reason?: string) {
+/** VEN-05/05c — Khóa sân cả ngày hoặc một khung [startMinute, endMinute) theo giờ
+ * Việt Nam. Chỉ kiểm xung đột (booking confirmed + HOLD còn hạn) trong đúng khoảng
+ * bị khóa của đúng ngày đó (BR-VEN-05). */
+export async function addClosure(
+  userId: string,
+  courtId: string,
+  date: Date,
+  reason?: string,
+  range?: { startMinute: number; endMinute: number },
+) {
   await getOwnedCourtOrThrow(userId, courtId);
-  const weekday = date.getUTCDay();
-  // Đóng cửa cả ngày == thu hẹp giờ hoạt động về [0,0) cho đúng ngày đó.
-  await assertNoConflictForNarrowedWindow(courtId, weekday, 0, 0);
+  const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  if (day.getTime() < vietnamDateIdentifier(new Date()).getTime()) {
+    throw new AppError('CLOSURE_IN_PAST', 'Không thể khóa lịch cho ngày đã qua.', 400);
+  }
+  const startMinute = range?.startMinute ?? 0;
+  const endMinute = range?.endMinute ?? 24 * 60;
+  if (range) {
+    const step = (await prisma.bookingRule.findUnique({ where: { courtId } }))?.stepMinutes ?? 30;
+    if (startMinute < 0 || endMinute > 24 * 60 || startMinute >= endMinute || startMinute % step || endMinute % step) {
+      throw new AppError('INVALID_CLOSURE_RANGE', `Khung khóa phải có giờ kết thúc sau giờ bắt đầu và theo bước ${step} phút.`, 400);
+    }
+  }
+  const rangeStart = vietnamMinuteToInstant(day, startMinute);
+  const rangeEnd = vietnamMinuteToInstant(day, endMinute);
 
-  const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  return prisma.closure.upsert({
-    where: { courtId_date: { courtId, date: dayStart } },
-    create: { courtId, date: dayStart, reason },
-    update: { reason },
+  return prisma.$transaction(async (tx) => {
+    await lockCourtSchedule(tx, courtId);
+    if (await findClosureOverlapping(tx, courtId, day, startMinute, endMinute)) {
+      throw new AppError('CLOSURE_OVERLAP', 'Khoảng này đã nằm trong một khung khóa khác.', 409);
+    }
+    const bookings = await tx.booking.findMany({
+      where: { courtId, status: 'confirmed', startAt: { lt: rangeEnd }, endAt: { gt: rangeStart } },
+      select: { id: true, startAt: true, endAt: true },
+    });
+    if (bookings.length > 0) {
+      throw new AppError(
+        'BLOCKED_BY_FUTURE_BOOKINGS',
+        `Khoảng khóa trùng ${bookings.length} lượt đặt sân đã xác nhận. Hủy các lượt này trước.`,
+        409,
+        { bookings },
+      );
+    }
+    const hold = await tx.hold.findFirst({
+      where: { courtId, expiresAt: { gt: new Date() }, startAt: { lt: rangeEnd }, endAt: { gt: rangeStart } },
+      orderBy: { expiresAt: 'desc' },
+    });
+    if (hold) {
+      throw new AppError(
+        'BLOCKED_BY_ACTIVE_HOLD',
+        `Còn một lượt giữ chỗ chưa hết hạn ở khung này, thử lại sau ${vietnamClock(hold.expiresAt)}.`,
+        409,
+        { holdExpiresAt: hold.expiresAt },
+      );
+    }
+    return tx.closure.create({
+      data: { courtId, date: day, reason, startMinute: range ? startMinute : null, endMinute: range ? endMinute : null },
+    });
   });
+}
+
+/** VEN-05c — Mở lại: xóa bản ghi khóa (không liên quan tiền). */
+export async function removeClosure(userId: string, courtId: string, closureId: string) {
+  await getOwnedCourtOrThrow(userId, courtId);
+  const { count } = await prisma.closure.deleteMany({ where: { id: closureId, courtId } });
+  if (count === 0) throw new AppError('CLOSURE_NOT_FOUND', 'Không tìm thấy khung khóa.', 404);
 }

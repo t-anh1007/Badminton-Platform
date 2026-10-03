@@ -9,7 +9,7 @@ import { ManageVenuesPage } from './ManageVenuesPage.js'
 
 vi.mock('../../lib/venueBookingApi.js', () => ({
   getMyManagedVenues: vi.fn(), createManagedVenue: vi.fn(), getMyManagedVenue: vi.fn(), updateManagedVenue: vi.fn(), deactivateManagedVenue: vi.fn(), activateManagedVenue: vi.fn(),
-  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), activateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(),
+  addManagedCourt: vi.fn(), deactivateManagedCourt: vi.fn(), activateManagedCourt: vi.fn(), updateManagedCourt: vi.fn(), replaceOperatingHours: vi.fn(), saveOperatingHours: vi.fn(), addClosure: vi.fn(), removeClosure: vi.fn(),
   savePricing: vi.fn(), saveBookingRule: vi.fn(),
   getOperationalShutdown: vi.fn().mockResolvedValue(null), reactivateOperationalShutdown: vi.fn(),
   authorizeVenueImage: vi.fn(), uploadVenueImage: vi.fn(),
@@ -74,8 +74,8 @@ it('stores minute-backed operating hours and a valid dd/MM/yyyy closure', async 
   render(<MemoryRouter initialEntries={['/manage/venues/v1/schedule?courtId=c1']}><ManageSchedulePage /></MemoryRouter>)
   fireEvent.change(screen.getByLabelText('Giờ mở'), { target: { value: '06:30' } }); fireEvent.change(screen.getByLabelText('Giờ đóng'), { target: { value: '22:00' } }); fireEvent.click(screen.getByRole('button', { name: 'Lưu giờ hoạt động' }))
   await waitFor(() => expect(venueApi.saveOperatingHours).toHaveBeenCalledWith('c1', { weekday: 1, openMinute: 390, closeMinute: 1320 }))
-  fireEvent.change(screen.getByLabelText('Ngày đóng sân'), { target: { value: '31/02/2026' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm ngày đóng' })); expect(screen.getByRole('alert')).toHaveTextContent('ngày hợp lệ')
-  fireEvent.change(screen.getByLabelText('Ngày đóng sân'), { target: { value: '15/08/2026' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm ngày đóng' })); await waitFor(() => expect(venueApi.addClosure).toHaveBeenCalledWith('c1', { date: '2026-08-15T00:00:00.000Z' }))
+  fireEvent.change(screen.getByLabelText('Ngày khóa lịch'), { target: { value: '31/02/2026' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm khóa lịch' })); expect(screen.getByRole('alert')).toHaveTextContent('ngày hợp lệ')
+  fireEvent.change(screen.getByLabelText('Ngày khóa lịch'), { target: { value: '15/08/2026' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm khóa lịch' })); await waitFor(() => expect(venueApi.addClosure).toHaveBeenCalledWith('c1', { date: '2026-08-15T00:00:00.000Z' }))
 })
 
 it('validates price windows and booking-rule step/min/max before submit', async () => {
@@ -84,4 +84,20 @@ it('validates price windows and booking-rule step/min/max before submit', async 
   fireEvent.change(screen.getByLabelText('Ngày hiệu lực'), { target: { value: '15/08/2026' } }); fireEvent.click(screen.getByRole('button', { name: 'Lưu bảng giá' })); await waitFor(() => expect(venueApi.savePricing).toHaveBeenCalledWith('c1', { effectiveFrom: '2026-08-15T00:00:00.000Z', rules: [{ weekday: 1, startMinute: 480, endMinute: 1320, price: 100000 }] }))
   fireEvent.change(screen.getByLabelText('Tối thiểu'), { target: { value: '50' } }); fireEvent.click(screen.getByRole('button', { name: 'Lưu quy tắc' })); expect(screen.getByRole('alert')).toHaveTextContent('chia hết')
   fireEvent.change(screen.getByLabelText('Tối thiểu'), { target: { value: '60' } }); fireEvent.click(screen.getByRole('button', { name: 'Lưu quy tắc' })); await waitFor(() => expect(venueApi.saveBookingRule).toHaveBeenCalledWith('c1', { stepMinutes: 30, minDurationMinutes: 60, maxDurationMinutes: 180 }))
+})
+
+it('locks a time range and reopens an upcoming closure', async () => {
+  const closure = { id: 'cl1', date: '2999-01-02T00:00:00.000Z', startMinute: 480, endMinute: 600, reason: 'Bảo trì' }
+  vi.mocked(venueApi.getMyManagedVenue).mockResolvedValue({ ...venue, courts: [{ ...venue.courts[0], closures: [closure, { ...closure, id: 'old', date: '2000-01-01T00:00:00.000Z' }] }] })
+  vi.mocked(venueApi.addClosure).mockResolvedValue({} as never); vi.mocked(venueApi.removeClosure).mockResolvedValue(undefined)
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  render(<MemoryRouter initialEntries={['/manage/venues/v1/schedule?courtId=c1']}><Routes><Route path="/manage/venues/:venueId/schedule" element={<ManageSchedulePage />} /></Routes></MemoryRouter>)
+  expect(await screen.findByText(/02\/01\/2999 · 08:00–10:00/)).toBeInTheDocument()
+  expect(screen.queryByText(/01\/01\/2000/)).not.toBeInTheDocument()
+  fireEvent.click(screen.getByLabelText('Theo khung giờ'))
+  fireEvent.change(screen.getByLabelText('Khóa từ'), { target: { value: '14:00' } }); fireEvent.change(screen.getByLabelText('Khóa đến'), { target: { value: '16:30' } })
+  fireEvent.change(screen.getByLabelText('Ngày khóa lịch'), { target: { value: '15/08/2999' } }); fireEvent.click(screen.getByRole('button', { name: 'Thêm khóa lịch' }))
+  await waitFor(() => expect(venueApi.addClosure).toHaveBeenCalledWith('c1', { date: '2999-08-15T00:00:00.000Z', startMinute: 840, endMinute: 990 }))
+  fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }))
+  await waitFor(() => expect(venueApi.removeClosure).toHaveBeenCalledWith('c1', 'cl1'))
 })

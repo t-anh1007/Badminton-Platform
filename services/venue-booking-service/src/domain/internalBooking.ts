@@ -3,6 +3,7 @@ import { AppError } from '../lib/errors.js';
 import { calculateBookingPrice } from './pricing.js';
 import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
 import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
+import { isRangeClosed } from './slotAvailability.js';
 
 async function getOwnedCourtOrThrow(userId: string, courtId: string) {
   const court = await prisma.court.findUniqueOrThrow({
@@ -43,14 +44,17 @@ export async function createInternalBooking(userId: string, input: CreateInterna
     if (!(await tx.court.findUniqueOrThrow({ where: { id: court.id } })).active) {
       throw new AppError('COURT_INACTIVE', 'Sân đã ngừng hoạt động.', 409);
     }
+    if (await isRangeClosed(court.id, input.startAt, input.endAt, tx)) {
+      throw new AppError('COURT_CLOSED', 'Sân đã khóa lịch trong khung giờ này.', 409);
+    }
     const overlappingBooking = await tx.booking.findFirst({ where: {
       courtId: court.id, status: 'confirmed', startAt: { lt: input.endAt }, endAt: { gt: input.startAt },
     } });
-    if (overlappingBooking) throw new AppError('SLOT_ALREADY_BOOKED', 'Slot đã có booking xác nhận.', 409);
+    if (overlappingBooking) throw new AppError('SLOT_ALREADY_BOOKED', 'Khung giờ đã có lượt đặt sân xác nhận.', 409);
     const overlappingHold = await tx.hold.findFirst({ where: {
       courtId: court.id, expiresAt: { gt: new Date() }, startAt: { lt: input.endAt }, endAt: { gt: input.startAt },
     } });
-    if (overlappingHold) throw new AppError('SLOT_ON_HOLD', 'Slot đang được giữ chỗ bởi người chơi khác.', 409);
+    if (overlappingHold) throw new AppError('SLOT_ON_HOLD', 'Khung giờ đang được giữ chỗ bởi người chơi khác.', 409);
     return tx.booking.create({ data: {
       courtId: court.id, startAt: input.startAt, endAt: input.endAt, userId: null,
       guestName: input.guestName, guestContact: input.guestContact, source: 'internal', status: 'confirmed', priceSnapshot,
@@ -66,10 +70,10 @@ export async function cancelInternalBooking(userId: string, bookingId: string): 
     include: { court: { include: { venue: { include: { provider: true } } } } },
   });
   if (booking.court.venue.provider.userId !== userId) {
-    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu booking này.', 403);
+    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu lượt đặt sân này.', 403);
   }
   if (booking.source !== 'internal') {
-    throw new AppError('NOT_INTERNAL_BOOKING', 'Chỉ hủy được booking nội bộ qua thao tác này.', 400);
+    throw new AppError('NOT_INTERNAL_BOOKING', 'Chỉ hủy được lượt đặt sân nội bộ qua thao tác này.', 400);
   }
   await prisma.booking.update({
     where: { id: bookingId },
