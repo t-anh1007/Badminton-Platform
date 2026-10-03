@@ -2,6 +2,18 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { revokeAllRefreshTokens } from '../lib/redis.js';
 import { writeOutbox } from '../lib/outbox.js';
+import { setAccountLocked } from '@khoaluantn/eventbus';
+
+/** Ghi trạng thái khóa sang Redis để mọi service chặn ngay; lỗi chỉ log (DB vẫn là nguồn thật). */
+async function publishLockState(userId: string, locked: boolean): Promise<void> {
+  try { await setAccountLocked(userId, locked); } catch (error) { console.warn('[account-lock] Không ghi được Redis cho', userId, (error as Error).message); }
+}
+
+/** Khởi động: đồng bộ các tài khoản đang khóa sang Redis (dữ liệu khóa từ trước hoặc Redis vừa khởi động lại). */
+export async function syncLockedAccounts(): Promise<void> {
+  const rows = await prisma.user.findMany({ where: { status: 'locked' }, select: { id: true } });
+  for (const row of rows) await publishLockState(row.id, true);
+}
 
 export async function listAdminAccounts(input: { query?: string; status?: 'active' | 'locked' }) {
   const query = input.query?.trim();
@@ -36,6 +48,18 @@ export async function lockAccount(adminUserId: string, targetUserId: string, rea
   }
 
   await prisma.$transaction(async (tx) => {
+    // Tuần tự hóa mọi thao tác khóa: hai admin khóa chéo nhau cùng lúc không được làm hệ thống mất hết admin.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('account-lock'))`;
+    const [actor, current] = await Promise.all([
+      tx.user.findUniqueOrThrow({ where: { id: adminUserId }, select: { status: true } }),
+      tx.user.findUniqueOrThrow({ where: { id: targetUserId }, select: { status: true, roles: true } }),
+    ]);
+    if (actor.status !== 'active') throw new AppError('ACTOR_LOCKED', 'Tài khoản của bạn vừa bị khóa nên không thể thực hiện thao tác này.', 403);
+    if (current.status === 'locked') throw new AppError('ALREADY_LOCKED', 'Tài khoản đã bị khóa từ trước.', 409);
+    if (current.roles.includes('admin')) {
+      const otherActiveAdmins = await tx.user.count({ where: { id: { not: targetUserId }, status: 'active', roles: { has: 'admin' } } });
+      if (otherActiveAdmins < 1) throw new AppError('LAST_ADMIN', 'Không thể khóa quản trị viên cuối cùng còn hoạt động.', 409);
+    }
     const updated = await tx.user.update({
       where: { id: targetUserId },
       data: { status: 'locked', accountLockVersion: { increment: 1 } },
@@ -60,6 +84,8 @@ export async function lockAccount(adminUserId: string, targetUserId: string, rea
     });
   });
 
+  // PO 03/10: chặn mọi access token còn hạn ngay lập tức (qua Redis dùng chung).
+  await publishLockState(targetUserId, true);
   // BR-ACC-09: thu hồi TOÀN BỘ refresh token của tài khoản bị khóa ngay lập tức.
   await revokeAllRefreshTokens(targetUserId);
 }
@@ -97,4 +123,5 @@ export async function unlockAccount(adminUserId: string, targetUserId: string, r
       },
     });
   });
+  await publishLockState(targetUserId, false);
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { watchAccountLock } from '@khoaluantn/eventbus';
 import { Router } from 'express';
 import { z } from 'zod';
 import { h } from './handler.js';
@@ -64,6 +65,9 @@ notificationsRouter.get('/stream', requireAuth, (req, res) => {
     'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no',
   });
   res.flushHeaders();
-  const unsubscribe = subscribeNotificationSignals((req as AuthenticatedRequest).user!.id, res);
-  req.on('close', unsubscribe);
+  const userId = (req as AuthenticatedRequest).user!.id;
+  const unsubscribe = subscribeNotificationSignals(userId, res);
+  // Tài khoản bị khóa trong lúc đang mở luồng: cắt ngay.
+  const stopLockWatch = watchAccountLock(userId, () => res.end());
+  req.on('close', () => { stopLockWatch(); unsubscribe(); });
 });

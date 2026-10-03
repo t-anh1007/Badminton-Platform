@@ -293,3 +293,4 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
   activeHandle = handle;
   return handle;
 }
+export { isAccountLocked, setAccountLocked, watchAccountLock } from './accountLock.js';

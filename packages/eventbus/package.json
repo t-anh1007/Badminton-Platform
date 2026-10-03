@@ -21,6 +21,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "amqplib": "^2.0.1"
+    "amqplib": "^2.0.1",
+    "ioredis": "^6.0.0"
   }
 }
