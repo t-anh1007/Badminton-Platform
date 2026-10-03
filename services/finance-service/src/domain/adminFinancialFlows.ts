@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { bookingDetails, bookingIdsByCodes, type BookingDetail } from './bookingReferences.js';
+import { bookingDetails, bookingIdsByCodes, matchReferences, type BookingDetail } from './bookingReferences.js';
 
 /** Chi tiết dòng tiền cho admin — CHỈ ĐỌC, không di chuyển tiền.
  * Tên người dùng không nằm ở schema finance (D17): chuỗi `@user:<id>` được FE
@@ -31,12 +31,32 @@ export const dateTime = (value: Date | null | undefined) => value ? dateFormat.f
 export const range = (field: string, from?: Date, to?: Date) => from || to ? { [field]: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {};
 const sum = (rows: Array<{ amount: bigint }>) => rows.reduce((total, row) => total + row.amount, 0n);
 const page = <T>(rows: T[], q: FlowQuery) => rows.slice((q.page - 1) * q.pageSize, q.page * q.pageSize);
-const bookingLabel = (id: string, detail?: BookingDetail) => detail?.businessCode ?? `Booking #${short(id)}`;
-export const cancelReason: Record<string, string> = { self: 'Khách tự hủy', provider_fault: 'Lỗi phía sân', platform_admin: 'Admin hủy' };
+const bookingLabel = (id: string, detail?: BookingDetail) => detail?.businessCode ?? 'Chưa rõ mã đặt sân';
+
+/** Gọi tên kèo theo mã KEO-… (tra matchmaking); không tra được thì theo mã đặt sân của kèo.
+ * refId có thể là matchId hoặc id khoản góp. */
+async function matchLabeler(refIds: string[]): Promise<(refId: string) => string> {
+  const ids = [...new Set(refIds.filter(Boolean))];
+  const contributions = ids.length ? await prisma.matchContribution.findMany({ where: { id: { in: ids } }, select: { id: true, matchId: true } }) : [];
+  const matchOf = new Map(contributions.map((row) => [row.id, row.matchId]));
+  const matchIds = ids.map((id) => matchOf.get(id) ?? id);
+  const fundings = matchIds.length ? await prisma.matchFunding.findMany({ where: { matchId: { in: matchIds } }, select: { matchId: true, bookingId: true } }) : [];
+  const bookingOf = new Map(fundings.map((row) => [row.matchId, row.bookingId]));
+  const [details, matchCodes] = await Promise.all([bookingDetails(fundings.map((row) => row.bookingId)), matchReferences(matchIds)]);
+  return (refId) => {
+    const matchId = matchOf.get(refId) ?? refId;
+    const matchCode = matchCodes.get(matchId);
+    if (matchCode) return matchCode;
+    const bookingId = bookingOf.get(matchId);
+    const code = bookingId ? details.get(bookingId)?.businessCode : undefined;
+    return code ? `Kèo · ${code}` : 'Kèo · chưa rõ mã đặt sân';
+  };
+}
+export const cancelReason: Record<string, string> = { self: 'Khách tự hủy', provider_fault: 'Lỗi phía sân', platform_admin: 'Quản trị viên hủy' };
 
 const REFUND_GROUPS: Record<string, string[]> = { booking: ['booking'], dispute: ['dispute'], match: ['matchFee', 'matchFeeCancellation', 'matchOwnerRebalance', 'matchResultReserve', 'matchSettlementReturn'] };
 const TOPUP_GROUPS: Record<string, string[]> = { topup: ['topup'], late: ['late_payment', 'late_match_fee'], over: ['overpay', 'overpay_match_fee'], partial: ['partial_payment', 'partial_match_fee'], manual: ['reconciliation'] };
-const TOPUP_LABEL: Record<string, string> = { topup: 'Nạp ví', late_payment: 'Tiền về muộn', late_match_fee: 'Phí kèo về muộn', overpay: 'Chuyển thừa', overpay_match_fee: 'Chuyển thừa phí kèo', partial_payment: 'Chuyển thiếu', partial_match_fee: 'Chuyển thiếu phí kèo', reconciliation: 'Admin gán tay' };
+const TOPUP_LABEL: Record<string, string> = { topup: 'Nạp ví', late_payment: 'Tiền về muộn', late_match_fee: 'Phí kèo về muộn', overpay: 'Chuyển thừa', overpay_match_fee: 'Chuyển thừa phí kèo', partial_payment: 'Chuyển thiếu', partial_match_fee: 'Chuyển thiếu phí kèo', reconciliation: 'Quản trị viên phân bổ thủ công' };
 const DISCIPLINE: Record<string, string> = { singles: 'Đánh đơn', doubles: 'Đánh đôi', mixed: 'Đánh đôi nam nữ' };
 const refundGroupOf = (refType: string) => Object.entries(REFUND_GROUPS).find(([, types]) => types.includes(refType))?.[0] ?? 'booking';
 
@@ -53,19 +73,21 @@ async function revenue(q: FlowQuery): Promise<FlowPage> {
   ]);
   const details = await bookingDetails(rows.map((row) => row.bookingId));
   const intents = rows.length ? await prisma.paymentIntent.findMany({ where: { refType: 'booking', refId: { in: rows.map((row) => row.bookingId) } } }) : [];
+  // Booking của kèo được trả từ quỹ kèo (MatchFunding), không có PaymentIntent refType booking.
+  const matchBookings = new Set(rows.length ? (await prisma.matchFunding.findMany({ where: { bookingId: { in: rows.map((row) => row.bookingId) } }, select: { bookingId: true } })).map((item) => item.bookingId) : []);
   const gross = totals._sum.gross ?? 0n, net = totals._sum.net ?? 0n, fee = totals._sum.commission ?? 0n;
   return {
     total,
     kpis: [
-      { label: 'Tổng khách đã trả', value: n(gross), note: `${total} booking`, tone: 'info' },
+      { label: 'Tổng khách đã trả', value: n(gross), note: `${total} lượt đặt sân`, tone: 'info' },
       { label: 'Phần chủ sân', value: n(net), note: 'Chờ 24 giờ hoặc đã có thể rút', tone: 'ok' },
-      { label: 'Phí nền tảng', value: n(fee), note: 'Xem tab Phí nền tảng', tone: 'info' },
-      { label: 'Đã hoàn khách', value: n(gross - net - fee), note: 'Xem tab Hoàn tiền', tone: 'bad' },
+      { label: 'Phí nền tảng', value: n(fee), note: 'Xem mục Phí nền tảng', tone: 'info' },
+      { label: 'Đã hoàn khách', value: n(gross - net - fee), note: 'Xem mục Hoàn tiền', tone: 'bad' },
     ],
     items: rows.map((row) => {
       const detail = details.get(row.bookingId);
       const intent = intents.find((candidate) => candidate.refId === row.bookingId);
-      const channel = intent ? (intent.method === 'sepay' ? 'SePay' : 'Ví COURTIN') : 'Chưa rõ kênh thanh toán';
+      const channel = intent ? (intent.method === 'sepay' ? 'SePay' : 'Ví COURTIN') : matchBookings.has(row.bookingId) ? 'Quỹ kèo' : 'Chưa rõ kênh thanh toán';
       const refunded = row.gross - row.net - row.commission;
       const [status, tone]: [string, Tone] = row.cancelledAt ? ['Đã hủy', 'mute'] : row.releasedAt ? ['Có thể rút', 'ok'] : ['Chờ 24 giờ', 'wait'];
       const code = bookingLabel(row.bookingId, detail);
@@ -77,11 +99,11 @@ async function revenue(q: FlowQuery): Promise<FlowPage> {
         steps: [
           { title: `Khách thanh toán ${vnd(row.gross)}`, detail: channel, tone: 'info' },
           { title: 'Phân bổ', detail: `${vnd(row.gross)} = ${vnd(row.commission)} phí + ${vnd(row.net)} chủ sân${refunded ? ` + ${vnd(refunded)} đã hoàn` : ''}`, tone: 'info' },
-          row.cancelledAt ? { title: 'Booking bị hủy', detail: `${cancelReason[detail?.cancellationReason ?? ''] ?? 'Đã hủy'} · hoàn ${vnd(refunded)} vào ví người chơi`, tone: 'bad' }
+          row.cancelledAt ? { title: 'Lượt đặt sân bị hủy', detail: `${cancelReason[detail?.cancellationReason ?? ''] ?? 'Đã hủy'} · hoàn ${vnd(refunded)} vào ví người chơi`, tone: 'bad' }
             : row.releasedAt ? { title: 'Đã chuyển sang có thể rút', detail: dateTime(row.releasedAt), tone: 'ok' }
               : { title: 'Chờ đủ 24 giờ', detail: `Dự kiến mở khóa ${dateTime(row.releaseAt)}`, tone: 'wait' },
         ],
-        facts: [{ k: 'Mã booking', v: code }, { k: 'Cơ sở', v: detail?.venueName ?? '—' }, { k: 'Kênh thanh toán', v: channel }, { k: 'Mở khóa', v: dateTime(row.releasedAt ?? row.releaseAt) }],
+        facts: [{ k: 'Mã đặt sân', v: code }, { k: 'Cơ sở', v: detail?.venueName ?? '—' }, { k: 'Kênh thanh toán', v: channel }, { k: 'Mở khóa', v: dateTime(row.releasedAt ?? row.releaseAt) }],
         refIds: [row.bookingId],
       };
     }),
@@ -97,21 +119,21 @@ async function platform(q: FlowQuery): Promise<FlowPage> {
   const kpis: Kpi[] = [
     { label: 'Số dư doanh thu nền tảng', value: n(wallet?.available), note: 'Ví nền tảng · khả dụng (hiện tại)', tone: 'info' },
     { label: 'Phí đặt sân thu được', value: n(earned), note: 'Trong kỳ xem', tone: 'ok' },
-    { label: 'Hoàn phí cho khách', value: n(refunded), note: 'Hủy booking, tranh chấp', tone: 'bad' },
-    { label: 'Ký quỹ kèo đang giữ', value: n(wallet?.reserved), note: 'Không phải doanh thu · tab Kèo', tone: 'wait' },
+    { label: 'Hoàn phí cho khách', value: n(refunded), note: 'Hủy đặt sân, tranh chấp', tone: 'bad' },
+    { label: 'Ký quỹ kèo đang giữ', value: n(wallet?.reserved), note: 'Không phải doanh thu · mục Kèo', tone: 'wait' },
   ];
   if (q.filter === 'owner') {
     const owners = await prisma.bookingRevenue.groupBy({ by: ['businessUserId'], where: { ...range('endAt', q.from, q.to), ...(q.search ? { businessUserId: { in: q.search.userIds } } : {}), ...(q.place ? { bookingId: { in: q.place } } : {}) }, _sum: { commission: true, gross: true }, _count: true, orderBy: { _sum: { commission: 'desc' } } });
     return { kpis, total: owners.length, items: page(owners, q).map((row) => ({
-      id: row.businessUserId, title: user(row.businessUserId), titleNote: 'Chủ sân', party: `${row._count} booking`, partyNote: `khách trả ${vnd(row._sum.gross)}`,
+      id: row.businessUserId, title: user(row.businessUserId), titleNote: 'Chủ sân', party: `${row._count} lượt đặt sân`, partyNote: `khách trả ${vnd(row._sum.gross)}`,
       counterpart: 'Phí đặt sân', counterpartNote: 'đã trừ phần hoàn phí', status: 'Phí ròng', tone: 'info' as Tone, amount: n(row._sum.commission), sign: '+' as const, amountNote: 'vào ví nền tảng',
-      from: `Khách của ${user(row.businessUserId)}`, fromNote: `${row._count} booking`, to: 'Ví nền tảng', toNote: 'Phí đặt sân',
+      from: `Khách của ${user(row.businessUserId)}`, fromNote: `${row._count} lượt đặt sân`, to: 'Ví nền tảng', toNote: 'Phí đặt sân',
       steps: [{ title: `Phí ròng ${vnd(row._sum.commission)}`, detail: 'Phí thu được trừ phí đã hoàn khi hủy/tranh chấp', tone: 'ok' as Tone }],
-      facts: [{ k: 'Chủ sân', v: user(row.businessUserId) }, { k: 'Số booking', v: String(row._count) }, { k: 'Khách trả', v: vnd(row._sum.gross) }], refIds: [],
+      facts: [{ k: 'Chủ sân', v: user(row.businessUserId) }, { k: 'Số lượt đặt sân', v: String(row._count) }, { k: 'Khách trả', v: vnd(row._sum.gross) }], refIds: [],
     })) };
   }
   const label = (type: string, refType: string) => type === 'commission' ? 'Phí đặt sân'
-    : type === 'refund' && refType === 'booking' ? 'Hoàn phí khi hủy booking' : type === 'refund' && refType === 'dispute' ? 'Hoàn phí do tranh chấp'
+    : type === 'refund' && refType === 'booking' ? 'Hoàn phí khi hủy lượt đặt sân' : type === 'refund' && refType === 'dispute' ? 'Hoàn phí do tranh chấp'
       : type === 'reserve' ? 'Giữ ký quỹ kèo' : type === 'settlement' ? 'Trả tiền sân từ ký quỹ kèo' : type === 'release' ? 'Trả thưởng kèo từ ký quỹ' : type === 'refund' ? 'Hoàn từ ký quỹ kèo' : 'Khoản khác';
   const sorted = [...groups].sort((a, b) => Number((b._sum.amount ?? 0n) - (a._sum.amount ?? 0n)));
   return { kpis, total: sorted.length, items: page(sorted, q).map((row) => {
@@ -145,6 +167,7 @@ async function refunds(q: FlowQuery): Promise<FlowPage> {
   const reversed = (type: string) => reversals.filter((row) => walletTypes.get(row.walletId) === type).reduce((total, row) => total - (row._sum.amount ?? 0n), 0n);
   const details = await bookingDetails(rows.filter((row) => row.refType === 'booking').map((row) => row.refId));
   const disputes = await prisma.dispute.findMany({ where: { id: { in: rows.filter((row) => row.refType === 'dispute').map((row) => row.refId) } } });
+  const matchLabel = await matchLabeler(rows.filter((row) => refundGroupOf(row.refType) === 'match').map((row) => row.refId));
   return {
     total,
     kpis: [
@@ -157,8 +180,8 @@ async function refunds(q: FlowQuery): Promise<FlowPage> {
       const group = refundGroupOf(row.refType);
       const booking = row.refType === 'booking' ? details.get(row.refId) : undefined;
       const dispute = row.refType === 'dispute' ? disputes.find((item) => item.id === row.refId) : undefined;
-      const reason = group === 'match' ? 'Hoàn tiền kèo' : dispute ? `Tranh chấp ${dispute.businessCode}` : cancelReason[booking?.cancellationReason ?? ''] ?? 'Hủy booking';
-      const title = dispute ? dispute.businessCode : row.refType === 'booking' ? bookingLabel(row.refId, booking) : group === 'match' ? `Kèo #${short(row.refId)}` : `#${short(row.refId)}`;
+      const reason = group === 'match' ? 'Hoàn tiền kèo' : dispute ? `Tranh chấp ${dispute.businessCode}` : cancelReason[booking?.cancellationReason ?? ''] ?? 'Hủy đặt sân';
+      const title = dispute ? dispute.businessCode : row.refType === 'booking' ? bookingLabel(row.refId, booking) : group === 'match' ? matchLabel(row.refId) : 'Chưa rõ nguồn hoàn';
       return {
         id: row.id, title, titleNote: [booking?.venueName ?? (group === 'match' ? 'Kèo' : ''), dateTime(row.ts)].filter(Boolean).join(' · '),
         party: user(row.wallet.userId), partyNote: 'Ví người chơi', counterpart: reason, counterpartNote: group === 'dispute' ? 'Hoàn theo kết luận tranh chấp' : group === 'match' ? 'Hoàn tiền kèo' : 'Hoàn tiền đặt sân',
@@ -195,19 +218,19 @@ async function topups(q: FlowQuery): Promise<FlowPage> {
       { label: 'Tổng tiền vào ví', value: n(all), note: `${byType.reduce((c, row) => c + row._count, 0)} lần`, tone: 'ok' },
       { label: 'Nạp chủ động', value: n(groupSum('topup')), note: 'Qua VietQR', tone: 'ok' },
       { label: 'Về muộn · thừa · thiếu', value: n(groupSum('late') + groupSum('over') + groupSum('partial')), note: 'Tiền đặt sân/kèo không khớp', tone: 'wait' },
-      { label: 'Admin gán tay', value: n(groupSum('manual')), note: 'Có lý do audit', tone: 'info' },
+      { label: 'Quản trị viên phân bổ thủ công', value: n(groupSum('manual')), note: 'Có lý do audit', tone: 'info' },
     ],
     items: rows.map((row) => {
       const event = allocations.find((item) => item.refId === row.id)?.sepayEvent;
       const kind = TOPUP_LABEL[row.refType] ?? row.refType;
       return {
-        id: row.id, title: event?.businessCode ?? `Bút toán #${short(row.id)}`, titleNote: `${dateTime(row.ts)}${event ? ' · SePay' : ''}`,
+        id: row.id, title: event?.businessCode ?? kind, titleNote: `${dateTime(row.ts)}${event ? ' · SePay' : ''}`,
         party: user(row.wallet.userId), partyNote: 'Ví người chơi', counterpart: kind, counterpartNote: event?.rawRef ? `Nội dung CK: ${event.rawRef}` : 'Không có nội dung chuyển khoản',
         status: 'Đã vào ví', tone: 'ok' as Tone, amount: n(row.amount), sign: '+' as const, amountNote: `số dư ${vnd(row.before)} → ${vnd(row.after)}`,
         from: user(row.wallet.userId), fromNote: 'Tài khoản ngân hàng của khách', to: `Ví ${user(row.wallet.userId)}`, toNote: kind,
         steps: [
           { title: event ? `Tài khoản nền tảng nhận ${vnd(event.amount)}` : 'Không gắn giao dịch ngân hàng', detail: event ? `Mã ngân hàng ${event.externalRef ?? '—'} · ${dateTime(event.receivedAt)}` : 'Ghi nhận nội bộ', tone: 'info' as Tone },
-          { title: row.refType === 'reconciliation' ? 'Admin gán vào ví' : 'Hệ thống tự phân loại', detail: kind, tone: (row.refType === 'reconciliation' ? 'wait' : 'ok') as Tone },
+          { title: row.refType === 'reconciliation' ? 'Quản trị viên gán vào ví' : 'Hệ thống tự phân loại', detail: kind, tone: (row.refType === 'reconciliation' ? 'wait' : 'ok') as Tone },
           { title: `Cộng ${vnd(row.amount)} vào ví`, detail: 'Người chơi thấy trong lịch sử ví', tone: 'ok' as Tone },
         ],
         facts: [{ k: 'Loại', v: kind }, { k: 'Người nhận', v: user(row.wallet.userId) }, { k: 'Giao dịch ngân hàng', v: event?.businessCode ?? '—' }],
@@ -232,7 +255,7 @@ async function matches(q: FlowQuery): Promise<FlowPage> {
     prisma.matchFunding.count({ where: { status: 'cancelled', ...range('createdAt', q.from, q.to) } }),
   ]);
   const released = await prisma.ledgerEntry.aggregate({ where: { refType: 'matchResult', amount: { gt: 0n }, ...range('ts', q.from, q.to) }, _sum: { amount: true }, _count: true });
-  const details = await bookingDetails(rows.map((row) => row.bookingId));
+  const [details, matchCodes] = await Promise.all([bookingDetails(rows.map((row) => row.bookingId)), matchReferences(rows.map((row) => row.matchId))]);
   const statusLabel: Record<string, [string, Tone]> = { collecting: ['Đang thu', 'wait'], settling: ['Đang tất toán', 'wait'], settled: ['Đã tất toán', 'ok'], cancelled: ['Đã hủy', 'mute'] };
   return {
     total,
@@ -240,7 +263,7 @@ async function matches(q: FlowQuery): Promise<FlowPage> {
       { label: 'Ký quỹ kèo đang giữ', value: n(platformWallet?.reserved), note: 'Ví nền tảng · đang giữ (hiện tại)', tone: 'wait' },
       { label: 'Đã trả tiền sân cho chủ sân', value: n(settledSum._sum.bookingPrice), note: `${settledSum._count} kèo đã tất toán`, tone: 'ok' },
       { label: 'Trả thưởng thắng kèo', value: n(released._sum.amount), note: `${released._count} lần`, tone: 'ok' },
-      { label: 'Kèo đã hủy', value: `${cancelledCount} kèo`, note: 'Phí đã hoàn · xem tab Hoàn tiền', tone: 'bad' },
+      { label: 'Kèo đã hủy', value: `${cancelledCount} kèo`, note: 'Phí đã hoàn · xem mục Hoàn tiền', tone: 'bad' },
     ],
     items: rows.map((row) => {
       const paid = row.contributions.filter((item) => item.status !== 'pending');
@@ -248,9 +271,9 @@ async function matches(q: FlowQuery): Promise<FlowPage> {
       const [status, tone] = row.resultReserveStatus === 'locked' && row.status === 'settled' ? ['Chờ kết quả', 'info' as Tone] : statusLabel[row.status] ?? [row.status, 'info' as Tone];
       const booking = details.get(row.bookingId);
       return {
-        id: row.matchId, title: `Kèo #${short(row.matchId)}`, titleNote: `${DISCIPLINE[row.discipline] ?? 'Kèo'} · tạo ${dateTime(row.createdAt)}`,
+        id: row.matchId, title: matchCodes.get(row.matchId) ?? (booking ? `Kèo · ${bookingLabel(row.bookingId, booking)}` : 'Kèo · chưa rõ mã đặt sân'), titleNote: `${DISCIPLINE[row.discipline] ?? 'Kèo'} · tạo ${dateTime(row.createdAt)}`,
         party: `${paid.length}/${row.capacity} người đã đóng`, partyNote: `Mỗi suất ${vnd(row.feePerSlot)} · chủ kèo ${user(row.organizerUserId)}`,
-        counterpart: booking?.venueName ?? 'Sân', counterpartNote: booking ? bookingLabel(row.bookingId, booking) : `Booking #${short(row.bookingId)}`,
+        counterpart: booking?.venueName ?? 'Sân', counterpartNote: booking ? bookingLabel(row.bookingId, booking) : 'Chưa rõ mã đặt sân',
         status, tone, amount: n(held), sign: '', amountNote: 'đang giữ',
         from: `${paid.length} người chơi`, fromNote: paid.map((item) => user(item.userId)).join(', ') || '—', to: row.status === 'cancelled' ? 'Hoàn về ví người chơi' : 'Chủ sân + người thắng', toNote: 'Qua ký quỹ ví nền tảng',
         steps: [
@@ -259,7 +282,7 @@ async function matches(q: FlowQuery): Promise<FlowPage> {
             : row.settledAt ? { title: `Tất toán tiền sân ${vnd(row.bookingPrice)}`, detail: `Trả chủ sân · ${dateTime(row.settledAt)}`, tone: 'ok' } : { title: 'Chờ tất toán', detail: `Hạn chốt ${dateTime(row.cutoffAt)}`, tone: 'wait' },
           { title: 'Kết quả trận', detail: row.resultReserveStatus === 'released' ? `Đã trả khoản cược ${vnd(row.resultReserve)} cho đội thắng` : row.resultReserveStatus === 'locked' ? `Đang giữ ${vnd(row.resultReserve)} chờ kết quả` : row.resultReserveStatus === 'refunded' ? 'Khoản cược đã hoàn' : 'Không có khoản cược', tone: row.resultReserveStatus === 'released' ? 'ok' : 'wait' },
         ],
-        facts: [{ k: 'Mã kèo', v: `#${short(row.matchId)}` }, { k: 'Chủ kèo', v: user(row.organizerUserId) }, { k: 'Người đóng', v: paid.map((item) => `${user(item.userId)} (${vnd(item.amount)})`).join(', ') || '—' }, { k: 'Booking sân', v: booking ? bookingLabel(row.bookingId, booking) : '—' }, { k: 'Đang giữ', v: vnd(held) }],
+        facts: [{ k: 'Mã kèo', v: matchCodes.get(row.matchId) ?? 'Chưa rõ mã kèo' }, { k: 'Mã đặt sân của kèo', v: booking ? bookingLabel(row.bookingId, booking) : 'Chưa rõ mã đặt sân' }, { k: 'Chủ kèo', v: user(row.organizerUserId) }, { k: 'Người đóng', v: paid.map((item) => `${user(item.userId)} (${vnd(item.amount)})`).join(', ') || '—' }, { k: 'Lượt đặt sân', v: booking ? bookingLabel(row.bookingId, booking) : '—' }, { k: 'Đang giữ', v: vnd(held) }],
         refIds: [row.matchId, row.bookingId, ...row.contributions.map((item) => item.id)],
       };
     }),
@@ -298,7 +321,7 @@ async function withdrawals(q: FlowQuery): Promise<FlowPage> {
         from: `Ví ${role.toLowerCase()} · ${user(row.sellerUserId)}`, fromNote: 'Số dư có thể rút', to: `${row.bankCode} •••• ${row.bankAccountNumber.slice(-4)}`, toNote: `Chủ tài khoản: ${row.bankAccountName}`,
         steps: [
           { title: `Tạo yêu cầu rút ${vnd(row.amount)}`, detail: 'Giữ khỏi số dư có thể rút', tone: 'wait' },
-          row.status === 'rejected' ? { title: 'Admin từ chối', detail: `${row.rejectionReason ?? '—'} · trả lại số dư`, tone: 'bad' } : { title: 'Admin chuyển khoản', detail: `Nội dung CK: ${row.transferCode}`, tone: 'info' },
+          row.status === 'rejected' ? { title: 'Quản trị viên từ chối', detail: `${row.rejectionReason ?? '—'} · trả lại số dư`, tone: 'bad' } : { title: 'Quản trị viên chuyển khoản', detail: `Nội dung CK: ${row.transferCode}`, tone: 'info' },
           event ? { title: 'SePay xác nhận tiền ra', detail: `${event.businessCode} · ${dateTime(event.receivedAt)}`, tone: 'ok' } : { title: row.status === 'rejected' ? 'Kết thúc' : 'Chờ SePay báo tiền ra', detail: dateTime(row.processedAt), tone: 'wait' },
         ],
         facts: [{ k: 'Người rút', v: `${user(row.sellerUserId)} (${role})` }, { k: 'Tài khoản nhận', v: `${row.bankCode} · ${row.bankAccountNumber} · ${row.bankAccountName}` }, { k: 'Giao dịch ngân hàng', v: event?.businessCode ?? '—' }, { k: 'Xử lý lúc', v: dateTime(row.processedAt) }],
@@ -375,7 +398,7 @@ async function wallets(q: FlowQuery): Promise<FlowPage> {
         id: row.id, title: 'Ví nền tảng', titleNote: 'Doanh thu + ký quỹ kèo', party: `Phí thu ${vnd(flow(row.id, 'commission'))}`, partyNote: 'phí đặt sân', counterpart: `Ký quỹ ${vnd(row.reserved)}`, counterpartNote: 'giữ hộ, không phải doanh thu',
         status: 'Nền tảng', tone: 'info' as Tone, amount: n(row.available), sign: '' as const, amountNote: 'doanh thu khả dụng',
         from: 'Phí đặt sân, phí kèo', fromNote: 'Phí đặt sân và tiền kèo giữ hộ', to: 'Ví nền tảng', toNote: 'Khả dụng + đang giữ',
-        steps: [{ title: `Doanh thu khả dụng ${vnd(row.available)}`, detail: 'Xem tab Phí nền tảng', tone: 'ok' as Tone }, { title: `Ký quỹ kèo ${vnd(row.reserved)}`, detail: 'Xem tab Kèo', tone: 'wait' as Tone }],
+        steps: [{ title: `Doanh thu khả dụng ${vnd(row.available)}`, detail: 'Xem mục Phí nền tảng', tone: 'ok' as Tone }, { title: `Ký quỹ kèo ${vnd(row.reserved)}`, detail: 'Xem mục Kèo', tone: 'wait' as Tone }],
         facts: [{ k: 'Khả dụng', v: vnd(row.available) }, { k: 'Đang giữ', v: vnd(row.reserved) }], refIds: [],
       };
       if (walletType === 'personal') {
@@ -392,8 +415,8 @@ async function wallets(q: FlowQuery): Promise<FlowPage> {
       return {
         id: row.id, title: user(row.userId), titleNote: 'Ví chủ sân', party: vnd(row.pending), partyNote: 'chờ 24 giờ', counterpart: vnd(row.reserved), counterpartNote: 'đang giữ cho yêu cầu rút',
         status: `Đã rút ${vnd(out)}`, tone: 'info' as Tone, amount: n(row.available), sign: '' as const, amountNote: 'có thể rút',
-        from: 'Khách đặt sân', fromNote: 'Doanh thu từng booking', to: `Ví ${user(row.userId)}`, toNote: 'Chờ → có thể rút → ngân hàng',
-        steps: [{ title: `Đã ghi nhận ${vnd(recorded)}`, detail: 'Chờ + có thể rút + đang giữ + đã rút', tone: 'info' as Tone }, { title: `Chờ 24 giờ ${vnd(row.pending)}`, detail: 'Xem tab Doanh thu đặt sân, lọc Chờ 24 giờ và chủ sân này', tone: 'wait' as Tone }, { title: `Đã rút ${vnd(out)}`, detail: 'Xem tab Rút tiền', tone: 'ok' as Tone }],
+        from: 'Khách đặt sân', fromNote: 'Doanh thu từng lượt đặt sân', to: `Ví ${user(row.userId)}`, toNote: 'Chờ → có thể rút → ngân hàng',
+        steps: [{ title: `Đã ghi nhận ${vnd(recorded)}`, detail: 'Chờ + có thể rút + đang giữ + đã rút', tone: 'info' as Tone }, { title: `Chờ 24 giờ ${vnd(row.pending)}`, detail: 'Xem mục Doanh thu đặt sân, lọc Chờ 24 giờ và chủ sân này', tone: 'wait' as Tone }, { title: `Đã rút ${vnd(out)}`, detail: 'Xem mục Rút tiền', tone: 'ok' as Tone }],
         facts: [{ k: 'Chủ ví', v: user(row.userId) }, { k: 'Doanh thu ghi nhận', v: vnd(flow(row.id, 'release')) }, { k: 'Bị hoàn lại', v: vnd(-flow(row.id, 'refund')) }], refIds: [],
       };
     }),
@@ -419,12 +442,13 @@ async function bank(q: FlowQuery): Promise<FlowPage> {
   const ledgerIds = allocations.filter((a) => a.kind === 'topup' || a.kind === 'payout').map((a) => a.refId).filter((id): id is string => Boolean(id));
   const entries = ledgerIds.length ? await prisma.ledgerEntry.findMany({ where: { id: { in: ledgerIds } }, include: { wallet: true } }) : [];
   const contributions = await prisma.matchContribution.findMany({ where: { id: { in: allocations.filter((a) => a.kind === 'matchFee').map((a) => a.refId).filter((id): id is string => Boolean(id)) } } });
+  const matchLabel = await matchLabeler(allocations.filter((a) => a.kind === 'matchFee').map((a) => a.refId ?? ''));
   const details = await bookingDetails(allocations.filter((a) => a.kind === 'booking').map((a) => a.refId).filter((id): id is string => Boolean(id)));
   const kindLabel: Record<string, string> = { booking: 'Thanh toán đặt sân', topup: 'Nạp ví', payout: 'Chi rút tiền', matchFee: 'Phí kèo', out_of_scope: 'Ngoài phạm vi' };
   const describe = (a: (typeof allocations)[number]) => {
     const entry = entries.find((item) => item.id === a.refId);
     const owner = a.kind === 'booking' ? details.get(a.refId ?? '')?.userId : a.kind === 'matchFee' ? contributions.find((item) => item.id === a.refId)?.userId : entry?.wallet.userId;
-    const target = a.kind === 'booking' ? bookingLabel(a.refId ?? '', details.get(a.refId ?? '')) : a.kind === 'matchFee' ? `Kèo #${short(contributions.find((item) => item.id === a.refId)?.matchId ?? '')}` : kindLabel[a.kind] ?? a.kind;
+    const target = a.kind === 'booking' ? bookingLabel(a.refId ?? '', details.get(a.refId ?? '')) : a.kind === 'matchFee' ? matchLabel(a.refId ?? '') : kindLabel[a.kind] ?? a.kind;
     return { owner, target, text: `${kindLabel[a.kind] ?? a.kind} ${vnd(a.amount)}${a.reason ? ` · ${a.reason}` : ''}` };
   };
   return {
@@ -449,7 +473,7 @@ async function bank(q: FlowQuery): Promise<FlowPage> {
         to: row.direction === 'in' ? 'Tài khoản nền tảng' : owner ? user(owner) : 'Người nhận chưa rõ', toNote: parts.map((part) => part.target).join(', ') || 'Chưa khớp',
         steps: [
           { title: 'Ngân hàng báo có giao dịch', detail: `${vnd(row.amount)} · ${row.rawRef || 'không có nội dung'}`, tone: 'info' as Tone },
-          matched ? { title: row.status === 'matched_manual' ? 'Admin gán thủ công' : row.status === 'out_of_scope' ? 'Đánh dấu ngoài phạm vi' : 'Khớp tự động', detail: parts.map((part) => part.text).join(' · ') || '—', tone: 'ok' as Tone }
+          matched ? { title: row.status === 'matched_manual' ? 'Quản trị viên gán thủ công' : row.status === 'out_of_scope' ? 'Đánh dấu ngoài phạm vi' : 'Khớp tự động', detail: parts.map((part) => part.text).join(' · ') || '—', tone: 'ok' as Tone }
             : { title: 'Không khớp nghiệp vụ nào', detail: 'Gán vào ví, gán yêu cầu rút hoặc đánh dấu ngoài phạm vi ở mục Đối soát', tone: 'bad' as Tone },
         ],
         facts: [{ k: 'Mã giao dịch', v: row.businessCode }, { k: 'Mã ngân hàng', v: row.externalRef ?? '—' }, { k: 'Nội dung CK', v: row.rawRef || '—' }, { k: 'Đã ghi nhận', v: vnd(sum(row.allocations)) }],

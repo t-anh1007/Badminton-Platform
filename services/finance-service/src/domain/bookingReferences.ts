@@ -60,3 +60,28 @@ export async function bookingIdsByCodes(codes: string[]): Promise<string[]> {
     return [];
   }
 }
+
+const matchReferencesSchema = z.object({ references: z.array(z.object({ id: z.string().uuid(), businessCode: z.string().regex(/^KEO-\d{8}$/) })) });
+
+/** Mã KEO-… của kèo để hiển thị (chỉ trình bày, giống bookingDetails); lỗi tra cứu = map rỗng. */
+export async function matchReferences(matchIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(matchIds)];
+  const codes = new Map<string, string>();
+  const token = process.env.INTERNAL_SERVICE_TOKEN;
+  if (!ids.length || !token) return codes;
+  try {
+    for (let offset = 0; offset < ids.length; offset += 500) {
+      const response = await fetch(`${process.env.MATCHMAKING_SERVICE_URL ?? env.matchmakingServiceUrl}/internal/matches/references`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-internal-service-token': token },
+        body: JSON.stringify({ matchIds: ids.slice(offset, offset + 500) }),
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!response.ok) throw new Error(`Match reference lookup returned ${response.status}`);
+      for (const row of matchReferencesSchema.parse(await response.json()).references) codes.set(row.id, row.businessCode);
+    }
+  } catch {
+    console.warn('[match-references] Matchmaking references temporarily unavailable');
+  }
+  return codes;
+}

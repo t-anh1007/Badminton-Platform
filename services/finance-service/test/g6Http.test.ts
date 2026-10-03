@@ -109,7 +109,7 @@ describe('G6 HTTP contract', () => {
     expect(withdrawTab.body.items).toHaveLength(1);
     expect(JSON.stringify(withdrawTab.body)).not.toContain('0123456789');
     const venuesTab = await request(app).get('/providers/me/financial-flows?tab=venues&filter=venue&page=1&pageSize=5').set(auth);
-    expect(venuesTab.body.items[0]).toMatchObject({ amount: '540000', party: '3 booking' });
+    expect(venuesTab.body.items[0]).toMatchObject({ amount: '540000', party: '3 lượt đặt sân' });
     const ledgerTab = await request(app).get('/providers/me/financial-flows?tab=ledger&page=1&pageSize=5').set(auth);
     expect(ledgerTab.status).toBe(200);
     expect((await request(app).get('/providers/me/financial-flows?tab=revenue&page=1&pageSize=5').set({ Authorization: `Bearer ${token(randomUUID(), ['player'])}` })).status).toBe(403);

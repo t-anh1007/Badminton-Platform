@@ -12,6 +12,8 @@ export const env = {
   // G4 (FIN-06): finance-service hỏi venue-booking-service booking còn hold
   // không (flows.md §5) qua API nội bộ, không phải event.
   venueBookingServiceUrl: process.env.VENUE_BOOKING_SERVICE_URL ?? 'http://localhost:3002',
+  // Chỉ để hiển thị mã KEO-… trên màn tài chính (matchReferences).
+  matchmakingServiceUrl: process.env.MATCHMAKING_SERVICE_URL ?? 'http://localhost:3004',
   // Xác thực webhook SePay production bằng HMAC-SHA256 (khuyến cáo cho webhook
   // thanh toán). SePay ký `{timestamp}.{raw_body}` bằng Secret Key, gửi qua
   // header `X-SePay-Signature: sha256=<hex>` + `X-SePay-Timestamp`. Đặt qua env;
