@@ -239,21 +239,32 @@ export async function getPlayerResultCase(
       canObject: responseOpen,
       canReportIncident: incidentOpen,
     },
-    viewerMoney: viewerMoney(match, teams, resultCase.outcome, viewerUserId),
+    viewerMoney: viewerMoney(match, teams, resultCase.outcome, viewerUserId, await prisma.join.findMany({
+      // Chỗ trả thay đã thu tiền; đồng đội rút thì về `reserved`, tiền vẫn của người trả (BR-CM-76).
+      where: { matchId: match.id, payerUserId: { not: null }, paymentContributionId: { not: null }, status: { in: ['reserved', 'confirmed'] } },
+      select: { payerUserId: true, participantUserId: true, status: true },
+    })),
   };
 }
 
 /** Chỉ roster thấy; dự phóng theo kết quả tạm hiện tại, chưa có thì theo NO_RESULT. */
-function viewerMoney(match: Match, teams: Record<TeamSide, string[]>, outcome: MatchOutcome | null, viewerUserId: string) {
+function viewerMoney(
+  match: Match, teams: Record<TeamSide, string[]>, outcome: MatchOutcome | null, viewerUserId: string,
+  prepaidJoins: Array<{ payerUserId: string | null; participantUserId: string; status: string }> = [],
+) {
   if (match.bookingPrice === null || teams.B.length === 0) return null;
   const funding = calculateMatchFunding(match.bookingPrice, RATIO_FROM_DB[match.ratio], match.capacity as 2 | 4);
-  const contribution = viewerUserId === match.organizerUserId ? funding.organizerContribution : funding.feePerSlot;
+  // D58: tính theo người thực trả — người trả gánh thêm mỗi chỗ đã trả thay; người được trả thay không bỏ đồng nào.
+  const paidForOthers = BigInt(prepaidJoins.filter((j) => j.payerUserId === viewerUserId).length);
+  const prepaidForViewer = prepaidJoins.some((j) => j.status === 'confirmed' && j.participantUserId === viewerUserId && j.payerUserId !== viewerUserId);
+  const ownShare = prepaidForViewer ? 0n : viewerUserId === match.organizerUserId ? funding.organizerContribution : funding.feePerSlot;
+  const contribution = ownShare + paidForOthers * funding.feePerSlot;
   const receivable = allocateResultReserve(funding.resultReserve, outcome ?? 'NO_RESULT', teams).get(viewerUserId) ?? 0n;
   return {
     // PO 2026-09-26: phần của riêng người xem trong quỹ giữ, theo tỷ lệ khoản đã góp.
     heldForResult: ((contribution * funding.resultReserve) / funding.totalContribution).toString(),
     projectedReceivable: receivable.toString(),
-    projectedFinalCost: (contribution - receivable).toString(),
+    projectedFinalCost: (contribution > receivable ? contribution - receivable : 0n).toString(),
     withdrawableIfFinal: true,
   };
 }

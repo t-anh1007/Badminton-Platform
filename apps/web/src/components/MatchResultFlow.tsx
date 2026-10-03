@@ -18,7 +18,7 @@ export const RESULT_STATUS_LABELS: Record<ResultCaseStatus, string> = {
   provisional: 'Chờ phản hồi kết quả',
   incident_window: 'Chờ báo sự cố',
   provider_review: 'Chủ sân đang xem xét',
-  admin_review: 'Admin đang quyết định',
+  admin_review: 'Quản trị viên đang quyết định',
   final: 'Kết quả đã chốt',
 };
 export const INCIDENTS: Array<{ value: IncidentType; title: string; description: string }> = [
@@ -147,8 +147,10 @@ export function IncidentForm({ matchId, onDone }: { matchId: string; onDone: () 
 }
 
 /** Màn 03-05 gắn trong trang kèo: mọi quyền thao tác lấy từ viewerActions của server. */
-export function MatchResultFlow({ matchId, allowIncident = false }: { matchId: string; allowIncident?: boolean }) {
+export function MatchResultFlow({ matchId, allowIncident = false, onFinalChange }: { matchId: string; allowIncident?: boolean; onFinalChange?: (final: boolean) => void }) {
   const [resultCase, setResultCase] = useState<PlayerResultCase | null | undefined>(undefined);
+  const isFinal = resultCase?.status === 'final';
+  useEffect(() => { onFinalChange?.(isFinal); }, [isFinal, onFinalChange]);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -210,7 +212,7 @@ export function MatchResultFlow({ matchId, allowIncident = false }: { matchId: s
       </div>
       <div className="surface-card grid gap-3 p-4 text-sm sm:grid-cols-3">
         <div><p className="text-xs text-ink-500">Sân và địa chỉ</p><p className="font-semibold">{resultCase.match.venue.name} - {resultCase.match.court.name}</p><p>{resultCase.match.venue.address}</p></div>
-        <div><p className="text-xs text-ink-500">Thời gian thi đấu</p><p className="font-semibold">{formatDateTimeVi(resultCase.match.startAt)}</p><p>{resultCase.match.format === 'bo5' ? 'BO5' : 'BO3'} - 21 điểm - giới hạn 30</p></div>
+        <div><p className="text-xs text-ink-500">Thời gian thi đấu</p><p className="font-semibold">{formatDateTimeVi(resultCase.match.startAt)}</p><p>{resultCase.match.format === 'bo5' ? 'BO5 (thắng 3 trong 5 ván)' : 'BO3 (thắng 2 trong 3 ván)'} - 21 điểm - giới hạn 30</p></div>
         <div><p className="text-xs text-ink-500">Kèo</p><p className="font-semibold">{resultCase.match.mode === 'ranked' ? 'Xếp hạng' : 'Giao lưu'} - {resultCase.match.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}</p><p>Tỷ lệ thua : thắng = {resultCase.match.ratio.replace(':', ' : ')}</p></div>
       </div>
       {countdown && (
@@ -320,11 +322,13 @@ export function MatchResultFlow({ matchId, allowIncident = false }: { matchId: s
           {money && (
             <SurfaceCard>
               <h3 className="text-h3">Tiền của bạn</h3>
-              <Row label="Tiền đang giữ chờ kết quả" value={formatMoneyVnd(money.heldForResult)} />
-              <Row label="Nếu kết quả được công nhận" hint="Khoản nhận thêm vào số dư" value={formatMoneyVnd(money.projectedReceivable)}
+              <Row label={isFinal ? 'Tiền giữ chờ kết quả (đã xử lý)' : 'Tiền đang giữ chờ kết quả'} value={formatMoneyVnd(money.heldForResult)} />
+              <Row label={isFinal ? 'Đã nhận theo kết quả' : 'Nếu kết quả được công nhận'} hint="Khoản nhận thêm vào số dư" value={formatMoneyVnd(money.projectedReceivable)}
                 badge={money.withdrawableIfFinal ? <Badge tone="success">Có thể rút</Badge> : undefined} />
               <Row label="Chi phí cuối của bạn" value={formatMoneyVnd(money.projectedFinalCost)} />
-              <p className="mt-3 rounded-xl bg-canvas p-3 text-xs text-ink-600">Tiền vẫn được giữ và điểm xếp hạng chưa thay đổi cho đến khi kết quả có hiệu lực.</p>
+              <p className="mt-3 rounded-xl bg-canvas p-3 text-xs text-ink-600">{isFinal
+                ? 'Kết quả đã có hiệu lực: tiền giữ đã được xử lý và điểm xếp hạng đã cập nhật.'
+                : 'Tiền vẫn được giữ và điểm xếp hạng chưa thay đổi cho đến khi kết quả có hiệu lực.'}</p>
             </SurfaceCard>
           )}
           {['provisional', 'incident_window', 'provider_review', 'admin_review'].includes(resultCase.status) && (

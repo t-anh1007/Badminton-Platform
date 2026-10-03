@@ -37,6 +37,7 @@ export function MatchDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [resultFinal, setResultFinal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'withdraw' | 'cancel' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'sepay'>('balance');
   const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
@@ -294,11 +295,11 @@ export function MatchDetailPage() {
               <PartnerInvitePanel detail={detail} run={(operation, success) => mutate(operation, success)} />
             </div>
             <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-              <MoneyStatus detail={detail} />
+              <MoneyStatus detail={detail} resultFinal={resultFinal} />
             </aside>
           </div>
           {(detail.status === 'confirmed' || detail.status === 'completed') && (
-            <MatchResultFlow matchId={detail.id} allowIncident={Boolean(detail.actions.canReportIncident)} />
+            <MatchResultFlow matchId={detail.id} allowIncident={Boolean(detail.actions.canReportIncident)} onFinalChange={setResultFinal} />
           )}
         </div>
       ) : (
@@ -408,14 +409,14 @@ export function MatchDetailPage() {
                         : detail.status === 'confirmed' || detail.status === 'completed'
                           ? competitive
                             ? 'Kèo đã chốt nên không thể hủy. Nếu có vấn đề, hãy báo sự cố trong phần kết quả trận.'
-                            : 'Kèo và booking sân đã được xác nhận.'
-                          : competitive ? 'Kèo đang mở tìm người chơi tới hạn chốt kèo; bạn có thể hủy trước hạn chốt.' : 'Kèo đang mở; người thanh toán trước sẽ có slot.'}
+                            : 'Kèo và lượt đặt sân đã được xác nhận.'
+                          : competitive ? 'Kèo đang mở tìm người chơi tới hạn chốt kèo; bạn có thể hủy trước hạn chốt.' : 'Kèo đang mở; người thanh toán trước sẽ có chỗ.'}
                 </p>
               </>
             ) : join?.status === 'approved' ? (
               <>
                 <p className="font-semibold">Bạn đang giữ một chỗ</p>
-                <p className="text-sm text-ink-500">Hoàn tất thanh toán để xác nhận chỗ. Kèo và booking sân được chốt tại hạn tìm đối.</p>
+                <p className="text-sm text-ink-500">Hoàn tất thanh toán để xác nhận chỗ. Kèo và lượt đặt sân được chốt tại hạn tìm đối.</p>
               </>
             ) : join?.status === 'confirmed' ? (
               <>
@@ -425,7 +426,7 @@ export function MatchDetailPage() {
             ) : (
               <>
                 <p className="font-semibold">{detail.paymentPending ? 'Đang có người thanh toán' : isFull ? 'Kèo đã đủ người' : 'Tham gia và thanh toán'}</p>
-                <p className="text-sm text-ink-500">Người bấm trước được giữ slot 10 phút; thanh toán xác nhận chỗ, còn kèo và booking sân được chốt tại hạn tìm đối.</p>
+                <p className="text-sm text-ink-500">Người bấm trước được giữ chỗ 10 phút; thanh toán xác nhận chỗ, còn kèo và lượt đặt sân được chốt tại hạn tìm đối.</p>
               </>
             )}
           </div>
@@ -523,7 +524,7 @@ export function MatchDetailPage() {
               {String(Math.floor(remaining / 60_000)).padStart(2, '0')}:
               {String(Math.floor((remaining % 60_000) / 1000)).padStart(2, '0')}
             </p>
-            <p className="mt-1 text-sm text-ink-500">Hết thời gian, slot sẽ tự mở lại cho người khác.</p>
+            <p className="mt-1 text-sm text-ink-500">Hết thời gian, chỗ sẽ tự mở lại cho người khác.</p>
           </div>
           <label className="block text-sm font-medium">
             Phương thức thanh toán

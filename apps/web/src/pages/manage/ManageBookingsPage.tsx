@@ -24,7 +24,7 @@ const emptyFilters = () => readProviderBookingFilters(new URLSearchParams());
 const bookingIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const summaryItems = [
-  { key: 'all', label: 'Tất cả booking', icon: '▦' },
+  { key: 'all', label: 'Tất cả lượt đặt sân', icon: '▦' },
   { key: 'completed', label: 'Đã hoàn thành', icon: '✓' },
   { key: 'current', label: 'Đang diễn ra', icon: '●' },
   { key: 'future', label: 'Sắp tới', icon: '→' },
@@ -66,7 +66,7 @@ export function ManageBookingsPage() {
       setResult(next);
       setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không thể tải booking.');
+      setError(cause instanceof Error ? cause.message : 'Không thể tải lượt đặt sân.');
     } finally {
       setLoading(false);
     }
@@ -99,9 +99,10 @@ export function ManageBookingsPage() {
       setDetail(next);
     } catch (cause) {
       if (requestId !== detailRequestRef.current) return;
-      const message = cause instanceof Error ? cause.message : 'Không thể tải chi tiết booking.';
-      if (message.toLocaleLowerCase('vi').includes('không tìm thấy booking')) {
-        setNotice('Booking này không còn khả dụng. Danh sách đã được cập nhật.');
+      const message = cause instanceof Error ? cause.message : 'Không thể tải chi tiết lượt đặt sân.';
+      // Rẽ nhánh theo mã lỗi, không theo câu chữ (câu chữ có thể được sửa bất cứ lúc nào).
+      if ((cause as { code?: string } | null)?.code === 'BOOKING_NOT_FOUND') {
+        setNotice('Lượt đặt sân này không còn khả dụng. Danh sách đã được cập nhật.');
         closeBooking();
       } else {
         setDetail(null);
@@ -154,7 +155,7 @@ export function ManageBookingsPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-caption font-bold uppercase tracking-[0.12em] text-ink-500">Vận hành đặt sân</p>
-          <h1 className="mt-1 text-h1">Quản lý booking</h1>
+          <h1 className="mt-1 text-h1">Quản lý đặt sân</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-500">
             Theo dõi toàn bộ booking trong quá khứ, hiện tại và tương lai của các cơ sở bạn quản lý.
           </p>
@@ -163,7 +164,7 @@ export function ManageBookingsPage() {
       </header>
 
       {result ? (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Tổng quan booking">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Tổng quan lượt đặt sân">
           {summaryItems.map((item) => (
             <SurfaceCard key={item.key} className="relative overflow-hidden">
               <span className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl bg-green-50 font-bold text-brand-navy" aria-hidden="true">{item.icon}</span>
@@ -173,7 +174,7 @@ export function ManageBookingsPage() {
           ))}
         </section>
       ) : loading ? (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Đang tải tổng quan booking">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Đang tải tổng quan lượt đặt sân">
           {summaryItems.map((item) => <Skeleton key={item.key} className="h-28" />)}
         </section>
       ) : null}
@@ -197,7 +198,7 @@ export function ManageBookingsPage() {
       <SurfaceCard className="overflow-hidden p-0 sm:p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-4 sm:px-5">
           <div>
-            <h2 className="text-h3">Danh sách booking</h2>
+            <h2 className="text-h3">Danh sách lượt đặt sân</h2>
             <p className="mt-1 text-sm text-ink-500">{result ? `${result.total} booking phù hợp` : 'Đang tải dữ liệu'}</p>
           </div>
           {loading && result ? <span className="text-xs font-semibold text-ink-500">Đang cập nhật…</span> : null}
@@ -214,7 +215,7 @@ export function ManageBookingsPage() {
         ) : !error ? (
           <div className="p-5">
             <EmptyState
-              title="Không có booking phù hợp"
+              title="Không có lượt đặt sân phù hợp"
               description="Thử đổi khoảng thời gian hoặc xóa bớt bộ lọc."
               action={<Button tone="secondary" onClick={() => updateFilters(emptyFilters())}>Xóa bộ lọc</Button>}
             />
