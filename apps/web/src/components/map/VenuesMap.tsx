@@ -24,6 +24,8 @@ interface VenuesMapProps {
   onPickOrigin?: (lat: number, lng: number) => void;
   /** Đưa điểm tìm kiếm và tâm bản đồ trở lại vị trí hiện tại. */
   onReturnCurrent?: () => void;
+  /** Có thì nút trong popup chọn cơ sở tại chỗ thay vì mở trang cơ sở (màn tạo kèo). */
+  onSelectVenue?: (venueId: string) => void;
   className?: string;
 }
 
@@ -114,7 +116,7 @@ function CurrentLocationControl({ currentLocation, onReturn }: { currentLocation
 }
 
 /** Bản đồ danh sách sân: marker cho từng sân + điểm gốc tìm kiếm. */
-export function VenuesMap({ searchOrigin, currentLocation, venues, onPickOrigin, onReturnCurrent, className = '' }: VenuesMapProps) {
+export function VenuesMap({ searchOrigin, currentLocation, venues, onPickOrigin, onReturnCurrent, onSelectVenue, className = '' }: VenuesMapProps) {
   return (
     <MapContainer
       center={searchOrigin.lat && searchOrigin.lng ? [searchOrigin.lat, searchOrigin.lng] : DEFAULT_CENTER}
@@ -155,7 +157,9 @@ export function VenuesMap({ searchOrigin, currentLocation, venues, onPickOrigin,
                   <div><strong className="block text-sm text-white">{venue.distanceKm.toFixed(1)}</strong><span className="text-[10px] text-surface/65">Km từ bạn</span></div>
                   <div><strong className="block text-sm text-brand-yellow">{venue.lowestPrice ? `${Math.round(Number(venue.lowestPrice) / 1000)}K` : '—'}</strong><span className="text-[10px] text-surface/65">Giá từ</span></div>
                 </div>
-                <Link className="mt-auto flex min-h-9 items-center justify-center rounded-full bg-brand-yellow px-3 text-[11px] font-extrabold uppercase tracking-wide text-brand-navy transition hover:bg-brand-yellow-hover" to={`/venues/${encodeURIComponent(venue.venueId)}`}>Xem lịch và đặt sân <span className="ml-2" aria-hidden="true">→</span></Link>
+                {onSelectVenue
+                  ? <button type="button" onClick={() => onSelectVenue(venue.venueId)} className="mt-auto flex min-h-9 items-center justify-center rounded-full bg-brand-yellow px-3 text-[11px] font-extrabold uppercase tracking-wide text-brand-navy transition hover:bg-brand-yellow-hover">Chọn cơ sở này <span className="ml-2" aria-hidden="true">→</span></button>
+                  : <Link className="mt-auto flex min-h-9 items-center justify-center rounded-full bg-brand-yellow px-3 text-[11px] font-extrabold uppercase tracking-wide text-brand-navy transition hover:bg-brand-yellow-hover" to={`/venues/${encodeURIComponent(venue.venueId)}`}>Xem lịch và đặt sân <span className="ml-2" aria-hidden="true">→</span></Link>}
               </div>
             </div>
           </Popup>

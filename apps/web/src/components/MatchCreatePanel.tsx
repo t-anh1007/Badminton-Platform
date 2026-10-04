@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { Badge, Button, SelectInput, SurfaceCard } from './ui';
 import { RouteState } from './RouteState.js';
 import {
-  createMatch, getFundingPreview,
+  createMatch, getFundingPreview, MatchApiError,
   type MatchDiscipline, type MatchFormat, type MatchFundingPreview, type MatchMode, type MatchRatio, type MatchRow, type SkillTier,
 } from '../lib/matchApi';
-import { getMyMatchSources, type MatchSource } from '../lib/venueBookingApi';
+import { cancelMyBooking, createBooking, createHold, getMyMatchSources, type HoldResult, type MatchSource } from '../lib/venueBookingApi';
 import { getOwnPassport, type OwnPassport } from '../lib/passportApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { MatchNewSlotPicker, type NewSlotSelection } from './MatchNewSlotPicker.js';
 
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi', beginner: 'Yếu', intermediate: 'Trung bình', intermediate_plus: 'Trung bình khá', advanced: 'Bán chuyên',
@@ -17,7 +18,7 @@ const tiers = Object.keys(tierLabels) as SkillTier[];
 const ratioLabels: Record<MatchRatio, string> = { '5:5': 'Thua 50% - thắng 50%', '6:4': 'Thua 60% - thắng 40%', '7:3': 'Thua 70% - thắng 30%' };
 const sourceKey = (source: MatchSource) => `${source.sourceType}:${source.holdId ?? source.bookingId}`;
 /** BR-CM-08: slot trên 90 phút mới được chọn BO5. */
-const allowsBo5 = (source: MatchSource | undefined) =>
+const allowsBo5 = (source: { startAt: string; endAt: string } | undefined) =>
   Boolean(source && new Date(source.endAt).getTime() - new Date(source.startAt).getTime() > 90 * 60_000);
 
 function ChoiceGroup<T extends string>({ legend, value, options, onChange, columns = 2 }: {
@@ -69,8 +70,11 @@ function MoneyRow({ label, hint, value, badge }: { label: string; hint: string; 
 export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void; onCreated: (match: MatchRow) => void }) {
   const [sources, setSources] = useState<MatchSource[] | null>(null);
   const [loadError, setLoadError] = useState('');
-  const [sourceType, setSourceType] = useState<MatchSource['sourceType']>('hold');
+  const [sourceType, setSourceType] = useState<MatchSource['sourceType'] | 'new'>('hold');
   const [selected, setSelected] = useState('');
+  const [newSlot, setNewSlot] = useState<NewSlotSelection | null>(null);
+  // Hold vừa tạo cho khung giờ mới nhưng kèo chưa công bố được: thử lại thì dùng lại hold này.
+  const pendingHold = useRef<HoldResult | null>(null);
   const [mode, setMode] = useState<MatchMode>('friendly');
   const [discipline, setDiscipline] = useState<MatchDiscipline>('singles');
   const [ratio, setRatio] = useState<MatchRatio>('5:5');
@@ -91,32 +95,64 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
     void getOwnPassport().then(setPassport).catch(() => undefined);
   }, []);
   const visible = useMemo(() => (sources ?? []).filter((source) => source.sourceType === sourceType), [sources, sourceType]);
-  const source = visible.find((item) => sourceKey(item) === selected) ?? visible[0];
-  const bo5Allowed = allowsBo5(source);
+  const isNew = sourceType === 'new';
+  const source = isNew ? undefined : visible.find((item) => sourceKey(item) === selected) ?? visible[0];
+  // Khung giờ mới sẽ thành nguồn `hold` khi công bố nên tính tiền như slot đang giữ.
+  const slot = isNew
+    ? newSlot && { sourceType: 'hold' as const, price: newSlot.range.totalPrice, startAt: newSlot.range.startAt, endAt: newSlot.range.endAt }
+    : source;
+  const bo5Allowed = allowsBo5(slot ?? undefined);
   const disciplineName = discipline === 'singles' ? 'đánh đơn' : 'đánh đôi';
   const needsDeclaration = mode === 'ranked' && passport !== null && passport[discipline] === null;
   useEffect(() => { if (!bo5Allowed) setFormat('bo3'); }, [bo5Allowed]);
   useEffect(() => {
     setPreview(null);
-    if (!source) return;
+    if (!slot) return;
     let active = true;
-    void getFundingPreview({ price: source.price, ratio, discipline, sourceType: source.sourceType })
+    void getFundingPreview({ price: slot.price, ratio, discipline, sourceType: slot.sourceType })
       .then((next) => { if (active) setPreview(next); })
       .catch(() => { if (active) setPreview(null); });
     return () => { active = false; };
-  }, [source?.price, source?.sourceType, ratio, discipline]);
+  }, [slot?.price, slot?.sourceType, ratio, discipline]);
+
+  // Matchmaking từ chối hẳn thì nhả hold vừa tạo (createBooking idempotent theo holdId, hủy booking held xóa hold).
+  const releaseHold = async (hold: HoldResult) => {
+    try {
+      const orphan = await createBooking(hold.id);
+      await cancelMyBooking(orphan.id);
+      pendingHold.current = null;
+    } catch {
+      // Không nhả được thì để hold tự hết hạn.
+    }
+  };
+
+  const createFromNewSlot = async (config: { mode: MatchMode; discipline: MatchDiscipline; ratio: MatchRatio; format: MatchFormat; skillMin: SkillTier; skillMax: SkillTier }) => {
+    const range = newSlot!.range;
+    const hold = pendingHold.current?.startAt === range.startAt && pendingHold.current.courtId === range.courtId
+      ? pendingHold.current
+      : await createHold({ courtId: range.courtId, startAt: range.startAt, endAt: range.endAt });
+    pendingHold.current = hold;
+    try {
+      return await createMatch({ holdId: hold.id, ...config });
+    } catch (cause) {
+      if (cause instanceof MatchApiError && [400, 404, 409, 422].includes(cause.status)) await releaseHold(hold);
+      throw cause;
+    }
+  };
 
   const submit = async () => {
     const problems: string[] = [];
-    if (!source) problems.push('Hãy chọn một khung giờ đang giữ hoặc lượt đặt sân đã thanh toán.');
+    if (!slot) problems.push(isNew ? 'Hãy chọn sân và khung giờ trống liền nhau cho kèo.' : 'Hãy chọn một khung giờ đang giữ hoặc lượt đặt sân đã thanh toán.');
     if (tiers.indexOf(skillMin) > tiers.indexOf(skillMax)) problems.push('Bậc tối thiểu không được cao hơn bậc tối đa.');
     if (needsDeclaration) problems.push(`Hãy khai trình độ ${disciplineName} trước khi tạo kèo xếp hạng ${disciplineName}.`);
     setErrors(problems);
-    if (problems.length > 0 || !source) { summaryRef.current?.focus(); return; }
+    if (problems.length > 0 || !slot) { summaryRef.current?.focus(); return; }
     setSubmitting(true);
     try {
       const config = { mode, discipline, ratio, format, skillMin, skillMax };
-      const match = await createMatch(source.sourceType === 'hold' ? { holdId: source.holdId!, ...config } : { bookingId: source.bookingId!, ...config });
+      const match = !source
+        ? await createFromNewSlot(config)
+        : await createMatch(source.sourceType === 'hold' ? { holdId: source.holdId!, ...config } : { bookingId: source.bookingId!, ...config });
       onCreated(match);
     } catch (cause) {
       setErrors([cause instanceof Error ? cause.message : 'Không thể công bố kèo.']);
@@ -141,19 +177,23 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
         )}
         <SurfaceCard>
           <h2 className="text-h3">1. Chọn nguồn lượt đặt sân</h2>
-          <p className="text-sm text-ink-500">Chỉ hiển thị khung giờ hoặc lượt đặt sân hợp lệ của bạn.</p>
+          <p className="text-sm text-ink-500">Dùng khung giờ hoặc lượt đặt sân hợp lệ của bạn, hoặc chọn khung giờ mới.</p>
           <div className="mt-4">
             <ChoiceGroup
               legend="Loại nguồn"
+              columns={3}
               value={sourceType}
               onChange={(next) => { setSourceType(next); setSelected(''); }}
               options={[
                 { value: 'hold', title: 'Khung giờ đang giữ', description: 'Chưa thanh toán lượt đặt sân - cần hoàn tất phần tiền kèo.' },
                 { value: 'paid_booking', title: 'Lượt đặt sân đã thanh toán', description: 'Dùng khoản tiền sân đã trả - không thanh toán tiền sân lần hai.' },
+                { value: 'new', title: 'Tạo khung giờ mới', description: 'Chọn sân và giờ trống - hệ thống giữ chỗ khi bạn công bố kèo.' },
               ]}
             />
           </div>
-          {visible.length === 0 ? (
+          {isNew ? (
+            <MatchNewSlotPicker onChange={setNewSlot} />
+          ) : visible.length === 0 ? (
             <p className="mt-4 rounded-xl bg-canvas p-3 text-sm text-ink-600">
               {sourceType === 'hold' ? 'Bạn chưa giữ chỗ nào còn ít nhất 24 giờ.' : 'Bạn chưa có lượt đặt sân đã thanh toán còn ít nhất 24 giờ.'}
             </p>
@@ -181,6 +221,18 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               </div>
             </div>
           )}
+          {isNew && newSlot && (
+            <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line p-3">
+              <div>
+                <p className="font-semibold text-ink-900">{newSlot.courtName} - {newSlot.venueName}</p>
+                <p className="text-xs text-ink-500">{formatDateTimeVi(newSlot.range.startAt)} - {newSlot.venueAddress}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-ink-500">Giá sân</p>
+                <p className="text-figures font-bold text-brand-navy">{formatMoneyVnd(newSlot.range.totalPrice)}</p>
+              </div>
+            </div>
+          )}
           {source?.holdExpiresAt && (
             <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-sm text-ink-700">
               Slot được giữ đến {formatDateTimeVi(source.holdExpiresAt)}. Hãy công bố kèo và đóng phần góp trước giờ này, nếu không slot sẽ tự nhả.
@@ -192,6 +244,8 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
             </p>
           )}
         </SurfaceCard>
+      </div>
+      <aside className="space-y-5 lg:self-start">
         <SurfaceCard>
           <h2 className="text-h3">2. Cấu hình kèo</h2>
           <p className="text-sm text-ink-500">Các lựa chọn này bị khóa sau khi công bố.</p>
@@ -237,8 +291,6 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
             </div>
           </div>
         </SurfaceCard>
-      </div>
-      <aside className="lg:sticky lg:top-24 lg:self-start">
         <section className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
           <div className="bg-brand-navy p-4 text-surface">
             <p className="font-semibold">{paid ? 'Lượt đặt sân thường - đã thanh toán' : 'Khung giờ đang giữ - chưa thanh toán'}</p>
@@ -252,7 +304,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               <Badge tone="warning">{`Thua : thắng ${ratio}`}</Badge>
             </div>
             {!preview ? (
-              <p className="mt-3 text-sm text-ink-500">{source ? 'Đang tính dòng tiền…' : 'Chọn nguồn lượt đặt sân để xem dòng tiền.'}</p>
+              <p className="mt-3 text-sm text-ink-500">{slot ? 'Đang tính dòng tiền…' : 'Chọn nguồn lượt đặt sân để xem dòng tiền.'}</p>
             ) : (
               <>
                 <MoneyRow label="Cần trả thêm khi tạo" hint={paid ? 'Lượt đặt sân đã thanh toán đủ' : 'Phần góp của chủ kèo'} value={preview.additionalOwnerCharge} />
@@ -269,7 +321,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               </>
             )}
             <p className="mt-3 text-xs text-ink-500">Các khoản hoàn/giữ chỉ phát sinh khi kèo được chốt hợp lệ. Trước hạn chốt kèo, người tham gia được rút và nhận lại 100% phần tiền đã đóng.</p>
-            <Button className="mt-4 w-full" disabled={submitting || !source} onClick={() => void submit()}>{submitting ? 'Đang công bố…' : 'Công bố kèo'}</Button>
+            <Button className="mt-4 w-full" disabled={submitting || !slot} onClick={() => void submit()}>{submitting ? 'Đang công bố…' : 'Công bố kèo'}</Button>
             <Button tone="secondary" className="mt-2 w-full" onClick={onCancel}>Quay lại</Button>
             <p className="mt-2 text-center text-xs text-ink-500">Khi công bố, chế độ, hình thức, tỷ lệ, trình độ và thể thức sẽ bị khóa.</p>
           </div>
