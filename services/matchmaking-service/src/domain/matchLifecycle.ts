@@ -7,6 +7,7 @@ import { writeOutbox } from '../lib/outbox.js';
 import { writeMatchOutcomeNotifications } from '../lib/notificationOutbox.js';
 import { prisma } from '../lib/prisma.js';
 import { requestMatchFundingAtCutoff } from './matchSettlement.js';
+import { releasePrepaidSlot } from './partnerInvites.js';
 
 type CancelReason = 'organizer' | 'cutoff';
 type ResolutionAction = 'withdraw' | 'cancel';
@@ -69,10 +70,14 @@ export async function applyMatchBookingResolution(
       const join = resolution.joinId ? await tx.join.findUnique({ where: { id: resolution.joinId } }) : null;
       if (!join || join.matchId !== match.id) throw new Error('Withdrawal resolution has no matching join');
       if (payload.decision === 'held_revoked') {
-        const refundable = join.status === 'confirmed'
+        const prepaidRelease = join.payerUserId !== null && join.status === 'confirmed' && resolution.createdAt < match.cutoffAt;
+        const refundable = !prepaidRelease
+          && join.status === 'confirmed'
           && join.feePaidAt !== null
           && resolution.createdAt < match.cutoffAt;
-        if (join.status === 'approved' || join.status === 'confirmed') {
+        if (prepaidRelease) {
+          await releasePrepaidSlot(tx, join, match, now);
+        } else if (join.status === 'approved' || join.status === 'confirmed') {
           await tx.join.update({ where: { id: join.id }, data: { status: 'withdrawn' } });
         }
         if (refundable) {
@@ -116,7 +121,7 @@ export async function applyMatchBookingResolution(
         title: 'Kèo đã bị hủy', body: 'Kèo không thể tiếp tục; các khoản đủ điều kiện sẽ được hoàn theo quy định.',
       });
       await tx.join.updateMany({
-        where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed'] } },
+        where: { matchId: match.id, status: { in: ['pending', 'approved', 'confirmed', 'reserved'] } },
         data: { status: 'withdrawn' },
       });
       await tx.match.update({
@@ -170,7 +175,7 @@ async function closePaidBookingMatchLayer(matchId: string, reason: CancelReason)
       title: 'Kèo đã đóng', body: 'Kèo không tiếp tục. Booking của chủ kèo trở lại booking thường; người tham gia được hoàn phần tiền kèo.',
     });
     await tx.join.updateMany({
-      where: { matchId, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' },
+      where: { matchId, status: { in: ['pending', 'approved', 'confirmed', 'reserved'] } }, data: { status: 'withdrawn' },
     });
     const cancelled = await tx.match.update({ where: { id: matchId }, data: { status: 'cancelled' } });
     await writeOutbox(tx, {
@@ -191,8 +196,10 @@ async function withdrawFromPaidBookingMatch(matchId: string, joinId: string, now
       throw new AppError(409, 'JOIN_LOCKED_AT_CUTOFF', 'Sau hạn chốt kèo không thể rút khỏi kèo. Nếu có vấn đề, hãy báo sự cố.');
     }
     if (join.status !== 'approved' && join.status !== 'confirmed') return { join, refunded: false };
-    const refundable = join.status === 'confirmed' && join.feePaidAt !== null;
-    await tx.join.update({ where: { id: join.id }, data: { status: 'withdrawn' } });
+    const prepaidRelease = join.payerUserId !== null && join.status === 'confirmed';
+    const refundable = !prepaidRelease && join.status === 'confirmed' && join.feePaidAt !== null;
+    if (prepaidRelease) await releasePrepaidSlot(tx, join, match, now);
+    else await tx.join.update({ where: { id: join.id }, data: { status: 'withdrawn' } });
     if (refundable) {
       await writeOutbox(tx, {
         aggregateType: 'Join', aggregateId: join.id, eventType: 'MatchFeeRefundRequested',
@@ -292,7 +299,7 @@ async function finalizeConfirmedPolicyCancellation(
       title: 'Kèo đã bị hủy', body: 'Kèo không thể tiếp tục; các khoản đủ điều kiện sẽ được hoàn theo quy định.',
     });
     await tx.join.updateMany({
-      where: { matchId, status: { in: ['pending', 'approved', 'confirmed'] } }, data: { status: 'withdrawn' },
+      where: { matchId, status: { in: ['pending', 'approved', 'confirmed', 'reserved'] } }, data: { status: 'withdrawn' },
     });
     const cancelled = await tx.match.update({ where: { id: matchId }, data: { status: 'cancelled' } });
     await writeOutbox(tx, {

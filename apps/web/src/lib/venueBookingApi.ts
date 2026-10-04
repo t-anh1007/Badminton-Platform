@@ -5,6 +5,19 @@ function accessToken(): string | null {
   return typeof window === 'undefined' ? null : window.localStorage.getItem('accessToken');
 }
 
+/** Lỗi API kèm mã nghiệp vụ — rẽ nhánh theo `code`, không theo câu chữ `message`. */
+export class VenueApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'VenueApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = accessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -15,8 +28,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
-  if (!response.ok) throw new Error(body.error?.message ?? 'Không thể xử lý yêu cầu.');
+  const body = await response.json().catch(() => ({})) as T & { error?: { message?: string; code?: string } };
+  if (!response.ok) throw new VenueApiError(body.error?.message ?? 'Không thể xử lý yêu cầu.', response.status, body.error?.code);
   if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
@@ -112,7 +125,7 @@ export interface ProviderRow {
 export interface ProviderSelf {
   businessCode?: string; id: string; orgName: string; contact: unknown; status: 'pending' | 'approved' | 'rejected' | 'suspended'; decisionReason: string | null; decidedAt: string | null }
 export interface ManagedCourt {
-  businessCode?: string; id: string; name: string; active: boolean; images: Array<{ objectKey: string; url: string }>; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
+  businessCode?: string; id: string; name: string; active: boolean; images: Array<{ objectKey: string; url: string }>; configuration: { operatingHours: number; pricingRules: number; bookingRule: boolean }; operatingHours: Array<{ id: string; weekday: number; openMinute: number; closeMinute: number }>; closures: Array<{ id: string; date: string; startMinute: number | null; endMinute: number | null; reason: string | null }>; pricingRules: Array<{ id: string; weekday: number; startMinute: number; endMinute: number; price: string; version: number; effectiveFrom: string }>; bookingRule: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number } | null }
 export interface ManagedVenue {
   businessCode?: string; id: string; name: string; address: string; provinceCode?: string | null; lat: number; lng: number; amenities: unknown; images: unknown; courts: ManagedCourt[] }
 export type OperationalShutdownMode = 'winding_down' | 'scheduled_close' | 'emergency';
@@ -189,10 +202,11 @@ export const deactivateManagedCourt = (id: string) => api<{ message: string }>(`
 export const activateManagedCourt = (id: string) => api<{ message: string }>(`/venues/courts/${id}/activate`, { method: 'POST' });
 export const saveOperatingHours = (id: string, body: { weekday: number; openMinute: number; closeMinute: number }) => api(`/courts/${id}/operating-hours`, { method: 'POST', body: JSON.stringify(body) });
 export const replaceOperatingHours = (id: string, hours: Array<{ weekday: number; openMinute: number; closeMinute: number }>) => api(`/courts/${id}/operating-hours`, { method: 'PUT', body: JSON.stringify({ hours }) });
-export const addClosure = (id: string, body: { date: string; reason?: string }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });
+export const addClosure = (id: string, body: { date: string; reason?: string; startMinute?: number; endMinute?: number }) => api(`/courts/${id}/closures`, { method: 'POST', body: JSON.stringify(body) });
+export const removeClosure = (courtId: string, closureId: string) => api<void>(`/courts/${courtId}/closures/${closureId}`, { method: 'DELETE' });
 export const savePricing = (id: string, body: { rules: Array<{ weekday: number; startMinute: number; endMinute: number; price: number }>; effectiveFrom: string }) => api(`/courts/${id}/pricing`, { method: 'POST', body: JSON.stringify(body) });
 export const saveBookingRule = (id: string, body: { stepMinutes: number; minDurationMinutes: number; maxDurationMinutes: number }) => api(`/courts/${id}/booking-rule`, { method: 'POST', body: JSON.stringify(body) });
-export const getVenueCalendar = (venueId: string, date: string) => api<{ courts: Array<{ courtId: string; courtName: string; closedAllDay: boolean }>; entries: Array<{ id?: string; businessCode?: string; courtId: string; kind: 'booking' | 'hold'; source?: 'marketplace' | 'internal'; startAt: string; endAt: string; customerLabel?: string; guestContact?: string | null; priceSnapshot?: string }> }>(`/venues/${venueId}/calendar?date=${encodeURIComponent(date)}`);
+export const getVenueCalendar = (venueId: string, date: string) => api<{ courts: Array<{ courtId: string; courtName: string; closedAllDay: boolean; closedRanges?: Array<{ startMinute: number; endMinute: number }> }>; entries: Array<{ id?: string; businessCode?: string; courtId: string; kind: 'booking' | 'hold'; source?: 'marketplace' | 'internal'; startAt: string; endAt: string; customerLabel?: string; guestContact?: string | null; priceSnapshot?: string }> }>(`/venues/${venueId}/calendar?date=${encodeURIComponent(date)}`);
 export const createInternalBooking = (body: { courtId: string; startAt: string; endAt: string; guestName: string; guestContact: string }) => api('/internal-bookings', { method: 'POST', body: JSON.stringify(body) });
 export const cancelInternalBooking = (id: string) => api(`/internal-bookings/${id}/cancel`, { method: 'POST' });
 export const approveProvider = (id: string) => api<{ message: string }>(`/providers/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });

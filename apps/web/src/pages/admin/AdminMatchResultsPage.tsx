@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AsyncButton, Badge, Button, Pagination, SelectInput, SurfaceCard, TextArea } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
 import { RESULT_STATUS_LABELS } from '../../components/MatchResultFlow';
-import { CaseStatements, CaseSummary, OutcomeChoice, outcomeText, queueTitle } from '../../components/ResultCaseReview';
+import { CaseStatements, CaseSummary, OutcomeChoice, outcomeText, queueContext, queueTitle } from '../../components/ResultCaseReview';
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js';
 import {
   decideAdminResult, getAdminResultCase, listAdminResultCases, previewAdminDecision,
@@ -48,7 +48,7 @@ export function AdminMatchResultsPage() {
           </SelectInput>
           {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
             : !queue ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p>
-            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'admin_review' ? 'Không có hồ sơ chờ Admin quyết định.' : 'Chưa có hồ sơ nào đã có kết quả.'}</p>
+            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'admin_review' ? 'Không có hồ sơ chờ quản trị viên quyết định.' : 'Chưa có hồ sơ nào đã có kết quả.'}</p>
             : (
               <ul className="mt-3 space-y-2">
                 {queue.items.map((item) => (
@@ -56,6 +56,7 @@ export function AdminMatchResultsPage() {
                     <button type="button" onClick={() => setSelectedId(item.caseId)} aria-current={selectedId === item.caseId || undefined}
                       className={`w-full rounded-xl border-2 p-3 text-left ${selectedId === item.caseId ? 'border-brand-navy bg-canvas' : 'border-line'}`}>
                       <span className="block font-semibold text-brand-navy">{queueTitle(item)}</span>
+                      {queueContext(item) && <span className="block text-sm text-ink-700">{queueContext(item)}</span>}
                       {item.startAt && <span className="block text-xs text-ink-500">{formatDateTimeVi(item.startAt)}</span>}
                       {item.adminOverdue && <Badge tone="danger" className="mt-1">Quá hạn 48 giờ</Badge>}
                     </button>
@@ -154,7 +155,7 @@ function AdminCase({ caseId, onDecided }: { caseId: string; onDecided: () => voi
         <SurfaceCard className="h-fit">
           <h3 className="text-h3">Kết quả bạn sắp xác nhận</h3>
           {!detail.actions.canPreviewDecision ? (
-            <p className="mt-3 text-sm text-ink-500">Hồ sơ không còn ở bước Admin quyết định.</p>
+            <p className="mt-3 text-sm text-ink-500">Hồ sơ không còn ở bước quản trị viên quyết định.</p>
           ) : (
             <>
               <p className="mt-1 text-sm text-ink-500">Đây là quyết định cuối và chỉ áp dụng sau bước xác nhận.</p>

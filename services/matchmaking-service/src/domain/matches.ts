@@ -9,6 +9,7 @@ import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating } from './rating.js';
 import { JOIN_HOLD_MINUTES, reservedTeamSlots } from './joins.js';
+import { SELF_PAY_ACCEPT_WINDOW_MINUTES } from './partnerInvites.js';
 
 const TIER_ORDER: Record<SkillTier, number> = {
   newcomer: 0,
@@ -62,7 +63,7 @@ export async function createMatch(
   const sourceType = input.bookingId ? 'paid_booking' as const : 'hold' as const;
   let bookingId: string;
   if (sourceType === 'hold') {
-    if (!input.holdId) throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ slot trước khi tạo kèo.');
+    if (!input.holdId) throw new AppError(422, 'MATCH_HOLD_REQUIRED', 'Cần giữ khung giờ trước khi tạo kèo.');
     bookingId = await venueBookingClient.createBookingFromHold(input.holdId, authorization);
   } else {
     bookingId = input.bookingId!;
@@ -74,18 +75,18 @@ export async function createMatch(
     : context?.status === 'confirmed' && context.ownerUserId === organizerUserId;
   if (!context || !ownedSource) {
     throw sourceType === 'hold'
-      ? new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Slot sân không còn được organizer giữ hợp lệ.')
-      : new AppError(422, 'MATCH_BOOKING_NOT_OWNED', 'Chỉ booking đã thanh toán của chính bạn mới chuyển được thành kèo.');
+      ? new AppError(422, 'MATCH_SLOT_NOT_HELD', 'Khung giờ sân không còn được chủ kèo giữ hợp lệ.')
+      : new AppError(422, 'MATCH_BOOKING_NOT_OWNED', 'Chỉ lượt đặt sân đã thanh toán của chính bạn mới chuyển được thành kèo.');
   }
 
   const startAt = new Date(context.startAt);
   const endAt = new Date(context.endAt);
   // BR-CM-02: chỉ cho tạo kèo khi slot còn ít nhất 24h tới giờ đá.
   if (startAt.getTime() - now.getTime() < MIN_LEAD_HOURS * HOUR_MS) {
-    throw new AppError(422, 'MATCH_LEAD_TOO_SHORT', 'Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.');
+    throw new AppError(422, 'MATCH_LEAD_TOO_SHORT', 'Chỉ tạo được kèo cho khung giờ còn ít nhất 24 giờ nữa.');
   }
   if (!formatAllowed(input.format, startAt, endAt)) {
-    throw new AppError(422, 'MATCH_FORMAT_NOT_ALLOWED', 'Booking từ 90 phút trở xuống chỉ áp dụng thể thức BO3.');
+    throw new AppError(422, 'MATCH_FORMAT_NOT_ALLOWED', 'Lượt đặt sân từ 90 phút trở xuống chỉ áp dụng thể thức BO3.');
   }
   if (input.mode === 'ranked' && !context.provinceCode) {
     throw new AppError(422, 'MATCH_PROVINCE_REQUIRED', 'Cơ sở chưa có tỉnh/thành nên chưa tạo được kèo xếp hạng.');
@@ -111,7 +112,7 @@ export async function createMatch(
         existing.skillMin === (input.skillMin ?? null) &&
         existing.skillMax === (input.skillMax ?? null);
       if (!sameRequest) {
-        throw new AppError(409, 'BOOKING_MATCH_ALREADY_EXISTS', 'Booking đã được dùng cho một kèo khác.');
+        throw new AppError(409, 'BOOKING_MATCH_ALREADY_EXISTS', 'Lượt đặt sân đã được dùng cho một kèo khác.');
       }
       return existing;
     }
@@ -273,6 +274,9 @@ export async function findPublicMatches(
         },
         select: { id: true, status: true, approvedAt: true },
       },
+      // BR-CM-73: slot Team A giữ cho partner (lời mời tự trả đã gửi hoặc slot đã trả thay).
+      partnerInvites: { where: { status: 'pending', payMode: 'self', sentAt: { not: null } }, select: { id: true } },
+      _count: { select: { joins: { where: { status: 'reserved' } } } },
     },
   });
 
@@ -285,7 +289,7 @@ export async function findPublicMatches(
 
   const rows = hydrated
     .flatMap(({ match, context }) => {
-      const openSlots = match.capacity - 1 - match.joins.length;
+      const openSlots = Math.max(0, match.capacity - 1 - match.joins.length - match.partnerInvites.length - match._count.joins);
       if (
         !context ||
         openSlots < filters.minOpenSlots ||
@@ -345,23 +349,29 @@ export async function getPublicMatchDetail(
     where: { id: matchId },
     include: {
       joins: {
-        where: { status: { in: ['pending', 'approved', 'confirmed'] } },
+        where: { status: { in: ['pending', 'approved', 'confirmed', 'reserved'] } },
         select: {
           id: true,
           participantUserId: true,
+          payerUserId: true,
           status: true,
           approvedAt: true,
           teamSide: true,
           createdAt: true,
         },
       },
+      partnerInvites: { where: { status: 'pending' }, orderBy: { createdAt: 'desc' }, take: 1 },
     },
   });
   if (!match) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
-  const ownJoinCandidate = requester ? (match.joins.find((join) => join.participantUserId === requester.id) ?? null) : null;
+  // JOIN trả thay chỉ thuộc về partner khi partner đã nhận lời (BR-CM-74).
+  const ownJoinCandidate = requester ? (match.joins.find((join) => join.participantUserId === requester.id
+    && (!join.payerUserId || join.status === 'confirmed')) ?? null) : null;
+  const pendingInvite = match.partnerInvites[0] ?? null;
+  const isInvitee = Boolean(requester && pendingInvite?.sentAt && pendingInvite.inviteeUserId === requester.id);
   const ownJoin = ownJoinCandidate?.status === 'approved'
     && (!ownJoinCandidate.approvedAt || ownJoinCandidate.approvedAt.getTime() + JOIN_HOLD_MINUTES * 60_000 <= now.getTime())
     ? null
@@ -372,7 +382,7 @@ export async function getPublicMatchDetail(
   );
   const canViewOwnLifecycle = Boolean(
     // PLAN_MATCH-DEPOSIT: chủ kèo phải xem được kèo awaiting_deposit để trả cọc.
-    requester && (isOrganizer || ownJoin) && ['awaiting_deposit', 'open', 'filled', 'confirmed', 'completed'].includes(match.status),
+    requester && (isOrganizer || ownJoin || isInvitee) && ['awaiting_deposit', 'open', 'filled', 'confirmed', 'completed'].includes(match.status),
   );
   if (!isPubliclyVisible && !canViewOwnLifecycle) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
@@ -404,9 +414,15 @@ export async function getPublicMatchDetail(
       };
     }),
   );
-  const openSlots = match.capacity - 1 - reservedJoins.length;
+  // BR-CM-73: slot Team A giữ cho partner — slot đã trả thay, hoặc lời mời tự trả đã gửi mà partner chưa giữ slot.
+  const prepaidJoin = match.joins.find((join) => join.payerUserId && (join.status !== 'approved' || reservedJoins.includes(join))) ?? null;
+  const partnerHold = (prepaidJoin?.status === 'reserved' ? 1 : 0) + (
+    pendingInvite?.payMode === 'self' && pendingInvite.sentAt && match.cutoffAt > now
+    && pendingInvite.inviteeUserId !== requester?.id
+    && !reservedJoins.some((join) => join.participantUserId === pendingInvite.inviteeUserId) ? 1 : 0);
+  const openSlots = Math.max(0, match.capacity - 1 - reservedJoins.length - partnerHold);
   const sideOpen = (side: TeamSide) => participantSlots(match.discipline, side)
-    - reservedJoins.filter((join) => (join.teamSide ?? 'B') === side).length;
+    - reservedJoins.filter((join) => (join.teamSide ?? 'B') === side).length - (side === 'A' ? partnerHold : 0);
   const canJoinBase = Boolean(
     requester?.roles.includes('player') &&
     match.status === 'open' &&
@@ -422,7 +438,7 @@ export async function getPublicMatchDetail(
   const organizerPaid = match.sourceType === 'paid_booking' || Boolean(match.organizerContributionPaidAt);
   const participants = [
     { ...(await identity(match.organizerUserId)), teamSide: 'A' as TeamSide, role: 'organizer' as const, paymentState: organizerPaid ? 'paid' as const : 'awaiting_payment' as const },
-    ...await Promise.all([...reservedJoins].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(async (join) => ({
+    ...await Promise.all([...reservedJoins].filter((join) => !join.payerUserId || join.status === 'confirmed').sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(async (join) => ({
       ...(await identity(join.participantUserId)),
       teamSide: join.teamSide ?? 'B' as TeamSide,
       role: 'participant' as const,
@@ -430,6 +446,30 @@ export async function getPublicMatchDetail(
     }))),
   ];
   const lockPending = ['open', 'filled'].includes(match.status) && match.cutoffAt > now;
+  const inviteeInHold = Boolean(pendingInvite && reservedJoins.some((join) => join.participantUserId === pendingInvite.inviteeUserId
+    && !join.payerUserId && join.status === 'approved'));
+  const payDeadline = pendingInvite?.payMode === 'self' && pendingInvite.respondedAt
+    ? new Date(pendingInvite.respondedAt.getTime() + SELF_PAY_ACCEPT_WINDOW_MINUTES * 60_000) : null;
+  const slotATaken = reservedJoins.some((join) => join.teamSide === 'A' && !join.payerUserId);
+  const partner = match.discipline === 'doubles' && (isOrganizer || isInvitee) ? {
+    invite: pendingInvite ? {
+      id: pendingInvite.id,
+      payMode: pendingInvite.payMode,
+      sent: Boolean(pendingInvite.sentAt),
+      // Hạn thanh toán của partner tự trả: 30 phút kể từ lần nhận lời đầu (BR-CM-74).
+      payDeadline: payDeadline?.toISOString() ?? null,
+      invitee: await participantIdentity(accountClient, pendingInvite.inviteeUserId),
+    } : null,
+    prepaidJoin: isOrganizer && prepaidJoin ? { id: prepaidJoin.id, status: prepaidJoin.status, approvedAt: prepaidJoin.approvedAt } : null,
+    actions: {
+      canInvite: isOrganizer && match.status === 'open' && match.cutoffAt > now && !inviteeInHold && !slotATaken
+        && (!prepaidJoin || prepaidJoin.status === 'reserved'),
+      canCancel: isOrganizer && lockPending && !inviteeInHold && prepaidJoin?.status !== 'confirmed'
+        && Boolean(pendingInvite || prepaidJoin),
+      canPayPrepaid: isOrganizer && prepaidJoin?.status === 'approved' && match.cutoffAt > now,
+      canRespond: isInvitee && lockPending && !inviteeInHold && !(payDeadline && payDeadline <= now),
+    },
+  } : null;
   return {
     id: match.id,
     businessCode: match.businessCode,
@@ -468,6 +508,7 @@ export async function getPublicMatchDetail(
     bookingPrice: match.bookingPrice?.toString() ?? null,
     teamSlots: (['A', 'B'] as const).map((side) => ({ side, size: teamSize(match.discipline), open: Math.max(0, sideOpen(side)) })),
     participants,
+    partner,
     funding: matchFundingView(match, requester ? { id: requester.id, joinStatus: ownJoin && ownJoin.status !== 'pending' ? ownJoin.status as 'approved' | 'confirmed' : null } : null),
     actions: {
       canJoinTeamA: canJoinBase && sideOpen('A') > 0,
@@ -538,6 +579,8 @@ export async function requestJoin(matchId: string, participantUserId: string, re
           matchId,
           participantUserId,
           status: { in: ['pending', 'approved', 'confirmed'] },
+          // JOIN trả thay chỉ là lượt tham gia của partner khi partner đã nhận lời (confirmed).
+          OR: [{ payerUserId: null }, { status: 'confirmed' }],
         },
       }),
       tx.outbox.findFirst({
@@ -552,7 +595,7 @@ export async function requestJoin(matchId: string, participantUserId: string, re
     // BR-CM-05: đơn chỉ còn đội B; đôi còn 1 chỗ đội A (cạnh chủ kèo) và 2 chỗ đội B.
     let teamSide: TeamSide | undefined;
     for (const side of requestedSide ? [requestedSide] : ['B', 'A'] as const) {
-      if (await reservedTeamSlots(tx, matchId, side, now) < participantSlots(match.discipline, side)) { teamSide = side; break; }
+      if (await reservedTeamSlots(tx, matchId, side, now, participantUserId) < participantSlots(match.discipline, side)) { teamSide = side; break; }
     }
     if (!teamSide) throw new AppError(409, 'MATCH_TEAM_FULL', 'Đội này đã đủ người. Hãy chọn đội còn chỗ.');
     if (match.feePerSlot > 0n && !fundingEvent) {

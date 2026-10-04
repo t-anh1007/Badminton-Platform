@@ -181,7 +181,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
           saveCurrentLocation(nextLocation);
           setSelectedLocation(null);
           setOrigin(nextLocation);
-          setLocateError('Không lấy được GPS chính xác nên đang dùng vị trí gần đúng theo IP. Click trên bản đồ nếu muốn chỉnh lại điểm.');
+          setLocateError('Không lấy được GPS chính xác nên đang dùng vị trí gần đúng theo IP. Bấm trên bản đồ nếu muốn chỉnh lại điểm.');
         } else {
           setLocateError(hint);
         }
@@ -192,7 +192,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
     // Safety net: một số trình duyệt (Edge/Chrome trên máy bàn) treo hẳn, không
     // gọi callback nào đúng hạn → sau 12s tự chuyển sang fallback IP.
     const safety = window.setTimeout(() => {
-      if (!gpsWon && !settled) applyIpFallback('Không nhận được vị trí. Hãy click trên bản đồ để chọn điểm.');
+      if (!gpsWon && !settled) applyIpFallback('Không nhận được vị trí. Hãy bấm trên bản đồ để chọn điểm.');
     }, 12000);
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -417,7 +417,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
 
         {viewMode === 'map' && (
           <div className="grid gap-2">
-            <p className="text-sm text-ink-500">Click lên bản đồ để chọn điểm muốn tìm sân. Marker xanh là vị trí hiện tại; marker vàng là điểm tìm kiếm.</p>
+            <p className="text-sm text-ink-500">Bấm lên bản đồ để chọn điểm muốn tìm sân. Ghim xanh là vị trí hiện tại; ghim vàng là điểm tìm kiếm.</p>
             <VenuesMap
               searchOrigin={{ lat: origin.lat, lng: origin.lng }}
               currentLocation={currentLocation}

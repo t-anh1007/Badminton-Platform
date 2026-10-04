@@ -57,7 +57,7 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
                   <Button
                     tone="ghost"
                     size="sm"
-                    aria-label={`Xem chi tiết booking ${row.businessCode}`}
+                    aria-label={`Xem chi tiết lượt đặt sân ${row.businessCode}`}
                     onClick={() => onSelect(row.id)}
                   >
                     Xem
@@ -89,7 +89,7 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
               tone="secondary"
               size="sm"
               className="mt-4 w-full"
-              aria-label={`Xem chi tiết booking ${row.businessCode}`}
+              aria-label={`Xem chi tiết lượt đặt sân ${row.businessCode}`}
               onClick={() => onSelect(row.id)}
             >
               Xem chi tiết

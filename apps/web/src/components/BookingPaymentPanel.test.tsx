@@ -33,5 +33,5 @@ it('disables payment and enters recovery when the backend expiry is reached afte
   render(<BookingPaymentPanel bookingId="internal-id" holdExpiresAt="2026-08-15T00:00:01.000Z" onConfirmed={vi.fn()} onRecover={vi.fn()} />)
   await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
   expect(screen.getByRole('button', { name: /thanh toán số dư/i })).toBeDisabled()
-  expect(screen.getByRole('button', { name: /chọn lại slot/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /chọn lại khung giờ/i })).toBeInTheDocument()
 })

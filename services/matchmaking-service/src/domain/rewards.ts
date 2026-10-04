@@ -85,7 +85,8 @@ export async function cancelProgram(id: string, reason: string | undefined, now 
         aggregateType: 'Notification', aggregateId: `reward.cancelled:${program.id}:${userId}`, eventType: 'UserNotificationRequested',
         payload: {
           recipient: { type: 'user', userId, targetRole: 'player' }, category: 'match', kind: 'reward.cancelled',
-          title: 'Chương trình thưởng đã bị hủy', body: program.name, priority: 'update', entityType: 'reward_program',
+          title: 'Chương trình thưởng đã bị hủy',
+          body: `Chương trình thưởng "${program.name}" bạn đang tham gia đã bị hủy. Lý do: ${reason}.`, priority: 'update', entityType: 'reward_program',
           entityId: program.id, actionKind: 'reward.view', actionExpiresAt: null, emailPolicy: 'required',
         },
       })));

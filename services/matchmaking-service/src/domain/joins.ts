@@ -12,23 +12,36 @@ export const JOIN_HOLD_MINUTES = 10;
 
 /** Số chỗ đã giữ của một đội: JOIN confirmed + approved còn trong hạn thanh toán. JOIN cũ không có đội tính là đội B. */
 export async function reservedTeamSlots(
-  tx: Pick<typeof prisma, 'join'>,
+  tx: Pick<typeof prisma, 'join' | 'partnerInvite'>,
   matchId: string,
   side: TeamSide,
   now: Date,
+  /** Người đang xin chỗ: lời mời partner gửi cho chính họ không chặn họ. */
+  requesterUserId?: string,
 ): Promise<number> {
-  return tx.join.count({
+  const joins = await tx.join.count({
     where: {
       matchId,
       AND: [
         side === 'B' ? { OR: [{ teamSide: 'B' }, { teamSide: null }] } : { teamSide: 'A' },
         { OR: [
           { status: 'confirmed' },
+          { status: 'reserved' },
           { status: 'approved', approvedAt: { gt: new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000) } },
         ] },
       ],
     },
   });
+  if (side === 'B') return joins;
+  // BR-CM-73: lời mời partner đã gửi giữ slot Team A (slot trả thay đã tính qua JOIN reserved).
+  const invited = await tx.partnerInvite.count({
+    where: {
+      matchId, status: 'pending', payMode: 'self', sentAt: { not: null },
+      match: { cutoffAt: { gt: now } },
+      ...(requesterUserId ? { inviteeUserId: { not: requesterUserId } } : {}),
+    },
+  });
+  return joins + invited;
 }
 
 

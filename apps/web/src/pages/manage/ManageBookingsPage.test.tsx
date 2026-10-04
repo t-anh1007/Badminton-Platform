@@ -66,7 +66,7 @@ describe('ManageBookingsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Quản lý booking' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Quản lý đặt sân' })).toBeVisible();
     expect(screen.getByText('128')).toBeVisible();
     expect(screen.getAllByText('Nguyễn Minh Anh')[0]).toBeVisible();
     expect(screen.getAllByText('240.000đ')[0]).toBeVisible();
@@ -122,8 +122,8 @@ describe('ManageBookingsPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /Xem chi tiết booking/i }))[0]);
-    expect(await screen.findByRole('dialog', { name: 'Chi tiết booking' })).toBeVisible();
+    fireEvent.click((await screen.findAllByRole('button', { name: /Xem chi tiết lượt đặt sân/i }))[0]);
+    expect(await screen.findByRole('dialog', { name: 'Chi tiết lượt đặt sân' })).toBeVisible();
     expect(screen.getByText('CLB Linh Xuân · Sân 02')).toBeVisible();
     expect(screen.queryByText(/090/)).not.toBeInTheDocument();
 
@@ -165,5 +165,20 @@ describe('ManageBookingsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết.');
     fireEvent.click(screen.getByRole('button', { name: 'Thử lại chi tiết' }));
     expect(await screen.findByText('0900000000')).toBeVisible();
+  });
+
+  it('closes the drawer by error code, regardless of the message wording', async () => {
+    const api = await import('../../lib/venueBookingApi.js');
+    vi.mocked(api.getProviderBookingDetail).mockRejectedValueOnce(
+      Object.assign(new Error('Bất kỳ câu chữ nào'), { code: 'BOOKING_NOT_FOUND' }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/manage/bookings?booking=11111111-1111-4111-8111-111111111111']}>
+        <ManageBookingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Lượt đặt sân này không còn khả dụng. Danh sách đã được cập nhật.')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

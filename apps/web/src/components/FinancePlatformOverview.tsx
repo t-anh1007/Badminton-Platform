@@ -32,7 +32,7 @@ export function FinancePlatformOverview({ data, ownerNames, onPickOwner }: { dat
     ]} />
     {data.byMonth ? <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr] xl:items-start">
       <RevenueColumns title="Doanh thu đặt sân theo tháng" keyHeader="Tháng" points={data.byMonth} labelOf={(key) => `${key.slice(5, 7)}/${key.slice(0, 4)}`} />
-      <RevenueRanking title="Top chủ sân theo doanh thu" keyHeader="Chủ sân" points={data.byOwner ?? []} labelOf={(key) => ownerNames?.get(key) ?? `Chủ sân #${key.slice(0, 8)}`} onPick={onPickOwner} />
+      <RevenueRanking title="Chủ sân có doanh thu cao nhất" keyHeader="Chủ sân" points={data.byOwner ?? []} labelOf={(key) => ownerNames?.get(key) ?? 'Chưa rõ chủ sân'} onPick={onPickOwner} />
     </div> : null}
   </div>;
 }

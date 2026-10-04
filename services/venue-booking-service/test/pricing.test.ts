@@ -26,6 +26,19 @@ describe('VEN-06 — Thiết lập biểu giá theo lịch', () => {
     )).resolves.toMatchObject({ version: 1 });
   });
 
+  it.each([0, -50000, 1.5])('PL-A1: giá %s không phải số nguyên dương -> từ chối INVALID_PRICE', async (price) => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    await setOperatingHours(provider.userId, court.id, WEEKDAY, 8 * 60, 22 * 60);
+
+    await expect(savePricingRules(
+      provider.userId,
+      court.id,
+      [{ weekday: WEEKDAY, startMinute: 8 * 60, endMinute: 22 * 60, price }],
+      new Date(),
+    )).rejects.toMatchObject({ code: 'INVALID_PRICE', httpStatus: 400 });
+  });
+
   it('AC-VEN-06-1: sân mở 6h-22h, biểu giá phủ trọn không chồng lấn -> lưu, BOK-04 (getEffectivePricingWindows) đọc đúng', async () => {
     const provider = await createApprovedProvider();
     const { court } = await createVenueWithCourt(provider.id);

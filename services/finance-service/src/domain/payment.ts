@@ -16,7 +16,7 @@ function generateMatchCode(): string {
 export async function payBookingWithBalance(userId: string, bookingId: string): Promise<void> {
   const status = await fetchPaymentStatus(bookingId);
   if (status.userId !== userId) {
-    throw new AppError('FORBIDDEN', 'Không phải booking của bạn.', 403);
+    throw new AppError('FORBIDDEN', 'Không phải lượt đặt sân của bạn.', 403);
   }
   if (!status.stillPayable) {
     throw new AppError('HOLD_EXPIRED', 'Hold đã hết hạn, không thể thanh toán.', 409); // AC-03-4
@@ -63,7 +63,7 @@ export async function payBookingWithBalance(userId: string, bookingId: string): 
     // booking này (double-pay đồng thời) — coi như đã trả, không phát
     // PaymentCompleted lần hai, không trừ tiền lần hai.
     if (isUniqueViolation(err, 'ledger_payment_once')) {
-      throw new AppError('ALREADY_PAID', 'Booking này đã được thanh toán.', 409);
+      throw new AppError('ALREADY_PAID', 'Lượt đặt sân này đã được thanh toán.', 409);
     }
     throw err;
   }
@@ -83,7 +83,7 @@ function isUniqueViolation(err: unknown, indexName: string): boolean {
 export async function createBookingSepayIntent(userId: string, bookingId: string) {
   const status = await fetchPaymentStatus(bookingId);
   if (status.userId !== userId) {
-    throw new AppError('FORBIDDEN', 'Không phải booking của bạn.', 403);
+    throw new AppError('FORBIDDEN', 'Không phải lượt đặt sân của bạn.', 403);
   }
   if (!status.stillPayable) {
     throw new AppError('HOLD_EXPIRED', 'Hold đã hết hạn, không thể thanh toán.', 409);

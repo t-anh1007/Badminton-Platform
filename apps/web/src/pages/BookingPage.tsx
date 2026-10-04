@@ -333,7 +333,7 @@ export function BookingPage() {
   const expireHold = () => {
     if (!hold) return
     clearFlow()
-    setMessage('Hết thời gian giữ chỗ, hãy chọn lại slot.')
+    setMessage('Hết thời gian giữ chỗ, hãy chọn lại khung giờ.')
     if (courtId) void loadAvailability(courtId, date)
   }
 
@@ -354,10 +354,10 @@ export function BookingPage() {
         {!matchCheckout && <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />}
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        {(booking || matchCheckout) && <button type="button" aria-label="Quay lại chọn slot và nhả lượt giữ chỗ" title="Quay lại chọn slot" disabled={loading} onClick={() => void returnToSlotSelection()} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:-translate-x-0.5 hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+        {(booking || matchCheckout) && <button type="button" aria-label="Quay lại chọn khung giờ và nhả lượt giữ chỗ" title="Quay lại chọn khung giờ" disabled={loading} onClick={() => void returnToSlotSelection()} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:-translate-x-0.5 hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="m12 5-7 7 7 7" /><path d="M19 12H5" /></svg>
         </button>}
-        {['Chọn slot', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
+        {['Chọn khung giờ', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
       </div>
       {error && <SurfaceCard className="mb-5 border-danger bg-danger-bg"><p role="alert" className="text-danger">{error}</p><Link to="/venues" className="mt-2 inline-block text-sm font-semibold text-green-700 hover:underline">Quay lại danh sách sân</Link></SurfaceCard>}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -414,7 +414,7 @@ export function BookingPage() {
             ) : slots.length ? (
               <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking || matchCheckout || pendingMatchHold.current ? undefined : choose} /></div>
             ) : (
-              <div className="mt-5"><EmptyState title="Không còn slot trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
+              <div className="mt-5"><EmptyState title="Không còn khung giờ trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
             )}
           </SurfaceCard>
         </section>
@@ -423,7 +423,7 @@ export function BookingPage() {
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
             {selection && !booking && !matchCheckout && (meetsMinDuration
-              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => attemptScheduleAction('booking')}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => attemptScheduleAction('match')}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho slot còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
+              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => attemptScheduleAction('booking')}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => attemptScheduleAction('match')}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho khung giờ còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
             {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}

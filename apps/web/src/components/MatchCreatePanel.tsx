@@ -86,7 +86,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
   useEffect(() => {
     void getMyMatchSources()
       .then((result) => setSources(result.sources ?? []))
-      .catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'Không thể tải slot và booking của bạn.'));
+      .catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'Không thể tải khung giờ và lượt đặt sân của bạn.'));
     // Không tải được thì bỏ qua cảnh báo; backend vẫn chặn kèo xếp hạng khi chưa khai trình độ.
     void getOwnPassport().then(setPassport).catch(() => undefined);
   }, []);
@@ -108,7 +108,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
 
   const submit = async () => {
     const problems: string[] = [];
-    if (!source) problems.push('Hãy chọn một slot đang giữ hoặc booking đã thanh toán.');
+    if (!source) problems.push('Hãy chọn một khung giờ đang giữ hoặc lượt đặt sân đã thanh toán.');
     if (tiers.indexOf(skillMin) > tiers.indexOf(skillMax)) problems.push('Bậc tối thiểu không được cao hơn bậc tối đa.');
     if (needsDeclaration) problems.push(`Hãy khai trình độ ${disciplineName} trước khi tạo kèo xếp hạng ${disciplineName}.`);
     setErrors(problems);
@@ -127,7 +127,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
   };
 
   if (loadError) return <RouteState variant="error" title="Không thể mở màn tạo kèo" description={loadError} onRetry={onCancel} />;
-  if (!sources) return <RouteState variant="loading" title="Đang tải slot và booking của bạn" />;
+  if (!sources) return <RouteState variant="loading" title="Đang tải khung giờ và lượt đặt sân của bạn" />;
   const paid = source?.sourceType === 'paid_booking';
 
   return (
@@ -140,22 +140,22 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
           </div>
         )}
         <SurfaceCard>
-          <h2 className="text-h3">1. Chọn nguồn booking</h2>
-          <p className="text-sm text-ink-500">Chỉ hiển thị slot hoặc booking hợp lệ của bạn.</p>
+          <h2 className="text-h3">1. Chọn nguồn lượt đặt sân</h2>
+          <p className="text-sm text-ink-500">Chỉ hiển thị khung giờ hoặc lượt đặt sân hợp lệ của bạn.</p>
           <div className="mt-4">
             <ChoiceGroup
               legend="Loại nguồn"
               value={sourceType}
               onChange={(next) => { setSourceType(next); setSelected(''); }}
               options={[
-                { value: 'hold', title: 'Slot đang giữ', description: 'Chưa thanh toán booking - cần hoàn tất phần tiền kèo.' },
-                { value: 'paid_booking', title: 'Booking đã thanh toán', description: 'Dùng khoản tiền sân đã trả - không thanh toán tiền sân lần hai.' },
+                { value: 'hold', title: 'Khung giờ đang giữ', description: 'Chưa thanh toán lượt đặt sân - cần hoàn tất phần tiền kèo.' },
+                { value: 'paid_booking', title: 'Lượt đặt sân đã thanh toán', description: 'Dùng khoản tiền sân đã trả - không thanh toán tiền sân lần hai.' },
               ]}
             />
           </div>
           {visible.length === 0 ? (
             <p className="mt-4 rounded-xl bg-canvas p-3 text-sm text-ink-600">
-              {sourceType === 'hold' ? 'Bạn chưa giữ slot nào còn ít nhất 24 giờ.' : 'Bạn chưa có booking đã thanh toán còn ít nhất 24 giờ.'}
+              {sourceType === 'hold' ? 'Bạn chưa giữ chỗ nào còn ít nhất 24 giờ.' : 'Bạn chưa có lượt đặt sân đã thanh toán còn ít nhất 24 giờ.'}
             </p>
           ) : (
             <label className="mt-4 block text-sm font-medium">
@@ -227,11 +227,11 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               <label className="block text-sm font-bold text-ink-900">
                 Thể thức chính thức
                 <SelectInput aria-describedby="format-hint" className="mt-2 font-normal" value={format} onChange={(event) => setFormat(event.target.value as MatchFormat)}>
-                  <option value="bo3">BO3 - 21 điểm - giới hạn 30</option>
-                  <option value="bo5" disabled={!bo5Allowed}>BO5 - 21 điểm - giới hạn 30</option>
+                  <option value="bo3">BO3 (thắng 2 trong 3 ván) - 21 điểm - giới hạn 30</option>
+                  <option value="bo5" disabled={!bo5Allowed}>BO5 (thắng 3 trong 5 ván) - 21 điểm - giới hạn 30</option>
                 </SelectInput>
                 <span id="format-hint" className="mt-1 block text-xs font-normal text-ink-500">
-                  {bo5Allowed ? 'Booking trên 90 phút nên được chọn BO3 hoặc BO5.' : 'Booking từ 90 phút trở xuống chỉ áp dụng BO3.'}
+                  {bo5Allowed ? 'Lượt đặt sân trên 90 phút nên được chọn BO3 hoặc BO5.' : 'Lượt đặt sân từ 90 phút trở xuống chỉ áp dụng BO3.'}
                 </span>
               </label>
             </div>
@@ -241,7 +241,7 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <section className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
           <div className="bg-brand-navy p-4 text-surface">
-            <p className="font-semibold">{paid ? 'Booking thường - đã thanh toán' : 'Slot đang giữ - chưa thanh toán'}</p>
+            <p className="font-semibold">{paid ? 'Lượt đặt sân thường - đã thanh toán' : 'Khung giờ đang giữ - chưa thanh toán'}</p>
             <p className="mt-1 text-sm opacity-90">
               {paid ? 'Sau khi công bố: kèo chờ người chơi và chờ hạn chốt kèo. Tiền sân không bị thu lần hai.' : 'Sau khi công bố: bạn đóng phần của mình để mở kèo tìm người chơi.'}
             </p>
@@ -252,10 +252,10 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
               <Badge tone="warning">{`Thua : thắng ${ratio}`}</Badge>
             </div>
             {!preview ? (
-              <p className="mt-3 text-sm text-ink-500">{source ? 'Đang tính dòng tiền…' : 'Chọn nguồn booking để xem dòng tiền.'}</p>
+              <p className="mt-3 text-sm text-ink-500">{source ? 'Đang tính dòng tiền…' : 'Chọn nguồn lượt đặt sân để xem dòng tiền.'}</p>
             ) : (
               <>
-                <MoneyRow label="Cần trả thêm khi tạo" hint={paid ? 'Booking đã thanh toán đủ' : 'Phần góp của chủ kèo'} value={preview.additionalOwnerCharge} />
+                <MoneyRow label="Cần trả thêm khi tạo" hint={paid ? 'Lượt đặt sân đã thanh toán đủ' : 'Phần góp của chủ kèo'} value={preview.additionalOwnerCharge} />
                 {paid && <MoneyRow label="Tiền sân đã thanh toán" hint="Không ghi nhận lần hai" value={preview.alreadyPaid} />}
                 {paid && <MoneyRow label="Dự kiến hoàn khi chốt kèo" hint="Khi đủ người và đủ phần tiền kèo" value={preview.organizerRefundAtLock} badge={<Badge tone="success">Có thể rút</Badge>} />}
                 <MoneyRow label="Giữ chờ kết quả" hint="Khoản chênh lệch toàn kèo sau khi chốt" value={preview.resultHeldAmount} badge={<Badge tone="warning">Đang giữ</Badge>} />

@@ -243,7 +243,7 @@ function OwnPassportView() {
         </>
       )}
       <Modal open={evaluationTarget !== null} title="Đánh giá sau trận" onClose={() => setEvaluationTarget(null)}>
-        <p className="text-sm text-ink-500">Chọn bậc bạn cảm nhận cho người chơi cùng kèo. Đánh giá bất thường chỉ được gắn cờ chờ Admin, không tự phạt hay đổi điểm.</p>
+        <p className="text-sm text-ink-500">Chọn bậc bạn cảm nhận cho người chơi cùng kèo. Đánh giá bất thường chỉ được gắn cờ chờ quản trị viên, không tự phạt hay đổi điểm.</p>
         <label className="mt-4 block text-sm font-medium">
           Bậc cảm nhận
           <SelectInput className="mt-1" value={evaluationTier} onChange={(event) => setEvaluationTier(event.target.value as SkillTier)}>
@@ -446,7 +446,7 @@ function HistoryPanel({ discipline }: { discipline: Discipline }) {
                 <Link to={`/matches/${item.matchId}`} className="font-semibold hover:underline">
                   {win ? 'Thắng' : 'Thua'} {opponents}{item.scoreLabel ? ` · ${item.scoreLabel}` : ''}
                 </Link>
-                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao hữu' : item.ratingDelta === null ? 'Kèo xếp hạng - không tính điểm' : 'Kèo xếp hạng'}</p>
+                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao lưu' : item.ratingDelta === null ? 'Kèo xếp hạng - không tính điểm' : 'Kèo xếp hạng'}</p>
               </div>
               <div className="text-right">
                 <p className={`text-xs font-bold ${win ? 'text-success' : 'text-danger'}`}>{win ? 'Thắng' : 'Thua'}</p>

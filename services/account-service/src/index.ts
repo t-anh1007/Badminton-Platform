@@ -7,6 +7,7 @@ import { bootstrapEventPublishing } from './lib/rabbitmq.js';
 import { bootstrapEventConsumption } from './lib/eventConsumer.js';
 import { emailSender } from './lib/email.js';
 import { retryPendingRequiredEmails } from './domain/notifications.js';
+import { syncLockedAccounts } from './domain/adminAccounts.js';
 
 const SERVICE_NAME = 'account-service';
 
@@ -15,6 +16,8 @@ const app = createApp();
 app.listen(env.port, () => {
   // eslint-disable-next-line no-console
   console.log(`[${SERVICE_NAME}] listening on :${env.port}`);
+  // Tài khoản khóa từ trước (hoặc Redis vừa khởi động lại) phải bị chặn ngay ở mọi service.
+  void syncLockedAccounts().catch((error) => console.warn(`[${SERVICE_NAME}] đồng bộ tài khoản khóa thất bại:`, error));
 });
 
 // Xem ghi chú ở finance-service/src/index.ts về cơ chế buông khi rảnh.

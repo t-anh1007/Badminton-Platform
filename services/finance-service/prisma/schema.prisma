@@ -372,6 +372,10 @@ model MatchContribution {
   teamSide        String?
   /// Thời điểm JOIN gốc từ Matchmaking; null cho contribution cũ (dùng createdAt).
   joinedAt        DateTime?
+  /// BR-CM-77: slot trả thay nhận tiền kết quả trận cho partner; null = người trả (userId).
+  beneficiaryUserId String?
+  /// Phiên bản của beneficiary theo thứ tự Matchmaking; event cũ hơn bị bỏ qua.
+  beneficiaryVersion BigInt @default(0)
   source          MatchContributionSource @default(cash)
   amount          BigInt
   status          MatchContributionStatus @default(pending)

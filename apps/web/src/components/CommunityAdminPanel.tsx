@@ -8,6 +8,9 @@ type Pending = {
   report: CommunityReport;
   action: 'hide' | 'remove' | 'dismiss';
 };
+const reportStatusLabel: Record<string, string> = { open: 'Đang chờ xử lý', actioned: 'Đã xử lý', dismissed: 'Không vi phạm' };
+const actionLabel: Record<Pending['action'], string> = { dismiss: 'Bác báo cáo', hide: 'Ẩn tạm', remove: 'Gỡ nội dung' };
+
 export function CommunityAdminPanel() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [reason, setReason] = useState('');
@@ -80,8 +83,8 @@ export function CommunityAdminPanel() {
               <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
                 <div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone="warning">{report.status}</Badge>
-                    <Badge>{report.targetType}</Badge>
+                    <Badge tone="warning">{reportStatusLabel[report.status] ?? report.status}</Badge>
+                    <Badge>{report.targetType === 'post' ? 'Bài viết' : 'Bình luận'}</Badge>
                   </div>
                   <p className="mt-2 font-medium">{report.reason}</p><BusinessCode code={report.businessCode} label="Mã báo cáo" /><BusinessCode code={report.targetCode} label={report.targetType === 'post' ? 'Mã bài viết' : 'Mã bình luận'} />
                   <p className="text-caption">{formatDateTimeVi(report.createdAt)}</p>
@@ -109,7 +112,7 @@ export function CommunityAdminPanel() {
       )}
       <Modal open={Boolean(pending)} title="Xác nhận quyết định kiểm duyệt" onClose={() => setPending(null)}>
         <p className="text-sm text-ink-500">
-          Hành động <strong className="text-ink-900">{pending?.action}</strong> sẽ áp dụng cho{' '}
+          Hành động <strong className="text-ink-900">{pending ? actionLabel[pending.action] : ''}</strong> sẽ áp dụng cho{' '}
           {pending?.report.targetType === 'post' ? 'bài viết được báo cáo' : 'bình luận được báo cáo'}. Lý do:{' '}
           <strong className="text-ink-900">{reason}</strong>
         </p>

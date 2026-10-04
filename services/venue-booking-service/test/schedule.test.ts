@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { prisma } from '../src/lib/prisma.js';
-import { setOperatingHours, addClosure } from '../src/domain/schedule.js';
+import { setOperatingHours, addClosure, removeClosure } from '../src/domain/schedule.js';
+import { createHold } from '../src/domain/hold.js';
 import { createApprovedProvider, createVenueWithCourt } from './helpers.js';
 import { vietnamMinuteToInstant, vietnamWeekday } from '../src/lib/vietnamTime.js';
 
@@ -103,5 +104,43 @@ describe('VEN-05 — Giờ hoạt động và ngày đóng cửa', () => {
 
     const closure = await addClosure(provider.userId, court.id, start);
     expect(closure.courtId).toBe(court.id);
+  });
+});
+
+describe('VEN-05c — Khóa lịch theo khung giờ, mở lại', () => {
+  it('chỉ kiểm xung đột trong đúng khung và đúng ngày bị khóa', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const nextWeek = new Date(tomorrowAt(19).getTime() + 7 * 24 * 3600_000);
+    await prisma.booking.createMany({ data: [tomorrowAt(19), nextWeek].map((start) => ({
+      courtId: court.id, startAt: start, endAt: new Date(start.getTime() + 3600_000), source: 'internal' as const,
+      status: 'confirmed' as const, priceSnapshot: 100000n, guestName: 'A', guestContact: '0900',
+    })) });
+
+    // Khung 8h-10h ngày mai không chạm booking 19h.
+    await expect(addClosure(provider.userId, court.id, tomorrowAt(8), 'Bảo trì', { startMinute: 480, endMinute: 600 }))
+      .resolves.toMatchObject({ startMinute: 480, endMinute: 600 });
+    // Khóa cả ngày tuần sau chỉ vướng booking tuần sau, không vướng booking ngày mai.
+    await expect(addClosure(provider.userId, court.id, nextWeek)).rejects.toSatisfy((err: unknown) => {
+      const e = err as { code: string; meta?: { bookings?: unknown[] } };
+      return e.code === 'BLOCKED_BY_FUTURE_BOOKINGS' && e.meta?.bookings?.length === 1;
+    });
+  });
+
+  it('chặn giữ chỗ trong khung khóa; khung chồng nhau bị từ chối; mở lại thì khóa lại được', async () => {
+    const provider = await createApprovedProvider();
+    const { court } = await createVenueWithCourt(provider.id);
+    const closure = await addClosure(provider.userId, court.id, tomorrowAt(8), undefined, { startMinute: 480, endMinute: 600 });
+
+    await expect(createHold('player-ven05c', { courtId: court.id, startAt: tomorrowAt(9), endAt: tomorrowAt(10) }))
+      .rejects.toMatchObject({ code: 'COURT_CLOSED' });
+    await expect(addClosure(provider.userId, court.id, tomorrowAt(8), undefined, { startMinute: 540, endMinute: 660 }))
+      .rejects.toMatchObject({ code: 'CLOSURE_OVERLAP' });
+    await expect(addClosure(provider.userId, court.id, tomorrowAt(8), undefined, { startMinute: 485, endMinute: 600 }))
+      .rejects.toMatchObject({ code: 'INVALID_CLOSURE_RANGE' });
+
+    await removeClosure(provider.userId, court.id, closure.id);
+    await expect(addClosure(provider.userId, court.id, tomorrowAt(8), undefined, { startMinute: 540, endMinute: 660 }))
+      .resolves.toMatchObject({ startMinute: 540 });
   });
 });

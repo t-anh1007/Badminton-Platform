@@ -61,7 +61,13 @@ export async function releaseMatureRevenue(now = new Date(), bookingIds?: readon
   });
   let released = 0;
   for (const candidate of candidates) {
-    if (await releaseBookingRevenue(candidate.bookingId, now)) released += 1;
+    // Một bản ghi lỗi không được chặn đáo hạn của các bản ghi còn lại.
+    try {
+      if (await releaseBookingRevenue(candidate.bookingId, now)) released += 1;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`[revenue-release] booking ${candidate.bookingId}:`, error);
+    }
   }
   return released;
 }

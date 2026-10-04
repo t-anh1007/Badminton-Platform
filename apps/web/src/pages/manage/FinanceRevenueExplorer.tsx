@@ -22,18 +22,18 @@ export function FinanceRevenueExplorer({ data, venues, filters, onChange, onPick
       <MoneyBreakdown title="Doanh thu trong khoảng đang xem" totalLabel="Tổng khách đã trả" note="Theo cơ sở và kỳ xem đang chọn." parts={[
         { label: 'Chủ sân nhận', value: data.summary.net, color: 'bg-success' },
         { label: 'Phí nền tảng', value: data.summary.commission, color: 'bg-brand-navy' },
-        { label: 'Đã hoàn lại khách', value: refundedOf(data.summary), color: 'bg-danger', detail: 'Booking bị hủy hoặc hoàn tiền' },
+        { label: 'Đã hoàn lại khách', value: refundedOf(data.summary), color: 'bg-danger', detail: 'Lượt đặt sân bị hủy hoặc hoàn tiền' },
       ]} />
       <MoneyBreakdown title="Tiền của bạn hiện ở đâu" totalLabel="Tổng đã ghi nhận cho bạn" note="Số dư ví hiện tại, không phụ thuộc bộ lọc ngày." parts={[
         { label: 'Chờ đủ 24 giờ', value: data.summary.pending, color: 'bg-warning', detail: 'Chưa thể rút' },
         { label: 'Có thể rút', value: data.summary.available, color: 'bg-success', detail: 'Sẵn sàng tạo yêu cầu rút' },
         { label: 'Đang chuyển ngân hàng', value: data.summary.reserved, color: 'bg-brand-navy/40', detail: 'Đã giữ cho yêu cầu rút' },
         { label: 'Đã chuyển về ngân hàng', value: data.summary.withdrawn ?? '0', color: 'bg-brand-navy' },
-      ]} footer={<Button size="sm" tone="secondary" onClick={onShowPending}>Xem các booking đang chờ đủ 24 giờ</Button>} />
+      ]} footer={<Button size="sm" tone="secondary" onClick={onShowPending}>Xem các lượt đặt sân đang chờ đủ 24 giờ</Button>} />
     </div>
     {data.byDay ? <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr] xl:items-start">
       <RevenueColumns title="Doanh thu theo ngày" keyHeader="Ngày" points={data.byDay} labelOf={(key) => `${key.slice(8, 10)}/${key.slice(5, 7)}`} onPick={onPickDay} />
-      <RevenueRanking title="Doanh thu theo cơ sở" keyHeader="Cơ sở" points={data.byVenue ?? []} labelOf={(key) => venues.find((venue) => venue.id === key)?.name ?? `Cơ sở #${key.slice(0, 8)}`} onPick={onPickVenue} />
+      <RevenueRanking title="Doanh thu theo cơ sở" keyHeader="Cơ sở" points={data.byVenue ?? []} labelOf={(key) => venues.find((venue) => venue.id === key)?.name ?? 'Chưa rõ cơ sở'} onPick={onPickVenue} />
     </div> : null}
   </div>;
 }

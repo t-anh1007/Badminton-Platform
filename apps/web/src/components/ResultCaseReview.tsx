@@ -14,11 +14,15 @@ export const outcomeText = (detail: ReviewCaseDetail, outcome: MatchOutcome) =>
   outcome === 'NO_RESULT' ? 'Không có kết quả' : `${teamNames(detail, outcome === 'TEAM_A_WIN' ? 'A' : 'B')} thắng (Đội ${outcome === 'TEAM_A_WIN' ? 'A' : 'B'})`;
 export const queueTitle = (item: ReviewQueueItem) =>
   `Kèo ${item.mode === 'ranked' ? 'xếp hạng' : 'giao lưu'} - ${item.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}`;
+/** Dòng phân biệt hồ sơ trong hàng chờ: sân + mã kèo/booking. */
+export const queueContext = (item: ReviewQueueItem) =>
+  [[item.venueName, item.courtName].filter(Boolean).join(' - '), item.matchCode, item.bookingCode].filter(Boolean).join(' · ');
 
 export function CaseSummary({ detail }: { detail: ReviewCaseDetail }) {
   const rows = [
-    ['Sân và thời gian', detail.booking ? `${detail.booking.venue.name} - ${detail.booking.court.name}` : 'Chưa đọc được booking', detail.booking ? formatDateTimeVi(detail.booking.startAt) : ''],
-    ['Người chơi', `${teamNames(detail, 'A')} và ${teamNames(detail, 'B')}`, `${detail.match.format === 'bo5' ? 'BO5' : 'BO3'} - tỷ lệ thua : thắng ${detail.match.ratio.replace(':', ' : ')}`],
+    ['Sân và thời gian', detail.booking ? `${detail.booking.venue.name} - ${detail.booking.court.name}` : 'Chưa đọc được lượt đặt sân', detail.booking ? formatDateTimeVi(detail.booking.startAt) : ''],
+    ['Người chơi', `${teamNames(detail, 'A')} và ${teamNames(detail, 'B')}`, `${detail.match.format === 'bo5' ? 'BO5 (thắng 3 trong 5 ván)' : 'BO3 (thắng 2 trong 3 ván)'} - tỷ lệ thua : thắng ${detail.match.ratio.replace(':', ' : ')}`],
+    ['Mã tham chiếu', [detail.matchCode && `Mã kèo ${detail.matchCode}`, detail.bookingCode && `Mã đặt sân ${detail.bookingCode}`].filter(Boolean).join(' · ') || 'Chưa có mã', ''],
   ];
   return (
     <dl className="grid gap-3 sm:grid-cols-2">
@@ -33,7 +37,11 @@ export function CaseSummary({ detail }: { detail: ReviewCaseDetail }) {
   );
 }
 
-export function CaseStatements({ detail }: { detail: ReviewCaseDetail }) {
+/** `evidenceLockedNote`: chủ sân chỉ xem được ảnh khi hồ sơ đang chờ mình đề xuất — thay nút "Xem ảnh" bằng lời giải thích. */
+export function CaseStatements({ detail, evidenceLockedNote }: { detail: ReviewCaseDetail; evidenceLockedNote?: string }) {
+  const Evidence = ({ evidence }: { evidence: Array<{ id: string }> }) => evidenceLockedNote
+    ? (evidence.length ? <p className="mt-2 text-xs text-ink-500">{evidenceLockedNote}</p> : null)
+    : <EvidenceThumbs matchId={detail.matchId} evidence={evidence} />;
   const incidentTitle = (type: string | null) => INCIDENTS.find((item) => item.value === type)?.title;
   return (
     <SurfaceCard>
@@ -46,7 +54,7 @@ export function CaseStatements({ detail }: { detail: ReviewCaseDetail }) {
               <p className="text-sm font-bold text-brand-navy">Khai: {outcomeText(detail, claim.outcome)}</p>
             </div>
             <p className="text-figures mt-1 text-sm">{claim.sets.map((set) => `${set.teamA}-${set.teamB}`).join(', ')}</p>
-            <EvidenceThumbs matchId={detail.matchId} evidence={claim.evidenceIds.map((id) => ({ id }))} />
+            <Evidence evidence={claim.evidenceIds.map((id) => ({ id }))} />
           </li>
         ))}
         {detail.responses.map((response) => (
@@ -58,18 +66,18 @@ export function CaseStatements({ detail }: { detail: ReviewCaseDetail }) {
               </p>
             </div>
             {response.reason && <p className="mt-1 text-sm text-ink-700">{response.reason}</p>}
-            {response.evidenceIds.length > 0 && <EvidenceThumbs matchId={detail.matchId} evidence={response.evidenceIds.map((id) => ({ id }))} />}
+            {response.evidenceIds.length > 0 && <Evidence evidence={response.evidenceIds.map((id) => ({ id }))} />}
           </li>
         ))}
         {detail.supplementalEvidence.length > 0 && (
           <li className="rounded-xl bg-canvas p-3">
             <p className="font-semibold">Bằng chứng bổ sung</p>
-            <EvidenceThumbs matchId={detail.matchId} evidence={detail.supplementalEvidence} />
+            <Evidence evidence={detail.supplementalEvidence} />
           </li>
         )}
         {detail.claims.length + detail.responses.length === 0 && <li className="text-sm text-ink-500">Chưa có khai báo nào.</li>}
       </ul>
-      <p className="mt-3 rounded-xl bg-success-bg p-3 text-xs text-ink-700">Doanh thu booking của sân không bị giữ bởi tranh chấp kết quả kèo.</p>
+      <p className="mt-3 rounded-xl bg-success-bg p-3 text-xs text-ink-700">Doanh thu đặt sân của sân không bị giữ bởi tranh chấp kết quả kèo.</p>
     </SurfaceCard>
   );
 }

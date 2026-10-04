@@ -105,7 +105,7 @@ export function LeaderboardPage() {
           <h2 className="text-h2">Top người chơi {boardName}</h2>
           <p className="mt-1 text-sm text-ink-500">{discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {bandLabel[band]}</p>
           {!season?.season && ready ? (
-            <div className="mt-5"><RouteState variant="empty" title="Chưa có kỳ xếp hạng" description="Bảng xếp hạng mở khi Admin bắt đầu kỳ thi đấu mới." /></div>
+            <div className="mt-5"><RouteState variant="empty" title="Chưa có kỳ xếp hạng" description="Bảng xếp hạng mở khi quản trị viên bắt đầu kỳ thi đấu mới." /></div>
           ) : error ? (
             <div className="mt-5"><RouteState variant="error" title="Chưa thể tải bảng xếp hạng" description={error} /></div>
           ) : !board ? (

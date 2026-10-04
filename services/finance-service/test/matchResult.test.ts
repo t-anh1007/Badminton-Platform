@@ -113,6 +113,19 @@ describe('Task 14 pure allocation', () => {
       .toEqual({ org: 20_001n, a2: 20_000n, 'b-early': 20_001n, 'b-late': 20_001n });
   });
 
+  it('AC-CM-39: slot chủ kèo trả thay chia tiền kết quả cho partner, không cho người trả', () => {
+    const prepaid = [
+      { userId: 'org', role: 'organizer' as const, teamSide: 'A', createdAt: t(1) },
+      { userId: 'org', beneficiaryUserId: 'partner', role: 'participant' as const, teamSide: 'A', createdAt: t(2) },
+      { userId: 'b1', role: 'participant' as const, teamSide: 'B', createdAt: t(3) },
+      { userId: 'b2', role: 'participant' as const, teamSide: 'B', createdAt: t(4) },
+    ];
+    expect(Object.fromEntries(calculateResultAllocations({ resultReserve: 80_001n, contributions: prepaid }, 'TEAM_A_WIN')))
+      .toEqual({ org: 40_001n, partner: 40_000n });
+    expect(Object.fromEntries(calculateResultAllocations({ resultReserve: 80_000n, contributions: prepaid }, 'NO_RESULT')))
+      .toEqual({ org: 20_000n, partner: 20_000n, b1: 20_000n, b2: 20_000n });
+  });
+
   it('orders JOINs by the Matchmaking joinedAt, not by when Finance created the contribution', () => {
     const retried = [
       { userId: 'org', role: 'organizer' as const, teamSide: 'A', createdAt: t(1) },

@@ -22,7 +22,7 @@ export function ScheduleConflictWarning({
           <li key={`${conflict.kind}-${conflict.startAt}-${index}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <p className="font-semibold">{conflict.venue.name} · {conflict.court.name}</p>
             <p>{formatDateTimeVi(conflict.startAt)} – {formatDateTimeVi(conflict.endAt)}</p>
-            <p>{conflict.kind === 'match' ? 'Kèo ghép đôi đang hoạt động' : 'Booking sân đang hoạt động'}</p>
+            <p>{conflict.kind === 'match' ? 'Kèo ghép đôi đang hoạt động' : 'Lượt đặt sân đang hoạt động'}</p>
           </li>
         ))}
       </ul>

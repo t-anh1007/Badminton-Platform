@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { lockCourtSchedule } from '../lib/courtScheduleLock.js';
 import { assertCourtAcceptsCommitment } from './operationalShutdown.js';
+import { isRangeClosed } from './slotAvailability.js';
 
 const HOLD_DURATION_MS = 10 * 60_000; // BR-BOK-02
 
@@ -64,6 +65,9 @@ export async function createHold(userId: string, input: CreateHoldInput) {
       if (!(await tx.court.findUniqueOrThrow({ where: { id: input.courtId } })).active) {
         throw new AppError('COURT_INACTIVE', 'Sân đã ngừng hoạt động.', 409);
       }
+      if (await isRangeClosed(input.courtId, input.startAt, input.endAt, tx)) {
+        throw new AppError('COURT_CLOSED', 'Sân đã khóa lịch trong khung giờ này.', 409);
+      }
 
       // Reap hold hết hạn của CHÍNH sân này — giữ đúng nghĩa cho EXCLUDE
       // constraint vô điều kiện (xem migration): mọi dòng còn lại trong bảng
@@ -116,7 +120,7 @@ export async function createHold(userId: string, input: CreateHoldInput) {
         },
       });
       if (overlappingBooking) {
-        throw new AppError('SLOT_ALREADY_BOOKED', 'Slot đã có booking xác nhận.', 409);
+        throw new AppError('SLOT_ALREADY_BOOKED', 'Khung giờ đã có lượt đặt sân xác nhận.', 409);
       }
 
       const expiresAt = new Date(now.getTime() + HOLD_DURATION_MS);
@@ -130,7 +134,7 @@ export async function createHold(userId: string, input: CreateHoldInput) {
   } catch (err) {
     if (err instanceof AppError) throw err;
     if (isExclusionViolation(err)) {
-      throw new AppError('SLOT_ON_HOLD', 'Slot vừa có người khác giữ chỗ.', 409);
+      throw new AppError('SLOT_ON_HOLD', 'Khung giờ vừa có người khác giữ chỗ.', 409);
     }
     throw err;
   }

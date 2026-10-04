@@ -31,7 +31,7 @@ export function PersonalWithdrawalModal({ open, withdrawable, active, busy, onCl
       <label className="grid gap-1 text-sm font-medium">Mã ngân hàng<TextInput aria-label="Mã ngân hàng" placeholder="Ví dụ: VCB, MB, ACB" value={form.bankCode} onChange={(event) => setForm({ ...form, bankCode: event.target.value })} /></label>
       <label className="grid gap-1 text-sm font-medium">Số tài khoản nhận<TextInput aria-label="Số tài khoản nhận" inputMode="numeric" value={form.bankAccountNumber} onChange={(event) => setForm({ ...form, bankAccountNumber: event.target.value })} /></label>
       <label className="grid gap-1 text-sm font-medium">Tên chủ tài khoản<TextInput aria-label="Tên chủ tài khoản" value={form.bankAccountName} onChange={(event) => setForm({ ...form, bankAccountName: event.target.value })} /></label>
-      <p className="text-xs leading-5 text-ink-500">Yêu cầu sẽ được Admin kiểm tra và chuyển khoản.</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
+      <p className="text-xs leading-5 text-ink-500">Yêu cầu sẽ được quản trị viên kiểm tra và chuyển khoản.</p>{error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <div className="flex gap-2" data-testid="personal-withdrawal-actions"><Button tone="secondary" className="flex-1" onClick={onClose}>Hủy</Button><Button className="flex-1" disabled={busy} onClick={submit}>{busy ? 'Đang gửi…' : 'Gửi yêu cầu rút tiền'}</Button></div>
     </div>}
   </Modal>;

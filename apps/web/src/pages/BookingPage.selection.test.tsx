@@ -166,7 +166,7 @@ it('disables finding an opponent for slots less than 24 hours away without holdi
   expect(await screen.findByRole('button', { name: 'XÁC NHẬN' })).toBeEnabled()
   const findButton = screen.getByRole('button', { name: 'TÌM ĐỐI THỦ' })
   expect(findButton).toBeDisabled()
-  expect(screen.getByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
+  expect(screen.getByText('Chỉ tạo được kèo cho khung giờ còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
   fireEvent.click(findButton)
   expect(createHold).not.toHaveBeenCalled()
 })
@@ -202,7 +202,7 @@ it('rechecks the 24-hour match lead when the action is clicked after the page wa
   fireEvent.click(findButton)
 
   expect(createHold).not.toHaveBeenCalled()
-  expect(await screen.findByText('Chỉ tạo được kèo cho slot còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
+  expect(await screen.findByText('Chỉ tạo được kèo cho khung giờ còn ít nhất 24 giờ nữa.')).toBeInTheDocument()
   expect(findButton).toBeDisabled()
 })
 

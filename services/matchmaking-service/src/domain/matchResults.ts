@@ -116,6 +116,8 @@ export async function submitResultClaim(
   }
   const roster = Object.values(await resultTeams(prisma, match)).flat();
   if (!roster.includes(input.userId)) throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được khai kết quả.');
+  // PO 2026-10-01: chỉ chủ kèo nhập tỷ số; người còn lại đồng ý, khiếu nại hoặc báo sự cố.
+  if (input.userId !== match.organizerUserId) throw new AppError(403, 'RESULT_ORGANIZER_ONLY', 'Chỉ chủ kèo được nhập kết quả trận.');
   const evidence = await inspectResultEvidence(storage, input.userId, input.evidence);
 
   return prisma.$transaction(async (tx) => {
@@ -146,7 +148,7 @@ export async function submitResultClaim(
       });
       // Spec §11: báo roster có bản khai đầu để bên còn lại kịp đồng ý hoặc khiếu nại trong 12 giờ.
       await notifyRoster(tx, match, resultCase.id, 'match.result.provisional', 'Đã có kết quả tạm của trận',
-        'Một người trong kèo đã khai kết quả. Bạn có 12 giờ để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
+        'Chủ kèo đã khai kết quả. Bạn có 12 giờ để đồng ý hoặc khiếu nại; quá hạn kết quả sẽ được chốt.');
     } else if (resultCase.outcome !== inferred.outcome) {
       await openResultDispute(tx, resultCase, match, roster, now);
     } else {
@@ -231,27 +233,38 @@ export async function getPlayerResultCase(
       evidence: shown.evidence.map((item) => ({ id: item.id, mimeType: item.mimeType })),
     },
     viewerActions: {
-      canClaim: withinDeclaration && !resultCase.claims.some((claim) => claim.claimantUserId === viewerUserId),
+      canClaim: withinDeclaration && viewerUserId === match.organizerUserId && !resultCase.claims.some((claim) => claim.claimantUserId === viewerUserId),
       canConfirm: responseOpen && loserSide !== null && teams[loserSide].includes(viewerUserId)
         && !resultCase.responses.some((response) => response.kind === 'confirm'),
       canObject: responseOpen,
       canReportIncident: incidentOpen,
     },
-    viewerMoney: viewerMoney(match, teams, resultCase.outcome, viewerUserId),
+    viewerMoney: viewerMoney(match, teams, resultCase.outcome, viewerUserId, await prisma.join.findMany({
+      // Chỗ trả thay đã thu tiền; đồng đội rút thì về `reserved`, tiền vẫn của người trả (BR-CM-76).
+      where: { matchId: match.id, payerUserId: { not: null }, paymentContributionId: { not: null }, status: { in: ['reserved', 'confirmed'] } },
+      select: { payerUserId: true, participantUserId: true, status: true },
+    })),
   };
 }
 
 /** Chỉ roster thấy; dự phóng theo kết quả tạm hiện tại, chưa có thì theo NO_RESULT. */
-function viewerMoney(match: Match, teams: Record<TeamSide, string[]>, outcome: MatchOutcome | null, viewerUserId: string) {
+function viewerMoney(
+  match: Match, teams: Record<TeamSide, string[]>, outcome: MatchOutcome | null, viewerUserId: string,
+  prepaidJoins: Array<{ payerUserId: string | null; participantUserId: string; status: string }> = [],
+) {
   if (match.bookingPrice === null || teams.B.length === 0) return null;
   const funding = calculateMatchFunding(match.bookingPrice, RATIO_FROM_DB[match.ratio], match.capacity as 2 | 4);
-  const contribution = viewerUserId === match.organizerUserId ? funding.organizerContribution : funding.feePerSlot;
+  // D58: tính theo người thực trả — người trả gánh thêm mỗi chỗ đã trả thay; người được trả thay không bỏ đồng nào.
+  const paidForOthers = BigInt(prepaidJoins.filter((j) => j.payerUserId === viewerUserId).length);
+  const prepaidForViewer = prepaidJoins.some((j) => j.status === 'confirmed' && j.participantUserId === viewerUserId && j.payerUserId !== viewerUserId);
+  const ownShare = prepaidForViewer ? 0n : viewerUserId === match.organizerUserId ? funding.organizerContribution : funding.feePerSlot;
+  const contribution = ownShare + paidForOthers * funding.feePerSlot;
   const receivable = allocateResultReserve(funding.resultReserve, outcome ?? 'NO_RESULT', teams).get(viewerUserId) ?? 0n;
   return {
     // PO 2026-09-26: phần của riêng người xem trong quỹ giữ, theo tỷ lệ khoản đã góp.
     heldForResult: ((contribution * funding.resultReserve) / funding.totalContribution).toString(),
     projectedReceivable: receivable.toString(),
-    projectedFinalCost: (contribution - receivable).toString(),
+    projectedFinalCost: (contribution > receivable ? contribution - receivable : 0n).toString(),
     withdrawableIfFinal: true,
   };
 }

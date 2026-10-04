@@ -7,7 +7,7 @@ import {
 } from '@khoaluantn/ai';
 import type { BookingClient, OwnBookingSummary } from '../clients/venueBooking.js';
 
-const cancellationFlow: SupportSource = { id: 'BOK-07', title: 'BOK-07 - luồng hủy booking chuẩn' };
+const cancellationFlow: SupportSource = { id: 'BOK-07', title: 'BOK-07 - luồng hủy lượt đặt sân chuẩn' };
 const privacyRule: SupportSource = { id: 'AI-02-privacy', title: 'AI-02 - chỉ dữ liệu của chính bạn' };
 
 export interface SupportReply {
@@ -37,7 +37,7 @@ export async function answerSupportQuestion(
   }
   if (asksForCancellationAction(question)) {
     return {
-      answer: 'Tôi không thể tự hủy booking. Bạn hãy mở booking của mình và dùng luồng hủy chuẩn để xác nhận.',
+      answer: 'Tôi không thể tự hủy lượt đặt sân. Bạn hãy mở lượt đặt sân của mình và dùng luồng hủy chuẩn để xác nhận.',
       sources: [cancellationFlow],
       source: 'safety',
       actionPath: '/players/me/bookings',
@@ -50,7 +50,7 @@ export async function answerSupportQuestion(
       bookings = await bookingClient.getMyBookings(authorization);
     } catch {
       return {
-        answer: 'Không thể tải dữ liệu booking của bạn lúc này. Bạn hãy mở danh sách booking để xem trực tiếp.',
+        answer: 'Không thể tải dữ liệu đặt sân của bạn lúc này. Bạn hãy mở danh sách lượt đặt sân để xem trực tiếp.',
         sources: [],
         source: 'fallback',
         actionPath: '/players/me/bookings',
@@ -60,12 +60,12 @@ export async function answerSupportQuestion(
       const nearest = nearestBooking(bookings.upcoming, bookings.past);
       const candidate = nearest
         ? {
-          answer: `Booking gần nhất của bạn là ${nearest.courtName} tại ${nearest.venueName}, bắt đầu ${nearest.startAt}.`,
-          sources: [{ id: 'own-booking', title: 'Dữ liệu booking của bạn' }],
+          answer: `Lượt đặt sân gần nhất của bạn là ${nearest.courtName} tại ${nearest.venueName}, bắt đầu ${nearest.startAt}.`,
+          sources: [{ id: 'own-booking', title: 'Dữ liệu đặt sân của bạn' }],
         }
         : {
-          answer: 'Hiện tôi không tìm thấy booking marketplace nào của bạn.',
-          sources: [{ id: 'own-booking', title: 'Dữ liệu booking của bạn' }],
+          answer: 'Hiện tôi không tìm thấy lượt đặt sân nào của bạn.',
+          sources: [{ id: 'own-booking', title: 'Dữ liệu đặt sân của bạn' }],
         };
       return await answerWithGroundedSources({ question, candidates: [candidate] }, assistant);
     } catch {
@@ -81,7 +81,7 @@ export async function answerSupportQuestion(
   }
   if (!policy) {
     return {
-      answer: 'Tôi hiện hỗ trợ chính sách hủy sân và dữ liệu booking của chính bạn.',
+      answer: 'Tôi hiện hỗ trợ chính sách hủy sân và dữ liệu đặt sân của chính bạn.',
       sources: [],
       source: 'safety',
     };

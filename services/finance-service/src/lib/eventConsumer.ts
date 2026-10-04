@@ -13,13 +13,14 @@ import type {
   MatchCancelledPayload,
   MatchConfirmedPayload,
   MatchResultFinalizedPayload,
+  MatchSlotBeneficiaryChangedPayload,
   RewardAwardsFinalizedPayload,
   MatchCreatedPayload,
   MatchFeeRefundRequestedPayload,
   MatchBookingResolutionPayload,
   MatchSettlementRequestedPayload,
 } from '@khoaluantn/shared';
-import { handleMatchResultFinalized } from '../domain/matchResult.js';
+import { handleMatchResultFinalized, handleMatchSlotBeneficiaryChanged } from '../domain/matchResult.js';
 import { handleRewardAwardsFinalized } from '../domain/rewardPayout.js';
 import {
   handleJoinApproved,
@@ -136,6 +137,8 @@ async function onMessage(channel: Channel, msg: ConsumeMessage | null, hooks?: E
       await handleMatchResultFinalized(eventId, envelope.payload as MatchResultFinalizedPayload);
     } else if (envelope.type === 'MatchCancelled') {
       await handleMatchCancelled(eventId, envelope.payload as MatchCancelledPayload);
+    } else if (envelope.type === 'MatchSlotBeneficiaryChanged') {
+      await handleMatchSlotBeneficiaryChanged(eventId, envelope.payload as MatchSlotBeneficiaryChangedPayload);
     } else if (envelope.type === 'MatchFeeRefundRequested') {
       await handleMatchFeeRefundRequested(eventId, envelope.payload as MatchFeeRefundRequestedPayload);
     } else if (envelope.type === 'MatchSettlementTooLate') {
@@ -174,7 +177,7 @@ export async function bootstrapEventConsumption(options?: {
     'UserRegistered', 'ProviderApproved', 'BookingConfirmed', 'PaymentTooLate',
     'BookingCancelled', 'MatchCreated', 'JoinApproved', 'MatchConfirmed',
     'MatchCancelled', 'MatchFeeRefundRequested', 'MatchSettlementTooLate', 'MatchBookingResolved',
-    'MatchSettlementRequested', 'MatchResultFinalized', 'RewardAwardsFinalized',
+    'MatchSettlementRequested', 'MatchResultFinalized', 'RewardAwardsFinalized', 'MatchSlotBeneficiaryChanged',
   ]) await channel.bindQueue(queueName, 'domain-events', eventType);
   const inFlight = new Set<Promise<void>>();
   const { consumerTag } = await channel.consume(queueName, (msg) => {

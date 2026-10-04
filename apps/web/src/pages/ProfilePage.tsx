@@ -279,7 +279,7 @@ export function ProfilePage() {
                   </div>
                 </section>
               )}
-              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có booking" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
+              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có lượt đặt sân" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
             </div>
           )}
 
@@ -293,7 +293,7 @@ export function ProfilePage() {
                 </div>
                 <div className="mt-5 flex gap-2 border-t border-line pt-4"><Button className="flex-1" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền</Button><Button tone="secondary" className="flex-1" onClick={() => setWithdrawOpen(true)}>Rút tiền</Button></div>
               </SurfaceCard>
-              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p><p className="mt-1 text-ink-500">{shown.subtitle || formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
+              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p>{shown.subtitle && <p className="mt-1 text-ink-700">{shown.subtitle}</p>}<p className="mt-1 text-xs text-ink-500">Giao dịch lúc {formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
             </div>
           )}
 

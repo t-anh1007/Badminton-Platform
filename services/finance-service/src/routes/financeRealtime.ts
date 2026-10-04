@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { markActivity } from '@khoaluantn/eventbus';
+import { markActivity, watchAccountLock } from '@khoaluantn/eventbus';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import type { FinanceRealtimeHub } from '../realtime/financeRealtimeHub.js';
 
@@ -20,8 +20,11 @@ export function createFinanceRealtimeRouter(hub: FinanceRealtimeHub) {
       markActivity();
       res.write(': heartbeat\n\n');
     }, 15_000);
+    // Tài khoản bị khóa trong lúc đang mở luồng: cắt ngay.
+    const stopLockWatch = watchAccountLock(userId, () => res.end());
     req.on('close', () => {
       clearInterval(heartbeat);
+      stopLockWatch();
       unsubscribe();
     });
   });

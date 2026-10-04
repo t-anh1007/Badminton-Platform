@@ -62,7 +62,7 @@ it('creates from a held slot with the strict Task 5 body and never exposes the r
 
 it('explains a paid booking is not charged twice and renders the owner refund from the backend preview', async () => {
   await openCreate()
-  fireEvent.click(screen.getByRole('radio', { name: /Booking đã thanh toán/ }))
+  fireEvent.click(screen.getByRole('radio', { name: /Lượt đặt sân đã thanh toán/ }))
   expect(await screen.findByText(/không thu hay ghi nhận tiền sân lần hai/)).toBeInTheDocument()
   const refundRow = (await screen.findByText('Dự kiến hoàn khi chốt kèo')).parentElement!.parentElement!
   expect(refundRow).toHaveTextContent('60.000đ')

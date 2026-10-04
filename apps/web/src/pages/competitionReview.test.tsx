@@ -16,7 +16,7 @@ vi.mock('../lib/matchApi.js', async (importOriginal) => ({
 
 const person = (userId: string, displayName: string) => ({ userId, displayName, avatarUrl: null })
 const item = (caseId: string, overrides: Partial<ReviewQueueItem> = {}): ReviewQueueItem => ({
-  caseId, matchId: `match-${caseId}`, status: 'provider_review', version: 3, discipline: 'singles', mode: 'ranked',
+  caseId, matchId: `match-${caseId}`, matchCode: null, bookingCode: null, venueName: null, courtName: null, status: 'provider_review', version: 3, discipline: 'singles', mode: 'ranked',
   startAt: '2026-09-26T11:00:00Z', endAt: '2026-09-26T12:00:00Z', providerDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(),
   adminReviewStartedAt: null, adminOverdue: false, ...overrides,
 })
@@ -43,14 +43,14 @@ it('provider pages the queue, reads evidence privately and sends a non-binding r
   await waitFor(() => expect(readResultEvidence).toHaveBeenCalledWith('match-c1', 'e1'))
   fireEvent.click(screen.getByRole('button', { name: '›' }))
   await waitFor(() => expect(listProviderResultCases).toHaveBeenLastCalledWith(2, 'provider_review'))
-  const send = screen.getByRole('button', { name: 'Gửi đề xuất cho Admin' })
+  const send = screen.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' })
   expect(send).toBeDisabled()
   fireEvent.click(screen.getByRole('radio', { name: /Không có kết quả/ }))
   fireEvent.change(screen.getByLabelText('Lý do đề xuất'), { target: { value: 'Hai bên không thống nhất' } })
   vi.mocked(getProviderResultCase).mockResolvedValue(detail({ status: 'admin_review', actions: { canRecommend: false }, providerRecommendation: { outcome: 'NO_RESULT', reason: 'x', createdAt: '', nonBinding: true } }))
   fireEvent.click(send)
   await waitFor(() => expect(submitProviderRecommendation).toHaveBeenCalledWith('match-c1', { outcome: 'NO_RESULT', reason: 'Hai bên không thống nhất' }))
-  expect(await screen.findByText('Chờ Admin quyết định')).toBeInTheDocument()
+  expect(await screen.findByText('Chờ quản trị viên quyết định')).toBeInTheDocument()
   expect(screen.queryByText('Kết quả đã chốt')).not.toBeInTheDocument()
 })
 
@@ -61,7 +61,7 @@ it('shows the provider conflict error instead of accepting the recommendation', 
   render(<MemoryRouter><ManageMatchResultsPage /></MemoryRouter>)
   fireEvent.click(await screen.findByRole('radio', { name: /Minh Anh thắng/ }))
   fireEvent.change(screen.getByLabelText('Lý do đề xuất'), { target: { value: 'Theo ảnh' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi đề xuất cho Admin' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Chủ sân nằm trong kèo')
 })
 
@@ -126,7 +126,7 @@ it('lets provider and Admin switch to processed cases through the status filter'
   await waitFor(() => expect(listAdminResultCases).toHaveBeenLastCalledWith(1, 'admin_review'))
   fireEvent.change(screen.getByLabelText('Trạng thái hồ sơ'), { target: { value: 'final' } })
   await waitFor(() => expect(listAdminResultCases).toHaveBeenLastCalledWith(1, 'final'))
-  expect(await screen.findByText('Hồ sơ không còn ở bước Admin quyết định.')).toBeInTheDocument()
+  expect(await screen.findByText('Hồ sơ không còn ở bước quản trị viên quyết định.')).toBeInTheDocument()
 
   cleanup()
   vi.mocked(listProviderResultCases).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 })

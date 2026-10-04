@@ -3,6 +3,7 @@ import { hashPassword, isPasswordPolicyValid } from '../lib/password.js';
 import { AppError } from '../lib/errors.js';
 import { emailSender } from '../lib/email.js';
 import { generateVerificationCode, VERIFICATION_TTL_MIN } from './verification.js';
+import { codeEmail } from '../lib/emailTemplate.js';
 
 export interface RegisterInput {
   email: string;
@@ -64,7 +65,11 @@ export async function registerUser(input: RegisterInput): Promise<{ userId: stri
 
   // Luồng lỗi ACC-01: gửi email thất bại KHÔNG rollback tài khoản đã tạo.
   try {
-    await emailSender.send(email, 'Mã xác minh tài khoản Courtin', `Mã xác minh của bạn là: ${code}\n\nMã có hiệu lực trong ${VERIFICATION_TTL_MIN} phút.`);
+    const mail = codeEmail({
+      heading: 'Xác minh tài khoản Courtin', intro: 'Cảm ơn bạn đã đăng ký Courtin. Nhập mã dưới đây để kích hoạt tài khoản.',
+      code, ttlMinutes: VERIFICATION_TTL_MIN, path: '/verify-email', actionLabel: 'Mở trang xác minh',
+    });
+    await emailSender.send(email, 'Mã xác minh tài khoản Courtin', mail.text, mail.html);
   } catch (err) {
     // Nuốt lỗi gửi email có chủ đích — tài khoản vẫn tồn tại, người dùng bấm
     // "gửi lại mã" ở ACC-02. Log để chẩn đoán khi SMTP fail trên prod.

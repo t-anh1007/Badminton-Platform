@@ -216,7 +216,7 @@ describe('BOK-10 — Phía sân đổi sân con hoặc hủy', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(closed.body.courts).toEqual([]);
 
-    await prisma.closure.delete({ where: { courtId_date: { courtId: replacementCourt.id, date: dayStart } } });
+    await prisma.closure.deleteMany({ where: { courtId: replacementCourt.id, date: dayStart } });
     await prisma.operatingHour.update({
       where: { courtId_weekday: { courtId: replacementCourt.id, weekday: vietnamWeekday(booking.startAt) } },
       data: { openMinute: 0, closeMinute: 1 },

@@ -54,7 +54,6 @@ const evidence = (userId: string, count = 1) => Array.from({ length: count }, ()
   objectKey: `match/results/${userId}/${randomUUID()}.png`, mimeType: 'image/png',
 }));
 const A_WIN = [{ teamA: 21, teamB: 10 }, { teamA: 21, teamB: 15 }];
-const B_WIN = [{ teamA: 10, teamB: 21 }, { teamA: 15, teamB: 21 }];
 
 async function completedMatch(options: { endedAgoMs?: number; providerUserId?: string | null } = {}) {
   const organizerUserId = randomUUID();
@@ -193,39 +192,23 @@ describe('Task 11 result claims', () => {
     expect((await claim(late.match.id, late.organizerUserId)).body.error.code).toBe('RESULT_DECLARATION_CLOSED');
   });
 
-  it('serializes concurrent first claims into one provisional case without finalizing', async () => {
+  it('lets only the organizer claim, once, opening one provisional case without finalizing', async () => {
     const { match, organizerUserId, opponentUserId } = await completedMatch();
-    const responses = await Promise.all([claim(match.id, organizerUserId), claim(match.id, opponentUserId)]);
-    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    expect((await claim(match.id, opponentUserId)).body.error.code).toBe('RESULT_ORGANIZER_ONLY');
+    expect((await view(match.id, opponentUserId)).body.resultCase.viewerActions.canClaim).toBe(false);
+    expect((await claim(match.id, organizerUserId)).status).toBe(201);
     const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id }, include: { claims: true } });
-    expect(resultCase).toMatchObject({ status: 'provisional', outcome: 'TEAM_A_WIN', version: 3, finalizedAt: null });
+    expect(resultCase).toMatchObject({ status: 'provisional', outcome: 'TEAM_A_WIN', version: 2, finalizedAt: null });
     expect(resultCase.claims.map((row) => row.createdAt.getTime() + 12 * 60 * 60_000))
       .toContain(resultCase.objectionDeadlineAt!.getTime());
     expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchResultFinalized' } })).toBe(0);
     expect((await claim(match.id, organizerUserId)).body.error.code).toBe('RESULT_CLAIM_EXISTS');
-  });
-
-  it('routes an opposite-winner claim to provider review, or straight to Admin when provider is in the roster', async () => {
-    const withProvider = await completedMatch();
-    await claim(withProvider.match.id, withProvider.organizerUserId);
-    await claim(withProvider.match.id, withProvider.opponentUserId, B_WIN);
-    expect(await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: withProvider.match.id } }))
-      .toMatchObject({ status: 'provider_review', outcome: null });
-
-    const organizerIsProvider = await completedMatch();
-    await prisma.match.update({ where: { id: organizerIsProvider.match.id }, data: { providerUserId: organizerIsProvider.organizerUserId } });
-    await claim(organizerIsProvider.match.id, organizerIsProvider.opponentUserId);
-    await claim(organizerIsProvider.match.id, organizerIsProvider.organizerUserId, B_WIN);
-    const adminCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: organizerIsProvider.match.id } });
-    expect(adminCase).toMatchObject({ status: 'admin_review', outcome: null });
-    expect(adminCase.adminReviewStartedAt).not.toBeNull();
   });
 });
 
 describe('Task 11 player result read model', () => {
   it('returns authoritative booking, account identity, server deadlines/actions and roster-only money', async () => {
     const { match, organizerUserId, opponentUserId } = await completedMatch();
-    await claim(match.id, opponentUserId, [{ teamA: 21, teamB: 19 }, { teamA: 21, teamB: 17 }]);
     const organizerItems = evidence(organizerUserId, 2);
     await claim(match.id, organizerUserId, A_WIN, organizerItems);
 

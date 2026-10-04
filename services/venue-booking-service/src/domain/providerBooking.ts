@@ -218,7 +218,7 @@ export async function getProviderBookingDetail(
     },
     include: bookingInclude,
   });
-  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
 
   const paidMatchHoldIds = booking.holdId
     ? (await prisma.hold.findMany({
@@ -230,7 +230,7 @@ export async function getProviderBookingDetail(
     || booking.status === 'completed'
     || (booking.status === 'cancelled' && booking.cancellationReason !== null)
     || (booking.status === 'held' && booking.holdId !== null && paidMatchHoldIds.includes(booking.holdId));
-  if (!meaningful) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+  if (!meaningful) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
 
   let displayNames = new Map<string, string>();
   try {

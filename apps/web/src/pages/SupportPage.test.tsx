@@ -16,9 +16,9 @@ vi.mock('../lib/communityApi.js', () => ({
 
 it('keeps ticket subject focus/caret stable and restores its trigger when closed', async () => {
   render(<MemoryRouter><SupportPage /></MemoryRouter>);
-  const trigger = (await screen.findAllByRole('button', { name: 'Tạo ticket mới' }))[0];
+  const trigger = (await screen.findAllByRole('button', { name: 'Tạo yêu cầu mới' }))[0];
   fireEvent.click(trigger);
-  const subject = await screen.findByPlaceholderText('Ví dụ: Không thấy booking trong tài khoản');
+  const subject = await screen.findByPlaceholderText('Ví dụ: Không thấy lượt đặt sân trong tài khoản');
   await waitFor(() => expect(subject).toHaveFocus());
   fireEvent.change(subject, { target: { value: 'abc' } });
   expect(subject).toHaveValue('abc');
@@ -35,8 +35,8 @@ it('uploads five ticket evidence images before creating the ticket', async () =>
   authorizeTicketEvidence.mockResolvedValue({ objectKey: 'community/tickets/user-1/proof.jpg', uploadUrl: 'https://storage.test/put', headers: {}, expiresAt: 'x' });
   uploadAuthorizedFile.mockResolvedValue(undefined);
   render(<MemoryRouter><SupportPage /></MemoryRouter>);
-  fireEvent.click((await screen.findAllByRole('button', { name: 'Tạo ticket mới' }))[0]);
-  const uploader = await screen.findByLabelText('Thêm ảnh bằng chứng cho ticket');
+  fireEvent.click((await screen.findAllByRole('button', { name: 'Tạo yêu cầu mới' }))[0]);
+  const uploader = await screen.findByLabelText('Thêm ảnh bằng chứng cho yêu cầu');
   const files = Array.from({ length: 5 }, (_, index) => new File(['proof'], `proof-${index}.jpg`, { type: 'image/jpeg' }));
   fireEvent.change(uploader, { target: { files } });
   await waitFor(() => expect(authorizeTicketEvidence).toHaveBeenCalledTimes(5));

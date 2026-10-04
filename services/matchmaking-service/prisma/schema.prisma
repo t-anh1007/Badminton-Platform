@@ -64,6 +64,8 @@ enum JoinStatus {
   rejected
   confirmed
   withdrawn
+  /// BR-CM-72..76: slot Team A chủ kèo đã trả thay, chưa có partner vào đội.
+  reserved
 }
 
 /// D39 logical actions are persisted before the caller invokes the venue
@@ -130,6 +132,7 @@ model Match {
   providerUserId              String?
   createdAt                   DateTime          @default(now()) @db.Timestamptz(3)
   joins                       Join[]
+  partnerInvites              PartnerInvite[]
   evaluations                 Evaluation[]
   resolutions                 MatchResolution[]
   resultCase                  MatchResultCase?
@@ -167,6 +170,8 @@ model Join {
   paymentContributionId String?    @unique
   /// Đội đã chọn trước khi trả tiền; null cho JOIN cũ.
   teamSide              TeamSide?
+  /// BR-CM-72: chủ kèo trả thay slot Team A cho partner; null = người chơi tự trả.
+  payerUserId           String?
   createdAt             DateTime   @default(now()) @db.Timestamptz(3)
   match                 Match      @relation(fields: [matchId], references: [id])
 
@@ -581,4 +586,34 @@ model ProcessedEvent {
   processedAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("processed_events")
+}
+
+enum PartnerPayMode {
+  self
+  organizer
+}
+
+enum PartnerInviteStatus {
+  pending
+  accepted
+  declined
+  cancelled
+}
+
+/// BR-CM-71..78: lời mời partner vào slot Team A kèo đôi; hết hiệu lực tại cutoffAt của kèo.
+model PartnerInvite {
+  id            String              @id @default(uuid())
+  matchId       String
+  inviteeUserId String
+  payMode       PartnerPayMode
+  status        PartnerInviteStatus @default(pending)
+  /// Trả thay: null tới khi khoản của chủ kèo thanh toán xong (BR-CM-72).
+  sentAt        DateTime?           @db.Timestamptz(3)
+  respondedAt   DateTime?           @db.Timestamptz(3)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  match         Match               @relation(fields: [matchId], references: [id])
+
+  @@index([matchId, status])
+  @@index([inviteeUserId, status])
+  @@map("partner_invites")
 }

@@ -18,7 +18,7 @@ function operationalWindow(startAt: Date, endAt: Date) {
 
 function assertCancellable(booking: { status: string; startAt: Date }): void {
   if (booking.status !== 'confirmed') {
-    throw new AppError('BOOKING_NOT_CONFIRMED', 'Chỉ hủy hoặc điều chỉnh booking đã xác nhận.', 409);
+    throw new AppError('BOOKING_NOT_CONFIRMED', 'Chỉ hủy hoặc điều chỉnh lượt đặt sân đã xác nhận.', 409);
   }
   if (booking.startAt.getTime() <= Date.now()) {
     throw new AppError('BOOKING_ALREADY_STARTED', 'Ca đã bắt đầu nên không thể hủy hoặc điều chỉnh.', 409);
@@ -31,10 +31,10 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
     include: { court: { include: { venue: { include: { provider: true } } } } },
   });
   if (!booking || booking.source !== 'marketplace') {
-    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
   }
   if (booking.userId !== userId) {
-    throw new AppError('FORBIDDEN', 'Không có quyền hủy booking này.', 403);
+    throw new AppError('FORBIDDEN', 'Không có quyền hủy lượt đặt sân này.', 403);
   }
   if (booking.status === 'held') {
     return prisma.$transaction(async (tx) => {
@@ -49,7 +49,7 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
         where: { id: booking.id, status: 'held' },
       });
       if (removed.count !== 1) {
-        throw new AppError('BOOKING_CHANGED_CONCURRENTLY', 'Booking vừa được xử lý trước đó.', 409);
+        throw new AppError('BOOKING_CHANGED_CONCURRENTLY', 'Lượt đặt sân vừa được xử lý trước đó.', 409);
       }
       if (booking.holdId) await tx.hold.deleteMany({ where: { id: booking.holdId } });
       return { status: 'cancelled' as const, refundPercent: 0 };
@@ -76,7 +76,7 @@ export async function cancelBookingByPlayer(userId: string, bookingId: string) {
       data: { status: 'cancelled', cancellationReason: 'self', cancellationRefundPercent: refundPercent },
     });
     if (updated.count !== 1) {
-      throw new AppError('BOOKING_NOT_CONFIRMED', 'Booking đã được xử lý trước đó.', 409);
+      throw new AppError('BOOKING_NOT_CONFIRMED', 'Lượt đặt sân đã được xử lý trước đó.', 409);
     }
     await writeOutbox(tx, {
       aggregateType: 'Booking',
@@ -105,10 +105,10 @@ async function getProviderBooking(providerUserId: string, bookingId: string) {
     include: { court: { include: { venue: { include: { provider: true } } } } },
   });
   if (!booking || booking.source !== 'marketplace') {
-    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
   }
   if (booking.court.venue.provider.userId !== providerUserId) {
-    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở của booking này.', 403);
+    throw new AppError('FORBIDDEN_NOT_OWNER', 'Không phải chủ sở hữu cơ sở của lượt đặt sân này.', 403);
   }
   assertCancellable(booking);
   return booking;
@@ -123,7 +123,7 @@ export async function listReplacementCourts(providerUserId: string, bookingId: s
       id: { not: booking.courtId },
       active: true,
       operatingHours: { some: { weekday: window.weekday, openMinute: { lte: window.startMinute }, closeMinute: { gte: window.endMinute } } },
-      closures: { none: { date: window.dayStart } },
+      closures: { none: { date: window.dayStart, OR: [{ startMinute: null }, { startMinute: { lt: window.endMinute }, endMinute: { gt: window.startMinute } }] } },
       bookings: {
         none: {
           status: 'confirmed',
@@ -159,7 +159,7 @@ export async function changeBookingCourt(providerUserId: string, bookingId: stri
         venueId: booking.court.venueId,
         active: true,
         operatingHours: { some: { weekday: window.weekday, openMinute: { lte: window.startMinute }, closeMinute: { gte: window.endMinute } } },
-        closures: { none: { date: window.dayStart } },
+        closures: { none: { date: window.dayStart, OR: [{ startMinute: null }, { startMinute: { lt: window.endMinute }, endMinute: { gt: window.startMinute } }] } },
         bookings: { none: { status: 'confirmed', startAt: { lt: booking.endAt }, endAt: { gt: booking.startAt } } },
         holds: { none: { expiresAt: { gt: new Date() }, startAt: { lt: booking.endAt }, endAt: { gt: booking.startAt } } },
       },
@@ -173,7 +173,7 @@ export async function changeBookingCourt(providerUserId: string, bookingId: stri
       data: { courtId: replacementCourtId, courtChangedAt: changedAt },
     });
     if (updated.count !== 1) {
-      throw new AppError('BOOKING_CHANGED_CONCURRENTLY', 'Booking vừa được thay đổi bởi thao tác khác.', 409);
+      throw new AppError('BOOKING_CHANGED_CONCURRENTLY', 'Lượt đặt sân vừa được thay đổi bởi thao tác khác.', 409);
     }
     await writeOutbox(tx, {
       aggregateType: 'Booking',
@@ -196,7 +196,7 @@ export async function cancelBookingByAdmin(bookingId: string, cancellationNote: 
     where: { id: bookingId },
     include: { court: { include: { venue: { include: { provider: true } } } } },
   });
-  if (!booking || booking.source !== 'marketplace') throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+  if (!booking || booking.source !== 'marketplace') throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
   assertCancellable(booking);
   return cancelBookingWithReason(booking, 'platform_admin', cancellationNote);
 }
@@ -215,7 +215,7 @@ async function cancelBookingWithReason(
       where: { id: booking.id, status: 'confirmed' },
       data: { status: 'cancelled', cancellationReason: reason, cancellationRefundPercent: 100 },
     });
-    if (updated.count !== 1) throw new AppError('BOOKING_NOT_CONFIRMED', 'Booking đã được xử lý trước đó.', 409);
+    if (updated.count !== 1) throw new AppError('BOOKING_NOT_CONFIRMED', 'Lượt đặt sân đã được xử lý trước đó.', 409);
     await writeOutbox(tx, {
       aggregateType: 'Booking', aggregateId: booking.id, eventType: 'BookingCancelled',
       payload: {

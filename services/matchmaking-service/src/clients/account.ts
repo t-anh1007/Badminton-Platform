@@ -7,6 +7,10 @@ export interface AccountClient {
   getPublicMatchProfile(userId: string): Promise<PublicMatchProfile | null>;
   /** Endpoint nội bộ có sẵn của Account; dùng để làm giàu một trang BXH/lịch sử, không sao chép hồ sơ. */
   getPublicDisplayNames(userIds: string[]): Promise<PublicDisplayName[]>;
+  /** D58: tìm người chơi theo email để mời partner; null khi không có người chơi hợp lệ. */
+  findPlayerIdByEmail?(email: string): Promise<string | null>;
+  /** Mời bằng SĐT: chỉ khớp khi đúng một người chơi dùng số này. */
+  findPlayerIdByPhone?(phone: string): Promise<{ userId: string } | { error: 'not_found' | 'ambiguous' }>;
 }
 
 const displayNamesResponse = z.object({
@@ -23,6 +27,21 @@ export class HttpAccountClient implements AccountClient {
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`account public match profile failed with ${response.status}`);
     return publicMatchProfileSchema.parse(await response.json());
+  }
+
+  async findPlayerIdByEmail(email: string) {
+    const response = await fetch(`${this.baseUrl}/internal/players/by-email?email=${encodeURIComponent(email)}`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`account player lookup failed with ${response.status}`);
+    return z.object({ userId: z.string().uuid() }).parse(await response.json()).userId;
+  }
+
+  async findPlayerIdByPhone(phone: string) {
+    const response = await fetch(`${this.baseUrl}/internal/players/by-phone?phone=${encodeURIComponent(phone)}`);
+    if (response.status === 404) return { error: 'not_found' as const };
+    if (response.status === 409) return { error: 'ambiguous' as const };
+    if (!response.ok) throw new Error(`account player phone lookup failed with ${response.status}`);
+    return { userId: z.object({ userId: z.string().uuid() }).parse(await response.json()).userId };
   }
 
   async getPublicDisplayNames(userIds: string[]) {

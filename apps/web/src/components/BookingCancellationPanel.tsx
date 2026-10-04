@@ -15,9 +15,9 @@ export function BookingCancellationPanel({ bookings, cancellable, onChanged }: {
   const confirm = async (booking: BookingSummary) => {
     if (booking.status !== 'held' && pending?.bookingId !== booking.id) return
     setBusyId(booking.id); setMessage('')
-    try { const result = await cancelMyBooking(booking.id); setPending(null); await onChanged(); setMessage(booking.status === 'held' ? 'Đã hủy giữ chỗ và giải phóng khung giờ.' : `Đã hủy booking và yêu cầu hoàn ${result.refundPercent}%.`) }
-    catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể hủy booking.') }
+    try { const result = await cancelMyBooking(booking.id); setPending(null); await onChanged(); setMessage(booking.status === 'held' ? 'Đã hủy giữ chỗ và giải phóng khung giờ.' : `Đã hủy lượt đặt sân và yêu cầu hoàn ${result.refundPercent}%.`) }
+    catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể hủy lượt đặt sân.') }
     finally { setBusyId(null) }
   }
-  return <section aria-label="Danh sách booking"><div className="space-y-3">{bookings.map((booking) => <BookingCard key={booking.id} booking={booking} cancellable={cancellable} busy={busyId === booking.id} preview={pending?.bookingId === booking.id ? pending.refundPercent : null} onPreview={() => void preview(booking)} onConfirm={() => void confirm(booking)} onDismiss={() => setPending(null)} />)}</div>{message && <p role="status" className="mt-3 text-sm">{message}</p>}</section>
+  return <section aria-label="Danh sách lượt đặt sân"><div className="space-y-3">{bookings.map((booking) => <BookingCard key={booking.id} booking={booking} cancellable={cancellable} busy={busyId === booking.id} preview={pending?.bookingId === booking.id ? pending.refundPercent : null} onPreview={() => void preview(booking)} onConfirm={() => void confirm(booking)} onDismiss={() => setPending(null)} />)}</div>{message && <p role="status" className="mt-3 text-sm">{message}</p>}</section>
 }

@@ -152,7 +152,7 @@ test('provider scheduled close returns a paid booking, notifies the player, and 
   await page.goto('/profile');
   await page.getByRole('button', { name: 'Đã hủy' }).click();
   const bookingCard = page.getByLabel('Danh sách booking').filter({ hasText: venue.name });
-  await bookingCard.getByRole('button', { name: 'Xem chi tiết booking' }).click();
+  await bookingCard.getByRole('button', { name: /^Xem chi tiết lượt đặt sân/ }).click();
   await expect(bookingCard.getByText(booking.businessCode)).toBeVisible();
   await expect(bookingCard.getByText('Quận 1, TP.HCM')).toBeVisible();
   await expect(bookingCard.getByText('Tiền hoàn đã vào Số dư COURTIN')).toBeVisible();

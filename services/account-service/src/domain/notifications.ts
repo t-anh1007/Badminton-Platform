@@ -1,4 +1,5 @@
 import type { EmailSender } from '../lib/email.js';
+import { emailLink, renderEmail } from '../lib/emailTemplate.js';
 import type { Notification, NotificationCategory, NotificationPriority, UserRole } from '@prisma/client';
 import { notificationCategories, type UserNotificationRequestedPayload } from '@khoaluantn/shared';
 import { prisma } from '../lib/prisma.js';
@@ -150,11 +151,75 @@ export async function deliverRequiredEmails(
   if (failure) throw failure;
 }
 
+/** Trang web đích của thông báo; cùng bảng với apps/web/src/notifications/notificationRoutes.ts. */
+export function notificationPath(row: Pick<Notification, 'actionKind' | 'entityId' | 'targetRole'>): string | null {
+  if (row.actionKind === 'leaderboard.view') return '/leaderboard';
+  if (!row.entityId) return null;
+  const id = encodeURIComponent(row.entityId);
+  switch (row.actionKind) {
+    case 'match.view': case 'match.result.view': return `/matches/${id}`;
+    case 'provider.match-result.review': return `/manage/match-results?caseId=${id}`;
+    case 'admin.match-result.review': return `/admin/match-results?caseId=${id}`;
+    case 'reward.view': return `/rewards/${id}`;
+    case 'reward.payout.view': return `/rewards/payouts/${id}`;
+    case 'admin.reward-payout.review': return `/admin/reward-payouts/${id}`;
+    case 'support.view': return `/support?ticket=${id}`;
+    case 'dispute.view': return `/profile?tab=disputes&dispute=${id}`;
+    case 'withdrawal.view': return `/manage?withdrawal=${id}`;
+    case 'admin.dispute.review': return `/admin/disputes?dispute=${id}`;
+    case 'admin.withdrawal.review': return `/admin?withdrawal=${id}`;
+    case 'admin.provider.review': return `/admin/providers?provider=${id}`;
+    case 'admin.moderation.review': return `/admin/moderation?report=${id}`;
+    case 'admin.ticket.view': return `/admin/tickets?ticket=${id}`;
+    case 'booking.pay': return `/booking?booking=${id}`;
+    case 'booking.view': return row.targetRole === 'provider' ? `/manage/bookings?booking=${id}`
+      : row.targetRole === 'admin' ? `/admin/bookings?booking=${id}` : `/profile?tab=bookings&booking=${id}`;
+    default: return null;
+  }
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  'match.view': 'Mở kèo', 'match.result.view': 'Xem kết quả kèo', 'leaderboard.view': 'Xem bảng xếp hạng',
+  'reward.view': 'Xem chương trình thưởng', 'reward.payout.view': 'Xem khoản thưởng',
+  'provider.match-result.review': 'Xem xét kết quả', 'admin.match-result.review': 'Xem xét kết quả',
+  'admin.reward-payout.review': 'Xử lý khoản thưởng',
+};
+const ROLE_LABELS: Record<UserRole, string> = { player: 'Người chơi', provider: 'Chủ sân', admin: 'Quản trị viên' };
+
+/** Email thông báo: tiêu đề, nội dung, thời điểm và nút dẫn về đúng trang trên web production (qua đăng nhập). */
+export function notificationEmail(
+  row: Pick<Notification, 'title' | 'body' | 'actionKind' | 'entityId' | 'targetRole' | 'createdAt' | 'actionExpiresAt'>,
+  greetingName?: string | null,
+) {
+  const path = notificationPath(row);
+  return renderEmail({
+    heading: row.title,
+    greetingName,
+    paragraphs: [row.body],
+    details: [
+      ['Thời điểm', formatVietnamTime(row.createdAt)],
+      ...(row.actionExpiresAt ? [['Hạn xử lý', formatVietnamTime(row.actionExpiresAt)] as [string, string]] : []),
+      ['Vai trò', ROLE_LABELS[row.targetRole]],
+    ],
+    action: {
+      label: (row.actionKind && ACTION_LABELS[row.actionKind]) ?? (path ? 'Xem chi tiết' : 'Mở thông báo'),
+      url: emailLink(`/auth?next=${encodeURIComponent(path ?? '/notifications')}`),
+    },
+    reason: 'Bạn nhận email này vì đây là thông báo quan trọng về tài khoản Courtin của bạn.',
+  });
+}
+
+const formatVietnamTime = (value: Date) =>
+  `${value.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })} (giờ Việt Nam)`;
+
 async function sendRequiredEmail(id: string, sender: Pick<EmailSender, 'send'>, now: () => Date) {
-  const row = await prisma.notification.findUnique({ where: { id }, include: { user: { select: { email: true } } } });
+  const row = await prisma.notification.findUnique({
+    where: { id }, include: { user: { select: { email: true, playerProfile: { select: { displayName: true } } } } },
+  });
   if (!row || row.emailSentAt) return;
   await prisma.notification.update({ where: { id }, data: { emailLastAttemptAt: now() } });
-  await sender.send(row.user.email, row.title, `${row.body}\n\nMở Courtin để xem chi tiết.`);
+  const email = notificationEmail(row, row.user.playerProfile?.displayName);
+  await sender.send(row.user.email, row.title, email.text, email.html);
   await prisma.notification.update({ where: { id }, data: { emailSentAt: now() } });
 }
 

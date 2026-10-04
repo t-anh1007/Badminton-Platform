@@ -20,7 +20,7 @@ export function ProviderBookingFilters({ value, venues, onChange, onClear }: Pro
   const courts = venues.find((venue) => venue.id === value.venueId)?.courts ?? [];
 
   return (
-    <section className="surface-card p-4 sm:p-5" aria-label="Bộ lọc booking">
+    <section className="surface-card p-4 sm:p-5" aria-label="Bộ lọc lượt đặt sân">
       <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian">
         {scopes.map(([timeScope, label]) => (
           <button
@@ -43,8 +43,8 @@ export function ProviderBookingFilters({ value, venues, onChange, onClear }: Pro
         <label className="grid gap-1.5 text-sm font-semibold text-ink-700 xl:col-span-2">
           Tìm kiếm
           <TextInput
-            aria-label="Tìm booking"
-            placeholder="Tên khách, cơ sở, sân hoặc mã booking"
+            aria-label="Tìm lượt đặt sân"
+            placeholder="Tên khách, cơ sở, sân hoặc mã đặt sân"
             value={value.query}
             onChange={(event) => onChange({ ...value, query: event.target.value, page: 1 })}
           />

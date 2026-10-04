@@ -266,6 +266,9 @@ export async function payMatchContributionWithBalance(
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
+    // Kiểm lại sau khi khóa ví: request song song cùng người trả có thể vừa trả xong khoản này.
+    const current = await tx.matchContribution.findUniqueOrThrow({ where: { id: contribution.id }, include: { funding: true } });
+    assertContributionPayable(current, current.funding, now);
     const fresh = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
     if (fresh.available < contribution.amount) {
       throw new AppError('INSUFFICIENT_BALANCE', 'Số dư không đủ.', 402);

@@ -26,10 +26,10 @@ export async function fetchPaymentStatus(bookingId: string): Promise<PaymentStat
   const baseUrl = process.env.VENUE_BOOKING_SERVICE_URL ?? env.venueBookingServiceUrl;
   const res = await fetch(`${baseUrl}/internal/bookings/${bookingId}/payment-status`);
   if (res.status === 404) {
-    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
   }
   if (!res.ok) {
-    throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'Không hỏi được trạng thái booking.', 502);
+    throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'Không hỏi được trạng thái lượt đặt sân.', 502);
   }
   return (await res.json()) as PaymentStatus;
 }
@@ -55,6 +55,6 @@ export async function resolveMatchBooking(input: {
       venueRevision: input.venueRevision,
     }),
   });
-  if (!res.ok) throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'Không chốt được booking kèo.', 502);
+  if (!res.ok) throw new AppError('VENUE_BOOKING_UNAVAILABLE', 'Không chốt được lượt đặt sân của kèo.', 502);
   return (await res.json()) as MatchBookingResolutionPayload;
 }

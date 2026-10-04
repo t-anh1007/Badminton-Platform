@@ -7,7 +7,7 @@ import { writeOutbox } from '../lib/outbox.js';
 import { writeResultNotification } from '../lib/notificationOutbox.js';
 import { prisma } from '../lib/prisma.js';
 import type { AccountClient } from '../clients/account.js';
-import type { VenueBookingClient } from '../clients/venueBooking.js';
+import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import {
   RATIO_FROM_DB, allocateResultReserve, calculateMatchFunding, losingSide, objectionOpenUntil, type MatchOutcome,
 } from './matchRules.js';
@@ -299,10 +299,15 @@ function adminOverdue(resultCase: MatchResultCase, now: Date) {
     && now.getTime() >= resultCase.adminReviewStartedAt.getTime() + ADMIN_SLA_MS;
 }
 
-function queueItem(resultCase: MatchResultCase & { match: Match }, now: Date) {
+function queueItem(resultCase: MatchResultCase & { match: Match }, now: Date, context?: VenueMatchContext | null) {
   return {
     caseId: resultCase.id,
     matchId: resultCase.matchId,
+    matchCode: resultCase.match.businessCode,
+    // Để chủ sân/Admin phân biệt hồ sơ ngay trong hàng chờ.
+    bookingCode: context?.bookingCode ?? null,
+    venueName: context?.venue.name ?? null,
+    courtName: context?.court.name ?? null,
     status: resultCase.status,
     version: resultCase.version,
     discipline: resultCase.match.discipline,
@@ -315,26 +320,37 @@ function queueItem(resultCase: MatchResultCase & { match: Match }, now: Date) {
   };
 }
 
-async function listQueue(where: Prisma.MatchResultCaseWhereInput, input: { page?: number; pageSize?: number }, now: Date) {
+async function listQueue(
+  venueBookingClient: VenueBookingClient, where: Prisma.MatchResultCaseWhereInput, input: { page?: number; pageSize?: number }, now: Date,
+) {
   const paging = page(input);
   const [rows, total] = await Promise.all([
     prisma.matchResultCase.findMany({ where, include: { match: true }, orderBy: { createdAt: 'asc' }, skip: paging.skip, take: paging.pageSize }),
     prisma.matchResultCase.count({ where }),
   ]);
-  return { items: rows.map((row) => queueItem(row, now)), total, page: paging.page, pageSize: paging.pageSize };
+  const bookingIds = rows.map((row) => row.match.bookingId);
+  // Chỉ để hiển thị: venue lỗi thì hàng chờ vẫn trả về, thiếu tên sân/mã booking.
+  const contexts = await (venueBookingClient.getMatchContexts
+    ? venueBookingClient.getMatchContexts(bookingIds)
+    : Promise.all(bookingIds.map((id) => venueBookingClient.getMatchContext(id)))
+  ).catch(() => [] as Array<VenueMatchContext | null>);
+  const contextOf = new Map(contexts.filter((c): c is VenueMatchContext => Boolean(c)).map((c) => [c.bookingId, c]));
+  return { items: rows.map((row) => queueItem(row, now, contextOf.get(row.match.bookingId))), total, page: paging.page, pageSize: paging.pageSize };
 }
 
 /** Provider chỉ thấy hồ sơ tại sân mình đã vào bước provider (hồ sơ có provider trong roster bị bỏ qua từ đầu). */
 export function listProviderResultCases(
-  providerUserId: string, input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date(),
+  venueBookingClient: VenueBookingClient, providerUserId: string, input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date(),
 ) {
-  return listQueue({
+  return listQueue(venueBookingClient, {
     match: { providerUserId }, providerDeadlineAt: { not: null }, status: input.status ?? 'provider_review',
   }, input, now);
 }
 
-export function listAdminResultCases(input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date()) {
-  return listQueue({ status: input.status ?? 'admin_review' }, input, now);
+export function listAdminResultCases(
+  venueBookingClient: VenueBookingClient, input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date(),
+) {
+  return listQueue(venueBookingClient, { status: input.status ?? 'admin_review' }, input, now);
 }
 
 async function reviewDetail(
@@ -345,7 +361,7 @@ async function reviewDetail(
   const identity = (userId: string) => participantIdentity(accountClient, userId);
   const recommendation = resultCase.recommendations[0] ?? null;
   return {
-    ...queueItem(resultCase, now),
+    ...queueItem(resultCase, now, context),
     serverNow: now.toISOString(),
     declarationDeadlineAt: resultCase.declarationDeadlineAt.toISOString(),
     objectionDeadlineAt: resultCase.objectionDeadlineAt?.toISOString() ?? null,
@@ -442,7 +458,7 @@ export async function previewAdminDecision(
 ) {
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { resultCase: true } });
   if (!match?.resultCase || match.resultCase.status !== 'admin_review') {
-    throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước Admin quyết định.');
+    throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước quản trị viên quyết định.');
   }
   const teams = await resultTeams(prisma, match);
   const reserve = match.bookingPrice === null ? 0n
@@ -473,7 +489,7 @@ export async function decideAdminResult(
     await lockMatch(tx, matchId);
     const resultCase = await tx.matchResultCase.findUnique({ where: { matchId } });
     if (!resultCase || resultCase.status !== 'admin_review') {
-      throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước Admin quyết định.');
+      throw new AppError(409, 'RESULT_ADMIN_REVIEW_CLOSED', 'Hồ sơ không ở bước quản trị viên quyết định.');
     }
     if (resultCase.version !== input.caseVersion) {
       throw new AppError(409, 'RESULT_CASE_VERSION_CONFLICT', 'Hồ sơ đã thay đổi; hãy xem lại tác động trước khi xác nhận.');

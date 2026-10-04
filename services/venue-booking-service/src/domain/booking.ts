@@ -78,7 +78,7 @@ function isStillPayable(booking: { status: string; holdExpiresAt: Date | null })
  * reap hold ở G3) để câu trả lời luôn phản ánh trạng thái mới nhất. */
 export async function getPaymentStatus(bookingId: string) {
   const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { shutdownItems: { select: { id: true }, take: 1 } } });
-  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
 
   if (booking.status === 'held' && !isStillPayable(booking) && booking.shutdownItems.length === 0) {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
@@ -101,7 +101,7 @@ export async function getMatchContext(bookingId: string) {
     where: { id: bookingId },
     include: { court: { include: { venue: { include: { provider: { select: { userId: true } } } } } }, shutdownItems: { select: { id: true }, take: 1 } },
   });
-  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+  if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
 
   if (booking.status === 'held' && !isStillPayable(booking) && booking.shutdownItems.length === 0) {
     await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } });
@@ -110,6 +110,7 @@ export async function getMatchContext(bookingId: string) {
 
   return venueMatchContextSchema.parse({
     bookingId: booking.id,
+    bookingCode: booking.businessCode,
     ownerUserId: booking.userId,
     status: booking.shutdownItems.length > 0 && booking.status === 'held' ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),
@@ -147,6 +148,7 @@ export async function getMatchContexts(bookingIds: string[]) {
   const expired = new Set(expiredIds);
   const byId = new Map(bookings.map((booking) => [booking.id, venueMatchContextSchema.parse({
     bookingId: booking.id,
+    bookingCode: booking.businessCode,
     ownerUserId: booking.userId,
     status: expired.has(booking.id) || (booking.status === 'held' && booking.shutdownItems.length > 0) ? 'cancelled' : booking.status,
     priceSnapshot: booking.priceSnapshot.toString(),
@@ -179,10 +181,10 @@ export async function activateMatchHold(userId: string, bookingId: string, deadl
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${bookingId}, 0))`;
     const booking = await tx.booking.findUnique({ where: { id: bookingId } });
     if (!booking || booking.source !== 'marketplace' || booking.userId !== userId) {
-      throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking kèo.', 404);
+      throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân của kèo.', 404);
     }
     if (booking.status !== 'held') {
-      throw new AppError('BOOKING_NOT_HELD', 'Booking kèo không còn ở trạng thái giữ.', 409);
+      throw new AppError('BOOKING_NOT_HELD', 'Lượt đặt sân của kèo không còn ở trạng thái giữ.', 409);
     }
     await lockCourtSchedule(tx, booking.courtId);
     await assertCourtAcceptsCommitment(tx, booking.courtId, booking.endAt, booking.createdAt);
@@ -191,11 +193,11 @@ export async function activateMatchHold(userId: string, bookingId: string, deadl
       return booking;
     }
     if (!booking.holdId) {
-      throw new AppError('BOOKING_NOT_HELD', 'Booking kèo không gắn với lượt giữ chỗ.', 409);
+      throw new AppError('BOOKING_NOT_HELD', 'Lượt đặt sân của kèo không gắn với lượt giữ chỗ.', 409);
     }
     const hold = await tx.hold.findUnique({ where: { id: booking.holdId } });
     if (!hold || hold.expiresAt.getTime() <= Date.now()) {
-      throw new AppError('MATCH_DEPOSIT_TOO_LATE', 'Cửa sổ giữ chỗ đã hết trước khi cọc về; slot đã nhả.', 409);
+      throw new AppError('MATCH_DEPOSIT_TOO_LATE', 'Cửa sổ giữ chỗ đã hết trước khi cọc về; khung giờ đã nhả.', 409);
     }
     if (deadlineAt > hold.expiresAt) {
       const venueId = (await tx.court.findUniqueOrThrow({ where: { id: booking.courtId } })).venueId;
@@ -276,7 +278,7 @@ export async function resolveMatchBooking(command: MatchBookingResolutionCommand
 
     // Serialize with shutdown's court cutoff before accepting a settlement.
     const target = await tx.booking.findUnique({ where: { id: command.bookingId }, select: { courtId: true } });
-    if (!target) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    if (!target) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
     await lockCourtSchedule(tx, target.courtId);
     // Lock by booking, not command. Different commands racing over the same
     // physical slot must serialize into one winning transition.
@@ -298,7 +300,7 @@ export async function resolveMatchBooking(command: MatchBookingResolutionCommand
       where: { id: command.bookingId },
       include: { court: { include: { venue: { include: { provider: true } } } } },
     });
-    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    if (!booking) throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
 
     let decision: MatchBookingResolutionPayload['decision'];
     let venueRevision = booking.matchSettlementRevision;
@@ -592,10 +594,10 @@ export async function getMyBookingDetail(userId: string, bookingId: string) {
     court: { include: { venue: true } }, shutdownItems: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
   } });
   if (!booking || booking.source !== 'marketplace') {
-    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy booking.', 404);
+    throw new AppError('BOOKING_NOT_FOUND', 'Không tìm thấy lượt đặt sân.', 404);
   }
   if (booking.userId !== userId) {
-    throw new AppError('FORBIDDEN', 'Không có quyền xem booking này.', 403); // BR-BOK-10
+    throw new AppError('FORBIDDEN', 'Không có quyền xem lượt đặt sân này.', 403); // BR-BOK-10
   }
   const hoursUntilStart = (booking.startAt.getTime() - Date.now()) / 3_600_000;
   // BR-BOK-06: đọc từ policySnapshot của CHÍNH booking, không phải hằng hiện hành.

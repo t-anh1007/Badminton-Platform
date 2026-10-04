@@ -1,3 +1,4 @@
+import { isAccountLocked } from '@khoaluantn/eventbus';
 import type { NextFunction, Request, Response } from 'express';
 import { verifyAccessToken } from '../lib/jwt.js';
 
@@ -11,13 +12,22 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Thiếu access token.' } });
     return;
   }
+  let payload: ReturnType<typeof verifyAccessToken>;
   try {
-    const payload = verifyAccessToken(header.slice('Bearer '.length));
-    req.user = { id: payload.sub, roles: payload.roles };
-    next();
+    payload = verifyAccessToken(header.slice('Bearer '.length));
   } catch {
     res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Access token không hợp lệ.' } });
+    return;
   }
+  // Khóa tài khoản có hiệu lực ngay, không chờ access token hết hạn (Redis lỗi thì cho qua).
+  void isAccountLocked(payload.sub).then((locked) => {
+    if (locked) {
+      res.status(401).json({ error: { code: 'ACCOUNT_LOCKED', message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' } });
+      return;
+    }
+    req.user = { id: payload.sub, roles: payload.roles };
+    next();
+  });
 }
 
 /** Ràng buộc bất biến #7: chỉ một quyền vận hành Admin, không phân nhỏ. */

@@ -6,6 +6,7 @@ import type { VenueBookingClient } from '../clients/venueBooking.js'
 import { findPublicMatches, requestJoin } from '../domain/matches.js'
 import { AppError } from './errors.js'
 import { verifyAccessToken } from './jwt.js'
+import { isAccountLocked, watchAccountLock } from '@khoaluantn/eventbus'
 
 interface QuickMatchClientEvents {
   'quick_match:find': (input: { requestId: string; skill?: SkillTier }) => void
@@ -49,14 +50,18 @@ export function attachQuickMatchGateway(httpServer: HttpServer, venueBookingClie
       const payload = verifyAccessToken(token)
       if (!payload.roles.includes('player')) return next(new Error('FORBIDDEN'))
       socket.data.user = { id: payload.sub, roles: payload.roles }
-      next()
     } catch {
-      next(new Error('INVALID_TOKEN'))
+      return next(new Error('INVALID_TOKEN'))
     }
+    // Tài khoản bị khóa không được mở kết nối (Redis lỗi thì cho qua).
+    void isAccountLocked(socket.data.user.id).then((locked) => next(locked ? new Error('ACCOUNT_LOCKED') : undefined))
   })
 
   io.on('connection', (socket) => {
     const searches = new Map<string, SearchState>()
+    // Bị khóa trong lúc đang kết nối: cắt ngay.
+    const stopLockWatch = watchAccountLock(socket.data.user.id, () => socket.disconnect(true))
+    socket.on('disconnect', stopLockWatch)
 
     socket.on('quick_match:find', async (rawInput) => {
       let requestId: string | undefined

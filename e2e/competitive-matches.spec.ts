@@ -133,7 +133,7 @@ async function createMatchViaUi(page: Page, organizer: User, options: { ratio: '
   // Nạp trước: rời/tải lại trang khi đang chờ cọc sẽ tự hủy kèo (useCheckoutAbandonment).
   if (!options.paidBooking) await seedPersonalBalance(organizer.id, 1_000_000n);
   await page.goto('/matches?create=1');
-  if (options.paidBooking) await page.getByText('Booking đã thanh toán', { exact: true }).click();
+  if (options.paidBooking) await page.getByText('Lượt đặt sân đã thanh toán', { exact: true }).click();
   await expect(page.getByLabel('Nguồn tạo kèo')).toBeVisible();
   if (options.ranked) await page.getByText('Xếp hạng', { exact: true }).click();
   if (options.doubles) await page.getByText('Đánh đôi', { exact: true }).click();
@@ -401,8 +401,8 @@ test('2. Booking đã trả -> đôi 6:4 -> ba người trả -> chốt kèo kh�
   await providerPage.getByText('thắng (Đội B)').first().click();
   await providerPage.getByLabel('Lý do đề xuất').fill('Camera sân cho thấy đội B thắng set 2.');
   await shot(providerPage, 's09-provider');
-  await providerPage.getByRole('button', { name: 'Gửi đề xuất cho Admin' }).click();
-  await expect(providerPage.getByText('Chờ Admin quyết định', { exact: true })).toBeVisible();
+  await providerPage.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' }).click();
+  await expect(providerPage.getByText('Chờ quản trị viên quyết định', { exact: true })).toBeVisible();
   expect(await financeDb.matchFunding.findUniqueOrThrow({ where: { matchId } })).toMatchObject({ resultReserveStatus: 'locked', resultFinalizedAt: null });
 
   // Màn 10: Admin xem trước rồi xác nhận quyết định cuối.
@@ -768,23 +768,19 @@ test('8. Đôi: một người thua xác nhận -> đồng đội có 60 phút; 
   expect(after.map((value, index) => value - before[index]!)).toEqual([20_000n, 20_000n, 0n, 0n]);
 });
 
-test('9. Hai bản khai cùng bên thắng lệch tỷ số không thành tranh chấp; khác bên thắng thì thành tranh chấp', async () => {
+test('9. Chỉ chủ kèo được nhập kết quả; đối thủ bị từ chối khai tỷ số', async () => {
   const owner = await seedUser('Chủ kèo 9 E2E');
   const opponent = await seedUser('Đối thủ 9 E2E');
-  const same = await createMatchViaApi(owner, {});
-  await joinViaApi(opponent, same.matchId, 'B');
-  await lockAndFinish(same.matchId);
-  await claimViaApi(owner, same.matchId, [{ teamA: 21, teamB: 15 }, { teamA: 21, teamB: 18 }]);
-  await claimViaApi(opponent, same.matchId, [{ teamA: 21, teamB: 19 }, { teamA: 22, teamB: 20 }]);
-  expect(await caseOf(same.matchId)).toMatchObject({ status: 'provisional', outcome: 'TEAM_A_WIN' });
-
-  const differ = await createMatchViaApi(owner, {});
-  await joinViaApi(opponent, differ.matchId, 'B');
-  await lockAndFinish(differ.matchId);
-  await claimViaApi(owner, differ.matchId, [{ teamA: 21, teamB: 15 }, { teamA: 21, teamB: 18 }]);
-  await claimViaApi(opponent, differ.matchId, [{ teamA: 15, teamB: 21 }, { teamA: 18, teamB: 21 }]);
-  expect((await caseOf(differ.matchId)).status).toBe('provider_review');
-  await poll(() => notificationsOf(opponent.id, 'match.result.disputed'), (rows) => rows.length === 1, 'thông báo tranh chấp');
+  const { matchId } = await createMatchViaApi(owner, {});
+  await joinViaApi(opponent, matchId, 'B');
+  await lockAndFinish(matchId);
+  const rejected = await api<{ error: { code: string } }>('POST', `/matchmaking/matches/${matchId}/result-claims`, opponent.id, ['player'], {
+    sets: [{ teamA: 15, teamB: 21 }, { teamA: 18, teamB: 21 }], evidence: await uploadEvidence(opponent, matchId),
+  });
+  expect(rejected.status).toBe(403);
+  expect(rejected.body.error.code).toBe('RESULT_ORGANIZER_ONLY');
+  await claimViaApi(owner, matchId, [{ teamA: 21, teamB: 15 }, { teamA: 21, teamB: 18 }]);
+  expect(await caseOf(matchId)).toMatchObject({ status: 'provisional', outcome: 'TEAM_A_WIN' });
 });
 
 test('10. Booking của kèo bị hủy trước khi có kết quả -> hoàn đủ tiền giữ, phần booking hoàn theo chính sách, chia 50:50', async () => {

@@ -88,14 +88,14 @@ export function LockedConfig({ detail }: { detail: MatchDetail }) {
         <Field label="Hình thức" value={disciplineLabel(detail)} />
         <Field label="Tỷ lệ thua : thắng" value={(detail.ratio ?? '5:5').replace(':', ' : ')} />
         <Field label="Trình độ" value={`${detail.skillMin ? tierLabels[detail.skillMin] : 'Mọi bậc'} - ${detail.skillMax ? tierLabels[detail.skillMax] : 'Mọi bậc'}`} />
-        <Field label="Thể thức chính thức" value={`${detail.format === 'bo5' ? 'BO5' : 'BO3'} - 21 điểm - giới hạn 30`} />
+        <Field label="Thể thức chính thức" value={`${detail.format === 'bo5' ? 'BO5 (thắng 3 trong 5 ván)' : 'BO3 (thắng 2 trong 3 ván)'} - 21 điểm - giới hạn 30`} />
       </div>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
         <div>
-          <p className="font-semibold text-ink-900">Booking gốc - {detail.venue.name} - {detail.court.name}</p>
+          <p className="font-semibold text-ink-900">Lượt đặt sân gốc - {detail.venue.name} - {detail.court.name}</p>
           <p className="text-sm text-ink-600">{detail.venue.address}</p>
           <p className="text-sm text-ink-600">{formatDateTimeVi(detail.startAt)} - {formatDateTimeVi(detail.endAt)}</p>
-          <p className="mt-1 text-xs text-ink-500">Tên sân, địa chỉ và khung giờ lấy trực tiếp từ booking.</p>
+          <p className="mt-1 text-xs text-ink-500">Tên sân, địa chỉ và khung giờ lấy trực tiếp từ lượt đặt sân.</p>
         </div>
         {detail.bookingPrice && (
           <div className="text-right"><p className="text-xs text-ink-500">Tiền sân</p><p className="text-figures font-bold text-brand-navy">{formatMoneyVnd(detail.bookingPrice)}</p></div>
@@ -118,7 +118,7 @@ function PlayerCard({ participant, amount, paidBooking, locked }: { participant:
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-2 text-sm">
         <span className={participant.paymentState === 'paid' ? 'text-success' : 'text-warning'}>
           {participant.role === 'organizer' && paidBooking
-            ? 'Dùng từ booking đã thanh toán - không trả thêm'
+            ? 'Dùng từ lượt đặt sân đã thanh toán - không trả thêm'
             : participant.paymentState === 'paid' ? (locked ? 'Đã đóng - kèo đã chốt' : 'Đã đóng - có thể rút trước hạn chốt') : 'Đang giữ chỗ - chờ thanh toán'}
         </span>
         {amount && <span className="text-figures font-semibold">{formatMoneyVnd(amount)}</span>}
@@ -174,7 +174,7 @@ function StatusRow({ label, hint, value, badge }: { label: string; hint?: string
 }
 
 /** Tình trạng tiền kèo; mọi số do backend tính trong `funding`. */
-export function MoneyStatus({ detail }: { detail: MatchDetail }) {
+export function MoneyStatus({ detail, resultFinal = false }: { detail: MatchDetail; resultFinal?: boolean }) {
   const funding = detail.funding;
   if (!funding) return null;
   const paidBooking = detail.sourceType === 'paid_booking';
@@ -187,17 +187,18 @@ export function MoneyStatus({ detail }: { detail: MatchDetail }) {
       <div className="divide-y divide-line p-4">
         <div className="pb-2">
           <p className="text-xs font-semibold text-ink-500">Hiện tại</p>
-          <StatusRow label={paidBooking ? 'Tiền sân của booking' : 'Giá sân'} hint={paidBooking ? 'Đã ghi nhận trước khi tạo kèo' : undefined} value={funding.bookingPrice} />
+          <StatusRow label={paidBooking ? 'Tiền sân của lượt đặt sân' : 'Giá sân'} hint={paidBooking ? 'Đã ghi nhận trước khi tạo kèo' : undefined} value={funding.bookingPrice} />
           <StatusRow label="Phần mỗi người tham gia" value={funding.regularSlotAmount} />
           {funding.viewerAdditionalAmountDue !== null && <StatusRow label="Bạn cần trả thêm" value={funding.viewerAdditionalAmountDue} />}
         </div>
         <div className="pt-2">
           <p className="text-xs font-semibold text-ink-500">Khi kèo được chốt hợp lệ</p>
           {funding.organizerRefundAtLock !== null && paidBooking && (
-            <StatusRow label="Hoàn cho chủ kèo" hint="Phần booking đã trả cao hơn mức cần góp" value={funding.organizerRefundAtLock}
+            <StatusRow label="Hoàn cho chủ kèo" hint="Phần lượt đặt sân đã trả cao hơn mức cần góp" value={funding.organizerRefundAtLock}
               badge={funding.organizerRefundWithdrawable ? <Badge tone="success">Có thể rút</Badge> : undefined} />
           )}
-          <StatusRow label="Giữ chờ kết quả" hint="Chỉ xử lý sau khi kết quả có hiệu lực" value={funding.resultHeldAmount} badge={<Badge tone="warning">Đang giữ</Badge>} />
+          <StatusRow label="Giữ chờ kết quả" hint={resultFinal ? 'Kết quả đã có hiệu lực' : 'Chỉ xử lý sau khi kết quả có hiệu lực'} value={funding.resultHeldAmount}
+            badge={resultFinal ? <Badge tone="success">Đã xử lý</Badge> : <Badge tone="warning">Đang giữ</Badge>} />
           {paidBooking && <StatusRow label="Tiền sân ghi nhận thêm" value="0" />}
         </div>
       </div>

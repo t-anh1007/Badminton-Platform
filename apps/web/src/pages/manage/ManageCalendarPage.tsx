@@ -6,7 +6,7 @@ import { formatMoneyVnd, vietnamDateInput, vietnamMinuteOfDay } from '../../lib/
 // tạm ẩn khỏi trang này — tab Lịch sân hiện chỉ để XEM/quản lý. Logic API vẫn giữ
 // nguyên trong venueBookingApi.ts và route backend để bật lại sau.
 
-type Court = { courtId: string; courtName: string; closedAllDay: boolean }
+type Court = { courtId: string; courtName: string; closedAllDay: boolean; closedRanges?: Array<{ startMinute: number; endMinute: number }> }
 type CalendarEntry = {
   businessCode?: string
   id?: string
@@ -228,14 +228,14 @@ export function ManageCalendarPage() {
 
   const hasData = view === 'day' ? (dayData?.courts.length ?? 0) > 0 : weekData.length > 0
   const kpiTiles: Array<{ label: string; value: string }> = view === 'day'
-    ? [{ label: 'Booking', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }, { label: 'Lấp đầy', value: `${kpi.occupancy}%` }]
-    : [{ label: 'Booking / tuần', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }]
+    ? [{ label: 'Đặt sân', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }, { label: 'Lấp đầy', value: `${kpi.occupancy}%` }]
+    : [{ label: 'Lượt đặt / tuần', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }]
 
   return (
     <section className="space-y-5">
       <div>
         <h2 className="text-h2">Lịch sân</h2>
-        <p className="mt-1 text-sm text-ink-500">Xem kín/trống theo khung giờ, tách rõ từng sân con và số booking trong ngày.</p>
+        <p className="mt-1 text-sm text-ink-500">Xem kín/trống theo khung giờ, tách rõ từng sân con và số lượt đặt sân trong ngày.</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -288,9 +288,9 @@ export function ManageCalendarPage() {
                 <div key={court.courtId} className="min-w-0 flex-1 border-r border-line last:border-r-0">
                   <div className="sticky top-0 z-10 flex h-14 flex-col items-center justify-center gap-0.5 border-b border-line bg-surface px-2">
                     <span className="truncate text-sm font-bold text-ink-800">{court.courtName}</span>
-                    <span className="text-[11px] text-ink-400">{count} booking</span>
+                    <span className="text-[11px] text-ink-400">{court.closedAllDay ? 'Đóng cả ngày' : `${count} booking`}</span>
                   </div>
-                  <div className="relative" style={{ height: bodyHeight }}>{gridLines}{renderBlocks(courtEntries, false, day)}</div>
+                  <div className={`relative ${court.closedAllDay ? 'bg-ink-900/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{court.closedAllDay && <div className="absolute inset-x-0 top-1/3 text-center text-xs font-semibold text-ink-500">Sân đóng cửa</div>}{!court.closedAllDay && (court.closedRanges ?? []).map((r) => { const a = Math.max(r.startMinute, startMin); const b = Math.min(r.endMinute, endMin); return b > a ? <div key={r.startMinute} className="pointer-events-none absolute inset-x-0 flex items-start justify-center bg-ink-900/10 pt-1 text-[11px] font-semibold text-ink-500" style={{ top: yOf(a), height: (b - a) * PX_PER_MIN }}>Đã khóa {clockLabel(r.startMinute)}–{clockLabel(r.endMinute)}</div> : null })}{renderBlocks(courtEntries, false, day)}</div>
                 </div>
               )
             })}
@@ -304,11 +304,13 @@ export function ManageCalendarPage() {
               const dayBookings = d.entries.filter((e) => e.kind === 'booking')
               const count = dayBookings.length
               const isToday = d.iso === todayIso()
+              const closedCount = d.courts.filter((c) => c.closedAllDay).length
               return (
                 <div key={d.iso} className="min-w-0 flex-1 border-r border-line last:border-r-0">
                   <div className={`sticky top-0 z-10 flex h-14 flex-col items-center justify-center gap-0.5 border-b border-line px-2 ${isToday ? 'bg-brand-yellow/20' : 'bg-surface'}`}>
                     <span className="text-sm font-bold text-ink-800">{fmtDayLabel(d.iso).split(',')[0]}</span>
                     <span className="text-[11px] text-ink-400">{fmtDate(d.iso).slice(0, 5)} · {count} booking</span>
+                    {closedCount > 0 && <span className="text-[10px] font-semibold text-danger">{closedCount === d.courts.length ? 'Đóng cả ngày' : `${closedCount} sân đóng`}</span>}
                   </div>
                   <div className={`relative ${isToday ? 'bg-brand-yellow/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{renderBlocks(dayBookings, true, d.iso)}</div>
                 </div>
@@ -321,11 +323,11 @@ export function ManageCalendarPage() {
       {hasData && (
         <div className="rounded-2xl border border-line bg-surface">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
-            <h3 className="text-sm font-bold text-ink-800">Danh sách booking {view === 'day' ? 'trong ngày' : 'trong tuần'}</h3>
+            <h3 className="text-sm font-bold text-ink-800">Danh sách lượt đặt sân {view === 'day' ? 'trong ngày' : 'trong tuần'}</h3>
             <span className="text-xs text-ink-500">{bookingRows.length} booking</span>
           </div>
           {bookingRows.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-ink-500">Chưa có booking nào.</p>
+            <p className="px-4 py-6 text-sm text-ink-500">Chưa có lượt đặt sân nào.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
@@ -362,15 +364,15 @@ export function ManageCalendarPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Chi tiết booking">
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Chi tiết lượt đặt sân">
           <div className="absolute inset-0 bg-ink-900/30" onClick={() => setSelected(null)} />
           <aside className="relative flex h-full w-full max-w-sm flex-col gap-4 overflow-y-auto bg-surface p-6 shadow-xl">
             <div className="flex items-start justify-between">
-              <h3 className="text-h3">Chi tiết booking</h3>
+              <h3 className="text-h3">Chi tiết lượt đặt sân</h3>
               <button type="button" aria-label="Đóng" onClick={() => setSelected(null)} className="rounded-lg px-2 py-1 text-ink-500 hover:bg-canvas">✕</button>
             </div>
             <dl className="grid gap-3 text-sm">
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Mã booking</dt><dd className="font-mono font-semibold">{selected.businessCode ?? 'Chưa có mã'}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-ink-500">Mã đặt sân</dt><dd className="font-mono font-semibold">{selected.businessCode ?? 'Chưa có mã'}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Ngày</dt><dd className="font-medium text-ink-800">{fmtDate(selected.iso)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Khung giờ</dt><dd className="font-medium tabular-nums text-ink-800">{clockLabel(minuteOf(selected.startAt) ?? 0)}–{clockLabel(minuteOf(selected.endAt) ?? 0)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Sân con</dt><dd className="font-medium text-ink-800">{courtName(selected.courtId)}</dd></div>
@@ -379,7 +381,7 @@ export function ManageCalendarPage() {
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Nguồn</dt><dd className="font-medium text-ink-800">{sourceLabel(selected.source)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-ink-500">Giá</dt><dd className="font-bold text-ink-900">{selected.priceSnapshot ? formatMoneyVnd(selected.priceSnapshot) : '—'}</dd></div>
             </dl>
-            <p className="mt-auto text-xs text-ink-400">Thao tác đổi sân / hủy booking sẽ bổ sung ở bước sau.</p>
+            <p className="mt-auto text-xs text-ink-500">Cần đổi sân hoặc hủy lượt đặt sân do sự cố? Dùng mục <a href="/manage/incidents" className="font-semibold text-brand-navy underline">Xử lý sự cố</a>.</p>
           </aside>
         </div>
       )}

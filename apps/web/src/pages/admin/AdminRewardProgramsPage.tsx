@@ -228,7 +228,7 @@ function ProgramList() {
       <Modal open={reviewing !== null} title="Duyệt danh sách nhận giải" onClose={() => setReviewing(null)}>
         {reviewing && (
           <>
-            <p className="text-sm text-ink-500">Danh sách do hệ thống tính. Admin chỉ duyệt, không sửa điểm, thứ hạng hay người nhận.</p>
+            <p className="text-sm text-ink-500">Danh sách do hệ thống tính. Quản trị viên chỉ duyệt, không sửa điểm, thứ hạng hay người nhận.</p>
             <table className="mt-3 w-full text-sm">
               <thead><tr className="border-b border-line text-left text-xs text-ink-500"><th className="py-2">Hạng</th><th>Người nhận</th><th className="text-right">Thành tích</th><th className="text-right">Tiền thưởng</th></tr></thead>
               <tbody>

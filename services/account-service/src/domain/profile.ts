@@ -46,6 +46,29 @@ export async function getPublicDisplayNames(userIds: string[], resolveStorage?: 
   }));
 }
 
+/** D58: chủ kèo mời partner theo email (định danh duy nhất, D6); chỉ trả userId của người chơi hoạt động. */
+export async function findPlayerIdByEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { id: true, verified: true, status: true, roles: true },
+  });
+  if (!user || !user.verified || user.status !== 'active' || !user.roles.includes('player')) {
+    throw new AppError('PLAYER_NOT_FOUND', 'Không tìm thấy người chơi.', 404);
+  }
+  return { userId: user.id };
+}
+
+/** SĐT không unique, không xác minh: chỉ trả về khi đúng một người chơi hợp lệ dùng số này. */
+export async function findPlayerIdByPhone(phone: string) {
+  const users = await prisma.user.findMany({
+    where: { phone: phone.replace(/\s+/g, ''), verified: true, status: 'active', roles: { has: 'player' } },
+    select: { id: true }, take: 2,
+  });
+  if (users.length === 0) throw new AppError('PLAYER_NOT_FOUND', 'Không tìm thấy người chơi.', 404);
+  if (users.length > 1) throw new AppError('PLAYER_PHONE_AMBIGUOUS', 'Có nhiều tài khoản dùng số này.', 409);
+  return { userId: users[0]!.id };
+}
+
 export async function getPublicMatchProfile(userId: string, resolveStorage?: StorageResolver) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

@@ -172,15 +172,11 @@ it('keeps asking the server after the deadline until the status moves', async ()
   }
 })
 
-it('keeps the counter-claim form closed while a provisional result awaits the viewer response', async () => {
+it('shows a waiting note instead of the score form to non-organizers while declaration is open', async () => {
   vi.mocked(getResultCase).mockResolvedValue(resultCase({
-    status: 'provisional', declarationDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(), objectionDeadlineAt: new Date(Date.now() + 3_600_000).toISOString(),
-    provisional: { claimant: person('u1', 'Minh Anh'), sets: [{ teamA: 21, teamB: 15 }, { teamA: 21, teamB: 18 }], outcome: 'TEAM_A_WIN', evidence: [] },
-    viewerActions: { canClaim: true, canConfirm: true, canObject: true, canReportIncident: false },
+    viewerActions: { canClaim: false, canConfirm: false, canObject: false, canReportIncident: true },
   }))
   render(<MatchResultFlow matchId="m1" />)
-  expect(await screen.findByRole('button', { name: 'Gửi phản hồi' })).toBeInTheDocument()
+  expect(await screen.findByText(/Đang chờ chủ kèo nhập tỷ số/)).toBeInTheDocument()
   expect(screen.queryByText('Nhập tỷ số chính thức')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Tôi có tỷ số khác - khai báo' }))
-  expect(screen.getByText('Nhập tỷ số chính thức')).toBeInTheDocument()
 })
