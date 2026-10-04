@@ -79,6 +79,8 @@ function parseDateInput(value: string): string | null {
 const PRICE_MIN = 0;
 const PRICE_MAX = 500_000;
 const PRICE_STEP = 10_000;
+// Chế độ chọn cơ sở nằm trong màn tạo kèo nên chỉ hiện từng trang ngắn.
+const PICK_PAGE = 12;
 
 function minuteOfDay(value: string): number | null {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
@@ -86,7 +88,10 @@ function minuteOfDay(value: string): number | null {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { embedded?: boolean; initialViewMode?: ViewMode } = {}) {
+/** `onSelectVenue`: chế độ chọn cơ sở (màn tạo kèo) — bấm thẻ/ghim là chọn, không mở trang cơ sở, không ghi URL. */
+export function VenueListPage({ embedded = false, initialViewMode = 'list', onSelectVenue }: { embedded?: boolean; initialViewMode?: ViewMode; onSelectVenue?: (venue: VenueSearchRow) => void } = {}) {
+  const picking = Boolean(onSelectVenue);
+  const [pickLimit, setPickLimit] = useState(PICK_PAGE);
   const [searchParams, setSearchParams] = useSearchParams();
   const [origin, setOrigin] = useState<Origin>(() => initialOrigin(searchParams));
   const [currentLocation, setCurrentLocation] = useState<Origin | null>(() => loadCurrentLocation());
@@ -152,14 +157,14 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
   }, [runSearch]);
 
   useEffect(() => {
-    if (embedded) return;
+    if (embedded || picking) return;
     const nextParams = new URLSearchParams({
       lat: String(origin.lat),
       lng: String(origin.lng),
     });
     if (radiusKm !== null) nextParams.set('radiusKm', String(radiusKm));
     setSearchParams(nextParams, { replace: true });
-  }, [embedded, origin.lat, origin.lng, radiusKm, setSearchParams]);
+  }, [embedded, picking, origin.lat, origin.lng, radiusKm, setSearchParams]);
 
   const useMyLocation = useCallback(() => {
     setLocating(true); setLocateError('');
@@ -275,12 +280,12 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
     ));
   }, [nameFilter, sortOrder, venues]);
 
-  const Wrapper = embedded ? 'section' : 'main';
+  const Wrapper = embedded || picking ? 'section' : 'main';
   return (
-    <Wrapper className={embedded ? 'bg-canvas py-10 sm:py-14' : 'min-h-screen bg-canvas pb-12 pt-8 sm:pt-10'}>
-      <div className="page-container">
-        {embedded
-          ? <div><p className="courtin-kicker">Đặt sân quanh bạn</p><h2 className="mt-1 text-h2">Khám phá sân trên bản đồ</h2><p className="mt-2 text-sm text-ink-500">Chọn một điểm trên bản đồ để xem ngay các sân phù hợp gần đó.</p></div>
+    <Wrapper className={picking ? '' : embedded ? 'bg-canvas py-10 sm:py-14' : 'min-h-screen bg-canvas pb-12 pt-8 sm:pt-10'}>
+      <div className={picking ? '' : 'page-container'}>
+        {picking ? null : embedded
+          ?<div><p className="courtin-kicker">Đặt sân quanh bạn</p><h2 className="mt-1 text-h2">Khám phá sân trên bản đồ</h2><p className="mt-2 text-sm text-ink-500">Chọn một điểm trên bản đồ để xem ngay các sân phù hợp gần đó.</p></div>
           : <PageHeader eyebrow="Đặt sân cầu lông" title="Sân cầu lông gần bạn" description="Chọn vị trí của bạn bằng định vị hoặc bản đồ, lọc theo bán kính, giá và khung giờ." />}
 
         <div className="my-6">
@@ -395,7 +400,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
         </div>
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>
+          {picking ? <p className="text-sm font-medium text-ink-700">Chọn một cơ sở để xem lịch trống</p> : <div><p className="courtin-kicker">Khả dụng hôm nay</p><h2 className="mt-1 text-h2">Chọn sân phù hợp gần bạn</h2></div>}
           <div className="flex items-center gap-3">
             {!loading && !loadError && <p className="text-sm text-ink-500"><span className="text-figures text-ink-900">{visibleVenues.length}</span> sân</p>}
             {!embedded && (
@@ -424,6 +429,7 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
               venues={visibleVenues.map((venue) => ({ venueId: venue.venueId, name: venue.name, address: venue.address, lat: venue.lat, lng: venue.lng, distanceKm: venue.distanceKm, lowestPrice: venue.lowestPrice, coverImage: venue.coverImage, courtCount: venue.courtCount }))}
               onPickOrigin={pickOriginOnMap}
               onReturnCurrent={returnToCurrentLocation}
+              onSelectVenue={onSelectVenue && ((venueId) => { const venue = visibleVenues.find((item) => item.venueId === venueId); if (venue) onSelectVenue(venue); })}
             />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-h3">Sân gần điểm đã chọn</h3>
@@ -445,21 +451,20 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
         )}
 
         {!loading && !loadError && visibleVenues.length > 0 && (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleVenues.map((venue) => {
+          <div className={`grid gap-5 sm:grid-cols-2 ${picking ? 'xl:grid-cols-3' : 'lg:grid-cols-3'}`}>
+            {(picking ? visibleVenues.slice(0, pickLimit) : visibleVenues).map((venue) => {
               const lowestPrice = formatLowestPrice(venue.lowestPrice);
-              return (
-                <Link key={venue.venueId} to={`/venues/${encodeURIComponent(venue.venueId)}`} className="block rounded-2xl focus-visible:outline-none">
+              const card = (
                   <SurfaceCard hoverable className="h-full overflow-hidden !p-0">
                     <div className="flex h-full flex-col">
-                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-ink-100">
+                      {!picking && <div className="relative aspect-[16/10] w-full overflow-hidden bg-ink-100">
                         {venue.coverImage ? (
                           <img src={venue.coverImage} alt={`Ảnh ${venue.name}`} loading="lazy" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-ink-400" aria-hidden="true">🏸</div>
                         )}
                         <Badge tone="success" className="absolute right-3 top-3">Đặt được</Badge>
-                      </div>
+                      </div>}
                       <div className="flex flex-1 flex-col p-5">
                         <p className="text-caption text-brand-navy">Sân cầu lông</p>
                         <h2 className="mt-1 text-h3 text-ink-900">{venue.name}</h2>
@@ -472,9 +477,16 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list' }: { 
                       </div>
                     </div>
                   </SurfaceCard>
-                </Link>
               );
+              return onSelectVenue
+                ? <button key={venue.venueId} type="button" onClick={() => onSelectVenue(venue)} className="block rounded-2xl text-left focus-visible:outline-none">{card}</button>
+                : <Link key={venue.venueId} to={`/venues/${encodeURIComponent(venue.venueId)}`} className="block rounded-2xl focus-visible:outline-none">{card}</Link>;
             })}
+          </div>
+        )}
+        {picking && !loading && visibleVenues.length > pickLimit && (
+          <div className="mt-4 flex justify-center">
+            <Button type="button" tone="secondary" onClick={() => setPickLimit((current) => current + PICK_PAGE)}>Xem thêm ({visibleVenues.length - pickLimit} cơ sở)</Button>
           </div>
         )}
       </div>

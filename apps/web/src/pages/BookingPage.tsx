@@ -7,9 +7,8 @@ import { SlotGrid, type Slot, type SlotStatus } from '../components/SlotGrid'
 import { PageHeader } from '../components/courtin/PageHeader'
 import { Button, EmptyState, Modal, Skeleton, SurfaceCard } from '../components/ui'
 import { BookingPaymentPanel } from '../components/BookingPaymentPanel.js'
-import { MatchDepositCheckout } from '../components/MatchDepositCheckout.js'
 import { ScheduleConflictWarning } from '../components/ScheduleConflictWarning.js'
-import { cancelMatch, createMatch, getMyScheduleConflicts, MATCH_MIN_LEAD_HOURS, MatchApiError, type ScheduleConflict } from '../lib/matchApi.js'
+import { getMyScheduleConflicts, type ScheduleConflict } from '../lib/matchApi.js'
 import { useCheckoutAbandonment } from '../hooks/useCheckoutAbandonment.js'
 import { vietnamDateInput } from '../lib/formatters.js'
 import {
@@ -67,10 +66,6 @@ function isPastSlot(date: string, startMinute: number, now = new Date()): boolea
   return date < current.date || (date === current.date && startMinute <= current.minute)
 }
 
-function isMatchLeadTooShort(startAt: string, now = Date.now()): boolean {
-  return new Date(startAt).getTime() - now < MATCH_MIN_LEAD_HOURS * 3_600_000
-}
-
 function HoldCountdown({ expiresAt, onExpired }: { expiresAt?: string; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0)
   const onExpiredRef = useRef(onExpired)
@@ -98,30 +93,25 @@ export function BookingPage() {
   const [selection, setSelection] = useState<BookingRange | null>(null)
   const [hold, setHold] = useState<HoldResult | null>(null)
   const [booking, setBooking] = useState<BookingSummary | null>(null)
-  const [matchCheckout, setMatchCheckout] = useState<{ matchId: string; holdExpiresAt: string } | null>(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [error, setError] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
-  const [scheduleWarning, setScheduleWarning] = useState<{ conflicts: ScheduleConflict[]; action: 'booking' | 'match' } | null>(null)
-  const [matchEligibilityCheckedAt, setMatchEligibilityCheckedAt] = useState(() => Date.now())
+  const [scheduleWarning, setScheduleWarning] = useState<ScheduleConflict[] | null>(null)
   const retryAfterAuth = useRef<(() => void) | null>(null)
   const availabilityRequestId = useRef(0)
-  const findOpponentInFlight = useRef(false)
-  const pendingMatchHold = useRef<HoldResult | null>(null)
   const checkoutCompleted = useRef(false)
   const [date, setDate] = useState(() => vietnamDateInput(new Date(Date.now() + 86_400_000)))
   const [dateField, setDateField] = useState(() => formatDateField(vietnamDateInput(new Date(Date.now() + 86_400_000))))
 
-  const step = booking || matchCheckout ? 3 : hold ? 2 : 1
+  const step = booking ? 3 : hold ? 2 : 1
   const selectedCourt = detail?.courts.find((court) => court.id === courtId)
   const selectedCourtName = selectedCourt?.name ?? 'Sân'
   const bookingRule = selectedCourt?.bookingRule ?? null
   const meetsMinDuration = !bookingRule || !selection || selection.durationMinutes >= bookingRule.minDurationMinutes
 
   useCheckoutAbandonment(
-    // Kèo chờ đóng phần góp không tự hủy khi rời trang: slot tự nhả khi hết hạn giữ.
     booking
       ? () => checkoutCompleted.current ? Promise.resolve() : abandonMyBooking(booking.id)
       : null,
@@ -131,9 +121,6 @@ export function BookingPage() {
     setSelection(null)
     setHold(null)
     setBooking(null)
-    setMatchCheckout(null)
-    pendingMatchHold.current = null
-    findOpponentInFlight.current = false
   }
 
   const loadAvailability = async (nextCourtId: string, nextDate: string) => {
@@ -242,7 +229,6 @@ export function BookingPage() {
     void run(async () => {
       const validated = await selectSlot(proposed.courtId, { startAt: proposed.startAt, durationMinutes: proposed.durationMinutes })
       setSelection({ ...proposed, startAt: validated.startAt, endAt: validated.endAt, durationMinutes: validated.durationMinutes, totalPrice: validated.totalPrice })
-      setMatchEligibilityCheckedAt(Date.now())
       setHold(null)
       setBooking(null)
       setMessage(`Đã chọn ${proposed.slotCount} khung giờ liền nhau.`)
@@ -266,67 +252,15 @@ export function BookingPage() {
     setMessage('Hoàn tất thanh toán trước khi lượt giữ chỗ hết hạn.')
   }
 
-  // DM3: slot còn dưới 24 giờ thì không tạo được kèo — chặn trước khi giữ chỗ để không khóa slot vô ích.
-  const opponentLeadTooShort = selection ? isMatchLeadTooShort(selection.startAt, matchEligibilityCheckedAt) : false
-
-  // Matchmaking từ chối hẳn (DM3, DM7…): thử lại cùng hold cũng không đổi kết quả. Lỗi mạng/5xx vẫn giữ
-  // hold để thử lại như cũ.
-  const isMatchRejected = (caught: unknown) => caught instanceof MatchApiError && [400, 404, 409, 422].includes(caught.status)
-
-  // Matchmaking có thể đã đổi hold thành booking `held` trước khi từ chối. createBooking idempotent theo
-  // holdId nên trả đúng booking đó; hủy booking held xóa luôn hold -> slot trống lại, mở khóa giao diện.
-  const releaseMatchHold = async (rejectedHold: HoldResult) => {
-    try {
-      const orphan = await createBooking(rejectedHold.id)
-      await cancelMyBooking(orphan.id)
-    } catch {
-      // Giữ hold hiện tại và khóa việc chọn slot nếu backend chưa xác nhận nhả chỗ.
-      return
-    }
-    pendingMatchHold.current = null
-    setHold(null)
-    if (courtId) await loadAvailability(courtId, date)
-  }
-
-  const findOpponent = async () => {
-    if (!selection || matchCheckout || findOpponentInFlight.current) return
-    const checkedAt = Date.now()
-    if (isMatchLeadTooShort(selection.startAt, checkedAt)) {
-      setMatchEligibilityCheckedAt(checkedAt)
-      return
-    }
-    findOpponentInFlight.current = true
-    try {
-        let nextHold = pendingMatchHold.current
-        if (!nextHold) {
-          nextHold = await createHold({ courtId: selection.courtId, startAt: selection.startAt, endAt: selection.endAt })
-          pendingMatchHold.current = nextHold
-          setHold(nextHold)
-          updateSelectedSlots('held')
-        }
-        const matchHold = nextHold
-        const match = await createMatch({ holdId: matchHold.id, mode: 'friendly', discipline: 'singles', ratio: '5:5', format: 'bo3' }).catch(async (caught: unknown) => {
-          if (isMatchRejected(caught)) await releaseMatchHold(matchHold)
-          throw caught
-        })
-        pendingMatchHold.current = null
-        setMatchCheckout({ matchId: match.id, holdExpiresAt: matchHold.expiresAt })
-        setMessage('Hoàn tất đặt cọc trước khi lượt giữ chỗ hết hạn.')
-    } finally {
-      findOpponentInFlight.current = false
-    }
-  }
-
-  const executeScheduleAction = (action: 'booking' | 'match') => action === 'booking' ? confirm() : findOpponent()
-  const attemptScheduleAction = (action: 'booking' | 'match') => {
+  const attemptBooking = () => {
     if (!selection) return
     void run(async () => {
       const result = await getMyScheduleConflicts({ startAt: selection.startAt, endAt: selection.endAt })
       if (result.conflicts.length > 0) {
-        setScheduleWarning({ conflicts: result.conflicts, action })
+        setScheduleWarning(result.conflicts)
         return
       }
-      await executeScheduleAction(action)
+      await confirm()
     })
   }
 
@@ -338,9 +272,8 @@ export function BookingPage() {
   }
 
   const returnToSlotSelection = () => run(async () => {
-    if (booking) await cancelMyBooking(booking.id)
-    else if (matchCheckout) await cancelMatch(matchCheckout.matchId)
-    else return
+    if (!booking) return
+    await cancelMyBooking(booking.id)
 
     clearFlow()
     setMessage('Đã nhả lượt giữ chỗ. Chọn lại khung giờ bạn muốn đặt.')
@@ -351,10 +284,10 @@ export function BookingPage() {
     <main className="page-container py-8 sm:py-12">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <PageHeader eyebrow="Đặt sân" title={detail?.name ?? 'Đang tải cơ sở…'} description={detail?.address} />
-        {!matchCheckout && <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />}
+        <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        {(booking || matchCheckout) && <button type="button" aria-label="Quay lại chọn khung giờ và nhả lượt giữ chỗ" title="Quay lại chọn khung giờ" disabled={loading} onClick={() => void returnToSlotSelection()} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:-translate-x-0.5 hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+        {booking && <button type="button" aria-label="Quay lại chọn khung giờ và nhả lượt giữ chỗ" title="Quay lại chọn khung giờ" disabled={loading} onClick={() => void returnToSlotSelection()} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:-translate-x-0.5 hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="m12 5-7 7 7 7" /><path d="M19 12H5" /></svg>
         </button>}
         {['Chọn khung giờ', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
@@ -380,7 +313,7 @@ export function BookingPage() {
                       if (nextDate && nextDate !== date) changeDate(nextDate)
                     }}
                     onBlur={() => { if (!parseDateField(dateField)) { setDateField(formatDateField(date)); setError('Ngày phải theo định dạng dd/mm/yyyy.') } }}
-                    disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)}
+                    disabled={Boolean(booking)}
                     className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 pr-11"
                   />
                   <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-ink-500">
@@ -391,7 +324,7 @@ export function BookingPage() {
                     aria-label="Chọn ngày từ lịch"
                     value={date}
                     min={getVietnamClock().date}
-                    disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)}
+                    disabled={Boolean(booking)}
                     onChange={(event) => { if (event.target.value && event.target.value !== date) changeDate(event.target.value) }}
                     className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0 disabled:cursor-not-allowed"
                   />
@@ -399,7 +332,7 @@ export function BookingPage() {
               </label>
               <label className="grid gap-1.5 text-sm font-medium">
                 Sân con
-                <select disabled={Boolean(booking || matchCheckout || pendingMatchHold.current)} value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
+                <select disabled={Boolean(booking)} value={courtId} onChange={(event) => { const nextCourtId = event.target.value; setCourtId(nextCourtId); clearFlow(); void loadAvailability(nextCourtId, date) }} className="rounded-xl border border-line bg-surface px-3 py-2.5">
                   {detail?.courts.map((court) => <option key={court.id} value={court.id}>{court.name}</option>)}
                 </select>
               </label>
@@ -412,7 +345,7 @@ export function BookingPage() {
             {availabilityLoading ? (
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-20" />)}</div>
             ) : slots.length ? (
-              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking || matchCheckout || pendingMatchHold.current ? undefined : choose} /></div>
+              <div className="mt-5"><SlotGrid courtName={selectedCourtName} slots={renderedSlots} onSelect={booking ? undefined : choose} /></div>
             ) : (
               <div className="mt-5"><EmptyState title="Không còn khung giờ trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
             )}
@@ -422,23 +355,21 @@ export function BookingPage() {
           <SurfaceCard>
             <h2 className="text-h3">Tóm tắt đặt sân</h2>
             {selection ? <BookingSelectionSummary venue={detail?.name ?? 'Cơ sở'} court={selectedCourtName} range={selection} /> : <p className="mt-3 text-sm text-ink-500">Chọn một hoặc nhiều khung giờ trống liền nhau để xem tổng tiền.</p>}
-            {selection && !booking && !matchCheckout && (meetsMinDuration
-              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading || Boolean(pendingMatchHold.current)} onClick={() => attemptScheduleAction('booking')}>XÁC NHẬN</Button><Button tone="secondary" className="w-full" disabled={loading || opponentLeadTooShort} onClick={() => attemptScheduleAction('match')}>TÌM ĐỐI THỦ</Button>{opponentLeadTooShort && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700">{`Chỉ tạo được kèo cho khung giờ còn ít nhất ${MATCH_MIN_LEAD_HOURS} giờ nữa.`}</p>}</div>
+            {selection && !booking && (meetsMinDuration
+              ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading} onClick={attemptBooking}>XÁC NHẬN</Button><p className="text-xs text-ink-500">Muốn tìm đối thủ? Vào <Link to="/matches?create=1" className="font-semibold text-brand-navy underline">Tạo kèo</Link> ở trang Tìm kèo.</p></div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
             {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
-            {matchCheckout && selection && <MatchDepositCheckout matchId={matchCheckout.matchId} fullPrice={selection.totalPrice} holdExpiresAt={matchCheckout.holdExpiresAt} onPaid={(matchId) => { navigate(`/matches?created=${encodeURIComponent(matchId)}&setup=1`, { replace: true }) }} onExpired={expireHold} />}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>
       </div>
       <Modal open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
       <ScheduleConflictWarning
-        conflicts={scheduleWarning?.conflicts ?? []}
+        conflicts={scheduleWarning ?? []}
         onClose={() => setScheduleWarning(null)}
         onContinue={() => {
-          const action = scheduleWarning?.action
           setScheduleWarning(null)
-          if (action) void run(() => executeScheduleAction(action))
+          void run(confirm)
         }}
       />
     </main>

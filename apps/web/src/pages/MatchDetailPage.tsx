@@ -95,6 +95,9 @@ export function MatchDetailPage() {
         : 0,
     [detail, now],
   );
+  const depositRemaining = detail?.status === 'awaiting_deposit' && detail.holdExpiresAt
+    ? Math.max(0, new Date(detail.holdExpiresAt).getTime() - now)
+    : null;
   useEffect(() => {
     const approvedJoin = detail?.actions.ownJoin;
     if (approvedJoin?.status !== 'approved') {
@@ -412,6 +415,13 @@ export function MatchDetailPage() {
                             : 'Kèo và lượt đặt sân đã được xác nhận.'
                           : competitive ? 'Kèo đang mở tìm người chơi tới hạn chốt kèo; bạn có thể hủy trước hạn chốt.' : 'Kèo đang mở; người thanh toán trước sẽ có chỗ.'}
                 </p>
+                {depositRemaining !== null && (
+                  <p role="timer" className={`mt-2 inline-block rounded-full px-3 py-1 text-sm font-semibold text-figures ${depositRemaining < 120_000 ? 'bg-danger-bg text-danger' : 'bg-brand-yellow text-brand-navy'}`}>
+                    {depositRemaining > 0
+                      ? `Giữ chỗ còn ${String(Math.floor(depositRemaining / 60_000)).padStart(2, '0')}:${String(Math.floor((depositRemaining % 60_000) / 1000)).padStart(2, '0')} — hết giờ chưa đóng thì khung giờ nhả và kèo bị hủy`
+                      : 'Đã hết thời gian giữ chỗ; khung giờ đã nhả và kèo sẽ bị hủy.'}
+                  </p>
+                )}
               </>
             ) : join?.status === 'approved' ? (
               <>
