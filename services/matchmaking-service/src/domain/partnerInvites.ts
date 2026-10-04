@@ -13,6 +13,10 @@ type Tx = Prisma.TransactionClient;
 
 const holdStart = (now: Date) => new Date(now.getTime() - JOIN_HOLD_MINUTES * 60_000);
 
+/** Partner tự trả có 30 phút kể từ lần nhận lời đầu để thanh toán (mỗi hold vẫn 10 phút, nhận lời lại được). */
+export const SELF_PAY_ACCEPT_WINDOW_MINUTES = 30;
+const selfPayWindowStart = (now: Date) => new Date(now.getTime() - SELF_PAY_ACCEPT_WINDOW_MINUTES * 60_000);
+
 async function lockMatch(tx: Tx, matchId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${matchId}, 0))`;
   const match = await tx.match.findUnique({ where: { id: matchId } });
@@ -193,7 +197,8 @@ async function assertAnswerable(tx: Tx, match: Match, userId: string, now: Date)
   if (!invite || invite.inviteeUserId !== userId || !invite.sentAt) {
     throw new AppError(404, 'PARTNER_INVITE_NOT_FOUND', 'Không tìm thấy lời mời dành cho bạn.');
   }
-  if (!['open', 'filled'].includes(match.status) || match.cutoffAt <= now) {
+  if (!['open', 'filled'].includes(match.status) || match.cutoffAt <= now
+    || (invite.payMode === 'self' && invite.respondedAt && invite.respondedAt <= selfPayWindowStart(now))) {
     throw new AppError(409, 'PARTNER_INVITE_EXPIRED', 'Lời mời đã hết hạn.');
   }
   return invite;
@@ -222,6 +227,13 @@ export async function acceptPartnerInvite(matchId: string, userId: string, now =
   });
   if (!selfPay) return prisma.join.findFirstOrThrow({ where: { matchId, participantUserId: userId, status: 'confirmed' } });
   const join = await requestJoin(matchId, userId, 'A', now);
+  // Mốc bắt đầu cửa sổ 30 phút: chỉ ghi ở lần nhận lời đầu.
+  if (join.status === 'approved') {
+    await prisma.partnerInvite.updateMany({
+      where: { matchId, inviteeUserId: userId, status: 'pending', payMode: 'self', respondedAt: null },
+      data: { respondedAt: now },
+    });
+  }
   // Kèo miễn phí xác nhận ngay; kèo có phí đánh dấu nhận lời khi PaymentCompleted về.
   if (join.status === 'confirmed') await prisma.$transaction((tx) => markSelfPayPartnerAccepted(tx, matchId, userId, now));
   return join;
@@ -260,6 +272,31 @@ export async function declinePartnerInvite(matchId: string, userId: string, now 
         : 'Chỗ trong đội của bạn đã mở lại cho mọi người.');
     return updated;
   });
+}
+
+/**
+ * Lời mời tự trả: quá 30 phút kể từ lần nhận lời đầu (respondedAt khi còn pending) mà chưa thanh toán
+ * thì coi như từ chối, nhả slot Team A. Partner đang trong hold thanh toán thì để hold chạy hết rồi mới xét.
+ */
+export async function expireSelfPayPartnerInvites(now = new Date()): Promise<number> {
+  const stale = await prisma.partnerInvite.findMany({
+    where: { status: 'pending', payMode: 'self', respondedAt: { lte: selfPayWindowStart(now) } },
+    select: { id: true, matchId: true },
+  });
+  let count = 0;
+  for (const { id, matchId } of stale) {
+    count += await prisma.$transaction(async (tx) => {
+      const match = await lockMatch(tx, matchId);
+      const invite = await tx.partnerInvite.findUnique({ where: { id } });
+      if (!invite || invite.status !== 'pending') return 0;
+      if (await inviteeInHold(tx, matchId, invite.inviteeUserId, now)) return 0;
+      await tx.partnerInvite.update({ where: { id }, data: { status: 'declined', respondedAt: now } });
+      await notify(tx, match.organizerUserId, matchId, 'match.partner_declined', 'Đồng đội chưa thanh toán',
+        'Đồng đội đã nhận lời nhưng quá 30 phút chưa thanh toán nên lời mời đã hủy. Chỗ trong đội của bạn đã mở lại cho mọi người.');
+      return 1;
+    });
+  }
+  return count;
 }
 
 /**

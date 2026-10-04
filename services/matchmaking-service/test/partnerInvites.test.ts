@@ -6,7 +6,7 @@ import { handleMatchFeePaymentCompleted } from '../src/lib/matchLifecycleEventCo
 import { prisma } from '../src/lib/prisma.js';
 import { requestJoin } from '../src/domain/matches.js';
 import { withdrawJoin } from '../src/domain/matchLifecycle.js';
-import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, invitePartner, listRecentCoPlayers } from '../src/domain/partnerInvites.js';
+import { acceptPartnerInvite, cancelPartnerInvite, declinePartnerInvite, expireSelfPayPartnerInvites, invitePartner, listRecentCoPlayers } from '../src/domain/partnerInvites.js';
 
 // BR-CM-71..78 / AC-CM-36..40 (D58): mời partner vào Team A kèo đôi.
 
@@ -215,5 +215,38 @@ describe('BR-CM-80/81 từng chơi cùng và email lời mời', () => {
     const sent = await prisma.outbox.findMany({ where: { aggregateId: { startsWith: `match.partner_invited:${match.id}:${partner}` } } });
     expect(sent).toHaveLength(1);
     expect(sent[0]!.payload).toMatchObject({ kind: 'match.partner_invited', emailPolicy: 'required', entityId: match.id });
+  });
+});
+
+describe('partner tự trả quá 30 phút sau khi nhận lời', () => {
+  it('chưa trả quá 30 phút: coi như từ chối, nhả Team A; không nhận lời lại được', async () => {
+    const match = await fixture();
+    const partner = randomUUID();
+    const t0 = new Date();
+    await invitePartner(match.id, match.organizerUserId, { inviteeUserId: partner, payMode: 'self' }, t0);
+    await acceptPartnerInvite(match.id, partner, t0);
+    expect((await prisma.partnerInvite.findFirstOrThrow({ where: { matchId: match.id } })).respondedAt).toEqual(t0);
+
+    // Hết hold 10 phút, nhận lời lại vẫn trong cửa sổ: mốc 30 phút không đổi.
+    const t15 = new Date(t0.getTime() + 15 * 60_000);
+    await prisma.join.updateMany({ where: { matchId: match.id, participantUserId: partner }, data: { status: 'rejected', approvedAt: null } });
+    await acceptPartnerInvite(match.id, partner, t15);
+    expect((await prisma.partnerInvite.findFirstOrThrow({ where: { matchId: match.id } })).respondedAt).toEqual(t0);
+    // Hold mở ở phút 15 còn chạy tới phút 25: phút 24 chưa quét.
+    expect(await expireSelfPayPartnerInvites(new Date(t0.getTime() + 24 * 60_000))).toBe(0);
+
+    const t31 = new Date(t0.getTime() + 31 * 60_000);
+    await expect(acceptPartnerInvite(match.id, partner, t31)).rejects.toMatchObject({ code: 'PARTNER_INVITE_EXPIRED' });
+    await expireSelfPayPartnerInvites(t31);
+    expect((await prisma.partnerInvite.findFirstOrThrow({ where: { matchId: match.id } })).status).toBe('declined');
+    await expect(requestJoin(match.id, randomUUID(), 'A', t31)).resolves.toMatchObject({ teamSide: 'A' });
+  });
+
+  it('chưa nhận lời thì không bị hết hạn 30 phút', async () => {
+    const match = await fixture();
+    const t0 = new Date();
+    await invitePartner(match.id, match.organizerUserId, { inviteeUserId: randomUUID(), payMode: 'self' }, t0);
+    await expireSelfPayPartnerInvites(new Date(t0.getTime() + 40 * 60_000));
+    expect((await prisma.partnerInvite.findFirstOrThrow({ where: { matchId: match.id } })).status).toBe('pending');
   });
 });

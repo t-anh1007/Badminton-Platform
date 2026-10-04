@@ -165,6 +165,8 @@ export interface MatchPartnerView {
     id: string;
     payMode: PartnerPayMode;
     sent: boolean;
+    /** Partner tự trả đã nhận lời: hạn cuối để thanh toán (30 phút từ lần nhận lời đầu). */
+    payDeadline: string | null;
     invitee: { displayName: string; avatarUrl: string | null };
   } | null;
   prepaidJoin: { id: string; status: 'approved' | 'reserved' | 'confirmed'; approvedAt: string | null } | null;

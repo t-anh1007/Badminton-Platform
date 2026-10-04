@@ -5,6 +5,7 @@ import { bootstrapRatingEventConsumption } from './lib/ratingEventConsumer.js';
 import { createApp } from './app.js';
 import { HttpVenueBookingClient } from './clients/venueBooking.js';
 import { startJoinExpiryScheduler } from './domain/joins.js';
+import { expireSelfPayPartnerInvites } from './domain/partnerInvites.js';
 import { bootstrapMatchLifecycleEventConsumption } from './lib/matchLifecycleEventConsumer.js';
 import { attachQuickMatchGateway } from './lib/quickMatchGateway.js';
 import { startMatchCutoffScheduler } from './domain/matchLifecycle.js';
@@ -33,6 +34,8 @@ const idle = startWithIdleRelease({
   label: SERVICE_NAME,
   start: async () => [
     startJoinExpiryScheduler(),
+    // Partner tự trả đã nhận lời quá 30 phút chưa thanh toán: coi như từ chối, nhả slot.
+    startJoinExpiryScheduler(60_000, () => expireSelfPayPartnerInvites()),
     startMatchCutoffScheduler(),
     // BR-CM-32: hạn khai/phản đối/sự cố chốt trong vòng 5 phút; sweep idempotent.
     startMatchCutoffScheduler(60_000, sweepResultDeadlines),

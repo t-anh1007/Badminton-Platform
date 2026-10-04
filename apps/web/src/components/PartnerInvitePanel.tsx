@@ -13,6 +13,7 @@ import {
 } from '../lib/matchApi';
 import { createMatchJoinSepayIntent, payMatchJoinBalance, type SepayPayInstruction } from '../lib/financeApi';
 import { formatMoneyVnd } from '../lib/formatters.js';
+import { useServerCountdown } from './MatchResultFlow';
 
 type Props = {
   detail: MatchDetail;
@@ -41,6 +42,7 @@ export function PartnerInvitePanel({ detail, run }: Props) {
       if (players.length === 0) setVia('email');
     }).catch(() => { setRecent([]); setVia('email'); });
   }, [canInvite, recent]);
+  const payLeft = useServerCountdown(undefined, partner?.invite?.payDeadline ?? null, noop);
   if (!partner) return null;
   const { invite, prepaidJoin, actions } = partner;
   const fee = formatMoneyVnd(detail.feePerSlot);
@@ -54,8 +56,11 @@ export function PartnerInvitePanel({ detail, run }: Props) {
           Chủ kèo mời bạn đánh cùng đội.{' '}
           {invite.payMode === 'organizer'
             ? 'Chủ kèo đã trả phần phí của bạn; nhận lời là bạn vào đội ngay.'
-            : `Sau khi nhận lời, bạn có 10 phút để thanh toán ${fee}.`}
+            : invite.payDeadline
+              ? `Bạn đã nhận lời; hãy thanh toán ${fee} trước khi hết giờ, quá hạn lời mời sẽ tự hủy.`
+              : `Sau khi nhận lời, bạn có 30 phút để thanh toán ${fee}.`}
         </p>
+        {payLeft && <p className="mt-2 text-sm font-semibold">Thời gian còn lại để thanh toán: {payLeft}</p>}
         {actions.canRespond && (
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={() => void run(() => acceptPartnerInvite(detail.id), 'Đã nhận lời đánh cặp.')}>Nhận lời</Button>
@@ -99,7 +104,10 @@ export function PartnerInvitePanel({ detail, run }: Props) {
         <p className="mt-2 text-sm text-ink-700">
           {invite.sent ? 'Đang chờ ' : 'Chưa gửi lời mời tới '}
           <span className="font-semibold">{invite.invitee.displayName}</span>
-          {invite.sent ? ' nhận lời. Lời mời có hiệu lực đến hạn chốt kèo.' : ' — hãy thanh toán phần của đồng đội để gửi lời mời.'}
+          {invite.payDeadline
+            ? ' đã nhận lời và đang thanh toán.'
+            : invite.sent ? ' nhận lời. Lời mời có hiệu lực đến hạn chốt kèo.' : ' — hãy thanh toán phần của đồng đội để gửi lời mời.'}
+          {payLeft && <> Còn <span className="font-semibold">{payLeft}</span>, quá hạn chỗ sẽ mở cho mọi người.</>}
         </p>
       ) : prepaidJoin?.status === 'reserved' ? (
         <p className="mt-2 text-sm text-ink-700">Chỗ bạn đã trả cho đồng đội đang trống. Hãy mời người khác, hoặc hủy để nhận lại tiền vào ví.</p>
@@ -171,6 +179,8 @@ export function PartnerInvitePanel({ detail, run }: Props) {
     </SurfaceCard>
   );
 }
+
+const noop = () => {};
 
 type InviteVia = 'recent' | 'email' | 'phone';
 const inviteViaOptions = [

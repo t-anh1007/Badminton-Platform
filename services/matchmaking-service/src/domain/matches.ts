@@ -9,6 +9,7 @@ import { writeOutbox } from '../lib/outbox.js';
 import { prisma } from '../lib/prisma.js';
 import { describeRating } from './rating.js';
 import { JOIN_HOLD_MINUTES, reservedTeamSlots } from './joins.js';
+import { SELF_PAY_ACCEPT_WINDOW_MINUTES } from './partnerInvites.js';
 
 const TIER_ORDER: Record<SkillTier, number> = {
   newcomer: 0,
@@ -447,12 +448,16 @@ export async function getPublicMatchDetail(
   const lockPending = ['open', 'filled'].includes(match.status) && match.cutoffAt > now;
   const inviteeInHold = Boolean(pendingInvite && reservedJoins.some((join) => join.participantUserId === pendingInvite.inviteeUserId
     && !join.payerUserId && join.status === 'approved'));
+  const payDeadline = pendingInvite?.payMode === 'self' && pendingInvite.respondedAt
+    ? new Date(pendingInvite.respondedAt.getTime() + SELF_PAY_ACCEPT_WINDOW_MINUTES * 60_000) : null;
   const slotATaken = reservedJoins.some((join) => join.teamSide === 'A' && !join.payerUserId);
   const partner = match.discipline === 'doubles' && (isOrganizer || isInvitee) ? {
     invite: pendingInvite ? {
       id: pendingInvite.id,
       payMode: pendingInvite.payMode,
       sent: Boolean(pendingInvite.sentAt),
+      // Hạn thanh toán của partner tự trả: 30 phút kể từ lần nhận lời đầu (BR-CM-74).
+      payDeadline: payDeadline?.toISOString() ?? null,
       invitee: await participantIdentity(accountClient, pendingInvite.inviteeUserId),
     } : null,
     prepaidJoin: isOrganizer && prepaidJoin ? { id: prepaidJoin.id, status: prepaidJoin.status, approvedAt: prepaidJoin.approvedAt } : null,
@@ -462,7 +467,7 @@ export async function getPublicMatchDetail(
       canCancel: isOrganizer && lockPending && !inviteeInHold && prepaidJoin?.status !== 'confirmed'
         && Boolean(pendingInvite || prepaidJoin),
       canPayPrepaid: isOrganizer && prepaidJoin?.status === 'approved' && match.cutoffAt > now,
-      canRespond: isInvitee && lockPending && !inviteeInHold,
+      canRespond: isInvitee && lockPending && !inviteeInHold && !(payDeadline && payDeadline <= now),
     },
   } : null;
   return {
