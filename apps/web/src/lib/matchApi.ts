@@ -129,6 +129,8 @@ export interface OwnJoin {
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'> {
   status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed';
   skillConfiguredAt: string | null;
+  /** Chỉ có khi kèo chờ chủ kèo đóng phần góp: hết hạn thì slot nhả, kèo bị hủy. */
+  holdExpiresAt?: string | null;
   organizer: {
     displayName: string;
     avatarUrl: string | null;

@@ -481,6 +481,8 @@ export async function getPublicMatchDetail(
     skillMax: match.skillMax,
     skillConfiguredAt: match.skillConfiguredAt,
     cutoffAt: match.cutoffAt,
+    // Hạn giữ chỗ khi chủ kèo chưa đóng phần góp: quá hạn thì slot nhả và kèo bị hủy.
+    holdExpiresAt: match.status === 'awaiting_deposit' ? context.holdExpiresAt : null,
     startAt: context.startAt,
     endAt: context.endAt,
     court: context.court,
