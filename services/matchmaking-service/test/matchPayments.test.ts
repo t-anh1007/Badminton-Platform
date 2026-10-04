@@ -1,7 +1,7 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import type { MatchBookingResolutionPayload, MatchFeePaymentCompletedPayload } from '@khoaluantn/shared';
-import type { VenueBookingClient, VenueMatchContext } from '../src/clients/venueBooking.js';
+import { VenueBookingRequestError, type VenueBookingClient, type VenueMatchContext } from '../src/clients/venueBooking.js';
 import {
   handleBookingConfirmedForMatch,
   handleMatchFeePaymentCompleted,
@@ -347,6 +347,40 @@ describe('MMP-07/08 — withdrawal and cancellation', () => {
     expect(await prisma.outbox.findFirstOrThrow({
       where: { aggregateId: match.id, eventType: 'MatchCancelled' },
     })).toMatchObject({ payload: expect.objectContaining({ reason: 'cutoff' }) });
+  });
+
+  it('cancels at cutoff when Venue no longer has the booking, so Finance can refund', async () => {
+    const match = await fixture(3);
+    await prisma.match.update({ where: { id: match.id }, data: { cutoffAt: new Date(Date.now() - 1_000) } });
+    const missingBookingClient = new FakeVenueClient();
+    missingBookingClient.resolveMatchBooking = () => Promise.reject(
+      new VenueBookingRequestError('venue-booking match resolution failed with 404', 404, 'BOOKING_NOT_FOUND'),
+    );
+
+    await cancelMatchesAtCutoff(new Date(), missingBookingClient);
+
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'cancelled' });
+    expect(await prisma.matchResolution.findFirstOrThrow({ where: { matchId: match.id, action: 'cancel' } }))
+      .toMatchObject({ decision: 'cancelled' });
+    expect(await prisma.outbox.findFirstOrThrow({
+      where: { aggregateId: match.id, eventType: 'MatchCancelled' },
+    })).toMatchObject({ payload: expect.objectContaining({ reason: 'cutoff', bookingId: match.bookingId }) });
+  });
+
+  it('keeps the match open at cutoff when Venue fails for another reason', async () => {
+    const match = await fixture(3);
+    await prisma.match.update({ where: { id: match.id }, data: { cutoffAt: new Date(Date.now() - 1_000) } });
+    const failingClient = new FakeVenueClient();
+    failingClient.resolveMatchBooking = () => Promise.reject(
+      new VenueBookingRequestError('venue-booking match resolution failed with 500', 500, 'INTERNAL_ERROR'),
+    );
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await cancelMatchesAtCutoff(new Date(), failingClient);
+    consoleError.mockRestore();
+
+    expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id } })).toMatchObject({ status: 'open' });
+    expect(await prisma.outbox.count({ where: { aggregateId: match.id, eventType: 'MatchCancelled' } })).toBe(0);
   });
 
   it('settles a fully paid match at cutoff instead of cancelling it', async () => {

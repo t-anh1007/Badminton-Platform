@@ -3,6 +3,13 @@ import { venueMatchContextSchema, type MatchBookingResolutionPayload, type Venue
 
 export type { VenueMatchContext };
 
+/** Lỗi HTTP từ Venue kèm mã lỗi nghiệp vụ, để caller rẽ nhánh theo `code` thay vì câu chữ. */
+export class VenueBookingRequestError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string) {
+    super(message);
+  }
+}
+
 export interface VenueScheduleConflict {
   bookingId: string;
   startAt: string;
@@ -135,7 +142,11 @@ export class HttpVenueBookingClient implements VenueBookingClient {
         body: JSON.stringify(input),
       },
     );
-    if (!response.ok) throw new Error(`venue-booking match resolution failed with ${response.status}`);
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { error?: { code?: unknown } } | null;
+      const code = typeof body?.error?.code === 'string' ? body.error.code : undefined;
+      throw new VenueBookingRequestError(`venue-booking match resolution failed with ${response.status}`, response.status, code);
+    }
     return z.object({
       commandId: z.string().uuid(), matchId: z.string().uuid(), bookingId: z.string().uuid(),
       attemptId: z.string().uuid().nullable(), action: z.enum(['settle', 'withdraw', 'cancel']),
