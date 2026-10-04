@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { MatchBookingResolutionPayload, MatchCancelledPayload, MatchFeeRefundRequestedPayload } from '@khoaluantn/shared';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
-import { HttpVenueBookingClient } from '../clients/venueBooking.js';
+import { HttpVenueBookingClient, VenueBookingRequestError } from '../clients/venueBooking.js';
 import { AppError } from '../lib/errors.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { writeMatchOutcomeNotifications } from '../lib/notificationOutbox.js';
@@ -266,7 +266,15 @@ async function cancelThroughVenue(
     const result = await venueBookingClient.resolveMatchBooking({
       commandId: resolution.commandId, matchId, attemptId: resolution.attemptId,
       action: 'cancel', venueRevision: resolution.venueRevision,
-    }, match.bookingId);
+    }, match.bookingId).catch((error: unknown): MatchBookingResolutionPayload => {
+      // Venue không còn lượt đặt sân (đã bị dọn): không còn slot nào để nhả, nên coi
+      // như Venue đã hủy. Nếu không, kèo kẹt `open` mãi và Finance không hoàn phần góp.
+      if (!(error instanceof VenueBookingRequestError) || error.code !== 'BOOKING_NOT_FOUND') throw error;
+      return {
+        commandId: resolution.commandId, matchId, bookingId: match.bookingId, attemptId: resolution.attemptId,
+        action: 'cancel', decision: 'cancelled', winningAttemptId: null, venueRevision: resolution.venueRevision,
+      };
+    });
     const applied = await applyMatchBookingResolution(result, now);
     if (result.decision !== 'held_revoked') return { result, applied };
   }
