@@ -43,7 +43,7 @@ describe('Task 22 required in-app + email delivery', () => {
     await handleNotificationRequested(id, payload, sender);
     expect(await prisma.notification.count({ where: { sourceEventId: id } })).toBe(1);
     expect(sender.send).toHaveBeenCalledOnce();
-    expect(sender.send).toHaveBeenCalledWith(player.email, 'Kết quả kèo đã chốt', expect.stringContaining('Khoản giữ cho kết quả'));
+    expect(sender.send).toHaveBeenCalledWith(player.email, 'Kết quả kèo đã chốt', expect.stringContaining('Khoản giữ cho kết quả'), expect.stringContaining('<a href="https://courtin-web.vercel.app/auth?next='));
     expect(await prisma.notification.findFirstOrThrow({ where: { sourceEventId: id } })).toMatchObject({ emailSentAt: expect.any(Date) });
   });
 
@@ -73,14 +73,14 @@ describe('Task 22 required in-app + email delivery', () => {
     const working = { send: vi.fn().mockResolvedValue(undefined) };
     // Chưa đủ giãn cách thì chưa gửi lại.
     await retryPendingRequiredEmails(working, new Date(stored.emailLastAttemptAt!.getTime() + 1_000));
-    expect(working.send).not.toHaveBeenCalledWith(player.email, expect.anything(), expect.anything());
+    expect(working.send).not.toHaveBeenCalledWith(player.email, expect.anything(), expect.anything(), expect.anything());
     await retryPendingRequiredEmails(working, new Date(stored.emailLastAttemptAt!.getTime() + REQUIRED_EMAIL_RETRY_DELAY_MS));
-    expect(working.send).toHaveBeenCalledWith(player.email, 'Kết quả kèo đã chốt', expect.any(String));
+    expect(working.send).toHaveBeenCalledWith(player.email, 'Kết quả kèo đã chốt', expect.any(String), expect.any(String));
     expect(await prisma.notification.findUniqueOrThrow({ where: { id: stored.id } })).toMatchObject({ emailSentAt: expect.any(Date) });
     // Đã gửi thì lượt quét sau không gửi trùng.
     working.send.mockClear();
     await retryPendingRequiredEmails(working, new Date(Date.now() + 60 * 60_000));
-    expect(working.send).not.toHaveBeenCalledWith(player.email, expect.anything(), expect.anything());
+    expect(working.send).not.toHaveBeenCalledWith(player.email, expect.anything(), expect.anything(), expect.anything());
   });
 
   it('emails every admin for role recipients and sends nothing when email is not required', async () => {

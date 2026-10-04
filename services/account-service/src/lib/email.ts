@@ -3,7 +3,8 @@ import { OAuth2Client } from 'google-auth-library';
 
 /** Cổng gửi email — ưu tiên Gmail API qua HTTPS, giữ SMTP cho local/fallback. */
 export interface EmailSender {
-  send(to: string, subject: string, body: string): Promise<void>;
+  /** `html` tùy chọn: có thì gửi multipart (text + HTML), không thì chỉ text. */
+  send(to: string, subject: string, body: string, html?: string): Promise<void>;
 }
 
 export interface EmailConfig {
@@ -44,17 +45,20 @@ export function createEmailSender(
   const from = config.from ?? config.smtpUser ?? 'noreply@courtin.local';
   if (gmailAccessToken) {
     return {
-      async send(to, subject, body) {
-        const raw = Buffer.from([
-          `From: ${from}`,
-          `To: ${to}`,
-          `Subject: ${encodeHeader(subject)}`,
-          'MIME-Version: 1.0',
-          'Content-Type: text/plain; charset=UTF-8',
-          'Content-Transfer-Encoding: 8bit',
-          '',
-          body,
-        ].join('\r\n'), 'utf8').toString('base64url');
+      async send(to, subject, body, html) {
+        const headers = [`From: ${from}`, `To: ${to}`, `Subject: ${encodeHeader(subject)}`, 'MIME-Version: 1.0'];
+        const boundary = `courtin-${Date.now().toString(36)}`;
+        const raw = Buffer.from((html
+          ? [
+            ...headers,
+            `Content-Type: multipart/alternative; boundary="${boundary}"`,
+            '',
+            `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', '', body,
+            `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', '', html,
+            `--${boundary}--`,
+          ]
+          : [...headers, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', '', body]
+        ).join('\r\n'), 'utf8').toString('base64url');
         const response = await request('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
           method: 'POST',
           headers: {
@@ -85,13 +89,13 @@ export function createEmailSender(
   }
 
   return {
-    async send(to, subject, body) {
+    async send(to, subject, body, html) {
       if (!transporter) {
         // eslint-disable-next-line no-console
         console.log(`[email:dev-stub] to=${to} subject="${subject}"\n${body}`);
         return;
       }
-      await transporter.sendMail({ from, to, subject, text: body });
+      await transporter.sendMail({ from, to, subject, text: body, ...(html ? { html } : {}) });
     },
   };
 }

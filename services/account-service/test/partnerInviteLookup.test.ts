@@ -58,6 +58,6 @@ describe('BR-CM-81 email lời mời có link về kèo', () => {
       entityType: 'match', entityId: matchId, actionKind: 'match.view', actionExpiresAt: null, emailPolicy: 'required',
     }, sender);
     expect(sender.send).toHaveBeenCalledWith(user.email, 'Bạn được mời đánh cặp',
-      expect.stringContaining(`/auth?next=${encodeURIComponent(`/matches/${matchId}`)}`));
+      expect.stringContaining(`https://courtin-web.vercel.app/auth?next=${encodeURIComponent(`/matches/${matchId}`)}`), expect.stringContaining("Mở kèo"));
   });
 });

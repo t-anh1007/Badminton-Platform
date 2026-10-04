@@ -3,6 +3,7 @@ import { AppError } from '../lib/errors.js';
 import { emailSender } from '../lib/email.js';
 import { getResendState, incrementResendCounter } from '../lib/redis.js';
 import { writeOutbox } from '../lib/outbox.js';
+import { codeEmail } from '../lib/emailTemplate.js';
 
 // BR-ACC-05
 export const VERIFICATION_TTL_MIN = 15;
@@ -92,7 +93,11 @@ export async function resendVerificationCode(email: string): Promise<void> {
   await incrementResendCounter(user.id);
 
   try {
-    await emailSender.send(normalizedEmail, 'Mã xác minh tài khoản (gửi lại)', `Mã xác minh mới: ${code}`);
+    const mail = codeEmail({
+      heading: 'Mã xác minh mới', intro: 'Bạn vừa yêu cầu gửi lại mã xác minh tài khoản Courtin. Mã cũ không còn dùng được.',
+      code, ttlMinutes: VERIFICATION_TTL_MIN, path: '/verify-email', actionLabel: 'Mở trang xác minh',
+    });
+    await emailSender.send(normalizedEmail, 'Mã xác minh tài khoản (gửi lại)', mail.text, mail.html);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[verification-resend] Email send failed:', err instanceof Error ? err.message : err);

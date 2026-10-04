@@ -5,6 +5,7 @@ import { AppError } from '../lib/errors.js';
 import { emailSender } from '../lib/email.js';
 import { revokeAllRefreshTokens, revokeOtherRefreshTokens } from '../lib/redis.js';
 import { verifyRefreshToken } from '../lib/jwt.js';
+import { codeEmail } from '../lib/emailTemplate.js';
 
 const RESET_CODE_TTL_MIN = 5;
 function generateResetCode(): string { return randomInt(0, 1_000_000).toString().padStart(6, '0'); }
@@ -34,11 +35,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
   });
 
   try {
-    await emailSender.send(
-      normalizedEmail,
-      'Mã đặt lại mật khẩu',
-      `Mã đặt lại mật khẩu của bạn là: ${code}\n\nMã có hiệu lực trong ${RESET_CODE_TTL_MIN} phút.`,
-    );
+    const mail = codeEmail({
+      heading: 'Đặt lại mật khẩu', intro: 'Bạn vừa yêu cầu đặt lại mật khẩu tài khoản Courtin. Nhập mã dưới đây để tạo mật khẩu mới.',
+      code, ttlMinutes: RESET_CODE_TTL_MIN, path: '/reset-password', actionLabel: 'Mở trang đặt lại mật khẩu',
+    });
+    await emailSender.send(normalizedEmail, 'Mã đặt lại mật khẩu', mail.text, mail.html);
   } catch (err) {
     // Không tiết lộ email có tồn tại qua response, nhưng phải giữ bằng chứng
     // vận hành để lỗi nhà cung cấp email không bị biến thành thành công giả.

@@ -64,7 +64,7 @@ async function sendInvite(tx: Tx, invite: Pick<PartnerInvite, 'inviteeUserId' | 
   await notify(tx, invite.inviteeUserId, matchId, 'match.partner_invited', 'Bạn được mời đánh cặp',
     invite.payMode === 'organizer'
       ? 'Chủ kèo mời bạn đánh cùng đội và đã trả phần phí của bạn. Mở kèo để nhận lời hoặc từ chối.'
-      : 'Chủ kèo mời bạn đánh cùng đội. Mở kèo để nhận lời và thanh toán phần phí, hoặc từ chối.', true, true);
+      : 'Chủ kèo mời bạn đánh cùng đội. Mở kèo để nhận lời hoặc từ chối; nếu kèo có phí, sau khi nhận lời bạn có 30 phút để thanh toán, quá hạn lời mời sẽ tự hủy.', true, true);
 }
 
 async function emitBeneficiary(tx: Tx, join: Pick<Join, 'id' | 'matchId'>, beneficiaryUserId: string | null, now: Date) {
