@@ -19,10 +19,11 @@ app.listen(env.port, () => {
   console.log(`[${SERVICE_NAME}] listening on :${env.port}`);
 });
 
-// Finance consumes durable monetary events such as BookingCancelled. Unlike an
-// HTTP request, a RabbitMQ delivery cannot wake a released Railway service, so
-// its consumer must remain active; otherwise wallet refunds remain queued until
-// a later finance request arrives.
+// Finance consumes durable monetary events such as BookingCancelled. A RabbitMQ
+// delivery cannot wake a released/sleeping Railway service, so every publisher's
+// outbox relay pings finance /health via EVENT_WAKE_URLS right after publishing;
+// on wake the consumer drains the durable queue. Staying awake 24/7 instead kept
+// finance + Postgres + RabbitMQ billed around the clock.
 startWithIdleRelease({
   label: SERVICE_NAME,
   start: async () => [
@@ -40,5 +41,4 @@ startWithIdleRelease({
     await bootstrapFinanceRealtimeConsumer(financeRealtimeHub),
   ],
   onRelease: () => prisma.$disconnect(),
-  idleMs: 0,
 });

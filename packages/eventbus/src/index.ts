@@ -2,6 +2,7 @@
 // Không phụ thuộc Prisma trực tiếp (mỗi service tự truyền vào fetch/mark) để
 // giữ eventbus là hạ tầng thuần, không chạm entity của service nào (ADR 0004).
 import amqp, { type Channel, type ChannelModel } from 'amqplib';
+import { releaseAccountLockClient } from './accountLock.js';
 
 /** Bao sự kiện tối thiểu cho Outbox Pattern. */
 export interface DomainEvent<TPayload = unknown> {
@@ -96,7 +97,10 @@ export function startOutboxRelay(options: OutboxRelayOptions): () => void {
         const ok = publishEvent(channel, row.eventType, row.payload, { messageId: row.id });
         if (ok) publishedIds.push(row.id);
       }
-      if (publishedIds.length > 0) await markPublished(publishedIds);
+      if (publishedIds.length > 0) {
+        await markPublished(publishedIds);
+        wakeConsumers();
+      }
     } catch (err) {
       onError?.(err);
     } finally {
@@ -111,6 +115,17 @@ export function startOutboxRelay(options: OutboxRelayOptions): () => void {
     stopped = true;
     clearInterval(timer);
   };
+}
+
+/** Message nằm trong queue KHÔNG đánh thức được consumer đang ngủ trên Railway — chỉ HTTP làm
+ * được. Sau mỗi lần publish, gọi các URL trong EVENT_WAKE_URLS (vd /health của finance) để
+ * consumer thức dậy xử lý queue durable. Lần đầu gọi service đang ngủ có thể trả 502 → thử lại. */
+function wakeConsumers(): void {
+  const urls = (process.env.EVENT_WAKE_URLS ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+  const ping = (url: string) => fetch(url).then((res) => { if (!res.ok) throw new Error(String(res.status)); });
+  for (const url of urls) {
+    void ping(url).catch(() => setTimeout(() => void ping(url).catch(() => undefined), 10_000));
+  }
 }
 
 /** Payload hỏng thì giao lại bao nhiêu lần cũng hỏng — nhận diện để bỏ sớm.
@@ -245,6 +260,7 @@ export function startWithIdleRelease(options: IdleReleaseOptions): IdleReleaseHa
     } catch (err) {
       logError('lỗi khi dọn kết nối:', err);
     }
+    releaseAccountLockClient();
     released = true;
     log(`rảnh ${Math.round(idleMs / 1000)}s — đã buông kết nối nền, chờ Railway ru ngủ`);
   };

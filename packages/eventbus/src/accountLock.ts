@@ -43,6 +43,12 @@ export function watchAccountLock(userId: string, onLocked: () => void, intervalM
   return () => clearInterval(timer);
 }
 
+/** Đóng kết nối Redis khi service buông việc nền: kết nối để ngỏ vẫn phát gói giữ kết nối nên
+ * Railway không bao giờ ru ngủ. Lần kiểm tra kế tiếp tự mở lại (status 'end' → connect()). */
+export function releaseAccountLockClient(): void {
+  if (client && client.status !== 'end') client.disconnect();
+}
+
 /** account-service: gọi sau khi khóa/mở khóa thành công. Lỗi ném ra để nơi gọi quyết định. */
 export async function setAccountLocked(userId: string, locked: boolean): Promise<void> {
   const r = redis();

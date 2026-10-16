@@ -22,7 +22,10 @@ export function createFinanceRealtimeRouter(hub: FinanceRealtimeHub) {
     }, 15_000);
     // Tài khoản bị khóa trong lúc đang mở luồng: cắt ngay.
     const stopLockWatch = watchAccountLock(userId, () => res.end());
+    // Giới hạn 10 phút như luồng thông báo ở account-service: client thật tự nối lại.
+    const maxLifetime = setTimeout(() => res.end(), 10 * 60_000);
     req.on('close', () => {
+      clearTimeout(maxLifetime);
       clearInterval(heartbeat);
       stopLockWatch();
       unsubscribe();
