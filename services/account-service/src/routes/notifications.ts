@@ -69,5 +69,8 @@ notificationsRouter.get('/stream', requireAuth, (req, res) => {
   const unsubscribe = subscribeNotificationSignals(userId, res);
   // Tài khoản bị khóa trong lúc đang mở luồng: cắt ngay.
   const stopLockWatch = watchAccountLock(userId, () => res.end());
-  req.on('close', () => { stopLockWatch(); unsubscribe(); });
+  // Luồng sống tối đa 10 phút: client thật tự kết nối lại, còn luồng mồ côi (client đã đi mà
+  // kết nối vẫn treo) không giữ heartbeat mãi khiến gateway + service không bao giờ ngủ.
+  const maxLifetime = setTimeout(() => res.end(), 10 * 60_000);
+  req.on('close', () => { clearTimeout(maxLifetime); stopLockWatch(); unsubscribe(); });
 });
