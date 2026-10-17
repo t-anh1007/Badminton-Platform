@@ -605,7 +605,7 @@ test('7. Ảnh bằng chứng qua giao diện -> người ngoài không đọc �
 
   // AC-CM-35: dữ liệu công khai không chứa tiền góp, tiền hoàn, ngân hàng hay bằng chứng.
   const publicDetail = await (await fetch(`${API}/matchmaking/matches/${matchId}`)).text();
-  const board = await (await fetch(`${API}/matchmaking/competition/leaderboards?discipline=singles&band=under_1600`)).text();
+  const board = await (await fetch(`${API}/matchmaking/competition/leaderboards?discipline=singles&band=amateur`)).text();
   const programs = await (await fetch(`${API}/matchmaking/rewards/programs`)).text();
   for (const body of [publicDetail, board, programs]) {
     expect(body).not.toMatch(/contribution|refund|bankAccount|evidence|objectKey|ratingRd/i);
@@ -638,7 +638,7 @@ async function seedProgramAwaitingApproval(admin: User, wins: Array<[User, numbe
   if (!season) return null;
   const startAt = new Date(Date.now() + 10 * 60_000);
   const createdProgram = await api<{ program: { id: string } }>('POST', '/matchmaking/rewards/admin/programs', admin.id, ['admin'], {
-    name: `Top đánh đôi E2E ${randomUUID().slice(0, 4)}`, seasonId: season.id, criterion: 'most_wins', discipline: 'doubles', band: 'under_1600',
+    name: `Top đánh đôi E2E ${randomUUID().slice(0, 4)}`, seasonId: season.id, criterion: 'most_wins', discipline: 'doubles', band: 'amateur',
     scope: 'global', startAt: startAt.toISOString(), endAt: new Date(startAt.getTime() + HOUR).toISOString(),
     tiers: [{ rank: 1, amount: '300000' }, { rank: 2, amount: '100000' }, { rank: 3, amount: '50000' }],
   });

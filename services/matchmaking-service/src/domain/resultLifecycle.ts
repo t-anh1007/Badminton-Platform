@@ -475,7 +475,7 @@ export async function previewAdminDecision(
       amount: (allocations.get(userId) ?? 0n).toString(),
       withdrawable: true as const,
     }))),
-    ratingEffect: match.mode === 'ranked' && input.outcome !== 'NO_RESULT' ? 'apply_ranked_result' as const : 'no_change' as const,
+    ratingEffect: input.outcome !== 'NO_RESULT' ?'apply_ranked_result' as const : 'no_change' as const,
     bookingRevenueEffect: 'no_change' as const,
   };
 }

@@ -197,14 +197,14 @@ Mỗi thao tác bắt buộc lý do. Đối soát xong hết thì: **tổng ti�
 
 ---
 
-## 9. Chuỗi ĐIỂM XẾP HẠNG & GIẢI THƯỞNG (⚙️ ↔ 🧑 ↔ 🛡️)
+## 9. Chuỗi ĐIỂM KINH NGHIỆM, BẢNG XẾP HẠNG & GIẢI THƯỞNG (⚙️ ↔ 🧑 ↔ 🛡️)
 
 1. 🧑 Tự khai trình độ **1 lần** (5 bậc: Mới chơi / Yếu / TB / TB+ / Bán chuyên), tách đơn/đôi.
    Muốn sửa → gửi **ticket** → 🛡️ duyệt → ⚙️ chỉnh điểm (chưa có trận: về mức bậc mới; đã có trận: tối đa ±50), có ghi vết.
-2. ⚙️ Chỉ **kèo xếp hạng đã chốt, có đội thắng** mới đổi điểm (Glicko-2). Tiền/tỷ lệ ký quỹ **không ảnh hưởng** điểm.
+2. ⚙️ **Kèo đã chốt, có đội thắng** (xếp hạng hoặc giao hữu) mới đổi điểm kinh nghiệm (Glicko-2). Tiền/tỷ lệ ký quỹ **không ảnh hưởng** điểm.
    Cùng đối thủ: chỉ **1 trận/7 ngày** được tính (vẫn chia tiền bình thường).
-3. 🛡️ Tạo **kỳ xếp hạng** (không chồng nhau). Sang kỳ mới ⚙️ giữ điểm, reset số trận/chuỗi thắng.
-4. ⚙️ Lên bảng xếp hạng khi **≥5 trận xếp hạng trong kỳ** + điểm đủ ổn định. Bảng tách đơn/đôi, toàn quốc/tỉnh, dưới/trên 1600.
+3. 🛡️ Tạo **mùa giải** (không chồng nhau). Sang mùa mới ⚙️ giữ điểm kinh nghiệm, reset điểm BXH, hạng đấu, số trận/chuỗi thắng.
+4. ⚙️ Lên bảng xếp hạng khi **≥5 trận xếp hạng trong mùa** + độ tin cậy từ Vừa trở lên. Bảng tách đơn/đôi, toàn quốc/tỉnh và hai hạng đấu: **Không chuyên** (Yếu, TB) / **Chuyên** (TB+, Bán chuyên), khóa ở trận xếp hạng đầu tiên của mùa. Xếp theo **điểm BXH** (Elo K=40, sàn 0, reset mỗi mùa), tách khỏi điểm kinh nghiệm. Mới chơi (<1200) chỉ chơi giao hữu; giao hữu cũng cộng/trừ điểm kinh nghiệm.
 5. 🛡️ Tạo **chương trình thưởng** (thuộc 1 kỳ, chọn tiêu chí) → công bố (sau đó **không giảm tiền, không đổi tiêu chí**).
 6. Hết chương trình → ⚙️ chờ các kèo còn tranh chấp chốt xong ("Đang đối soát kết quả") → tự tính bảng → 🛡️ **duyệt danh sách** (không sửa điểm).
 7. 🧑 Người đạt giải có **7 ngày** bổ sung thông tin nhận thưởng (quá hạn → mất giải, không chuyển xuống hạng sau).

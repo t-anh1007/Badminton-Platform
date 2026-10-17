@@ -77,7 +77,7 @@ export function adminReviewNotification(matchId: string, caseId: string, kind: s
 export async function openResultDispute(tx: Tx, resultCase: MatchResultCase, match: Match, rosterUserIds: string[], now: Date) {
   const providerEligible = match.providerUserId !== null && !rosterUserIds.includes(match.providerUserId);
   await notifyRoster(tx, match, resultCase.id, 'match.result.disputed', 'Kết quả trận đang được xem xét',
-    'Có tranh chấp hoặc sự cố về kết quả. Tiền giữ cho kết quả và điểm xếp hạng tạm khóa tới khi có quyết định.');
+    'Có tranh chấp hoặc sự cố về kết quả. Tiền giữ cho kết quả và điểm kinh nghiệm tạm khóa tới khi có quyết định.');
   await writeResultNotification(tx, providerEligible
     ? {
         recipients: [{ type: 'user', userId: match.providerUserId!, targetRole: 'provider' }],

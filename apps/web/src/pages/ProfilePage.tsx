@@ -223,6 +223,10 @@ export function ProfilePage() {
     period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date(),
   );
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
+  const freeWithdrawLeft = (() => {
+    const left = BigInt(personal?.dailyFreeWithdrawal ?? '1000000') - BigInt(personal?.withdrawnToday ?? '0');
+    return (left > 0n ? left : 0n).toString();
+  })();
   const activePersonalWithdrawal = withdrawals.find((row) => row.status === 'pending' || row.status === 'partially_paid') ?? null;
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
 
@@ -289,7 +293,7 @@ export function ProfilePage() {
                 <p className="courtin-kicker">Ví cá nhân</p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-line">
                   <div><p className="text-sm text-ink-500">Tổng số dư</p><p className="text-figures mt-1 text-2xl font-medium">{money(personal?.available)}</p></div>
-                  <div className="sm:pl-5"><p className="text-sm text-ink-500">Có thể rút</p><p className="text-figures mt-1 text-xl font-medium text-success">{money(personal?.withdrawable)}</p><p className="mt-1 text-xs text-ink-500">Từ hoàn tiền và tiền chuyển dư</p></div>
+                  <div className="sm:pl-5"><p className="text-sm text-ink-500">Hôm nay còn rút miễn phí</p><p className="text-figures mt-1 text-xl font-medium text-success">{money(freeWithdrawLeft)}</p><p className="mt-1 text-xs text-ink-500">Miễn phí 1.000.000đ/ngày, phần vượt chịu phí 1%</p></div>
                 </div>
                 <div className="mt-5 flex gap-2 border-t border-line pt-4"><Button className="flex-1" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền</Button><Button tone="secondary" className="flex-1" onClick={() => setWithdrawOpen(true)}>Rút tiền</Button></div>
               </SurfaceCard>
@@ -339,7 +343,7 @@ export function ProfilePage() {
           )}
         </div>
       </Modal>
-      <PersonalWithdrawalModal open={withdrawOpen} withdrawable={personal?.withdrawable ?? '0'} active={activePersonalWithdrawal} busy={withdrawBusy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />
+      <PersonalWithdrawalModal open={withdrawOpen} available={personal?.available ?? '0'} freeLeft={freeWithdrawLeft} active={activePersonalWithdrawal} busy={withdrawBusy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />
     </main>
   );
 }

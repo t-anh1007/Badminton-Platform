@@ -1,7 +1,7 @@
 import { Prisma, type MatchDiscipline } from '@prisma/client';
 import type { AccountClient } from '../clients/account.js';
 import { prisma } from '../lib/prisma.js';
-import { HIGH_UNCERTAINTY_RD } from './rating.js';
+import { HIGH_UNCERTAINTY_RD, type SeasonDivision } from './rating.js';
 import { findActiveSeason, SEASON_MIN_RESULTS } from './seasons.js';
 
 export interface LeaderboardQuery {
@@ -9,12 +9,13 @@ export interface LeaderboardQuery {
   discipline: MatchDiscipline;
   scope: 'global' | 'province';
   provinceCode?: string;
-  band: 'under_1600' | 'from_1600';
+  /** Hạng đấu: amateur = Không chuyên (Yếu, TB), pro = Chuyên (TB+, Bán chuyên). */
+  band: SeasonDivision;
   page: number;
   pageSize: number;
 }
 
-interface RankedRow { rank: bigint; userId: string; provinceCode: string | null; rating: number; matchesPlayed: number; wins: number }
+interface RankedRow { rank: bigint; userId: string; provinceCode: string | null; points: number; matchesPlayed: number; wins: number }
 
 /** Tên công khai theo D31: hồ sơ ẩn danh hiển thị nhãn trung tính. */
 export async function identities(accountClient: AccountClient, userIds: string[]) {
@@ -27,17 +28,14 @@ export async function identities(accountClient: AccountClient, userIds: string[]
 }
 
 /**
- * BR-CM-57..60: chỉ người đủ điều kiện (>= 5 kết quả trong kỳ, RD < 200; bảng tỉnh cần thêm 5 trận
- * thuộc tỉnh chính) theo nhóm rating hiện tại, nên vượt 1600 là chuyển bảng ngay. Đồng hạng khi
- * rating cắt phần lẻ bằng nhau (cắt xuống để 1599,6 không hiện thành 1.600 ở bảng dưới 1600). Đọc thẳng season_stats/passports, không cache.
+ * BR-CM-57..60: chỉ người đủ điều kiện (>= 5 kết quả trong mùa, độ tin cậy Vừa/Cao tức RD < 200; bảng tỉnh cần
+ * thêm 5 trận thuộc tỉnh chính) trong hạng đấu đã khóa ở trận xếp hạng đầu tiên của mùa — vượt mốc giữa mùa
+ * không chuyển hạng. Xếp theo điểm BXH mùa, bằng điểm thì ai thắng nhiều hơn xếp trên. Đọc thẳng, không cache.
  */
 export type BoardKey = Pick<LeaderboardQuery, 'discipline' | 'scope' | 'provinceCode' | 'band'> & { seasonId: string };
 
 /** CTE `ranked` của một bảng; dùng chung cho API BXH và trao huy hiệu khi đóng kỳ. */
 export function rankedBoardSql(key: BoardKey) {
-  const band = key.band === 'under_1600'
-    ? Prisma.sql`COALESCE(s."finalRating", p."ratingMu") < 1600`
-    : Prisma.sql`COALESCE(s."finalRating", p."ratingMu") >= 1600`;
   const scope = key.scope === 'province'
     ? Prisma.sql`AND r."provinceCode" = ${key.provinceCode} AND s."provinceMatches" >= ${SEASON_MIN_RESULTS}`
     : Prisma.empty;
@@ -45,13 +43,14 @@ export function rankedBoardSql(key: BoardKey) {
   const query = key;
   return Prisma.sql`
     WITH ranked AS (
-      SELECT s."userId", r."provinceCode", FLOOR(COALESCE(s."finalRating", p."ratingMu"))::int AS rating, s."matchesPlayed", s.wins,
-             RANK() OVER (ORDER BY FLOOR(COALESCE(s."finalRating", p."ratingMu")) DESC) AS rank
+      SELECT s."userId", r."provinceCode", s.points, s."matchesPlayed", s.wins,
+             RANK() OVER (ORDER BY s.points DESC, s.wins DESC) AS rank
       FROM season_stats s
       JOIN passports p ON p."userId" = s."userId" AND p.discipline = s.discipline
       LEFT JOIN player_season_profiles r ON r."seasonId" = s."seasonId" AND r."userId" = s."userId"
       WHERE s."seasonId" = ${seasonId} AND s.discipline = ${query.discipline}::"MatchDiscipline"
-        AND s."matchesPlayed" >= ${SEASON_MIN_RESULTS} AND COALESCE(s."finalRd", p."ratingRd") < ${HIGH_UNCERTAINTY_RD} AND ${band} ${scope}
+        AND s."matchesPlayed" >= ${SEASON_MIN_RESULTS} AND COALESCE(s."finalRd", p."ratingRd") < ${HIGH_UNCERTAINTY_RD}
+        AND s.division = ${key.band}::"SeasonDivision" ${scope}
     )`;
 }
 
@@ -69,7 +68,7 @@ export async function getLeaderboard(accountClient: AccountClient, query: Leader
   // Danh sách trường công khai (BR-CM-61): không có RD, sigma, tiền hay bằng chứng.
   const view = (row: RankedRow) => ({
     rank: Number(row.rank), userId: row.userId, ...identity(row.userId), provinceCode: row.provinceCode,
-    rating: row.rating, matchesPlayed: row.matchesPlayed, wins: row.wins,
+    points: row.points, matchesPlayed: row.matchesPlayed, wins: row.wins,
   });
   return {
     items: rows.map(view), viewer: viewerRows[0] ? view(viewerRows[0]) : null,

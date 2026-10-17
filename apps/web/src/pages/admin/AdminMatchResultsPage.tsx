@@ -169,7 +169,7 @@ function AdminCase({ caseId, onDecided }: { caseId: string; onDecided: () => voi
                       <dd className="text-right"><span className="text-figures font-bold">{formatMoneyVnd(row.amount)}</span>{BigInt(row.amount) > 0n && <> <Badge tone="success">Có thể rút</Badge></>}</dd>
                     </div>
                   ))}
-                  <div className="flex justify-between py-2"><dt>Điểm xếp hạng</dt><dd className="font-semibold">{preview.ratingEffect === 'apply_ranked_result' ? 'Cập nhật theo kết quả' : 'Không thay đổi'}</dd></div>
+                  <div className="flex justify-between py-2"><dt>Điểm kinh nghiệm</dt><dd className="font-semibold">{preview.ratingEffect === 'apply_ranked_result' ? 'Cập nhật theo kết quả' : 'Không thay đổi'}</dd></div>
                   <div className="flex justify-between py-2"><dt>Doanh thu booking</dt><dd className="font-semibold">Không thay đổi</dd></div>
                 </dl>
               )}

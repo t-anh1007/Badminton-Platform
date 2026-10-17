@@ -53,10 +53,11 @@ const evidenceForRead = async (resolveStorage: () => ObjectStorageClient, eviden
     .map((item) => /^https?:\/\//i.test(item) ? item : resolveStorage().getReadUrl(item, { visibility: 'private' })),
 );
 
-const serializeWithdrawal = (row: { amount: bigint; paidAmount: bigint | null } & Record<string, unknown>) => ({
+const serializeWithdrawal = (row: { amount: bigint; paidAmount: bigint | null; fee?: bigint } & Record<string, unknown>) => ({
   ...row,
   amount: row.amount.toString(),
   paidAmount: row.paidAmount?.toString() ?? '0',
+  fee: (row.fee ?? 0n).toString(),
 });
 
 export function createFinanceOperationsRouter(resolveStorage: () => ObjectStorageClient = createObjectStorageClientFromEnv) {

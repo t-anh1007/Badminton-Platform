@@ -6,7 +6,7 @@ import type { MatchDetail, MatchParticipant, SkillTier, TeamSide } from '../lib/
 const tierLabels: Record<SkillTier, string> = {
   newcomer: 'Mới chơi', beginner: 'Yếu', intermediate: 'Trung bình', intermediate_plus: 'Trung bình khá', advanced: 'Bán chuyên',
 };
-export const modeLabel = (detail: MatchDetail) => (detail.mode === 'ranked' ? 'Kèo xếp hạng' : 'Kèo giao lưu');
+export const modeLabel = (detail: MatchDetail) => (detail.mode === 'ranked' ? 'Kèo xếp hạng' : 'Kèo giao hữu');
 export const disciplineLabel = (detail: MatchDetail) => (detail.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn');
 
 /** Trạng thái nghiệp vụ theo thứ tự; chỉ là cách hiển thị trạng thái backend trả về. */
@@ -84,7 +84,7 @@ export function LockedConfig({ detail }: { detail: MatchDetail }) {
       <h2 className="text-h3">Thông tin đã khóa</h2>
       <p className="text-sm text-ink-500">Cấu hình không thể thay đổi sau khi công bố.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Field label="Chế độ" value={detail.mode === 'ranked' ? 'Xếp hạng' : 'Giao lưu'} />
+        <Field label="Chế độ" value={detail.mode === 'ranked' ? 'Xếp hạng' : 'Giao hữu'} />
         <Field label="Hình thức" value={disciplineLabel(detail)} />
         <Field label="Tỷ lệ thua : thắng" value={(detail.ratio ?? '5:5').replace(':', ' : ')} />
         <Field label="Trình độ" value={`${detail.skillMin ? tierLabels[detail.skillMin] : 'Mọi bậc'} - ${detail.skillMax ? tierLabels[detail.skillMax] : 'Mọi bậc'}`} />

@@ -124,7 +124,10 @@ describe('Task 17 global season calendar', () => {
     const ranked = await joinable('ranked');
     // Chưa khai trình độ loại hình thì không vào được kèo xếp hạng (không có rating để tính).
     await expect(requestJoin(ranked.id, player, 'B', now)).rejects.toMatchObject({ code: 'PASSPORT_REQUIRED' });
-    await prisma.passport.create({ data: { userId: player, discipline: 'singles', declaredTier: 'intermediate', ratingMu: 1500, ratingRd: 350, ratingSigma: 0.06, declaredAt: now } });
+    // D59: Mới chơi (< 1200 điểm kinh nghiệm) chỉ chơi giao hữu, không vào kèo xếp hạng.
+    await prisma.passport.create({ data: { userId: player, discipline: 'singles', declaredTier: 'newcomer', ratingMu: 1199, ratingRd: 350, ratingSigma: 0.06, declaredAt: now } });
+    await expect(requestJoin(ranked.id, player, 'B', now)).rejects.toMatchObject({ code: 'NEWCOMER_RANKED_BLOCKED' });
+    await prisma.passport.update({ where: { userId_discipline: { userId: player, discipline: 'singles' } }, data: { declaredTier: 'intermediate', ratingMu: 1500 } });
     await expect(requestJoin(ranked.id, player, 'B', now)).rejects.toMatchObject({ code: 'SEASON_REGION_REQUIRED' });
     await expect(requestJoin((await joinable('friendly')).id, player, 'B', now)).resolves.toMatchObject({ participantUserId: player });
     await selectSeasonRegion(player, 'ha-noi', now);

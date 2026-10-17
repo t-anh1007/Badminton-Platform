@@ -146,10 +146,12 @@ export interface WalletRow {
   id: string;
   walletType: string;
   available: string;
-  withdrawable: string;
   pending: string;
   reserved: string;
   currency: string;
+  /** Chỉ ví người chơi: hạn mức rút miễn phí/ngày và số đã rút hôm nay (gồm phí). */
+  dailyFreeWithdrawal?: string;
+  withdrawnToday?: string;
 }
 export interface WalletLedgerEntry {
   id: string;

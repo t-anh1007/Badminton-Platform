@@ -27,7 +27,7 @@ Ranh giới dòng tiền theo [ADR 0003](../../decisions/0003-multi-role-dual-wa
 
 | Ví | Nhận | Chi | Phân vùng |
 |---|---|---|---|
-| `personal` | `topup`, `refund` | `payment`, `payout` chỉ từ phần đủ điều kiện D52 | `available`, tập con `withdrawable`, và `reserved` khi chờ rút |
+| `personal` | `topup`, `refund` | `payment`, `payout` từ toàn bộ số dư (D59; miễn phí 1.000.000đ/ngày, vượt chịu phí 1%) | `available`, và `reserved` khi chờ rút |
 | `business` | `release` (doanh thu ròng sau hoa hồng) | `payout` | `pending` → `available` → `reserved` |
 | `platform` | `commission` | bút toán đảo hoa hồng khi hoàn | Một số dư duy nhất |
 
@@ -58,7 +58,8 @@ toán ledger; chỉ khi tiền thật rời hệ thống mới ghi `payout`. Xem
 | BR-FIN-19 | **Không hoàn tác một khoản đã chi thật.** Yêu cầu rút chỉ chuyển sang `rejected` khi **chưa có bút toán `payout` nào** gắn với nó. Nếu tiền đã rời ngân hàng dù chỉ một phần, yêu cầu bắt buộc đi tiếp qua `partially_paid` rồi `paid`; phần chưa chi ở `reserved` được trả về `available`, còn phần đã chi không bao giờ được hoàn về ví. Vi phạm quy tắc này khiến chủ sân vừa giữ tiền ngoài ngân hàng vừa lấy lại số dư trong hệ thống. |
 | BR-FIN-18 | **Bảo toàn ở mức hệ thống.** Tổng tiền vào trừ tổng tiền ra theo `SEPAY_EVENT`, sau khi loại các sự kiện `out_of_scope`, luôn bằng tổng số dư của toàn bộ ví: mọi ví `personal`, mọi ví `business` cộng cả ba phân vùng, và ví `platform`. Đây là phép kiểm tra duy nhất chứng minh hệ thống không tạo ra hay đánh mất tiền. |
 | BR-FIN-16 | **Ví `business` có ba phân vùng: `pending`, `available`, `reserved`.** Các chuyển dịch hợp lệ là: `pending → available` (hết cửa sổ 24 giờ, không tranh chấp); `available → reserved` (tạo yêu cầu rút); `reserved → available` (hủy hoặc từ chối yêu cầu rút, hoặc trả lại phần dư sau chi một phần); `reserved → rời hệ thống` (chi thành công, ghi `payout`). Không có chuyển dịch nào khác. Ba chuyển dịch đầu là phân vùng nội bộ, **không sinh bút toán ledger** vì tổng tài sản không đổi; chỉ khi tiền thật rời hệ thống mới ghi `payout`. |
-| BR-FIN-20 | **Rút ví cá nhân theo nguồn sau D52.** `withdrawable` là tập con của `personal.available`, khởi tạo 0 cho mọi dữ liệu cũ; chỉ refund và phần chuyển dư phát sinh sau D52 làm tăng. Topup chủ động không tăng. Thanh toán dùng phần không đủ điều kiện trước, phần thiếu mới giảm `withdrawable`. Tạo yêu cầu rút giảm đồng thời `available` và `withdrawable`, tăng `reserved`; hủy/từ chối đảo đúng ba giá trị; payout chỉ giảm `reserved`. |
+| BR-FIN-20 | **[Thay bởi D59 — xem BR-FIN-21]** **Rút ví cá nhân theo nguồn sau D52.** `withdrawable` là tập con của `personal.available`, khởi tạo 0 cho mọi dữ liệu cũ; chỉ refund và phần chuyển dư phát sinh sau D52 làm tăng. Topup chủ động không tăng. Thanh toán dùng phần không đủ điều kiện trước, phần thiếu mới giảm `withdrawable`. Tạo yêu cầu rút giảm đồng thời `available` và `withdrawable`, tăng `reserved`; hủy/từ chối đảo đúng ba giá trị; payout chỉ giảm `reserved`. |
+| BR-FIN-21 | **Một ví số dư người chơi, hạn mức rút theo ngày (D59).** Rút từ toàn bộ `personal.available`, không còn tập con `withdrawable`. Mỗi ngày (00:00 giờ Việt Nam) miễn phí tới 1.000.000đ tính trên tổng số trừ khỏi ví của các yêu cầu không bị hủy/từ chối; phần vượt chịu phí 1% (làm tròn tới đồng), **trừ vào số tiền nhận**. Lúc tạo yêu cầu: ví trừ đủ số yêu cầu, phí ghi `commission` sang ví nền tảng, `amount` = số thực chuyển, `fee` lưu trên yêu cầu. Hủy/từ chối hoàn cả phí. Ví doanh thu (`business`) của chủ sân giữ nguyên quy tắc cũ và tách khỏi ví người chơi của cùng người. |
 
 ## 3. Trạng thái
 
@@ -404,9 +405,12 @@ ví `business` **đã có sẵn** `200k × (1 − r)`. Với `r = 10%` thì đó
 - `AC-FIN-10-4` — **Given** một yêu cầu `pending` 600k, **When** chủ sân hủy nó, **Then** `reserved` về 0 và `available` trở lại 1.000k.
 - `AC-FIN-10-5` — **Given** người dùng chỉ có vai `player`, **When** gọi API yêu cầu rút, **Then** hệ thống từ chối vì không có ví kinh doanh.
 - `AC-FIN-10-6` — **Given** ví `business` có `available` 1.000k, **When** hai yêu cầu rút 600k được gửi **đồng thời**, **Then** đúng một yêu cầu được tạo, `reserved` bằng đúng 600k, và tổng `available + reserved` vẫn là 1.000k.
-- `AC-FIN-10-7` — **Given** ví personal có `available=140k`, `withdrawable=120k`, **When** player rút 100k, **Then** `available=40k`, `withdrawable=20k`, `reserved=100k`, và request mang `walletType=personal`.
-- `AC-FIN-10-8` — **Given** số dư personal đến từ topup chủ động, **When** player yêu cầu rút, **Then** hệ thống từ chối dù `available` đủ vì `withdrawable` không đủ.
-- `AC-FIN-10-9` — **Given** request personal còn pending, **When** player hủy hoặc Admin từ chối, **Then** phần còn lại trở lại đồng thời `available` và `withdrawable`; dữ liệu trước D52 không tự được phân loại lại.
+- `AC-FIN-10-7` — **[Thay bởi D59 / AC-FIN-10-10..12]** **Given** ví personal có `available=140k`, `withdrawable=120k`, **When** player rút 100k, **Then** `available=40k`, `withdrawable=20k`, `reserved=100k`, và request mang `walletType=personal`.
+- `AC-FIN-10-8` — **[Thay bởi D59]** **Given** số dư personal đến từ topup chủ động, **When** player yêu cầu rút, **Then** hệ thống từ chối dù `available` đủ vì `withdrawable` không đủ.
+- `AC-FIN-10-9` — **[Thay bởi D59]** **Given** request personal còn pending, **When** player hủy hoặc Admin từ chối, **Then** phần còn lại trở lại đồng thời `available` và `withdrawable`; dữ liệu trước D52 không tự được phân loại lại.
+- `AC-FIN-10-10` — **Given** hôm nay (giờ VN) player chưa rút, **When** rút 1.000.000đ, **Then** phí 0, request `amount=1.000.000`, `fee=0`.
+- `AC-FIN-10-11` — **Given** hôm nay đã rút 800.000đ, **When** rút 500.000đ, **Then** phí = 1% × 300.000 = 3.000đ; ví giảm 500.000đ, request `amount=497.000`, `fee=3.000`, ví nền tảng +3.000đ (ledger `commission`, refType `withdrawalFee`).
+- `AC-FIN-10-12` — **Given** request personal có phí còn pending, **When** player hủy hoặc Admin từ chối, **Then** ví nhận lại `amount` và phí được hoàn từ ví nền tảng (ledger `refund`, refType `withdrawalFee`); request đã hủy/từ chối không tính vào hạn mức ngày.
 
 **Tiêu chí kiểm chứng:** kiểm thử tự động 6 AC. `AC-FIN-10-6` là **kiểm thử đồng thời bắt buộc**, chứng minh hai yêu cầu không thể cùng chiếm một khoản tiền.
 

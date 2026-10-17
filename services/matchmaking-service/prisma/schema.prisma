@@ -420,6 +420,12 @@ model PlayerSeasonProfile {
   @@map("player_season_profiles")
 }
 
+/// Không chuyên = Yếu, TB; Chuyên = TB+, Bán chuyên. Mới chơi không chơi được kèo xếp hạng.
+enum SeasonDivision {
+  amateur
+  pro
+}
+
 /// BR-CM-56/57: số liệu theo kỳ, reset mỗi kỳ; Passport giữ nguyên qua các kỳ.
 model SeasonStat {
   seasonId          String
@@ -431,6 +437,10 @@ model SeasonStat {
   currentWinStreak  Int             @default(0)
   longestWinStreak  Int             @default(0)
   ratingGain        Float           @default(0)
+  /// Hạng đấu khóa ở trận xếp hạng đầu tiên của mùa (điểm kinh nghiệm >= 1600 → pro).
+  division          SeasonDivision?
+  /// Điểm BXH mùa (Elo K=40, sàn 0), tách khỏi điểm kinh nghiệm và reset mỗi mùa.
+  points            Int             @default(0)
   /// Chụp lúc đóng kỳ để BXH/huy hiệu kỳ đã đóng không đổi theo Passport hiện tại.
   finalRating       Float?
   finalRd           Float?

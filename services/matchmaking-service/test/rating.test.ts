@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   coldStart,
+  confidenceForRd,
   describeRating,
+  divisionForRating,
+  isNewcomerRating,
+  seasonPointsDelta,
   redeclarationRating,
   updateRating,
   type RatingResult,
@@ -70,5 +74,24 @@ describe('F-01 — Glicko-2 rating with uncertainty', () => {
   it('D26 bounds re-declaration influence without resetting learned RD/sigma', () => {
     const current = { rating: 1500, rd: 350, sigma: 0.06 };
     expect(redeclarationRating(current, 'advanced')).toEqual({ rating: 1550, rd: 350, sigma: 0.06 });
+  });
+});
+
+describe('D59 season points, divisions and confidence', () => {
+  it('scores season points with Elo K=40 from experience points', () => {
+    expect(seasonPointsDelta(1500, 1500, 1)).toBe(20);
+    expect(seasonPointsDelta(1500, 1500, 0)).toBe(-20);
+    expect(seasonPointsDelta(1500, 1700, 1)).toBe(30); // thắng người hơn 200 điểm
+    expect(seasonPointsDelta(1700, 1500, 1)).toBe(10); // thắng người kém 200 điểm
+    expect(seasonPointsDelta(1700, 1500, 0)).toBe(-30);
+  });
+
+  it('splits divisions at 1600 and newcomers below 1200', () => {
+    expect([divisionForRating(1599.9), divisionForRating(1600)]).toEqual(['amateur', 'pro']);
+    expect([isNewcomerRating(1199.9), isNewcomerRating(1200)]).toEqual([true, false]);
+  });
+
+  it('maps RD to confidence levels', () => {
+    expect([confidenceForRd(99.9), confidenceForRd(100), confidenceForRd(199.9), confidenceForRd(200)]).toEqual(['high', 'medium', 'medium', 'low']);
   });
 });

@@ -239,6 +239,9 @@ model WithdrawalRequest {
   status        WithdrawalStatus  @default(pending)
   /// BR-FIN-19: số tiền đã thực chi khi chưa đủ (partially_paid).
   paidAmount    BigInt?
+  /// Ví người chơi: phí 1% phần vượt 1.000.000đ/ngày, đã trừ khỏi ví lúc tạo
+  /// yêu cầu và ghi vào ví nền tảng. amount là số tiền thực chuyển (đã trừ phí).
+  fee           BigInt            @default(0)
   sePayEventId  String?
   transferCode  String            @unique
   bankCode      String

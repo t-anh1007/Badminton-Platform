@@ -19,13 +19,19 @@ const matchIds: string[] = [];
 let seasonId = '';
 const token = (userId: string) => `Bearer ${jwt.sign({ sub: userId, roles: ['player'], type: 'access' }, process.env.JWT_SECRET ?? 'change-me-in-real-env', { expiresIn: 300 })}`;
 
-async function ranked(input: { rating: number; rd?: number; played?: number; wins?: number; province?: string; provinceMatches?: number; name?: string }) {
+async function ranked(input: {
+  rating: number; rd?: number; played?: number; wins?: number; province?: string; provinceMatches?: number; name?: string;
+  points?: number; division?: 'amateur' | 'pro';
+}) {
   const userId = randomUUID();
   userIds.push(userId);
   if (input.name) names.set(userId, input.name);
   await prisma.passport.create({ data: { userId, discipline: 'doubles', ratingMu: input.rating, ratingRd: input.rd ?? 100, ratingSigma: 0.06 } });
   await prisma.seasonStat.create({
-    data: { seasonId, userId, discipline: 'doubles', matchesPlayed: input.played ?? 5, wins: input.wins ?? 3, provinceMatches: input.provinceMatches ?? 0 },
+    data: {
+      seasonId, userId, discipline: 'doubles', matchesPlayed: input.played ?? 5, wins: input.wins ?? 3, provinceMatches: input.provinceMatches ?? 0,
+      points: input.points ?? 0, division: input.division ?? (input.rating >= 1600 ? 'pro' : 'amateur'),
+    },
   });
   if (input.province) await prisma.playerSeasonProfile.create({ data: { seasonId, userId, provinceCode: input.province, lockedAt: new Date() } });
   return userId;
@@ -53,36 +59,34 @@ const board = (query: string, viewer?: string) => {
 };
 
 describe('Task 18 leaderboards', () => {
-  it('lists only eligible players by band with shared ranks, a public-field allowlist, pagination and a pinned viewer', async () => {
-    const top = await ranked({ rating: 1650, name: 'Anh A' });
-    const tie = await ranked({ rating: 1650.4 });
-    const third = await ranked({ rating: 1600 }); // đúng 1600 thuộc nhóm từ 1600
-    await ranked({ rating: 1700, played: 4 }); // chưa đủ 5 kết quả
-    await ranked({ rating: 1700, rd: 200 }); // RD 200 là bất định cao
-    const almost = await ranked({ rating: 1599.6, rd: 199.999 });
+  it('lists only eligible players by division with shared ranks by season points, a public-field allowlist, pagination and a pinned viewer', async () => {
+    const top = await ranked({ rating: 1650, points: 120, wins: 4, name: 'Anh A' });
+    const tie = await ranked({ rating: 1900, points: 120, wins: 4 });
+    const third = await ranked({ rating: 2000, points: 120, wins: 3 }); // bằng điểm BXH, ít trận thắng hơn → xếp dưới
+    await ranked({ rating: 1700, played: 4, points: 500 }); // chưa đủ 5 kết quả
+    await ranked({ rating: 1700, rd: 200, points: 500 }); // độ tin cậy Thấp (RD 200)
+    // Đánh vượt 1600 giữa mùa nhưng hạng đấu đã khóa ở Không chuyên.
+    const climbed = await ranked({ rating: 1601, rd: 199.999, points: 900, division: 'amateur' });
 
-    const upper = await board('band=from_1600&page=1&pageSize=2', third).expect(200);
+    const upper = await board('band=pro&page=1&pageSize=2', third).expect(200);
     expect(upper.body).toMatchObject({ total: 3, page: 1, pageSize: 2 });
     expect(upper.body.items.map((item: { userId: string; rank: number }) => [item.userId, item.rank]))
       .toEqual([[top, 1], [tie, 1]].sort((x, y) => String(x[0]).localeCompare(String(y[0]))));
-    expect(Object.keys(upper.body.items[0]).sort()).toEqual(['avatarUrl', 'displayName', 'matchesPlayed', 'provinceCode', 'rank', 'rating', 'userId', 'wins']);
+    expect(Object.keys(upper.body.items[0]).sort()).toEqual(['avatarUrl', 'displayName', 'matchesPlayed', 'points', 'provinceCode', 'rank', 'userId', 'wins']);
     expect(upper.body.items.find((item: { userId: string }) => item.userId === top).displayName).toBe('Anh A');
     expect(upper.body.items.find((item: { userId: string }) => item.userId === tie).displayName).toBe('Người chơi');
-    expect(upper.body.viewer).toMatchObject({ userId: third, rank: 3, rating: 1600 });
+    expect(upper.body.viewer).toMatchObject({ userId: third, rank: 3, points: 120 });
     expect(typeof upper.body.serverNow).toBe('string');
 
-    const lower = await board('band=under_1600').expect(200);
-    expect(lower.body.items.map((item: { userId: string }) => item.userId)).toContain(almost);
-    // Vượt 1600 là chuyển bảng ngay (không chờ kỳ sau).
-    await prisma.passport.update({ where: { userId_discipline: { userId: almost, discipline: 'doubles' } }, data: { ratingMu: 1601 } });
-    expect((await board('band=from_1600').expect(200)).body.items.map((item: { userId: string }) => item.userId)).toContain(almost);
+    expect((await board('band=amateur').expect(200)).body.items.map((item: { userId: string }) => item.userId)).toContain(climbed);
+    expect((await board('band=pro').expect(200)).body.items.map((item: { userId: string }) => item.userId)).not.toContain(climbed);
   });
 
   it('province boards need the locked province and five province matches', async () => {
     const qualified = await ranked({ rating: 1300, province: 'hue', provinceMatches: 5 });
     await ranked({ rating: 1310, province: 'hue', provinceMatches: 4 });
     await ranked({ rating: 1320, province: 'da-nang', provinceMatches: 6 });
-    const response = await board('band=under_1600&scope=province&provinceCode=hue').expect(200);
+    const response = await board('band=amateur&scope=province&provinceCode=hue').expect(200);
     expect(response.body.items.map((item: { userId: string; provinceCode: string }) => [item.userId, item.provinceCode])).toEqual([[qualified, 'hue']]);
   });
 });

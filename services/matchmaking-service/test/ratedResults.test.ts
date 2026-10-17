@@ -84,12 +84,16 @@ const passport = (userId: string, discipline: 'singles' | 'doubles') =>
   prisma.passport.findUniqueOrThrow({ where: { userId_discipline: { userId, discipline } } });
 
 describe('Task 18 rated results', () => {
-  it('excludes friendly matches from rating', async () => {
-    const [a, b] = [player(), player()];
+  it('D59: friendly results change experience points but never season stats', async () => {
+    const [a, b] = [player(1500), player(1500)];
     await passports([a, b], 'singles');
     const match = await finalize({ a: [a.userId], b: [b.userId], outcome: 'TEAM_A_WIN', finalizedAt: new Date('2095-01-10T00:00:00Z'), mode: 'friendly' });
-    expect(await rated(match.id)).toEqual({});
-    expect(await ratingEvents(match.id)).toEqual([]);
+    const events = await ratingEvents(match.id);
+    expect(events).toHaveLength(2);
+    for (const event of events) await consume(event);
+    expect((await passport(a.userId, 'singles')).ratingMu).toBeGreaterThan(1500);
+    expect((await passport(b.userId, 'singles')).ratingMu).toBeLessThan(1500);
+    expect(await prisma.seasonStat.count({ where: { userId: { in: [a.userId, b.userId] } } })).toBe(0);
 
     // Ranked nhưng NO_RESULT (hết hạn khai + sự cố) cũng không có rating.
     const noResult = await prisma.match.create({
@@ -102,6 +106,24 @@ describe('Task 18 rated results', () => {
     });
     expect(await finalizeUndisputedResult(resultCase.id, new Date('2095-01-03T00:00:00Z'))).toBe(true);
     expect(await rated(noResult.id)).toEqual({});
+  });
+
+  it('D59: ranked results add Elo season points (floor 0) and lock the division at the first result of the season', async () => {
+    seasonIds.push((await prisma.season.create({ data: { name: 'Mùa 2087', startAt: new Date('2087-01-01T00:00:00Z'), endAt: new Date('2087-06-01T00:00:00Z') } })).id);
+    const [a, b, c] = [player(1590), player(1590), player(1590)];
+    await passports([a, b, c], 'singles');
+    const stat = (userId: string) => prisma.seasonStat.findUniqueOrThrow({ where: { seasonId_userId_discipline: { seasonId: seasonIds.at(-1)!, userId, discipline: 'singles' } } });
+
+    const first = await finalize({ a: [a.userId], b: [b.userId], outcome: 'TEAM_A_WIN', finalizedAt: new Date('2087-02-02T00:00:00Z') });
+    for (const event of await ratingEvents(first.id)) await consume(event);
+    expect(await stat(a.userId)).toMatchObject({ division: 'amateur', points: 20 });
+    expect(await stat(b.userId)).toMatchObject({ division: 'amateur', points: 0 }); // thua từ 0 vẫn là 0
+
+    // Điểm kinh nghiệm vượt 1600 giữa mùa: hạng đấu giữ Không chuyên; xác suất thắng tính từ điểm kinh nghiệm hiện tại.
+    await prisma.passport.update({ where: { userId_discipline: { userId: a.userId, discipline: 'singles' } }, data: { ratingMu: 1650 } });
+    const second = await finalize({ a: [a.userId], b: [c.userId], outcome: 'TEAM_A_WIN', finalizedAt: new Date('2087-03-02T00:00:00Z') });
+    for (const event of await ratingEvents(second.id)) await consume(event);
+    expect(await stat(a.userId)).toMatchObject({ division: 'amateur', points: 37 }); // +17 khi thắng người kém 60 điểm
   });
 
   it('changes each singles player once, and replay with a new message id is a no-op', async () => {

@@ -38,6 +38,34 @@ export function tierForRating(rating: number): SkillTier {
   return 'advanced';
 }
 
+/** Mới chơi (điểm kinh nghiệm < 1200) chỉ chơi giao hữu để lên trình; không vào trận xếp hạng của giải. */
+export function isNewcomerRating(rating: number) {
+  return tierForRating(rating) === 'newcomer';
+}
+
+/** Hạng đấu của mùa: Chuyên = TB+ và Bán chuyên (>= 1600); Không chuyên = Yếu và TB. */
+export const PRO_DIVISION_MIN_RATING = 1600;
+export type SeasonDivision = 'amateur' | 'pro';
+export function divisionForRating(rating: number): SeasonDivision {
+  return rating >= PRO_DIVISION_MIN_RATING ? 'pro' : 'amateur';
+}
+
+/**
+ * Điểm BXH mùa theo Elo (K = 40): cộng/trừ K × (kết quả − xác suất thắng dự đoán), xác suất tính từ
+ * điểm kinh nghiệm hai bên. Ngang trình: thắng +20 / thua −20; thắng người hơn 200 điểm: +30.
+ */
+export const SEASON_POINTS_K = 40;
+export function seasonPointsDelta(ownRating: number, opponentRating: number, score: number) {
+  const expected = 1 / (1 + 10 ** ((opponentRating - ownRating) / 400));
+  return Math.round(SEASON_POINTS_K * (score - expected));
+}
+
+/** Độ tin cậy của điểm kinh nghiệm (RD càng nhỏ càng chắc): Cao < 100, Vừa 100–199, Thấp >= 200. */
+export function confidenceForRd(rd: number): 'high' | 'medium' | 'low' {
+  if (rd < 100) return 'high';
+  return rd < HIGH_UNCERTAINTY_RD ? 'medium' : 'low';
+}
+
 export function describeRating(state: RatingState) {
   return {
     tier: tierForRating(state.rating),

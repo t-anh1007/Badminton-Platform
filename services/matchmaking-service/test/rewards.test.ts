@@ -27,12 +27,13 @@ afterAll(async () => {
   await prisma.matchRatingChange.deleteMany({ where: { matchId: { in: matchIds } } });
   await prisma.match.deleteMany({ where: { id: { in: matchIds } } });
   await prisma.playerSeasonProfile.deleteMany({ where: { seasonId } });
+  await prisma.seasonStat.deleteMany({ where: { seasonId } });
   await prisma.season.deleteMany({ where: { id: seasonId } });
   await prisma.$disconnect();
 });
 
 const payload = (overrides: Record<string, unknown> = {}) => ({
-  name: 'Vua đơn tháng 3', seasonId, criterion: 'most_wins', discipline: 'singles', band: 'under_1600', scope: 'global',
+  name: 'Vua đơn tháng 3', seasonId, criterion: 'most_wins', discipline: 'singles', band: 'amateur', scope: 'global',
   startAt: '2099-03-01T00:00:00.000Z', endAt: '2099-03-31T23:59:59.000Z',
   tiers: [{ rank: 1, amount: '100000' }, { rank: 2, amount: '60000' }, { rank: 3, amount: '30001' }], ...overrides,
 });
@@ -52,6 +53,12 @@ async function rated(userId: string, endAt: string, change: { after: number; del
   await prisma.matchResultCase.create({ data: { matchId: match.id, status: 'final', outcome: 'TEAM_A_WIN', declarationDeadlineAt: new Date(endAt), finalizedAt: new Date(endAt) } });
   await prisma.matchRatingChange.create({
     data: { matchId: match.id, userId, discipline, ratingBefore: change.after - change.delta, ratingAfter: change.after, delta: change.delta, won: change.won },
+  });
+  // Hạng đấu khóa ở kết quả xếp hạng đầu tiên của mùa (như applyOneRatedResult).
+  const division = change.after - change.delta >= 1600 ? 'pro' : 'amateur';
+  await prisma.seasonStat.upsert({
+    where: { seasonId_userId_discipline: { seasonId, userId, discipline } },
+    create: { seasonId, userId, discipline, division }, update: {},
   });
 }
 
@@ -96,13 +103,13 @@ describe('Task 20 program administration', () => {
 });
 
 describe('Task 20 scoring and finalization', () => {
-  it('scores all four criteria from rated results inside the inclusive window, with band by ending rating', async () => {
+  it('scores all four criteria from rated results inside the inclusive window, with the division locked at the first result', async () => {
     const [a, b, c] = [randomUUID(), randomUUID(), randomUUID()];
     await rated(a, '2099-05-01T00:00:00Z', { after: 1520, delta: 20, won: true });
     await rated(a, '2099-05-02T00:00:00Z', { after: 1540, delta: 20, won: true });
     await rated(a, '2099-05-03T00:00:00Z', { after: 1530, delta: -10, won: false });
     await rated(b, '2099-05-01T00:00:00Z', { after: 1580, delta: 15, won: true });
-    await rated(b, '2099-05-31T23:59:59Z', { after: 1610, delta: 30, won: true }); // vượt 1600 đúng mốc kết thúc
+    await rated(b, '2099-05-31T23:59:59Z', { after: 1610, delta: 30, won: true }); // vượt 1600 nhưng vẫn ở hạng Không chuyên
     await rated(c, '2099-04-30T23:59:59Z', { after: 1500, delta: 50, won: true }); // ngoài cửa sổ
     await rated(c, '2099-05-10T00:00:00Z', { after: 1490, delta: -5, won: false });
     // Trận ngày 4 tranh chấp nên rating ghi sau trận ngày 5: điểm cuối là lần ghi mới nhất, không phải trận muộn nhất.
@@ -111,17 +118,18 @@ describe('Task 20 scoring and finalization', () => {
     await rated(d, '2099-05-05T00:00:00Z', { after: 1560, delta: 10, won: true });
     await rated(d, '2099-05-04T00:00:00Z', { after: 1575, delta: 15, won: true });
     const base = { startAt: '2099-05-01T00:00:00.000Z', endAt: '2099-05-31T23:59:59.000Z' };
-    const score = async (criterion: string, band = 'under_1600') => {
+    const score = async (criterion: string, band = 'amateur') => {
       const program = await prisma.rewardProgram.findUniqueOrThrow({ where: { id: (await create({ ...base, criterion, band })).body.program.id } });
       return (await scoreProgram(prisma, program, new Date('2099-06-01T00:00:00Z'))).filter((row) => [a, b, c, ...extra].includes(row.userId));
     };
-    expect(await score('ending_rating')).toEqual([{ userId: a, score: 1530, rank: 2 }, { userId: c, score: 1490, rank: 3 }]);
-    expect(await score('ending_rating', 'from_1600')).toEqual([{ userId: b, score: 1610, rank: 1 }]);
-    expect(await score('most_wins')).toEqual([{ userId: a, score: 2, rank: 1 }]);
-    expect(await score('largest_rating_gain')).toEqual([{ userId: a, score: 30, rank: 1 }]);
-    expect(await score('longest_streak', 'from_1600')).toEqual([{ userId: b, score: 2, rank: 1 }]);
+    const byUser = (rows: Array<{ userId: string }>) => [...rows].sort((x, y) => x.userId.localeCompare(y.userId));
+    expect(await score('ending_rating')).toEqual([{ userId: b, score: 1610, rank: 1 }, { userId: a, score: 1530, rank: 3 }, { userId: c, score: 1490, rank: 4 }]);
+    expect(await score('ending_rating', 'pro')).toEqual([]);
+    expect(byUser(await score('most_wins'))).toEqual(byUser([{ userId: a, score: 2, rank: 1 }, { userId: b, score: 2, rank: 1 }]));
+    expect(await score('largest_rating_gain')).toEqual([{ userId: b, score: 45, rank: 1 }, { userId: a, score: 30, rank: 2 }]);
+    expect(byUser(await score('longest_streak'))).toEqual(byUser([{ userId: a, score: 2, rank: 1 }, { userId: b, score: 2, rank: 1 }]));
     extra.push(d);
-    expect((await score('ending_rating')).find((row) => row.userId === d)).toMatchObject({ score: 1575, rank: 1 });
+    expect((await score('ending_rating')).find((row) => row.userId === d)).toMatchObject({ score: 1575, rank: 2 });
   });
 
   it('splits consecutive tied positions equally with the remainder to the last user id', () => {

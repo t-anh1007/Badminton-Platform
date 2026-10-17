@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom';
 import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { AsyncButton, Badge, Button, Modal, Pagination, SelectInput, SurfaceCard, TextArea, TextInput } from '../../components/ui';
 import { formatDateVi, formatMoneyVnd } from '../../lib/formatters.js';
-import { listAdminSeasons, type AdminSeason } from '../../lib/competitionApi';
+import { DIVISION_LABEL, listAdminSeasons, type AdminSeason } from '../../lib/competitionApi';
 import {
   approveRewardProgramFinal, cancelRewardProgram, createRewardProgram, getAdminRewardProgram, listAdminRewardPrograms, publishRewardProgram,
   REWARD_STATUS_LABELS, type AdminRewardProgram, type NewRewardProgram, type RewardProgram,
 } from '../../lib/rewardApi';
 
 const CRITERIA: Array<{ value: RewardProgram['criterion']; title: string; description: string }> = [
-  { value: 'ending_rating', title: 'Top điểm xếp hạng', description: 'Điểm cao nhất khi chương trình kết thúc.' },
+  { value: 'ending_rating', title: 'Top điểm kinh nghiệm', description: 'Điểm kinh nghiệm cao nhất khi chương trình kết thúc.' },
   { value: 'most_wins', title: 'Nhiều trận thắng nhất', description: 'Tổng số trận thắng hợp lệ trong thời gian chương trình.' },
-  { value: 'largest_rating_gain', title: 'Tăng điểm nhiều nhất', description: 'Mức tăng điểm lớn nhất trong thời gian chương trình.' },
+  { value: 'largest_rating_gain', title: 'Tăng điểm kinh nghiệm nhiều nhất', description: 'Mức tăng điểm kinh nghiệm lớn nhất trong thời gian chương trình.' },
   { value: 'longest_streak', title: 'Chuỗi thắng dài nhất', description: 'Số trận thắng liên tiếp dài nhất.' },
 ];
 const province = (code: string | null | undefined) => VIETNAM_PROVINCES.find((item) => item.code === code)?.name ?? '';
@@ -38,7 +38,7 @@ export function AdminRewardProgramsPage() {
 }
 
 interface Draft { name: string; seasonId: string; criterion: RewardProgram['criterion']; discipline: NewRewardProgram['discipline']; band: NewRewardProgram['band']; scope: NewRewardProgram['scope']; provinceCode: string; start: string; end: string; tiers: string[] }
-const EMPTY: Draft = { name: '', seasonId: '', criterion: 'ending_rating', discipline: 'singles', band: 'under_1600', scope: 'global', provinceCode: '', start: '', end: '', tiers: [''] };
+const EMPTY: Draft = { name: '', seasonId: '', criterion: 'ending_rating', discipline: 'singles', band: 'amateur', scope: 'global', provinceCode: '', start: '', end: '', tiers: [''] };
 
 function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPublished: () => void }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -60,10 +60,10 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
 
   const validate = () => {
     if (!draft.name.trim()) return 'Nhập tên chương trình.';
-    if (!season) return 'Chọn kỳ xếp hạng.';
+    if (!season) return 'Chọn mùa giải.';
     if (!draft.start || !draft.end || draft.end < draft.start) return 'Chọn ngày bắt đầu và ngày kết thúc hợp lệ.';
     const endAt = dayStart(draft.end).getTime() + 86_400_000;
-    if (dayStart(draft.start) < new Date(season.startAt) || endAt > new Date(season.endAt).getTime()) return 'Ngày bắt đầu và kết thúc phải nằm trong kỳ xếp hạng đã chọn.';
+    if (dayStart(draft.start) < new Date(season.startAt) || endAt > new Date(season.endAt).getTime()) return 'Ngày bắt đầu và kết thúc phải nằm trong mùa giải đã chọn.';
     if (draft.scope === 'province' && !draft.provinceCode) return 'Chọn tỉnh/thành cho phạm vi.';
     if (draft.tiers.some((amount) => !digits(amount))) return 'Nhập số tiền cho mọi mức giải.';
     return '';
@@ -89,7 +89,7 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
     } catch (cause) { setError(errorText(cause, 'Không thể công bố chương trình.')); setConfirming(false); } finally { setPending(false); }
   };
   const criterion = CRITERIA.find((item) => item.value === draft.criterion)!;
-  const scopeText = `${draft.discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} - ${draft.band === 'under_1600' ? 'Dưới 1.600' : 'Từ 1.600'} - ${draft.scope === 'province' ? province(draft.provinceCode) || 'Chưa chọn tỉnh/thành' : 'Toàn nền tảng'}`;
+  const scopeText = `${draft.discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} - Hạng ${DIVISION_LABEL[draft.band]} - ${draft.scope === 'province' ? province(draft.provinceCode) || 'Chưa chọn tỉnh/thành' : 'Toàn nền tảng'}`;
 
   return (
     <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -97,9 +97,9 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
         <h3 className="text-h3">1. Thông tin cơ bản</h3>
         <label className="mt-3 block text-sm font-bold">Tên chương trình<TextInput className="mt-1" value={draft.name} onChange={(event) => set('name', event.target.value)} /></label>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <label className="block text-sm font-bold">Kỳ xếp hạng
+          <label className="block text-sm font-bold">Mùa giải
             <SelectInput className="mt-1" value={draft.seasonId} onChange={(event) => pickSeason(event.target.value)}>
-              <option value="">Chọn kỳ</option>
+              <option value="">Chọn mùa giải</option>
               {seasons.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </SelectInput>
           </label>
@@ -124,9 +124,9 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
               <option value="singles">Đánh đơn</option><option value="doubles">Đánh đôi</option>
             </SelectInput>
           </label>
-          <label className="block text-sm font-bold">Nhóm điểm
+          <label className="block text-sm font-bold">Hạng đấu
             <SelectInput className="mt-1" value={draft.band} onChange={(event) => set('band', event.target.value as Draft['band'])}>
-              <option value="under_1600">Dưới 1.600</option><option value="from_1600">Từ 1.600</option>
+              <option value="amateur">Không chuyên</option><option value="pro">Chuyên</option>
             </SelectInput>
           </label>
           <label className="block text-sm font-bold">Phạm vi
@@ -170,7 +170,7 @@ function ProgramForm({ seasons, onPublished }: { seasons: AdminSeason[]; onPubli
           <div className="flex justify-between gap-3 py-2"><dt>Số mức giải</dt><dd className="font-semibold">{draft.tiers.length}</dd></div>
           <div className="flex justify-between gap-3 py-2"><dt>Tổng tiền thưởng</dt><dd className="text-figures font-bold">{formatMoneyVnd(total.toString())}</dd></div>
         </dl>
-        <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-xs text-ink-700">Ngày bắt đầu và kết thúc phải nằm trong kỳ xếp hạng đã chọn.</p>
+        <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-xs text-ink-700">Ngày bắt đầu và kết thúc phải nằm trong mùa giải đã chọn.</p>
         <p className="mt-2 rounded-xl bg-canvas p-3 text-xs text-ink-700">Sau khi công bố: không được giảm tiền thưởng, đổi hạng mục hoặc rút ngắn thời gian. Chỉ có thể hủy do sự cố trước ngày bắt đầu hoặc khi đang chạy kèm lý do.</p>
         {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
         {notice && <p role="status" className="mt-3 text-sm text-success">{notice}</p>}

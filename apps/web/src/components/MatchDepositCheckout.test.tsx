@@ -15,7 +15,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z'))
   // Phần góp của chủ kèo do backend trả (kèo đơn 7:3 giá 120.000đ -> 84.000đ).
   vi.mocked(getMatchDetail).mockResolvedValue({ funding: { organizerContribution: '84000' } } as never)
-  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', withdrawable: '0', pending: '0', reserved: '0', currency: 'VND' }])
+  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', pending: '0', reserved: '0', currency: 'VND' }])
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
 

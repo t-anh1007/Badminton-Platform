@@ -1,6 +1,9 @@
 import { api, type Discipline } from './passportApi';
 
-export type LeaderboardBand = 'under_1600' | 'from_1600';
+/** Hạng đấu của mùa, khóa ở trận xếp hạng đầu tiên: amateur = Không chuyên, pro = Chuyên. */
+export type LeaderboardBand = 'amateur' | 'pro';
+export const DIVISION_LABEL: Record<LeaderboardBand, string> = { amateur: 'Không chuyên', pro: 'Chuyên' };
+export const DIVISION_TIERS: Record<LeaderboardBand, string> = { amateur: 'Yếu, Trung bình', pro: 'Trung bình khá, Bán chuyên' };
 export type LeaderboardScope = 'global' | 'province';
 
 export interface CurrentSeason {
@@ -13,7 +16,8 @@ export interface LeaderboardRow {
   displayName: string;
   avatarUrl: string | null;
   provinceCode: string | null;
-  rating: number;
+  /** Điểm BXH mùa (Elo), tách khỏi điểm kinh nghiệm. */
+  points: number;
   matchesPlayed: number;
   wins: number;
 }
