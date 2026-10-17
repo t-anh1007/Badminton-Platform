@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SelectInput, SurfaceCard, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
-import { cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
+import { cancelMatch, getMatchDetail, MatchApiError, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
 import { MatchResultFlow } from '../components/MatchResultFlow.js';
 import { getOwnPassport, type OwnPassport } from '../lib/passportApi';
 import { LockBanner, LockedConfig, MatchProgress, MoneyStatus, TeamRoster, disciplineLabel, modeLabel } from '../components/MatchCompetitiveSections.js';
@@ -36,6 +36,7 @@ export function MatchDetailPage() {
   const [detail, setDetail] = useState<MatchDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notFound, setNotFound] = useState(false);
   const [notice, setNotice] = useState('');
   const [resultFinal, setResultFinal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'withdraw' | 'cancel' | null>(null);
@@ -67,6 +68,7 @@ export function MatchDetailPage() {
       setDetail(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể tải chi tiết kèo.');
+      setNotFound(cause instanceof MatchApiError && cause.status === 404);
     } finally {
       if (showPageLoader) setLoading(false);
     }
@@ -218,8 +220,10 @@ export function MatchDetailPage() {
     return (
       <div className="page-container py-8">
         <h1 className="text-h1">Chi tiết kèo</h1>
-        <div className="mt-6">{error
-          ? <RouteState variant="error" title="Không thể mở kèo" description={error} onRetry={() => void load()} />
+        <div className="mt-6">{notFound
+          ? <RouteState variant="notFound" title="Kèo không còn công khai" description="Kèo có thể đã đủ người, bị hủy hoặc đường dẫn không đúng." action={<Link to="/matches" className="inline-flex min-h-11 items-center rounded-full bg-brand-yellow px-5 text-sm font-bold uppercase tracking-[0.035em] text-brand-navy">Xem kèo đang mở</Link>} />
+          : error
+          ? <RouteState variant="error" title="Chưa tải được kèo" description="Máy chủ đang bận hoặc kết nối bị gián đoạn. Hãy thử lại." onRetry={() => void load()} />
           : <RouteState variant="loading" title="Đang tải trạng thái tham gia" />}
         </div>
       </div>

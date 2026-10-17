@@ -1,6 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
-import { PageHeader } from '../components/courtin/PageHeader.js';
-import { Button, SurfaceCard } from '../components/ui.js';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 
 type InformationPage = {
   eyebrow: string;
@@ -62,18 +60,28 @@ const informationByPath: Record<string, InformationPage> = {
   },
 };
 
+const tabs = [['/about', 'Về chúng tôi'], ['/contact', 'Liên hệ'], ['/terms', 'Điều khoản'], ['/cancellation-policy', 'Chính sách hủy'], ['/privacy', 'Chính sách bảo mật']] as const;
+
 export function FooterInformationPage() {
   const { pathname } = useLocation();
   const page = informationByPath[pathname] ?? informationByPath['/about'];
 
-  return <section className="page-container py-10 sm:py-14">
-    <PageHeader eyebrow={page.eyebrow} title={page.title} description={page.lead} />
-    <div className="mt-7 grid gap-4 md:grid-cols-3">
-      {page.sections.map((section) => <SurfaceCard key={section.title} className="h-full">
-        <h2 className="text-h3">{section.title}</h2>
-        <p className="mt-3 text-sm leading-6 text-ink-500">{section.body}</p>
-      </SurfaceCard>)}
-    </div>
-    <div className="mt-8"><Link to="/venues"><Button>Tìm sân gần bạn</Button></Link></div>
-  </section>;
+  return <div className="page-container grid gap-10 py-10 sm:py-14 lg:grid-cols-[240px_minmax(0,680px)] lg:justify-center lg:gap-16">
+    <nav aria-label="Trang thông tin" className="grid content-start gap-1 lg:sticky lg:top-28">
+      {tabs.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => `rounded-xl px-4 py-3 text-[15px] font-semibold ${isActive ? 'border border-line bg-surface text-brand-navy shadow-[var(--shadow-card)]' : 'text-ink-700 hover:bg-surface/70'}`}>{label}</NavLink>)}
+    </nav>
+    <article>
+      <p className="courtin-kicker">{page.eyebrow}</p>
+      <h1 className="mt-2 text-h1">{page.title}</h1>
+      <p className="mt-5 text-lg leading-8 text-ink-900">{page.lead}</p>
+      {page.sections.map((section, index) => <section key={section.title} className="mt-9">
+        <h2 className="text-h3 !text-[22px]">{index + 1}. {section.title}</h2>
+        <p className="mt-3 text-[17px] leading-8 text-ink-700">{section.body}</p>
+      </section>)}
+      <div className="mt-12 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-green-100 bg-green-50 p-6">
+        <div><p className="font-bold text-ink-900">Còn câu hỏi?</p><p className="text-sm text-ink-500">Đội ngũ vận hành phản hồi qua Trung tâm hỗ trợ.</p></div>
+        <Link to="/support" className="inline-flex min-h-10 items-center rounded-full bg-brand-navy px-5 text-xs font-bold uppercase tracking-[0.035em] text-surface">Liên hệ hỗ trợ</Link>
+      </div>
+    </article>
+  </div>;
 }

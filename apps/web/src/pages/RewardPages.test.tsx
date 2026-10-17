@@ -45,7 +45,7 @@ it('shows countdown, prize tiers, rules and the viewer provisional rank', async 
   expect(screen.getByText('Đồng hạng được chia đều')).toBeInTheDocument()
   expect(screen.getByText('Hạng tạm tính')).toBeInTheDocument()
   expect(screen.getByText('#24')).toBeInTheDocument()
-  expect(screen.getByText('1.548 điểm xếp hạng')).toBeInTheDocument()
+  expect(screen.getByText('1.548 điểm kinh nghiệm')).toBeInTheDocument()
 })
 
 it('submits exactly the seven payout fields after inline validation', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../session/SessionProvider.js'
+import { Icon } from './Icon'
 import {
   sendMatchSuggestionMessage,
   sendSupportMessage,
@@ -121,7 +122,7 @@ export function AssistantBubble() {
           className="mb-3 flex h-[560px] max-h-[calc(100vh-6rem)] w-[min(24rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-raised)]"
         >
           <header className="flex items-center gap-3 border-b border-line bg-brand-navy px-4 py-3 text-surface">
-            <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-brand-yellow text-brand-navy">🏸</span>
+            <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-brand-yellow text-brand-navy"><Icon name="chat" /></span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-bold leading-tight">Trợ lý CourtIn</p>
               <p className="flex items-center gap-1.5 text-xs text-surface/80"><span aria-hidden className="h-2 w-2 rounded-full bg-green-400" />Trực tuyến · phản hồi ngay</p>
@@ -191,10 +192,9 @@ export function AssistantBubble() {
         aria-label={open ? 'Thu gọn trợ lý AI' : 'Mở trợ lý AI'}
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
-        className="flex items-center gap-2 rounded-full bg-brand-navy px-4 py-3 font-bold text-surface shadow-[var(--shadow-raised)] transition hover:-translate-y-0.5"
+        className="grid h-14 w-14 place-items-center rounded-full border-2 border-brand-yellow bg-brand-navy text-brand-yellow shadow-[var(--shadow-raised)] transition hover:-translate-y-0.5"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" /></svg>
-        <span>{open ? 'Đóng' : 'Trợ lý AI'}</span>
+        <Icon name={open ? 'close' : 'chat'} className="h-6 w-6" />
       </button>
     </div>
   )

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Icon } from '../components/Icon';
+import { useAuthPrompt } from '../layout/AuthPrompt';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal, SurfaceCard, TextArea, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
@@ -41,7 +43,8 @@ export function CommunityDetailPage() {
   } | null>(null);
   const [commentBody, setCommentBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  const promptAuth = useAuthPrompt();
+  const openAuth = () => promptAuth({ title: 'Đăng nhập để bình luận' });
   const [reportTarget, setReportTarget] = useState<{
     type: ReportTarget;
     id: string;
@@ -76,7 +79,7 @@ export function CommunityDetailPage() {
 
   const requireSession = (action: () => void) => {
     if (!session) {
-      setAuthOpen(true);
+      openAuth();
       return;
     }
     action();
@@ -270,11 +273,11 @@ export function CommunityDetailPage() {
           {!session ? (
             <button
               type="button"
-              onClick={() => setAuthOpen(true)}
+              onClick={() => openAuth()}
               className="mt-4 flex w-full items-center gap-3 rounded-xl border border-line p-3 text-left hover:border-green-100 hover:bg-green-50"
             >
-              <Avatar label="K" />
-              <span className="text-sm text-ink-500">Đăng nhập để tham gia trao đổi...</span>
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-green-50 text-brand-navy"><Icon name="lock" className="h-4 w-4" /></span>
+              <span className="text-sm text-ink-500">Đăng nhập để tham gia trao đổi</span>
             </button>
           ) : (
             <div className="mt-4 flex items-start gap-3">
@@ -342,17 +345,6 @@ export function CommunityDetailPage() {
         </SurfaceCard>
       </div>
 
-      <Modal open={authOpen} title="Cần đăng nhập" onClose={() => setAuthOpen(false)}>
-        <p className="text-sm text-ink-500">
-          Bài viết và bình luận là công khai. Đăng nhập để bình luận hoặc gửi báo cáo tới Admin.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button tone="secondary" onClick={() => setAuthOpen(false)}>
-            Đóng
-          </Button>
-          <Button onClick={() => navigate('/auth')}>Đăng nhập</Button>
-        </div>
-      </Modal>
       <Modal open={Boolean(reportTarget)} title="Báo cáo nội dung" onClose={() => setReportTarget(null)}>
         <p className="text-sm text-ink-500">Báo cáo không tự động gỡ nội dung. Quản trị viên sẽ xem xét lý do bạn cung cấp.</p>
         <label className="mt-4 block text-sm font-medium">

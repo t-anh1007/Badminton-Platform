@@ -363,7 +363,7 @@ export function BookingPage() {
           </SurfaceCard>
         </aside>
       </div>
-      <Modal open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
+      <Modal bare open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm variant="modal" contextTitle="Đăng nhập để đặt sân" onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
       <ScheduleConflictWarning
         conflicts={scheduleWarning ?? []}
         onClose={() => setScheduleWarning(null)}

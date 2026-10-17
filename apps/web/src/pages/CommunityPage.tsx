@@ -31,6 +31,8 @@ import {
   type TicketStatus,
 } from '../lib/communityApi';
 import { CommunityComposer } from '../components/CommunityComposer';
+import { Icon } from '../components/Icon';
+import { useAuthPrompt } from '../layout/AuthPrompt';
 import { CommunityMediaGrid } from '../components/CommunityMediaGrid';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 import { getMyProfile, type ProfileResult } from '../lib/accountApi.js';
@@ -78,6 +80,7 @@ function PostCard({
   onRemove: (post: CommunityPost) => void;
 }) {
   const isOwner = currentUserId === post.authorUserId;
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <article className="surface-card overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgb(20_30_40_/_8%)]">
       <div className="p-4 sm:p-5">
@@ -103,38 +106,18 @@ function PostCard({
         </Link>
         <div className="mt-4"><CommunityMediaGrid images={post.images} /></div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-1 border-t border-line px-3 py-2 text-sm">
-        <Link
-          to={`/community/${post.id}`}
-          className="rounded-full px-3 py-2 font-medium text-green-700 hover:bg-green-50"
-        >
-          {post.commentCount ?? 0} bình luận
-        </Link>
-        <button
-          type="button"
-          onClick={() => onReport('post', post.id)}
-          className="rounded-full px-3 py-2 font-medium text-ink-500 hover:bg-canvas hover:text-ink-900"
-        >
-          Báo cáo
-        </button>
-        {isOwner && (
-          <>
-            <button
-              type="button"
-              onClick={() => onEdit(post)}
-              className="rounded-full px-3 py-2 font-medium text-ink-500 hover:bg-canvas hover:text-ink-900"
-            >
-              Chỉnh sửa
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemove(post)}
-              className="rounded-full px-3 py-2 font-medium text-danger hover:bg-danger-bg"
-            >
-              Gỡ bài
-            </button>
-          </>
-        )}
+      <div className="flex items-center justify-between border-t border-line px-3 py-2 text-sm">
+        <Link to={`/community/${post.id}`} className="inline-flex items-center gap-2 rounded-full px-3 py-2 font-semibold text-ink-500 hover:bg-canvas hover:text-brand-navy"><Icon name="chat" className="h-4 w-4" />{post.commentCount ?? 0} bình luận</Link>
+        <div className="relative">
+          <button type="button" aria-label="Tùy chọn bài viết" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="grid h-10 w-10 place-items-center rounded-full text-ink-500 hover:bg-canvas hover:text-brand-navy"><Icon name="more" /></button>
+          {menuOpen && (
+            <div role="menu" className="absolute bottom-full right-0 z-10 mb-1 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-raised)]" onClick={() => setMenuOpen(false)}>
+              {isOwner && <button type="button" role="menuitem" onClick={() => onEdit(post)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-canvas"><Icon name="edit" className="h-4 w-4" />Chỉnh sửa</button>}
+              {isOwner && <button type="button" role="menuitem" onClick={() => onRemove(post)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-danger hover:bg-danger-bg"><Icon name="close" className="h-4 w-4" />Gỡ bài</button>}
+              <button type="button" role="menuitem" onClick={() => onReport('post', post.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-danger hover:bg-danger-bg"><Icon name="flag" className="h-4 w-4" />Báo cáo</button>
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -159,7 +142,8 @@ export function CommunityPage() {
   } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  const promptAuth = useAuthPrompt();
+  const openAuth = () => promptAuth({ title: 'Đăng nhập để tham gia cộng đồng' });
   const [supportOpen, setSupportOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     type: ReportTarget;
@@ -220,7 +204,7 @@ export function CommunityPage() {
 
   const requireSession = (action: () => void) => {
     if (!session) {
-      setAuthOpen(true);
+      openAuth();
       return;
     }
     action();
@@ -317,20 +301,17 @@ export function CommunityPage() {
         </p>
       </header>
 
-      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)_260px]">
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
         <aside className="order-2 space-y-4 lg:order-1 lg:sticky lg:top-24" aria-label="Hoạt động của tôi">
           <SurfaceCard className="p-4 sm:p-4">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-h3">Hoạt động của tôi</h2>
+              <h2 className="text-h3">{session ? 'Hoạt động của tôi' : 'Quy tắc cộng đồng'}</h2>
               {session && <Badge>{ownPosts.length} bài</Badge>}
             </div>
             {!session ? (
-              <div className="mt-4">
-                <p className="text-sm text-ink-500">Đăng nhập để xem bài và trạng thái báo cáo của bạn.</p>
-                <Button className="mt-4 w-full" tone="secondary" size="sm" onClick={() => setAuthOpen(true)}>
-                  Đăng nhập
-                </Button>
-              </div>
+              <ul className="mt-4 grid gap-3 text-sm text-ink-700">
+                {['Tôn trọng người chơi khác, không công kích cá nhân.', 'Không quảng cáo, không chia sẻ thông tin cá nhân của người khác.', 'Vấn đề tiền, đặt sân: gửi ticket hỗ trợ thay vì đăng công khai.'].map((rule) => <li key={rule} className="flex gap-2.5"><Icon name="check" className="mt-0.5 h-4 w-4 text-success" />{rule}</li>)}
+              </ul>
             ) : activityLoading ? (
               <div className="mt-4 space-y-3">
                 <Skeleton className="h-16" />
@@ -398,7 +379,13 @@ export function CommunityPage() {
 
         <main className="order-1 min-w-0 space-y-4 lg:order-2">
           <SurfaceCard className="p-4 sm:p-4">
-            {!composerOpen ? (
+            {!session ? (
+              <div className="flex items-center gap-4">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-green-50 text-brand-navy"><Icon name="edit" /></span>
+                <p className="flex-1 text-sm"><b>Muốn chia sẻ trận đấu của bạn?</b><br /><span className="text-ink-500">Đăng nhập để đăng bài và bình luận.</span></p>
+                <Button size="sm" onClick={openAuth}>Đăng nhập</Button>
+              </div>
+            ) : !composerOpen ? (
               <button
                 type="button"
                 className="flex w-full items-center gap-3 text-left"
@@ -423,7 +410,7 @@ export function CommunityPage() {
             )}
           </SurfaceCard>
 
-          {error && <RouteState variant="error" title="Không thể tải bảng tin" description={error} onRetry={() => void loadFeed()} />}
+          {error && <RouteState variant="error" title="Chưa tải được bảng tin" description="Máy chủ đang bận hoặc kết nối bị gián đoạn. Hãy thử lại." onRetry={() => void loadFeed()} />}
           {loading ? (
             <RouteState variant="loading" title="Đang tải bảng tin cộng đồng" />
           ) : posts.length === 0 ? (
@@ -434,7 +421,7 @@ export function CommunityPage() {
                 session ? (
                   <Button onClick={() => setComposerOpen(true)}>Viết bài đầu tiên</Button>
                 ) : (
-                  <Button onClick={() => setAuthOpen(true)}>Đăng nhập để viết bài</Button>
+                  <Button onClick={() => openAuth()}>Đăng nhập để viết bài</Button>
                 )
               }
             />
@@ -460,16 +447,16 @@ export function CommunityPage() {
         </main>
 
         <aside className="order-3 hidden lg:sticky lg:top-24 lg:block" aria-label="Hỗ trợ">
-          <SurfaceCard className="overflow-hidden p-0 sm:p-0">
+          <SurfaceCard className="overflow-hidden !p-0">
             <div className="bg-brand-navy p-5 text-surface">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green-100">Kênh riêng tư</p>
-              <h2 className="mt-1 text-h3">Cần hỗ trợ?</h2>
+              <h2 className="mt-1 text-h3 !text-surface">Cần hỗ trợ?</h2>
               <p className="mt-2 text-sm text-green-50">
                 Gửi ticket riêng cho đội ngũ vận hành. Ticket không xuất hiện trên bảng tin.
               </p>
             </div>
             <div className="p-4">
-              <Button className="w-full" onClick={() => (session ? navigate('/support') : setAuthOpen(true))}>
+              <Button className="w-full" onClick={() => (session ? navigate('/support') : openAuth())}>
                 Tạo ticket hỗ trợ
               </Button>
               {session && (
@@ -514,23 +501,12 @@ export function CommunityPage() {
         Hỗ trợ
       </Button>
 
-      <Modal open={authOpen} title="Cần đăng nhập" onClose={() => setAuthOpen(false)}>
-        <p className="text-sm text-ink-500">
-          Bạn vẫn có thể xem bảng tin công khai. Hãy đăng nhập để đăng bài, bình luận, báo cáo hoặc gửi ticket hỗ trợ.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button tone="secondary" onClick={() => setAuthOpen(false)}>
-            Ở lại bảng tin
-          </Button>
-          <Button onClick={() => navigate('/auth')}>Đăng nhập</Button>
-        </div>
-      </Modal>
       <Modal open={supportOpen} title="Hỗ trợ riêng tư" onClose={() => setSupportOpen(false)}>
         <div className="rounded-xl bg-green-50 p-4">
           <p className="font-semibold text-green-700">Yêu cầu không xuất hiện trên bảng tin</p>
           <p className="mt-1 text-sm text-ink-500">Trao đổi bất đồng bộ chỉ giữa bạn và đội ngũ vận hành.</p>
         </div>
-        <Button className="mt-4 w-full" onClick={() => (session ? navigate('/support') : setAuthOpen(true))}>
+        <Button className="mt-4 w-full" onClick={() => (session ? navigate('/support') : openAuth())}>
           Tạo ticket hỗ trợ
         </Button>
         {session && (

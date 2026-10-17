@@ -1,39 +1,27 @@
-import { BusinessCode } from '../components/BusinessCode.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { QuickMatchPanel } from '../components/QuickMatchPanel';
 import { PageHeader } from '../components/courtin/PageHeader';
 import {
-  Badge,
-  Avatar,
   Button,
   EmptyState,
   Modal,
   SelectInput,
-  SurfaceCard,
+  Skeleton,
   TextInput,
   Toast,
 } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { MatchCard, tierLabels } from '../components/MatchCard';
+import { useAuthPrompt } from '../layout/AuthPrompt';
 import { RouteState } from '../components/RouteState.js';
 import { configureMatchSkillRange, getMatchDetail, listMatches, type MatchRow, type SkillTier } from '../lib/matchApi';
 import { MatchCreatePanel } from '../components/MatchCreatePanel.js';
-import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
+import { formatMoneyVnd } from '../lib/formatters.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
-const tierLabels: Record<SkillTier, string> = {
-  newcomer: 'Mới chơi',
-  beginner: 'Yếu',
-  intermediate: 'Trung bình',
-  intermediate_plus: 'Trung bình khá',
-  advanced: 'Bán chuyên',
-};
 const tierOptions = Object.entries(tierLabels) as Array<[SkillTier, string]>;
 type HydratedMatch = MatchRow;
-const money = (value: string) => (Number(value) === 0 ? 'Miễn phí' : formatMoneyVnd(value));
-const skillRange = (row: MatchRow) =>
-  row.skillMin || row.skillMax
-    ? `${row.skillMin ? tierLabels[row.skillMin] : 'Mọi bậc'} – ${row.skillMax ? tierLabels[row.skillMax] : 'Mọi bậc'}`
-    : 'Mọi bậc';
 type DatePreset = 'all' | 'today' | 'tomorrow' | 'weekend' | 'custom';
 const datePresetLabels: Record<Exclude<DatePreset, 'custom'>, string> = {
   all: 'Tất cả',
@@ -105,6 +93,8 @@ export function MatchListPage() {
   const [setupError, setSetupError] = useState('');
   const [setupSaving, setSetupSaving] = useState(false);
   const navigate = useNavigate();
+  const promptAuth = useAuthPrompt();
+  const [priceOpen, setPriceOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -226,7 +216,7 @@ export function MatchListPage() {
   // Màn 01: tạo kèo ở chính trang danh sách (?create=1) để có thể liên kết trực tiếp.
   const openCreate = () => {
     if (!window.localStorage.getItem('accessToken')) {
-      navigate('/auth');
+      promptAuth({ title: 'Đăng nhập để tạo kèo' });
       return;
     }
     setNotice('');
@@ -251,148 +241,82 @@ export function MatchListPage() {
     );
   }
 
+  const priceLabel = priceMin || (priceMax && Number(priceMax) < PRICE_MAX) ? `${priceMin ? formatMoneyVnd(priceMin) : '0đ'} – ${priceMax && Number(priceMax) < PRICE_MAX ? formatMoneyVnd(priceMax) : 'không giới hạn'}` : 'Mọi mức';
+  const chip = (active: boolean) => `min-h-10 rounded-full border px-4 text-sm font-semibold transition ${active ? 'border-brand-navy bg-brand-navy text-surface' : 'border-line bg-surface text-ink-700 hover:border-brand-navy hover:text-brand-navy'}`;
+
   return (
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.includes('thành công') || notice.includes('hoàn tất') ? 'success' : 'error'} />}
-      <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và phần phí bạn thấy phù hợp." actions={<Button onClick={openCreate}>Tạo kèo</Button>} />
+      <PageHeader eyebrow="Cùng ra sân" title="Kèo cầu lông đang mở" description="Chọn đúng bậc, thời gian và mức phí phù hợp." actions={<Button size="lg" onClick={openCreate}><Icon name="plus" className="h-4 w-4" />Tạo kèo</Button>} />
       {createdMatchId && !setupRequested && <div role="status" className="mt-5 rounded-xl border border-success bg-success-bg p-4 text-sm text-success">Kèo đã được tạo và đang tìm đối thủ.{!loading && !matches.some((match) => match.id === createdMatchId) && <> <Link className="font-bold underline" to={`/matches/${encodeURIComponent(createdMatchId)}`}>Xem kèo vừa tạo</Link></>}</div>}
       <div className="mt-6">
         <QuickMatchPanel />
       </div>
-      <SurfaceCard className="mt-6">
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void load();
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-bold uppercase tracking-[0.035em] text-ink-500">Bộ lọc kèo</h2>
-            {hasActiveFilters && (
-              <Button type="button" tone="ghost" size="sm" onClick={resetFilters}>
-                Đặt lại
-              </Button>
-            )}
-          </div>
-          <div>
-            <p className="mb-2 text-caption text-ink-500">Thời gian chơi</p>
-            <div className="flex flex-wrap items-center gap-2">
-              {(Object.keys(datePresetLabels) as Array<Exclude<DatePreset, 'custom'>>).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  aria-pressed={datePreset === preset}
-                  onClick={() => selectDatePreset(preset)}
-                  className={`min-h-9 rounded-full border px-4 text-sm font-medium transition ${
-                    datePreset === preset
-                      ? 'border-brand-navy bg-brand-navy text-surface'
-                      : 'border-line bg-surface text-ink-500 hover:border-brand-navy hover:text-brand-navy'
-                  }`}
-                >
-                  {datePresetLabels[preset]}
-                </button>
-              ))}
-              <TextInput
-                aria-label="Chọn ngày cụ thể"
-                type="date"
-                className="h-9 w-auto py-1"
-                min={toDateInputValue(new Date())}
-                value={customDate}
-                onChange={(event) => {
-                  setCustomDate(event.target.value);
-                  setDatePreset(event.target.value ? 'custom' : 'all');
-                }}
-              />
+      <form
+        className="surface-card mt-4 grid gap-3 p-4 lg:grid-cols-[auto_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void load();
+        }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {(Object.keys(datePresetLabels) as Array<Exclude<DatePreset, 'custom'>>).map((preset) => (
+            <button key={preset} type="button" aria-pressed={datePreset === preset} onClick={() => selectDatePreset(preset)} className={chip(datePreset === preset)}>{datePresetLabels[preset]}</button>
+          ))}
+          <TextInput
+            aria-label="Chọn ngày cụ thể"
+            type="date"
+            className={`!h-10 !w-44 !py-1 ${datePreset === 'custom' ? '!border-brand-navy' : ''}`}
+            min={toDateInputValue(new Date())}
+            value={customDate}
+            onChange={(event) => {
+              setCustomDate(event.target.value);
+              setDatePreset(event.target.value ? 'custom' : 'all');
+            }}
+          />
+        </div>
+        <span className="relative">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-500" />
+          <TextInput className="pl-10" aria-label="Khu vực hoặc tên sân" placeholder="Khu vực hoặc tên sân" value={area} onChange={(event) => setArea(event.target.value)} />
+        </span>
+        <SelectInput aria-label="Bậc trình độ" value={skill} onChange={(event) => setSkill(event.target.value as SkillTier | '')}>
+          <option value="">Mọi bậc</option>
+          {tierOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </SelectInput>
+        <div className="relative">
+          <button type="button" aria-expanded={priceOpen} onClick={() => setPriceOpen((open) => !open)} className="flex min-h-[46px] w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-left"><span className="truncate"><span className="text-ink-500">Phí: </span><b className="font-semibold">{priceLabel}</b></span><Icon name="chevronDown" className={`h-4 w-4 transition ${priceOpen ? 'rotate-180' : ''}`} /></button>
+          {priceOpen && (
+            <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow-raised)]">
+              <div className="relative h-8">
+                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" aria-hidden="true" />
+                <div className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand-navy" style={{ left: `${(Math.min(PRICE_MAX, Number(priceMin) || PRICE_MIN) / PRICE_MAX) * 100}%`, right: `${100 - (Math.min(PRICE_MAX, Number(priceMax) || PRICE_MAX) / PRICE_MAX) * 100}%` }} aria-hidden="true" />
+                <input type="range" aria-label="Phí tối thiểu" min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP} value={Number(priceMin) || PRICE_MIN} onChange={(event) => setPriceMin(String(Math.min(Number(event.target.value), Number(priceMax) || PRICE_MAX)))} className={rangeClass} />
+                <input type="range" aria-label="Phí tối đa" min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP} value={Number(priceMax) || PRICE_MAX} onChange={(event) => setPriceMax(String(Math.max(Number(event.target.value), Number(priceMin) || PRICE_MIN)))} className={rangeClass} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <TextInput aria-label="Phí tối thiểu (nhập tay)" inputMode="numeric" value={priceMin} onChange={(event) => setPriceMin(event.target.value.replace(/\D/g, ''))} placeholder="0" />
+                <TextInput aria-label="Phí tối đa (nhập tay)" inputMode="numeric" value={priceMax} onChange={(event) => setPriceMax(event.target.value.replace(/\D/g, ''))} placeholder={String(PRICE_MAX)} />
+              </div>
+              <div className="mt-4 flex justify-between"><Button tone="ghost" size="sm" onClick={() => { setPriceMin(''); setPriceMax(''); }}>Đặt lại</Button><Button size="sm" onClick={() => setPriceOpen(false)}>Xong</Button></div>
             </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block text-caption text-ink-500">
-              Khu vực hoặc tên sân
-              <TextInput
-                className="mt-1"
-                aria-label="Khu vực hoặc tên sân"
-                placeholder="VD: Cầu Giấy, Sân ABC…"
-                value={area}
-                onChange={(event) => setArea(event.target.value)}
-              />
-            </label>
-            <label className="block text-caption text-ink-500">
-              Bậc trình độ
-              <SelectInput
-                className="mt-1"
-                aria-label="Bậc trình độ"
-                value={skill}
-                onChange={(event) => setSkill(event.target.value as SkillTier | '')}
-              >
-                <option value="">Mọi bậc</option>
-                {tierOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </SelectInput>
-            </label>
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-center justify-between text-caption text-ink-500">
-              <span>Khoảng phí / người</span>
-              <span className="text-figures text-ink-700">
-                {priceMin ? formatMoneyVnd(priceMin) : '0đ'} – {priceMax && Number(priceMax) < PRICE_MAX ? formatMoneyVnd(priceMax) : `${formatMoneyVnd(String(PRICE_MAX))}+`}
-              </span>
-            </div>
-            <div className="relative h-10">
-              <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink-100" aria-hidden="true" />
-              {(() => {
-                const lo = Math.max(PRICE_MIN, Math.min(PRICE_MAX, Number(priceMin) || PRICE_MIN));
-                const hi = Math.max(PRICE_MIN, Math.min(PRICE_MAX, Number(priceMax) || PRICE_MAX));
-                const left = (lo / PRICE_MAX) * 100;
-                const right = 100 - (hi / PRICE_MAX) * 100;
-                return <div className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand-navy" style={{ left: `${left}%`, right: `${right}%` }} aria-hidden="true" />;
-              })()}
-              <input
-                type="range" aria-label="Phí tối thiểu"
-                min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP}
-                value={Number(priceMin) || PRICE_MIN}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  const cap = Number(priceMax) || PRICE_MAX;
-                  setPriceMin(String(Math.min(next, cap)));
-                }}
-                className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-navy [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-navy"
-              />
-              <input
-                type="range" aria-label="Phí tối đa"
-                min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP}
-                value={Number(priceMax) || PRICE_MAX}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  const floor = Number(priceMin) || PRICE_MIN;
-                  setPriceMax(String(Math.max(next, floor)));
-                }}
-                className="pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-navy [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-navy"
-              />
-            </div>
-            <div className="mt-1 flex gap-2">
-              <TextInput aria-label="Phí tối thiểu (nhập tay)" inputMode="numeric" value={priceMin} onChange={(event) => setPriceMin(event.target.value.replace(/\D/g, ''))} placeholder="0" />
-              <TextInput aria-label="Phí tối đa (nhập tay)" inputMode="numeric" value={priceMax} onChange={(event) => setPriceMax(event.target.value.replace(/\D/g, ''))} placeholder={String(PRICE_MAX)} />
-            </div>
-          </div>
-        </form>
-      </SurfaceCard>
+          )}
+        </div>
+        <Button type="button" tone="ghost" size="sm" disabled={!hasActiveFilters} onClick={resetFilters}>Đặt lại</Button>
+      </form>
       {!loading && !error && (
         <p className="mt-6 text-sm text-ink-500" aria-live="polite">
-          Tìm thấy <span className="font-semibold text-ink-900">{matches.length}</span> kèo phù hợp
+          <span className="text-figures font-semibold text-ink-900">{matches.length}</span> kèo đang mở · sắp diễn ra trước
         </p>
       )}
-      {error && <div className="mt-6"><RouteState variant="error" title="Không thể tải danh sách kèo" description={error} onRetry={() => void load()} /></div>}
-      {loading ? (
-        <div className="mt-6"><RouteState variant="loading" title="Đang tải các kèo phù hợp" /></div>
+      {error ? (
+        <div className="mt-6"><RouteState variant="error" title="Chưa tải được danh sách kèo" description="Máy chủ đang bận hoặc kết nối bị gián đoạn. Hãy thử lại." onRetry={() => void load()} /></div>
+      ) : loading ? (
+        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((key) => <Skeleton key={key} className="h-48 !rounded-2xl" />)}</div>
       ) : matches.length === 0 ? (
         <div className="mt-4">
           <EmptyState
             title="Chưa có kèo phù hợp"
-            description={hasActiveFilters ? 'Thử nới bộ lọc hoặc đặt lại để xem tất cả kèo đang mở.' : 'Đổi bộ lọc hoặc tạo kèo từ một lượt đặt sân đang giữ của bạn.'}
+            description={hasActiveFilters ? 'Thử nới bộ lọc để xem thêm kèo.' : 'Hãy tự tạo kèo từ một lượt đặt sân của bạn.'}
             action={
               hasActiveFilters
                 ? <Button tone="secondary" onClick={resetFilters}>Đặt lại bộ lọc</Button>
@@ -401,52 +325,8 @@ export function MatchListPage() {
           />
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {matches.map((match) => (
-            <Link
-              key={match.id}
-              to={`/matches/${match.id}`}
-              ref={match.id === createdMatchId ? createdCardRef : undefined}
-              data-testid={`match-card-${match.id}`}
-              className={`surface-card group block p-5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)] ${match.id === highlightedMatchId ? 'ring-2 ring-brand-yellow' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-caption">
-                    {match.mode === 'ranked' ? 'Xếp hạng' : 'Giao lưu'} · {(match.discipline ?? (match.capacity === 2 ? 'singles' : 'doubles')) === 'singles' ? 'Kèo đơn' : 'Kèo đôi'} · {match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang chờ thanh toán' : match.openSlots > 0 ? 'Mở' : 'Đầy'}
-                  </p>
-                  <h2 className="mt-1 font-display font-extrabold text-ink-900 group-hover:text-brand-navy">{match.venue.name}</h2><BusinessCode code={match.businessCode} label="Mã kèo" />
-                </div>
-                <Badge tone={match.status === 'confirmed' ? 'success' : match.openSlots <= 1 ? 'warning' : 'success'}>{match.status === 'confirmed' ? 'Đã xác nhận' : match.paymentPending ? 'Đang giữ chỗ' : `Còn ${match.openSlots} chỗ`}</Badge>
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <Avatar label={match.organizer?.displayName ?? 'T'} src={match.organizer?.avatarUrl} alt={`Ảnh đại diện ${match.organizer?.displayName ?? 'Người tổ chức'}`} />
-                <div>
-                  <p className="text-sm font-medium">{match.organizer?.displayName ?? 'Organizer'}</p>
-                  <p className="text-caption">
-                    {match.organizer?.tier ? tierLabels[match.organizer.tier] : 'Chưa công bố bậc'}
-                  </p>
-                </div>
-              </div>
-              <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-ink-500">Thời gian</dt>
-                  <dd className="text-right font-medium">{formatDateTimeVi(match.startAt)}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-ink-500">Sân</dt>
-                  <dd className="text-right">{match.court.name}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-ink-500">Phí</dt>
-                  <dd className="text-figures font-semibold text-brand-navy">{money(match.feePerSlot)}</dd>
-                </div>
-              </dl>
-              <div className="mt-4">
-                <Badge>{skillRange(match)}</Badge>
-              </div>
-            </Link>
-          ))}
+        <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {matches.map((match) => <MatchCard key={match.id} match={match} highlighted={match.id === highlightedMatchId} ref={match.id === createdMatchId ? createdCardRef : undefined} />)}
         </div>
       )}
       <Modal open={skillSetupOpen} title="Thiết lập bậc trình độ" dismissible={false} onClose={() => undefined}>
@@ -478,3 +358,5 @@ export function MatchListPage() {
     </div>
   );
 }
+
+const rangeClass = 'pointer-events-none absolute inset-0 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-brand-navy [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-brand-navy';

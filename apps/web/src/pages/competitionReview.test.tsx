@@ -41,7 +41,7 @@ it('provider pages the queue, reads evidence privately and sends a non-binding r
   expect(screen.getByText(/Đề xuất chưa có hiệu lực/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Xem ảnh 1' }))
   await waitFor(() => expect(readResultEvidence).toHaveBeenCalledWith('match-c1', 'e1'))
-  fireEvent.click(screen.getByRole('button', { name: '›' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }))
   await waitFor(() => expect(listProviderResultCases).toHaveBeenLastCalledWith(2, 'provider_review'))
   const send = screen.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' })
   expect(send).toBeDisabled()

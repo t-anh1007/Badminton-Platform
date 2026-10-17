@@ -78,7 +78,7 @@ export function GoogleSignInButton({ onCredential, disabled }: GoogleSignInButto
           theme: 'outline',
           size: 'large',
           text: 'continue_with',
-          shape: 'rectangular',
+          shape: 'pill',
           logo_alignment: 'left',
           width: 320,
         })
@@ -92,6 +92,8 @@ export function GoogleSignInButton({ onCredential, disabled }: GoogleSignInButto
   }, [clientId])
 
   if (!clientId) {
+    // Thông báo cấu hình chỉ dành cho dev; người dùng thật không cần thấy.
+    if (!import.meta.env.DEV) return null
     return (
       <p className="text-xs text-ink-500">
         Đăng nhập Google chưa được cấu hình (thiếu <code>VITE_GOOGLE_OAUTH_CLIENT_ID</code>).
