@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { listMyRewardPayouts, PAYOUT_STATUS_LABELS, type RewardPayout } from '../lib/rewardApi';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { AsyncButton, Avatar, Badge, Button, EmptyState, Modal, Pagination, SegmentedControl, SelectInput, SurfaceCard, Tabs, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
-import { formatDateTimeVi, formatDateVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatDateVi, formatMoneyVnd } from '../lib/formatters.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { MetricCard } from '../components/courtin/MetricCard';
 import type { SkillTier } from '../lib/matchApi';
@@ -156,9 +157,9 @@ function OwnPassportView() {
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
       <PageHeader
-        eyebrow="Hồ sơ thi đấu"
-        title="Điểm kinh nghiệm của tôi"
-        description="Điểm kinh nghiệm đánh đơn và đánh đôi được theo dõi riêng."
+        eyebrow="Thi đấu"
+        title="Hồ sơ thi đấu"
+        description="Điểm kinh nghiệm, thứ hạng, huy hiệu và giải thưởng của bạn."
         actions={current?.leaderboardVisible ? <Badge tone="success">Đủ điều kiện lên bảng</Badge> : undefined}
       />
       {loading ? (
@@ -196,10 +197,13 @@ function OwnPassportView() {
             <ActivityCard key={discipline} discipline={discipline} passport={current} region={season?.myRegion ?? null} />
           </div>
 
-          <SurfaceCard className="mt-5">
-            <h2 className="text-h2">Huy hiệu</h2>
-            <BadgeList badges={passport.badges} />
-          </SurfaceCard>
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+            <SurfaceCard>
+              <h2 className="text-h3">Huy hiệu</h2>
+              <BadgeList badges={passport.badges} />
+            </SurfaceCard>
+            <MyRewardsCard />
+          </div>
 
           <SurfaceCard className="mt-5">
             <div className="flex items-start justify-between gap-3">
@@ -211,7 +215,7 @@ function OwnPassportView() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-4">
               <MetricCard label="Đã tính" value={passport.evaluationCount} />
-              <MetricCard label="Mức cảm nhận" value={passport.evaluationScore === null ? '—' : Math.round(passport.evaluationScore)} tone="yellow" />
+              <MetricCard label="Mức cảm nhận" value={passport.evaluationScore === null ? '—' : Math.round(passport.evaluationScore)} />
             </div>
             {passport.recentMatches.length === 0 ? (
               <div className="mt-5">
@@ -297,7 +301,7 @@ function SeasonRegion({ season, onSelected, onError }: { season: CurrentSeason |
           <option value="">Chọn tỉnh/thành</option>
           {VIETNAM_PROVINCES.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
         </SelectInput>
-        <Button size="sm" disabled={!code} onClick={() => setConfirming(true)}>Chọn khu vực</Button>
+        <Button size="sm" className="whitespace-nowrap" disabled={!code} onClick={() => setConfirming(true)}>Chọn khu vực</Button>
       </div>
       <Modal open={confirming} title="Xác nhận khu vực xếp hạng" onClose={() => setConfirming(false)}>
         <p className="text-sm text-ink-700">
@@ -471,5 +475,26 @@ function HistoryPanel({ discipline }: { discipline: Discipline }) {
       </ul>
       {pageCount > 1 && <div className="mt-3"><Pagination page={page} pageCount={pageCount} onChange={setPage} /></div>}
     </div>
+  );
+}
+
+/** Giải thưởng của tôi (trước là trang riêng) — gộp vào Hồ sơ thi đấu. */
+function MyRewardsCard() {
+  const [items, setItems] = useState<RewardPayout[] | null>(null);
+  useEffect(() => { listMyRewardPayouts().then((result) => setItems(result.items), () => setItems([])); }, []);
+  return (
+    <SurfaceCard>
+      <div className="flex items-center justify-between gap-3"><h2 className="text-h3">Giải thưởng</h2><Link to="/rewards" className="text-sm font-bold text-brand-navy hover:underline">Chương trình</Link></div>
+      {items === null ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p> : items.length === 0 ? <p className="mt-3 text-sm text-ink-500">Chưa có giải thưởng. Lên bảng xếp hạng mùa để nhận thưởng.</p> : (
+        <ul className="mt-3 grid gap-2">
+          {items.map((item) => (
+            <li key={item.id}><Link to={`/rewards/payouts/${item.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3 hover:bg-green-50">
+              <span className="min-w-0"><span className="block truncate font-semibold text-ink-900">{item.programName} · {item.achievementLabel}</span><span className="text-xs text-ink-500">{PAYOUT_STATUS_LABELS[item.status]}</span></span>
+              <span className="text-figures shrink-0 font-semibold text-brand-navy">{formatMoneyVnd(item.amount)}</span>
+            </Link></li>
+          ))}
+        </ul>
+      )}
+    </SurfaceCard>
   );
 }

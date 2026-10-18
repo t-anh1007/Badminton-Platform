@@ -3,7 +3,8 @@ import { createMatchOrganizerContributionSepayIntent, getMyWallets, payMatchOrga
 import { formatMoneyVnd } from '../lib/formatters.js'
 import { getMatchDetail, waitForMatchOpen } from '../lib/matchApi.js'
 import { SepayPayBox } from './SepayPayBox.js'
-import { Button, SelectInput } from './ui.js'
+import { Button } from './ui.js'
+import { HoldTimer, PaymentMethodPicker } from './PaymentMethodPicker.js'
 
 type Phase = 'selecting' | 'paying' | 'confirming' | 'expired' | 'failed'
 
@@ -127,10 +128,10 @@ export function MatchDepositCheckout({ matchId, fullPrice, holdExpiresAt, onPaid
       <p className="mt-3">Khoản này giữ sân và mở kèo tìm người chơi. Người tham gia đóng phần của mình trước hạn chốt kèo.</p>
       <p className="mt-1">Không đủ người trước hạn chốt kèo thì kèo tự hủy và tiền được hoàn vào ví của bạn.</p>
     </div>
-    <p className="text-sm text-ink-500">Thời gian thanh toán còn {Math.floor(remaining / 60_000).toString().padStart(2, '0')}:{Math.floor((remaining % 60_000) / 1_000).toString().padStart(2, '0')}</p>
-    <label className="block text-sm font-medium">Phương thức thanh toán cọc<SelectInput className="mt-1" value={method} disabled={disabled} onChange={(event) => setMethod(event.target.value as 'balance' | 'sepay')}><option value="balance">Số dư — {walletBalance !== null ? formatMoneyVnd(walletBalance) : walletBalanceUnavailable ? 'Không khả dụng' : 'Đang tải…'}</option><option value="sepay">SePay</option></SelectInput></label>
-    <Button className="w-full" disabled={disabled} onClick={() => void pay()}>{phase === 'confirming' ? 'Đang xác nhận…' : method === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>
-    {sepay && <div className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={sepay.payment} /></div>}
+    <HoldTimer remainingMs={remaining} label="Thời gian thanh toán còn" />
+    {!sepay && <PaymentMethodPicker label="Phương thức thanh toán cọc" value={method} disabled={disabled} balance={walletBalance !== null ? walletBalance : walletBalanceUnavailable ? null : undefined} onChange={setMethod} />}
+    {!sepay && <Button size="lg" className="w-full" disabled={disabled} onClick={() => void pay()}>{phase === 'confirming' ? 'Đang xác nhận…' : method === 'balance' ? 'Thanh toán số dư' : 'Tạo mã SePay'}</Button>}
+    {sepay && <SepayPayBox payment={sepay.payment} />}
     {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
   </div>
 }

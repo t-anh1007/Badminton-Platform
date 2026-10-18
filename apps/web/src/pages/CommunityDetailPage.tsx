@@ -51,6 +51,7 @@ export function CommunityDetailPage() {
   } | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [postMenuOpen, setPostMenuOpen] = useState(false);
   const [editBody, setEditBody] = useState('');
   const [removePostOpen, setRemovePostOpen] = useState(false);
   const [removeCommentId, setRemoveCommentId] = useState<string | null>(null);
@@ -235,36 +236,18 @@ export function CommunityDetailPage() {
             <p className="mt-6 whitespace-pre-wrap text-body text-ink-700">{post.body}</p>
             <div className="mt-4"><CommunityMediaGrid images={post.images} /></div>
           </div>
-          <div className="flex flex-wrap items-center border-t border-line px-3 py-2 text-sm">
-            <span className="px-3 py-2 font-semibold text-ink-700">{post.comments.length} bình luận</span>
-            <button
-              type="button"
-              onClick={() => openReport('post', post.id)}
-              className="rounded-full px-3 py-2 font-medium text-ink-500 hover:bg-canvas hover:text-ink-900"
-            >
-              Báo cáo bài viết
-            </button>
-            {isOwner && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditBody(post.body);
-                    setEditOpen(true);
-                  }}
-                  className="rounded-full px-3 py-2 font-medium text-green-700 hover:bg-green-50"
-                >
-                  Chỉnh sửa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRemovePostOpen(true)}
-                  className="rounded-full px-3 py-2 font-medium text-danger hover:bg-danger-bg"
-                >
-                  Gỡ bài
-                </button>
-              </>
-            )}
+          <div className="flex items-center justify-between border-t border-line px-3 py-2 text-sm">
+            <span className="inline-flex items-center gap-2 px-3 py-2 font-semibold text-ink-500"><Icon name="chat" className="h-4 w-4" />{post.comments.length} bình luận</span>
+            <div className="relative">
+              <button type="button" aria-label="Tùy chọn bài viết" aria-expanded={postMenuOpen} onClick={() => setPostMenuOpen((open) => !open)} className="grid h-10 w-10 place-items-center rounded-full text-ink-500 hover:bg-canvas hover:text-brand-navy"><Icon name="more" /></button>
+              {postMenuOpen && (
+                <div role="menu" className="absolute bottom-full right-0 z-10 mb-1 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-raised)]" onClick={() => setPostMenuOpen(false)}>
+                  {isOwner && <button type="button" role="menuitem" onClick={() => { setEditBody(post.body); setEditOpen(true); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-canvas"><Icon name="edit" className="h-4 w-4" />Chỉnh sửa</button>}
+                  {isOwner && <button type="button" role="menuitem" onClick={() => setRemovePostOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-danger hover:bg-danger-bg"><Icon name="close" className="h-4 w-4" />Gỡ bài</button>}
+                  <button type="button" role="menuitem" onClick={() => openReport('post', post.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-danger hover:bg-danger-bg"><Icon name="flag" className="h-4 w-4" />Báo cáo bài viết</button>
+                </div>
+              )}
+            </div>
           </div>
         </article>
 

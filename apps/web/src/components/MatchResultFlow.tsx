@@ -210,11 +210,7 @@ export function MatchResultFlow({ matchId, allowIncident = false, onFinalChange 
         <h2 className="text-h2">Kết quả trận</h2>
         <Badge tone={resultCase.status === 'final' ? 'success' : 'warning'}>{RESULT_STATUS_LABELS[resultCase.status]}</Badge>
       </div>
-      <div className="surface-card grid gap-3 p-4 text-sm sm:grid-cols-3">
-        <div><p className="text-xs text-ink-500">Sân và địa chỉ</p><p className="font-semibold">{resultCase.match.venue.name} - {resultCase.match.court.name}</p><p>{resultCase.match.venue.address}</p></div>
-        <div><p className="text-xs text-ink-500">Thời gian thi đấu</p><p className="font-semibold">{formatDateTimeVi(resultCase.match.startAt)}</p><p>{resultCase.match.format === 'bo5' ? 'BO5 (thắng 3 trong 5 ván)' : 'BO3 (thắng 2 trong 3 ván)'} - 21 điểm - giới hạn 30</p></div>
-        <div><p className="text-xs text-ink-500">Kèo</p><p className="font-semibold">{resultCase.match.mode === 'ranked' ? 'Xếp hạng' : 'Giao hữu'} - {resultCase.match.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}</p><p>Tỷ lệ thua : thắng = {resultCase.match.ratio.replace(':', ' : ')}</p></div>
-      </div>
+      {/* Sân, giờ, chế độ đã có ở đầu trang chi tiết kèo nên không lặp lại ở đây. */}
       {countdown && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] bg-brand-navy p-5 text-surface">
           <div>

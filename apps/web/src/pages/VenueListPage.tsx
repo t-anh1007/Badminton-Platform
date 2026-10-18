@@ -319,6 +319,30 @@ export function VenueListPage({ embedded = false, initialViewMode = 'list', onSe
     );
   }
 
+  // Tạo kèo → "Tạo khung giờ mới": danh sách gọn dạng dòng thay cho cả trang đặt sân.
+  if (picking && onSelectVenue) {
+    return (
+      <section>
+        <span className="relative block"><Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-500" /><TextInput aria-label="Tìm sân" placeholder="Tìm sân theo tên hoặc mã" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} className="pl-10" /></span>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-line bg-surface">
+          {loadError ? <p className="p-4 text-sm text-danger">{loadError}</p>
+            : loading ? <div className="grid gap-2 p-3">{[0, 1, 2].map((key) => <Skeleton key={key} className="h-14" />)}</div>
+            : visibleVenues.length === 0 ? <p className="p-4 text-sm text-ink-500">Không có sân phù hợp.</p>
+            : visibleVenues.slice(0, pickLimit).map((venue) => {
+              const price = formatLowestPrice(venue.lowestPrice);
+              return (
+                <button key={venue.venueId} type="button" onClick={() => onSelectVenue(venue)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-line px-4 py-3 text-left last:border-0 hover:bg-canvas">
+                  <span className="min-w-0"><span className="block truncate font-semibold text-ink-900">{venue.name}</span><span className="block truncate text-xs text-ink-500">{venue.address} · {venue.courtCount} sân</span></span>
+                  <span className="text-right text-sm"><span className="text-figures block text-ink-500">{venue.distanceKm.toFixed(1)} km</span>{price && <span className="text-figures font-semibold text-brand-navy">từ {price}</span>}</span>
+                </button>
+              );
+            })}
+        </div>
+        {!loading && visibleVenues.length > pickLimit && <Button type="button" tone="secondary" size="sm" className="mt-3 w-full" onClick={() => setPickLimit((current) => current + PICK_PAGE)}>Xem thêm ({visibleVenues.length - pickLimit} cơ sở)</Button>}
+      </section>
+    );
+  }
+
   const Wrapper = picking ? 'section' : 'main';
   return (
     <Wrapper className={picking ? '' : 'min-h-screen bg-canvas pb-16 pt-8 sm:pt-10'}>

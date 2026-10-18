@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PaymentMethodPicker } from './PaymentMethodPicker.js';
 import { Badge, Button, SegmentedControl, SelectInput, SurfaceCard, TextInput } from './ui';
 import { SepayPayBox } from './SepayPayBox.js';
 import {
@@ -118,15 +119,10 @@ export function PartnerInvitePanel({ detail, run }: Props) {
       )}
 
       {actions.canPayPrepaid && (
-        <div className="mt-4 space-y-3 rounded-xl bg-canvas p-3">
+        <div className="mt-4 space-y-4 rounded-2xl border border-line p-4">
           <p className="text-sm">Thanh toán {fee} cho đồng đội. Lời mời chỉ được gửi sau khi thanh toán thành công.</p>
-          <div className="flex flex-wrap gap-2">
-            <SelectInput aria-label="Cách thanh toán cho đồng đội" className="w-auto" value={method} onChange={(event) => setMethod(event.target.value as 'balance' | 'sepay')}>
-              <option value="balance">Số dư</option>
-              <option value="sepay">SePay</option>
-            </SelectInput>
-            <Button onClick={() => void payPrepaid()}>Thanh toán</Button>
-          </div>
+          {!sepay && <PaymentMethodPicker label="Cách thanh toán cho đồng đội" value={method} onChange={setMethod} />}
+          {!sepay && <Button className="w-full" onClick={() => void payPrepaid()}>Thanh toán</Button>}
           {sepay && <SepayPayBox payment={sepay} />}
         </div>
       )}

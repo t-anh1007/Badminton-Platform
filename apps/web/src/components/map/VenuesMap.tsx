@@ -70,12 +70,15 @@ export function shouldFocusCurrentLocation(searchOrigin: { lat: number; lng: num
   return currentLocation?.lat === searchOrigin.lat && currentLocation.lng === searchOrigin.lng;
 }
 
+// Chỉ khớp khung theo sân trong 50 km để dữ liệu sai toạ độ không kéo bản đồ ra cả thế giới.
+const nearby = (venues: VenueMapPoint[]) => [...venues].filter((v) => v.distanceKm <= 50).sort((a, b) => a.distanceKm - b.distanceKm);
+
 function FitBounds({ searchOrigin, currentLocation, venues }: { searchOrigin: { lat: number; lng: number }; currentLocation?: { lat: number; lng: number } | null; venues: VenueMapPoint[] }) {
   const map = useMap();
   useEffect(() => {
     if (currentLocation && shouldFocusCurrentLocation(searchOrigin, currentLocation)) {
       // Khớp khung theo vài sân gần nhất để luôn thấy sân, không zoom sát tên đường.
-      const nearest = [...venues].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 6);
+      const nearest = nearby(venues).slice(0, 6);
       if (nearest.length === 0) map.setView([currentLocation.lat, currentLocation.lng], 15);
       else map.fitBounds(L.latLngBounds([[currentLocation.lat, currentLocation.lng], ...nearest.map((v) => [v.lat, v.lng] as [number, number])]).pad(0.15));
       return;
@@ -83,7 +86,7 @@ function FitBounds({ searchOrigin, currentLocation, venues }: { searchOrigin: { 
     const points: [number, number][] = [
       [searchOrigin.lat, searchOrigin.lng],
       ...(currentLocation ? [[currentLocation.lat, currentLocation.lng] as [number, number]] : []),
-      ...venues.map((v) => [v.lat, v.lng] as [number, number]),
+      ...nearby(venues).map((v) => [v.lat, v.lng] as [number, number]),
     ];
     if (points.length === 1) {
       map.setView(points[0], 13);

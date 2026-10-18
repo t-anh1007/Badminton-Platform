@@ -37,49 +37,46 @@ export function SepayPayBox({ payment }: { payment: SepayPayInstruction }) {
     }
   };
   return (
-    <div className="space-y-3">
-      <p className="text-figures text-2xl font-bold text-green-700">{formatMoneyVnd(payment.amount)}</p>
-      <div className="flex justify-center">
-        <div className="grid justify-items-center gap-2">
-          <img
-            src={payment.qrImageUrl}
-            alt={`Mã VietQR chuyển ${formatMoneyVnd(payment.amount)} nội dung ${payment.matchCode}`}
-            width={240}
-            height={240}
-            className="rounded-xl border border-ink-100 bg-white p-2"
-          />
-          <Button tone="secondary" size="sm" disabled={downloadState === 'downloading'} onClick={() => void downloadQrImage()}>
-            {downloadState === 'downloading' ? 'Đang tải ảnh…' : 'Lưu ảnh mã QR'}
-          </Button>
-          {downloadState === 'failed' && <p role="status" className="text-center text-xs text-danger">Không thể tải ảnh QR. Vui lòng thử lại.</p>}
-        </div>
+    <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+      <div className="grid justify-items-center gap-2">
+        <img
+          src={payment.qrImageUrl}
+          alt={`Mã VietQR chuyển ${formatMoneyVnd(payment.amount)} nội dung ${payment.matchCode}`}
+          width={200}
+          height={200}
+          className="rounded-2xl border border-line bg-white p-2 shadow-[var(--shadow-card)]"
+        />
+        <Button tone="ghost" size="sm" disabled={downloadState === 'downloading'} onClick={() => void downloadQrImage()}>
+          {downloadState === 'downloading' ? 'Đang tải ảnh…' : 'Lưu ảnh mã QR'}
+        </Button>
+        {downloadState === 'failed' && <p role="status" className="text-center text-xs text-danger">Không thể tải ảnh QR. Vui lòng thử lại.</p>}
       </div>
-      <dl className="space-y-1 rounded-xl bg-canvas p-3 text-sm">
-        <div className="flex justify-between gap-3"><dt className="text-ink-500">Ngân hàng</dt><dd className="text-figures font-medium">{payment.bankCode}</dd></div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink-500">Số tài khoản</dt>
-          <dd className="flex items-center gap-2 text-figures font-medium">
-            {payment.accountNumber}
-            <Button size="sm" tone="secondary" onClick={() => void copy(payment.accountNumber, 'account')}>
-              {copied === 'account' ? 'Đã chép' : 'Chép'}
-            </Button>
-          </dd>
-        </div>
-        <div className="flex justify-between gap-3"><dt className="text-ink-500">Chủ tài khoản</dt><dd className="text-figures font-medium">{payment.accountName}</dd></div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink-500">Nội dung (bắt buộc)</dt>
-          <dd className="flex items-center gap-2 text-figures font-bold">
-            {payment.matchCode}
-            <Button size="sm" tone="secondary" onClick={() => void copy(payment.matchCode, 'code')}>
-              {copied === 'code' ? 'Đã chép' : 'Chép'}
-            </Button>
-          </dd>
-        </div>
-      </dl>
-      <p className="text-sm text-ink-500">
-        Quét mã hoặc chuyển đúng nội dung ở trên. Trạng thái tự cập nhật sau khi ngân hàng báo có và webhook được đối
-        soát.
-      </p>
+      <div className="min-w-0">
+        <p className="text-sm text-ink-500">Số tiền</p>
+        <p className="text-figures text-2xl font-semibold text-brand-navy">{formatMoneyVnd(payment.amount)}</p>
+        <dl className="mt-3 divide-y divide-line text-sm">
+          <div className="flex justify-between gap-3 py-2"><dt className="text-ink-500">Ngân hàng</dt><dd className="font-semibold">{payment.bankCode}</dd></div>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-ink-500">Số tài khoản</dt>
+            <dd className="flex items-center gap-2 text-figures font-semibold">
+              {payment.accountNumber}
+              <button type="button" className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-brand-navy" onClick={() => void copy(payment.accountNumber, 'account')}>{copied === 'account' ? 'Đã chép' : 'Chép'}</button>
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2"><dt className="text-ink-500">Chủ tài khoản</dt><dd className="font-semibold">{payment.accountName}</dd></div>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-ink-500">Nội dung (bắt buộc)</dt>
+            <dd className="flex items-center gap-2 text-figures font-bold">
+              {payment.matchCode}
+              <button type="button" className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-brand-navy" onClick={() => void copy(payment.matchCode, 'code')}>{copied === 'code' ? 'Đã chép' : 'Chép'}</button>
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-3 flex items-center gap-2.5 rounded-xl bg-green-50 px-3 py-2.5 text-sm text-ink-700">
+          <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand-navy border-t-transparent" />
+          Đang chờ tiền về — trạng thái tự cập nhật.
+        </p>
+      </div>
     </div>
   );
 }
