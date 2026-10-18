@@ -34,8 +34,8 @@ it('uses the provider-owned authorize then upload state before submitting venue 
   createVenue.mockResolvedValue({ id: 'v1' });
   addCourt.mockResolvedValue({ id: 'c1' });
   render(<ManageVenuesPage />);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Thêm sân kinh doanh' })).toBeInTheDocument());
-  fireEvent.click(screen.getByRole('button', { name: 'Thêm sân kinh doanh' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Thêm cơ sở' })).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'Thêm cơ sở' }));
   fireEvent.change(screen.getByLabelText('Tên cơ sở'), { target: { value: 'Sân A' } });
   fireEvent.change(screen.getByLabelText('Địa chỉ'), { target: { value: 'Q1' } });
   fireEvent.change(screen.getByLabelText('Tỉnh/thành'), { target: { value: 'ho-chi-minh' } });
@@ -45,7 +45,7 @@ it('uses the provider-owned authorize then upload state before submitting venue 
   fireEvent.change(screen.getByLabelText('Ảnh Sân 1 (bắt buộc 1–5 ảnh)'), { target: { files: [new File(['court'], 'court.webp', { type: 'image/webp' })] } });
   fireEvent.change(screen.getByLabelText('Ảnh cơ sở'), { target: { files: [new File(['image'], 'venue.webp', { type: 'image/webp' })] } });
   await waitFor(() => expect(screen.getAllByText('Đã tải')).toHaveLength(2));
-  fireEvent.click(screen.getByRole('button', { name: 'Lưu và hoàn tất cấu hình' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo cơ sở' }));
   await waitFor(() => expect(createVenue).toHaveBeenCalledWith(expect.objectContaining({ images: [{ objectKey: 'venue/images/picture.webp' }] })));
   expect(authorize).toHaveBeenCalledWith('image/webp', expect.objectContaining({ checksumSha256: expect.any(String) }));
 });

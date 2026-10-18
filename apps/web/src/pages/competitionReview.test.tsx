@@ -131,7 +131,7 @@ it('lets provider and Admin switch to processed cases through the status filter'
   cleanup()
   vi.mocked(listProviderResultCases).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 })
   render(<MemoryRouter><ManageMatchResultsPage /></MemoryRouter>)
-  fireEvent.change(await screen.findByLabelText('Trạng thái hồ sơ'), { target: { value: 'admin_review' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Chờ quản trị viên' }))
   await waitFor(() => expect(listProviderResultCases).toHaveBeenLastCalledWith(1, 'admin_review'))
   expect(await screen.findByText('Không có hồ sơ nào ở trạng thái này.')).toBeInTheDocument()
 })

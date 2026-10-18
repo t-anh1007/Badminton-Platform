@@ -8,7 +8,7 @@ import { NotificationBell } from './NotificationBell.js'
 import type { AuthPromptOptions } from '../layout/AuthPrompt'
 
 const playerLinks = [['/', 'Trang chủ'], ['/venues', 'Đặt sân'], ['/matches', 'Tìm kèo'], ['/leaderboard', 'Bảng xếp hạng'], ['/community', 'Cộng đồng']] as const
-const providerLinks = [['/manage', 'Tài chính'], ['/manage/venues', 'Sân'], ['/manage/calendar', 'Lịch']] as const
+const providerLinks = [['/manage', 'Tài chính'], ['/manage/venues', 'Cơ sở'], ['/manage/bookings', 'Đặt sân']] as const
 const adminLinks = [['/admin', 'Tài chính'], ['/admin/bookings', 'Đặt sân'], ['/admin/disputes', 'Tranh chấp']] as const
 // Mục gốc ("/", "/manage", "/admin") chỉ sáng khi đúng trang đó.
 const rootPaths = new Set(['/', '/manage', '/admin'])

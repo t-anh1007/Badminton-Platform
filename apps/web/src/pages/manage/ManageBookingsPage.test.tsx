@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { ManageBookingsPage } from './ManageBookingsPage.js';
@@ -66,7 +66,7 @@ describe('ManageBookingsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Quản lý đặt sân' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Đặt sân' })).toBeVisible();
     expect(screen.getByText('128')).toBeVisible();
     expect(screen.getAllByText('Nguyễn Minh Anh')[0]).toBeVisible();
     expect(screen.getAllByText('240.000đ')[0]).toBeVisible();
@@ -123,8 +123,9 @@ describe('ManageBookingsPage', () => {
     );
 
     fireEvent.click((await screen.findAllByRole('button', { name: /Xem chi tiết lượt đặt sân/i }))[0]);
-    expect(await screen.findByRole('dialog', { name: 'Chi tiết lượt đặt sân' })).toBeVisible();
-    expect(screen.getByText('CLB Linh Xuân · Sân 02')).toBeVisible();
+    const dialog = await screen.findByRole('dialog', { name: 'Chi tiết lượt đặt sân' });
+    expect(dialog).toBeVisible();
+    expect(within(dialog).getByText('CLB Linh Xuân · Sân 02')).toBeVisible();
     expect(screen.queryByText(/090/)).not.toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -179,6 +180,7 @@ describe('ManageBookingsPage', () => {
     );
 
     expect(await screen.findByText('Lượt đặt sân này không còn khả dụng. Danh sách đã được cập nhật.')).toBeVisible();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Đóng drawer đi qua điều hướng URL (transition) nên chờ thay vì kiểm tra ngay.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });

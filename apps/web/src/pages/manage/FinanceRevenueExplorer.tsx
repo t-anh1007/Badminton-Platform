@@ -13,10 +13,9 @@ export function FinanceRevenueExplorer({ data, venues, filters, onChange, onPick
   onPickDay: (day: string) => void; onPickVenue: (venueId: string) => void; onShowPending: () => void;
 }) {
   return <div className="grid gap-5">
-    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-canvas p-3">
+    <div className="flex flex-wrap items-end gap-3">
       <label className="grid min-w-48 gap-1 text-xs font-bold uppercase tracking-wide text-ink-500">Cơ sở<SelectInput aria-label="Lọc cơ sở" value={filters.venueId} onChange={(event) => onChange({ ...filters, venueId: event.target.value })}><option value="">Tất cả cơ sở</option>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</SelectInput></label>
       <PeriodFilter value={filters.period} onChange={(period) => onChange({ ...filters, period })} />
-      <p className="basis-full text-xs text-ink-500">Bộ lọc áp cho khối doanh thu, biểu đồ và phần Chi tiết dòng tiền bên dưới.</p>
     </div>
     <div className="grid gap-5 xl:grid-cols-2" aria-label="Phân loại dòng tiền">
       <MoneyBreakdown title="Doanh thu trong khoảng đang xem" totalLabel="Tổng khách đã trả" note="Theo cơ sở và kỳ xem đang chọn." parts={[

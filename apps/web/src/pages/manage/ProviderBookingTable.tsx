@@ -1,4 +1,5 @@
 import { Badge, Button } from '../../components/ui.js';
+import { Icon } from '../../components/Icon';
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js';
 import type { ProviderBookingRow } from '../../lib/venueBookingApi.js';
 import { providerBookingBadgeTone, providerBookingStatusLabel } from './providerBookingView.js';
@@ -30,15 +31,15 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
               <th className="border-b border-line px-4 py-3 font-semibold">Thời gian</th>
               <th className="border-b border-line px-4 py-3 font-semibold">Giá trị</th>
               <th className="border-b border-line px-4 py-3 font-semibold">Trạng thái</th>
-              <th className="border-b border-line px-4 py-3 text-right font-semibold">Chi tiết</th>
+              <th className="border-b border-line px-4 py-3"><span className="sr-only">Chi tiết</span></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="group hover:bg-canvas/70">
+              <tr key={row.id} className="group cursor-pointer hover:bg-canvas/70" onClick={() => onSelect(row.id)}>
                 <td className="border-b border-line px-4 py-4 align-top">
-                  <p className="font-bold text-brand-navy">{row.court.venue.name}</p>
-                  <p className="mt-1 text-ink-500">{row.court.name} · {row.businessCode}</p>
+                  <p className="font-bold text-ink-900">{row.court.venue.name} · {row.court.name}</p>
+                  <p className="text-figures mt-1 text-xs text-ink-500">{row.businessCode}</p>
                   {row.manualCustomerNotificationRequired && <p className="mt-2 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
                 </td>
                 <td className="border-b border-line px-4 py-4 align-top">
@@ -54,14 +55,14 @@ export function ProviderBookingTable({ rows, onSelect }: Props) {
                 </td>
                 <td className="border-b border-line px-4 py-4 align-top"><StatusBadge row={row} /></td>
                 <td className="border-b border-line px-4 py-4 text-right align-top">
-                  <Button
-                    tone="ghost"
-                    size="sm"
+                  <button
+                    type="button"
                     aria-label={`Xem chi tiết lượt đặt sân ${row.businessCode}`}
-                    onClick={() => onSelect(row.id)}
+                    onClick={(event) => { event.stopPropagation(); onSelect(row.id); }}
+                    className="grid h-9 w-9 place-items-center rounded-full text-ink-500 group-hover:text-brand-navy"
                   >
-                    Xem
-                  </Button>
+                    <Icon name="chevronRight" />
+                  </button>
                 </td>
               </tr>
             ))}

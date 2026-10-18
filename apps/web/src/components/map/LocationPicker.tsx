@@ -26,6 +26,18 @@ interface LocationPickerProps {
   initialQuery?: string;
 }
 
+// Leaflet chỉ đo khung lúc tạo; khung đổi kích thước (lưới, hiện/ẩn) thì vẽ lại cho đủ ô bản đồ.
+function FitContainer() {
+  const map = useMap();
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 function ClickCapture({ onPick, disabled = false }: { onPick: (lat: number, lng: number) => void; disabled?: boolean }) {
   useMapEvents({ click: (event) => { if (!disabled) onPick(event.latlng.lat, event.latlng.lng); } });
   return null;
@@ -112,7 +124,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
 
   return (
     <div className={`grid gap-2 ${className}`}>
-      <div className="relative">
+      {!disabled && <div className="relative">
         <input
           aria-label="Tìm địa chỉ trên bản đồ"
           disabled={disabled}
@@ -137,7 +149,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="relative">
         <MapContainer
@@ -150,6 +162,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
           <TileLayer url={OSM_TILE_URL} attribution={OSM_ATTRIBUTION} />
           <ClickCapture disabled={disabled} onPick={(lat, lng) => commit(lat, lng, true)} />
           <Recenter value={value} />
+          <FitContainer />
           {value && (
             <Marker
               position={[value.lat, value.lng]}
@@ -165,7 +178,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
             />
           )}
         </MapContainer>
-        <button
+        {!disabled && <button
           type="button"
           onClick={useCurrentLocation}
           disabled={disabled || locating}
@@ -174,16 +187,16 @@ export function LocationPicker({ value, onChange, onAddressResolved, className =
           className="absolute left-3 top-20 z-10 grid h-9 w-9 place-items-center rounded-md border-2 border-ink-400/40 bg-surface text-xl text-brand-navy shadow disabled:opacity-60"
         >
           <span aria-hidden>{locating ? '…' : '⌾'}</span>
-        </button>
+        </button>}
       </div>
 
       {locationError && <p className="text-xs text-danger">{locationError}</p>}
 
-      <p className="text-xs text-ink-500">
+      {!disabled && <p className="text-xs text-ink-500">
         {value
           ? `Đã chọn: ${value.lat.toFixed(6)}, ${value.lng.toFixed(6)} — bấm trên bản đồ hoặc kéo ghim để đổi vị trí.`
           : 'Tìm địa chỉ hoặc bấm lên bản đồ để đặt vị trí sân.'}
-      </p>
+      </p>}
     </div>
   );
 }

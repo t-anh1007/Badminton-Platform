@@ -10,7 +10,7 @@ const homes = { player: '/', provider: '/manage', admin: '/admin' } as const
 
 const accountLinks: Record<UserRole, ReadonlyArray<readonly [string, string]>> = {
   player: [['/profile', 'Hồ sơ của tôi'], ['/passport', 'Hồ sơ thi đấu'], ['/support', 'Hỗ trợ'], ['/provider-onboarding', 'Hợp tác chủ sân']],
-  provider: [['/profile', 'Hồ sơ của tôi'], ['/manage', 'Trang quản lý'], ['/support', 'Hỗ trợ']],
+  provider: [['/profile', 'Hồ sơ của tôi'], ['/support', 'Hỗ trợ']],
   admin: [['/profile', 'Hồ sơ của tôi'], ['/admin', 'Bảng điều khiển'], ['/support', 'Hỗ trợ']],
 }
 

@@ -2,7 +2,8 @@ import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { BusinessCode } from '../../components/BusinessCode.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, EmptyState, SelectInput, SurfaceCard, TextInput } from '../../components/ui';
+import { Badge, Button, EmptyState, SelectInput, TextInput } from '../../components/ui';
+import { Icon } from '../../components/Icon';
 import {
   createManagedVenue,
   addManagedCourt,
@@ -188,25 +189,42 @@ export function ManageVenuesPage() {
     } finally { setBusy(false); }
   };
 
-  const formControl = open && (
-    <SurfaceCard className="mt-4 grid gap-4">
-      <div>
-        <h3 className="text-h3">Thông tin cơ sở</h3>
-        <p className="mt-1 text-sm text-ink-500">Điền các trường bắt buộc (*) rồi chọn vị trí trên bản đồ. Ảnh và tiện ích có thể bổ sung sau.</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+  const uploadStatus = (uploadingCount > 0 || failedCount > 0) && (
+    <p className="text-xs text-ink-500">
+      {uploadingCount > 0 && <>Đang tải {uploadingCount} ảnh… </>}
+      {failedCount > 0 && <span className="text-danger">{failedCount} ảnh lỗi, hãy thử lại hoặc gỡ trước khi lưu.</span>}
+    </p>
+  );
+
+  if (open) return (
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-h2">Thêm cơ sở</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          {uploadStatus}
+          <Button tone="secondary" size="sm" disabled={busy} onClick={() => { setOpen(false); resetForm(); }}>Hủy</Button>
+          <Button disabled={busy || uploadingCount > 0} onClick={() => void submit()}>
+            {busy ? 'Đang tạo…' : uploadingCount > 0 ? `Đợi ${uploadingCount} ảnh…` : 'Tạo cơ sở'}
+          </Button>
+        </div>
+      </header>
+      {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="surface-card grid content-start gap-4 p-5">
+          <h3 className="text-h3">1 · Thông tin</h3>
+      <div className="grid gap-4">
         <label className="grid gap-1.5 text-sm font-medium">
-          Tên cơ sở <span className="text-danger">*</span>
+          <span>Tên cơ sở <span className="text-danger">*</span></span>
           <TextInput aria-label={FIELD_LABELS.name} value={form.name} onChange={(event) => change('name', event.target.value)} placeholder="VD: Sân cầu lông Bình Thạnh" />
           {fieldErrors.name && <span className="text-xs text-danger">{fieldErrors.name}</span>}
         </label>
         <label className="grid gap-1.5 text-sm font-medium">
-          Địa chỉ <span className="text-danger">*</span>
+          <span>Địa chỉ <span className="text-danger">*</span></span>
           <TextInput aria-label={FIELD_LABELS.address} value={form.address} onChange={(event) => change('address', event.target.value)} placeholder="Địa chỉ tự động điền khi chọn trên bản đồ" />
           {fieldErrors.address && <span className="text-xs text-danger">{fieldErrors.address}</span>}
         </label>
         <label className="grid gap-1.5 text-sm font-medium">
-          Tỉnh/thành <span className="text-danger">*</span>
+          <span>Tỉnh/thành <span className="text-danger">*</span></span>
           <SelectInput aria-label={FIELD_LABELS.provinceCode} value={form.provinceCode} onChange={(event) => change('provinceCode', event.target.value)}>
             <option value="">Chọn tỉnh/thành</option>
             {VIETNAM_PROVINCES.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
@@ -215,7 +233,7 @@ export function ManageVenuesPage() {
         </label>
       </div>
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium">Tiện ích đề xuất</legend>
+        <legend className="mb-2 text-sm font-medium">Tiện ích</legend>
         <div className="flex flex-wrap gap-2">
           {SUGGESTED_AMENITIES.map((amenity) => {
             const selected = selectedAmenities.includes(amenity);
@@ -225,9 +243,9 @@ export function ManageVenuesPage() {
                 type="button"
                 aria-pressed={selected}
                 onClick={() => toggleAmenity(amenity)}
-                className={`min-h-11 rounded-full border px-4 py-2 text-sm font-semibold transition ${selected ? 'border-brand-navy bg-brand-navy text-surface' : 'border-line bg-surface text-brand-navy hover:border-brand-navy hover:bg-canvas'}`}
+                className={`min-h-9 rounded-full border px-3 text-sm font-semibold transition ${selected ? 'border-brand-navy bg-brand-navy text-surface' : 'border-line bg-surface text-brand-navy hover:border-brand-navy hover:bg-canvas'}`}
               >
-                <span aria-hidden className="mr-1.5">{selected ? '✓' : '+'}</span>{amenity}
+                {amenity}
               </button>
             );
           })}
@@ -237,10 +255,25 @@ export function ManageVenuesPage() {
           <TextInput aria-label={FIELD_LABELS.amenities} value={form.amenities} onChange={(event) => change('amenities', event.target.value)} placeholder="VD: Cho thuê vợt, Căng vợt (phân cách bằng dấu phẩy)" />
         </label>
       </fieldset>
-
-      <section className="grid gap-3 rounded-xl border border-line p-4">
+      <div>
+        <ImageUploadPicker label="Ảnh cơ sở" authorize={authorizeVenueImage} upload={uploadVenueImage} onUploadedChange={setImages} />
+        {(uploadingCount > 0 || failedCount > 0) && (
+          <p className="mt-2 text-xs text-ink-500">
+            {uploadingCount > 0 && <>Đang tải {uploadingCount} ảnh… </>}
+            {failedCount > 0 && <span className="text-danger">{failedCount} ảnh lỗi, hãy thử lại hoặc gỡ trước khi lưu.</span>}
+          </p>
+        )}
+      </div>
+        </section>
+      <section className="surface-card grid content-start gap-3 p-5">
+        <h3 className="text-h3">2 · Vị trí <span className="text-danger">*</span></h3>
+        <LocationPicker value={location} onChange={pickLocation} onAddressResolved={resolveAddress} />
+        {fieldErrors.location && <span className="text-xs text-danger">{fieldErrors.location}</span>}
+      </section>
+      </div>
+      <section className="surface-card grid gap-3 p-5">
         <div>
-          <h4 className="font-bold text-ink-900">Sân con <span className="text-danger">*</span></h4>
+          <h3 className="text-h3">3 · Sân con <span className="text-danger">*</span></h3>
           <p className="mt-1 text-xs text-ink-500">Mỗi sân có lịch, giá, quy tắc và 1–5 ảnh riêng.</p>
         </div>
         <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); addCourtName(); }}>
@@ -293,88 +326,58 @@ export function ManageVenuesPage() {
           </div>
         </>}
       </section>
-
-      <div className="grid gap-1.5 text-sm font-medium">
-        <span>Vị trí trên bản đồ <span className="text-danger">*</span></span>
-        <LocationPicker value={location} onChange={pickLocation} onAddressResolved={resolveAddress} />
-        {fieldErrors.location && <span className="text-xs text-danger">{fieldErrors.location}</span>}
-      </div>
-      <div>
-        <ImageUploadPicker label="Ảnh cơ sở" authorize={authorizeVenueImage} upload={uploadVenueImage} onUploadedChange={setImages} />
-        {(uploadingCount > 0 || failedCount > 0) && (
-          <p className="mt-2 text-xs text-ink-500">
-            {uploadingCount > 0 && <>Đang tải {uploadingCount} ảnh… </>}
-            {failedCount > 0 && <span className="text-danger">{failedCount} ảnh lỗi, hãy thử lại hoặc gỡ trước khi lưu.</span>}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-        <Button disabled={busy || uploadingCount > 0} onClick={() => void submit()}>
-          {busy ? 'Đang tạo và cấu hình…' : uploadingCount > 0 ? `Đợi ${uploadingCount} ảnh…` : 'Lưu và hoàn tất cấu hình'}
-        </Button>
-        <Button tone="secondary" disabled={busy} onClick={() => { setOpen(false); resetForm(); }}>Hủy</Button>
-        {uploadingCount === 0 && images.length > 0 && (
-          <span className="text-xs text-ink-500">Đã tải {images.filter((image) => image.status === 'uploaded').length}/{images.length} ảnh.</span>
-        )}
-      </div>
-    </SurfaceCard>
+    </section>
   );
 
   return (
-    <section>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="grid gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-h2">Cơ sở kinh doanh</h2>
-          <p className="mt-1 text-sm text-ink-500">Quản lý địa điểm, sân con và mức độ hoàn thiện cấu hình.</p>
+          <h1 className="text-h2">Cơ sở</h1>
+          {venues.length > 0 && <p className="mt-1 text-sm text-ink-500">{venues.length} cơ sở · {venues.reduce((sum, venue) => sum + venue.courts.length, 0)} sân con</p>}
         </div>
-        {venues.length > 0 && !open && <Button onClick={() => setOpen(true)}>+ Thêm sân kinh doanh</Button>}
-      </div>
-      {error && <p role="alert" className="mt-3 rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
-      {notice && <p role="status" className="mt-3 rounded-xl bg-success-bg p-3 text-sm text-success">{notice}</p>}
-      {formControl}
-      {venues.length === 0 && !open ? (
+        {venues.length > 0 && <Button onClick={() => setOpen(true)}><Icon name="plus" className="h-4 w-4" />Thêm cơ sở</Button>}
+      </header>
+      {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
+      {notice && <p role="status" className="rounded-xl bg-success-bg p-3 text-sm text-success">{notice}</p>}
+      {venues.length === 0 ? (
         <EmptyState
           title="Chưa có cơ sở"
-          description="Bắt đầu thêm sân kinh doanh."
-          action={<Button onClick={() => setOpen(true)}>Thêm sân kinh doanh</Button>}
+          description="Thêm cơ sở đầu tiên để bắt đầu nhận đặt sân."
+          action={<Button onClick={() => setOpen(true)}>Thêm cơ sở</Button>}
         />
       ) : (
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <ul className="surface-card divide-y divide-line overflow-hidden">
           {venues.map((venue) => {
             const imgs = Array.isArray(venue.images) ? venue.images : [];
             const cover = imgs.length > 0
               ? (typeof imgs[0] === 'string' ? String(imgs[0]) : (imgs[0] as { url?: string }).url ?? null)
               : null;
-            const courtSummary = venue.courts.length;
             const inactiveCourts = venue.courts.filter((court) => !court.active);
-            const venueStopped = courtSummary > 0 && inactiveCourts.length === courtSummary;
+            const venueStopped = venue.courts.length > 0 && inactiveCourts.length === venue.courts.length;
+            const [statusLabel, statusTone] = venue.courts.length === 0 ? ['Thiếu sân con', 'warning'] : venueStopped ? ['Ngừng hoạt động', 'danger'] : inactiveCourts.length ? [`Ngừng ${inactiveCourts.length} sân`, 'warning'] : ['Đang hoạt động', 'success'];
             return (
-              <Link key={venue.id} to={`/manage/venues/${venue.id}`} className="block rounded-2xl focus-visible:outline-none">
-                <SurfaceCard hoverable className={`h-full !p-0 overflow-hidden ${venueStopped ? 'bg-ink-100 opacity-75' : ''}`}>
-                  <div className="flex h-full flex-col">
-                    <div className="aspect-video w-full overflow-hidden bg-ink-100">
-                      {cover && /^(?:https?:\/\/|\/)/i.test(cover) ? (
-                        <img src={cover} alt={`Ảnh ${venue.name}`} loading="lazy" className={`h-full w-full object-cover object-center ${venueStopped ? 'grayscale' : ''}`} />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-ink-400" aria-hidden="true">🏸</div>
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col p-4">
-                      <strong className="text-ink-900">{venue.name}</strong><BusinessCode code={venue.businessCode} label="Mã cơ sở" />
-                      {venueStopped && <span className="mt-2 w-fit rounded-full bg-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-600">Cơ sở đã ngừng hoạt động</span>}
-                      {!venueStopped && inactiveCourts.length > 0 && <span className="mt-2 text-xs font-medium text-danger">Đã ngừng: {inactiveCourts.map((court) => court.name).join(', ')}</span>}
-                      <p className="mt-1 text-sm text-ink-500">{venue.address}</p>
-                      <p className="mt-auto pt-3 text-xs text-ink-500">
-                        {courtSummary} sân con
-                      </p>
-                    </div>
-                  </div>
-                </SurfaceCard>
-              </Link>
+              <li key={venue.id}>
+                <Link to={`/manage/venues/${venue.id}`} className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-canvas">
+                  <span className={`grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-green-600 to-brand-navy font-display text-xl font-extrabold text-white ${venueStopped ? 'grayscale' : ''}`} aria-hidden="true">
+                    {venue.name.slice(0, 1).toUpperCase()}
+                    {cover && /^(?:https?:\/\/|\/)/i.test(cover) && <img src={cover} alt="" loading="lazy" className="col-start-1 row-start-1 h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-ink-900">{venue.name}</strong>
+                    <span className="mt-0.5 flex items-center gap-1 truncate text-sm text-ink-500"><Icon name="pin" className="h-4 w-4" />{venue.address}</span>
+                  </span>
+                  <span className="hidden text-sm text-ink-500 sm:block">{venue.courts.length} sân con</span>
+                  <Badge tone={statusTone as 'success'}>{statusLabel}</Badge>
+                  <span className="hidden lg:block"><BusinessCode code={venue.businessCode} label="Mã cơ sở" /></span>
+                  <Icon name="chevronRight" className="h-5 w-5 text-ink-300" />
+                </Link>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </section>
   );
 }
+

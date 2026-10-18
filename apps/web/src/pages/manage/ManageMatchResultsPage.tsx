@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AsyncButton, Badge, Pagination, SelectInput, SurfaceCard, TextArea } from '../../components/ui';
+import { AsyncButton, Badge, Pagination, SegmentedControl, SurfaceCard, TextArea } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
 import { RESULT_STATUS_LABELS, useServerCountdown } from '../../components/MatchResultFlow';
 import { CaseStatements, CaseSummary, OutcomeChoice, queueContext, queueTitle } from '../../components/ResultCaseReview';
@@ -31,33 +31,27 @@ export function ManageMatchResultsPage() {
   }, [page, status]);
 
   return (
-    <div>
-      <h2 className="text-h1">Xem xét kết quả kèo</h2>
-      <p className="mt-2 text-ink-500">Kiểm tra khai báo và bằng chứng trước khi gửi đề xuất cho quản trị viên.</p>
-      <div className="mt-5 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <SurfaceCard className="h-fit">
-          <div className="flex items-center justify-between">
-            <h3 className="text-h3">Hàng chờ</h3>
-            {queue && <Badge tone={queue.total && status === 'provider_review' ? 'warning' : 'neutral'}>{queue.total} hồ sơ</Badge>}
-          </div>
-          <SelectInput aria-label="Trạng thái hồ sơ" className="mt-3" value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }}>
-            <option value="provider_review">Chờ chủ sân đề xuất</option>
-            <option value="admin_review">Đã đề xuất - chờ quản trị viên quyết định</option>
-            <option value="final">Đã có kết quả</option>
-          </SelectInput>
-          {queueError ? <p className="mt-3 text-sm text-danger">{queueError}</p>
-            : !queue ? <p className="mt-3 text-sm text-ink-500">Đang tải hàng chờ…</p>
-            : queue.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">{status === 'provider_review' ? 'Không có hồ sơ nào cần chủ sân xem xét.' : 'Không có hồ sơ nào ở trạng thái này.'}</p>
+    <div className="grid gap-4">
+      <header>
+        <h1 className="text-h2">Hồ sơ kèo</h1>
+        <p className="mt-1 text-sm text-ink-500">Đề xuất của bạn chỉ để tham khảo, quản trị viên quyết định.</p>
+      </header>
+      <div><SegmentedControl options={[{ value: 'provider_review', label: `Chờ bạn đề xuất${status === 'provider_review' && queue?.total ? ` · ${queue.total}` : ''}` }, { value: 'admin_review', label: 'Chờ quản trị viên' }, { value: 'final', label: 'Đã chốt' }]} value={status} onChange={(next) => { setStatus(next); setPage(1); }} /></div>
+      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <SurfaceCard className="h-fit !p-2">
+          {queueError ? <p className="p-3 text-sm text-danger">{queueError}</p>
+            : !queue ? <p className="p-3 text-sm text-ink-500">Đang tải hàng chờ…</p>
+            : queue.items.length === 0 ? <p className="p-3 text-sm text-ink-500">{status === 'provider_review' ? 'Không có hồ sơ nào cần chủ sân xem xét.' : 'Không có hồ sơ nào ở trạng thái này.'}</p>
             : (
-              <ul className="mt-3 space-y-2">
+              <ul className="space-y-1">
                 {queue.items.map((item) => (
                   <li key={item.caseId}>
                     <button type="button" onClick={() => setSelectedId(item.caseId)} aria-current={selectedId === item.caseId || undefined}
-                      className={`w-full rounded-xl border-2 p-3 text-left ${selectedId === item.caseId ? 'border-brand-navy bg-canvas' : 'border-line'}`}>
-                      <span className="block font-semibold text-brand-navy">{queueTitle(item)}</span>
-                      {queueContext(item) && <span className="block text-sm text-ink-700">{queueContext(item)}</span>}
+                      className={`w-full rounded-xl p-3 text-left transition ${selectedId === item.caseId ? 'bg-green-50 ring-1 ring-brand-navy/30' : 'hover:bg-canvas'}`}>
+                      <span className="block font-bold text-ink-900">{queueTitle(item)}</span>
+                      {queueContext(item) && <span className="block text-sm text-ink-500">{queueContext(item)}</span>}
                       {item.startAt && <span className="block text-xs text-ink-500">{formatDateTimeVi(item.startAt)}</span>}
-                      {item.providerDeadlineAt && <span className="block text-xs text-danger">Hạn đề xuất {formatDateTimeVi(item.providerDeadlineAt)}</span>}
+                      {status === 'provider_review' && item.providerDeadlineAt && <span className="mt-1 block text-xs font-bold text-danger">Hạn đề xuất {formatDateTimeVi(item.providerDeadlineAt)}</span>}
                     </button>
                   </li>
                 ))}
@@ -125,8 +119,8 @@ function ProviderCase({ caseId }: { caseId: string }) {
             </>
           ) : (
             <div className="mt-3 space-y-2 text-sm">
-              <Badge tone="warning">Chờ quản trị viên quyết định</Badge>
-              {detail.providerRecommendation && <p>Đề xuất đã gửi - chưa có hiệu lực. Quản trị viên sẽ ra quyết định cuối.</p>}
+              <Badge tone={detail.status === 'final' ? 'success' : 'warning'}>{detail.status === 'final' ? 'Quản trị viên đã quyết định' : 'Chờ quản trị viên quyết định'}</Badge>
+              {detail.providerRecommendation && detail.status !== 'final' && <p>Đề xuất đã gửi - chưa có hiệu lực. Quản trị viên sẽ ra quyết định cuối.</p>}
             </div>
           )}
         </SurfaceCard>

@@ -9,37 +9,12 @@ type Props = {
   onClear: () => void;
 };
 
-const scopes = [
-  ['all', 'Tất cả'],
-  ['past', 'Đã qua'],
-  ['current', 'Đang diễn ra'],
-  ['future', 'Sắp tới'],
-] as const;
-
 export function ProviderBookingFilters({ value, venues, onChange, onClear }: Props) {
   const courts = venues.find((venue) => venue.id === value.venueId)?.courts ?? [];
 
   return (
     <section className="surface-card p-4 sm:p-5" aria-label="Bộ lọc lượt đặt sân">
-      <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian">
-        {scopes.map(([timeScope, label]) => (
-          <button
-            key={timeScope}
-            type="button"
-            aria-pressed={value.timeScope === timeScope}
-            onClick={() => onChange({ ...value, timeScope, page: 1 })}
-            className={`min-h-10 rounded-full px-4 text-sm font-bold transition ${
-              value.timeScope === timeScope
-                ? 'bg-brand-navy text-surface shadow-sm'
-                : 'border border-line bg-surface text-ink-500 hover:border-brand-navy hover:text-brand-navy'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label className="grid gap-1.5 text-sm font-semibold text-ink-700 xl:col-span-2">
           Tìm kiếm
           <TextInput
