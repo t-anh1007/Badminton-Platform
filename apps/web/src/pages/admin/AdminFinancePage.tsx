@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { SegmentedControl } from '../../components/ui'
 import { FinanceAdminPanel } from '../../components/FinanceAdminPanel'
 import { FinancePlatformOverview } from '../../components/FinancePlatformOverview'
 import { getAdminFinancialTransparency, type AdminTransparencyResult } from '../../lib/financeApi'
@@ -6,26 +8,29 @@ import { getAdminAccountIdentities } from '../../lib/accountApi'
 import { newPeriod, PeriodFilter, periodQuery, type Period } from '../../components/PeriodFilter'
 import { AdminFinanceFlows, type FlowNav } from '../../components/AdminFinanceFlows'
 
-const financeSections = [
-  { id: 'finance-bank-reconciliation', label: 'Tổng quan dòng tiền' },
-  { id: 'finance-flows', label: 'Chi tiết dòng tiền' },
-  { id: 'finance-withdrawals', label: 'Yêu cầu rút tiền' },
-  { id: 'finance-reconciliation', label: 'Đối soát' },
+const financeTabs = [
+  { value: 'overview', label: 'Tổng quan' },
+  { value: 'flows', label: 'Dòng tiền' },
+  { value: 'withdrawals', label: 'Rút tiền' },
+  { value: 'reconciliation', label: 'Đối soát' },
 ] as const
 
-type FinanceSectionId = (typeof financeSections)[number]['id']
+type FinanceTab = (typeof financeTabs)[number]['value']
 
 export function AdminFinancePage() {
   const [overview, setOverview] = useState<AdminTransparencyResult | null>(null)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<FinanceSectionId>('finance-bank-reconciliation')
+  // ?tab=… giữ tab trên URL; ?withdrawal=… (link thông báo) mở thẳng tab Rút tiền.
+  const [params, setParams] = useSearchParams()
+  const requested = params.has('withdrawal') ? 'withdrawals' : params.get('tab')
+  const tab: FinanceTab = financeTabs.some((item) => item.value === requested) ? requested as FinanceTab : 'overview'
+  const setTab = (next: FinanceTab) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
   const [period, setPeriod] = useState<Period>(() => newPeriod('all'))
   const [ownerNames, setOwnerNames] = useState<Map<string, string>>(() => new Map())
   const [flowNav, setFlowNav] = useState<FlowNav>({ tab: 'revenue', nonce: 0 })
   const openOwner = (ownerId: string) => {
     setFlowNav((current) => ({ tab: 'revenue', ownerId, nonce: current.nonce + 1 }))
-    setActiveSection('finance-flows')
-    document.getElementById('finance-flows')?.scrollIntoView({ behavior: 'smooth' })
+    setTab('flows')
   }
   const load = async (page = 1, nextPeriod = period) => {
     try {
@@ -39,45 +44,19 @@ export function AdminFinancePage() {
   useEffect(() => { void load() }, [])
   return (
     <>
-      <h2 className="text-h1">Đối soát tài chính toàn nền tảng</h2>
-      <p className="mt-2 max-w-3xl text-ink-500">Theo dõi tiền khách thanh toán, phần của chủ sân, doanh thu nền tảng, tiền đang chuyển và các khoản chưa có đối ứng.</p>
-      <nav className="sticky top-20 z-20 -mx-1 mt-6 overflow-x-auto bg-canvas/95 px-1 pb-1 pt-3 backdrop-blur-sm" aria-label="Điều hướng tài chính">
-        <div className="inline-flex min-w-max gap-1 rounded-full border border-line bg-canvas p-1">
-          {financeSections.map((section) => {
-            const active = activeSection === section.id
-            return <a
-              key={section.id}
-              href={`#${section.id}`}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => setActiveSection(section.id)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${active ? 'bg-brand-navy text-surface' : 'text-ink-500 hover:bg-surface hover:text-brand-navy'}`}
-            >
-              {section.label}
-            </a>
-          })}
-        </div>
-      </nav>
-      <section id="finance-bank-reconciliation" className="scroll-mt-36">
-        <div className="mt-6 rounded-2xl border border-line bg-canvas p-3">
+      <h1 className="text-h2">Tài chính</h1>
+      <div className="mt-4"><SegmentedControl options={financeTabs} value={tab} onChange={setTab} /></div>
+      {tab === 'overview' && <section className="mt-5 grid gap-5">
+        <div className="flex flex-wrap items-end gap-3">
           <PeriodFilter value={period} onChange={(next) => { setPeriod(next); void load(1, next) }} />
-          <p className="mt-2 text-xs text-ink-500">Kỳ xem áp cho doanh thu đặt sân và biểu đồ; số dư ví và giao dịch ngân hàng luôn là số hiện tại.</p>
+          <p className="pb-2.5 text-xs text-ink-500">Kỳ xem áp cho doanh thu và biểu đồ; số dư ví và giao dịch ngân hàng luôn là số hiện tại.</p>
         </div>
-        {error ? <p role="alert" className="mt-4 rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p> : null}
-        {overview ? <div className="mt-6"><FinancePlatformOverview data={overview} ownerNames={ownerNames} onPickOwner={openOwner} /></div> : <p className="mt-6 text-sm text-ink-500">Đang tải tổng quan tài chính…</p>}
-      </section>
-      <section id="finance-flows" className="surface-card mt-6 scroll-mt-36 p-4">
-        <h3 className="text-h2">Chi tiết dòng tiền</h3>
-        <p className="mt-1 text-sm text-ink-500">Mỗi con số ở trên mở ra danh sách giao dịch cấu thành nó: tiền của ai, cho ai, vì nội dung gì, khớp giao dịch ngân hàng nào. Có bộ lọc kỳ xem và tìm kiếm riêng.</p>
-        <div className="mt-4"><AdminFinanceFlows nav={flowNav} owners={(overview?.byOwner ?? []).map((row) => ({ id: row.key, name: ownerNames.get(row.key) ?? 'Chưa rõ chủ sân' }))} /></div>
-      </section>
-      <section id="finance-withdrawals" className="surface-card mt-6 scroll-mt-36 p-4">
-        <h3 className="text-h2">Yêu cầu rút tiền</h3>
-        <div className="mt-4"><FinanceAdminPanel mode="withdrawals" /></div>
-      </section>
-      <section id="finance-reconciliation" className="surface-card mt-6 scroll-mt-36 p-4">
-        <h3 className="text-h2">Đối soát</h3>
-        <div className="mt-4"><FinanceAdminPanel mode="reconciliation" /></div>
-      </section>
+        {error ? <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p> : null}
+        {overview ? <FinancePlatformOverview data={overview} ownerNames={ownerNames} onPickOwner={openOwner} /> : <p className="text-sm text-ink-500">Đang tải tổng quan tài chính…</p>}
+      </section>}
+      {tab === 'flows' && <div className="mt-5"><AdminFinanceFlows nav={flowNav} owners={(overview?.byOwner ?? []).map((row) => ({ id: row.key, name: ownerNames.get(row.key) ?? 'Chưa rõ chủ sân' }))} /></div>}
+      {tab === 'withdrawals' && <div className="mt-5"><FinanceAdminPanel mode="withdrawals" focusId={params.get('withdrawal')} /></div>}
+      {tab === 'reconciliation' && <div className="mt-5"><FinanceAdminPanel mode="reconciliation" /></div>}
     </>
   )
 }

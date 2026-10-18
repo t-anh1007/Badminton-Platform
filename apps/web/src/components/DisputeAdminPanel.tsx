@@ -17,8 +17,8 @@ const ledgerLabel = (type: string, walletType: string) => {
   return 'Cập nhật số dư';
 };
 
-export function DisputeAdminPanel() {
-  const [rows, setRows] = useState<DisputeRow[]>([]); const [selectedId, setSelectedId] = useState('');
+export function DisputeAdminPanel({ initialId }: { initialId?: string | null }) {
+  const [rows, setRows] = useState<DisputeRow[]>([]); const [selectedId, setSelectedId] = useState(initialId ?? '');
   const [decision, setDecision] = useState<Decision | ''>(''); const [amount, setAmount] = useState(''); const [reason, setReason] = useState('');
   const [message, setMessage] = useState(''); const [confirming, setConfirming] = useState(false); const [busy, setBusy] = useState(false);
   const reload = () => getAdminDisputes().then((next) => { const sorted = [...next].sort((a, b) => a.status === b.status ? (a.status === 'open' ? +new Date(a.deadlineAt) - +new Date(b.deadlineAt) : +new Date(b.createdAt) - +new Date(a.createdAt)) : a.status === 'open' ? -1 : 1); setRows(sorted); setSelectedId((current) => sorted.some((row) => row.id === current) ? current : sorted[0]?.id ?? ''); }).catch((error: Error) => setMessage(error.message));
@@ -40,7 +40,7 @@ export function DisputeAdminPanel() {
   };
 
   return <section>
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-ink-500">Ưu tiên hồ sơ đang mở và gần hạn. Mọi quyết định đều cần lý do.</p><span className="rounded-full bg-brand-yellow px-3 py-1 text-xs font-bold text-brand-navy">{rows.filter((row) => row.status === 'open').length} đang chờ</span></div>
+    <p className="mb-3 text-sm font-semibold text-ink-700">{rows.filter((row) => row.status === 'open').length} hồ sơ đang chờ · gần hạn xếp trước</p>
     {rows.length ? <div className="grid gap-4 lg:grid-cols-[minmax(16rem,.8fr)_minmax(0,1.7fr)]">
       <nav aria-label="Hàng đợi tranh chấp" className="max-h-[46rem] space-y-2 overflow-y-auto pr-1">{rows.map((row) => <button key={row.id} type="button" onClick={() => setSelectedId(row.id)} className={`w-full rounded-2xl border p-4 text-left transition ${row.id === selectedId ? 'border-brand-navy bg-green-50 shadow-sm' : 'border-line bg-surface hover:border-brand-navy/40'}`}><div className="flex items-center justify-between gap-2"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${row.status === 'open' ? 'bg-brand-yellow text-brand-navy' : 'bg-canvas text-ink-500'}`}>{row.status === 'open' ? 'Đang chờ' : 'Đã xử lý'}</span><span className="text-xs text-ink-500">{formatDateTimeVi(row.createdAt)}</span></div><p className="mt-3 line-clamp-2 font-semibold text-ink-900">{row.reason}</p><BusinessCode code={row.businessCode} label="Mã khiếu nại" /><BusinessCode code={row.bookingCode} label="Mã đặt sân" />{row.revenue && <p className="mt-2 text-sm font-bold text-brand-navy">{formatMoneyVnd(row.revenue.gross)}</p>}</button>)}</nav>
       {selected && <article className="rounded-2xl border border-line bg-surface p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-caption text-ink-500">Hồ sơ tranh chấp</p><h3 className="mt-1 text-h2">{selected.status === 'open' ? 'Cần ra quyết định' : 'Đã giải quyết'}</h3></div><span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-brand-navy">Hạn {formatDateTimeVi(selected.deadlineAt)}</span></div>

@@ -49,8 +49,8 @@ export function AdminSeasonsPage() {
 
   return (
     <>
-      <h2 className="text-h1">Quản lý mùa giải</h2>
-      <p className="mt-2 text-ink-500">Mỗi thời điểm chỉ có một mùa giải áp dụng chung cho đánh đơn và đánh đôi, mỗi nội dung chia hai hạng đấu: Không chuyên (Yếu, Trung bình) và Chuyên (Trung bình khá, Bán chuyên). Mỗi mùa đã có bảng riêng cho từng tỉnh/thành; muốn tổ chức giải riêng cho một tỉnh/thành, tạo chương trình thưởng phạm vi tỉnh/thành.</p>
+      <h1 className="text-h2">Mùa giải</h1>
+      <p className="mt-1 text-sm text-ink-500">Một mùa chung cho đơn và đôi · hai hạng đấu mỗi nội dung · bảng riêng từng tỉnh/thành.</p>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <SurfaceCard><p className="text-xs text-ink-500">Mùa đang diễn ra</p><p className="mt-1 whitespace-nowrap text-h3">{active?.name ?? 'Chưa có'}</p>{active && <p className="text-xs text-ink-500">Còn {daysLeft(active.endAt)} ngày</p>}</SurfaceCard>
         <SurfaceCard><p className="text-xs text-ink-500">Người đủ điều kiện lên bảng</p><p className="text-figures mt-1 text-h3">{(active?.eligiblePlayerCount ?? 0).toLocaleString('vi-VN')}</p><p className="text-xs text-ink-500">Đơn và đôi</p></SurfaceCard>

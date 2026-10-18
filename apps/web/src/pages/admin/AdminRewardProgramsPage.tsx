@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Icon } from '../../components/Icon';
+import { Link, NavLink } from 'react-router-dom';
 import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { AsyncButton, Badge, Button, Modal, Pagination, SelectInput, SurfaceCard, TextArea, TextInput } from '../../components/ui';
 import { formatDateVi, formatMoneyVnd } from '../../lib/formatters.js';
@@ -22,17 +23,25 @@ const inputDate = (at: string | number) => new Date(at).toLocaleDateString('en-C
 const digits = (value: string) => value.replace(/\D/g, '').replace(/^0+/, '');
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
 
+/** Tab dùng chung cho Chương trình thưởng và Người nhận giải. */
+export function RewardTabs() {
+  const tab = ({ isActive }: { isActive: boolean }) => `rounded-full px-3 py-1.5 text-sm font-bold transition ${isActive ? 'bg-brand-navy text-surface' : 'text-ink-500 hover:bg-surface hover:text-brand-navy'}`;
+  return <nav aria-label="Chương trình thưởng" className="mt-4 inline-flex rounded-full border border-line bg-canvas p-1"><NavLink to="/admin/reward-programs" className={tab}>Chương trình</NavLink><NavLink to="/admin/reward-payouts" end={false} className={tab}>Người nhận giải</NavLink></nav>;
+}
+
 /** Màn 12: tạo và công bố chương trình thưởng; sau công bố tiền thưởng và phạm vi bị khóa. */
 export function AdminRewardProgramsPage() {
   const [seasons, setSeasons] = useState<AdminSeason[]>([]);
   const [listVersion, setListVersion] = useState(0);
+  const [creating, setCreating] = useState(false);
   useEffect(() => { listAdminSeasons(1, 50).then((result) => setSeasons(result.items.filter((season) => season.status !== 'closed')), () => setSeasons([])); }, []);
   return (
     <>
-      <h2 className="text-h1">Chương trình thưởng</h2>
-      <p className="mt-2 text-ink-500">Chọn một hạng mục, phạm vi và cơ cấu giải thưởng muốn công bố.</p>
-      <ProgramForm seasons={seasons} onPublished={() => setListVersion((value) => value + 1)} />
-      <ProgramList key={listVersion} />
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-h2">{creating ? 'Tạo chương trình thưởng' : 'Chương trình thưởng'}</h1>
+        {creating ? <Button tone="secondary" size="sm" onClick={() => setCreating(false)}>Hủy</Button> : <Button onClick={() => setCreating(true)}><Icon name="plus" className="h-4 w-4" />Tạo chương trình</Button>}
+      </header>
+      {creating ? <ProgramForm seasons={seasons} onPublished={() => { setCreating(false); setListVersion((value) => value + 1); }} /> : <><RewardTabs /><ProgramList key={listVersion} /></>}
     </>
   );
 }
@@ -199,25 +208,24 @@ function ProgramList() {
     try { await operation(); setMessage(success); setCancelling(null); setReviewing(null); load(); } catch (cause) { setMessage(errorText(cause, 'Không thể xử lý.')); }
   };
   return (
-    <SurfaceCard className="mt-5">
-      <h3 className="text-h3">Chương trình đã tạo</h3>
-      {message && <p role="status" className="mt-3 rounded-xl bg-info-bg p-3 text-sm">{message}</p>}
+    <SurfaceCard className="mt-4">
+      {message && <p role="status" className="mb-3 rounded-xl bg-canvas p-3 text-sm">{message}</p>}
       {!data ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p> : data.items.length === 0 ? <p className="mt-3 text-sm text-ink-500">Chưa có chương trình nào.</p> : (
         <ul className="mt-3 divide-y divide-line">
           {data.items.map((program) => (
             <li key={program.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
-                <p className="font-semibold text-brand-navy">{program.name}</p>
+                <p className="font-bold text-ink-900">{program.name}</p>
                 <p className="text-xs text-ink-500">{program.criterionLabel} - {formatDateVi(program.startAt)} - {formatDateVi(new Date(new Date(program.endAt).getTime() - 1))}</p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <Badge tone={program.status === 'cancelled' ? 'danger' : program.status === 'final' ? 'success' : 'neutral'}>{REWARD_STATUS_LABELS[program.status as keyof typeof REWARD_STATUS_LABELS] ?? 'Bản nháp'}</Badge>
                 {(program.status as string) === 'draft' && <Button size="sm" onClick={() => void act(() => publishRewardProgram(program.id), `Đã công bố ${program.name}.`)}>Công bố</Button>}
-                {['scheduled', 'active'].includes(program.status) && <Button size="sm" tone="danger" onClick={() => setCancelling(program)}>Hủy chương trình</Button>}
+                {['scheduled', 'active'].includes(program.status) && <Button size="sm" tone="ghost" className="text-danger" onClick={() => setCancelling(program)}>Hủy chương trình</Button>}
                 {program.status === 'awaiting_admin_approval' && (
                   <Button size="sm" onClick={() => void getAdminRewardProgram(program.id).then((result) => setReviewing(result.program), (cause) => setMessage(errorText(cause, 'Không thể tải danh sách.')))}>Duyệt kết quả</Button>
                 )}
-                {program.status === 'final' && <Link className="text-sm font-bold text-brand-navy underline" to={`/admin/reward-payouts?programId=${program.id}`}>Danh sách nhận giải</Link>}
+                {program.status === 'final' && <Link className="text-sm font-bold text-brand-navy hover:underline" to={`/admin/reward-payouts?programId=${program.id}`}>Người nhận giải →</Link>}
               </div>
             </li>
           ))}

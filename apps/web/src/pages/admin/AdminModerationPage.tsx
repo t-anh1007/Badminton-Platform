@@ -1,11 +1,14 @@
+import { useSearchParams } from 'react-router-dom'
 import { CommunityAdminPanel } from '../../components/CommunityAdminPanel'
 
 export function AdminModerationPage() {
+  // ?report=… (link thông báo) đưa báo cáo đó lên đầu.
+  const [params] = useSearchParams()
   return (
     <>
-      <h2 className="text-h1">Kiểm duyệt cộng đồng</h2>
-      <p className="mt-2 text-ink-500">Xử lý báo cáo công khai và khôi phục nội dung khi cần.</p>
-      <div className="surface-card mt-6 p-4"><CommunityAdminPanel /></div>
+      <h1 className="text-h2">Kiểm duyệt</h1>
+      <p className="mt-1 text-sm text-ink-500">Báo cáo bài viết và bình luận từ cộng đồng.</p>
+      <div className="mt-4"><CommunityAdminPanel focusId={params.get('report')} /></div>
     </>
   )
 }

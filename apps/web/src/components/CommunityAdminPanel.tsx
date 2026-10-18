@@ -11,7 +11,7 @@ type Pending = {
 const reportStatusLabel: Record<string, string> = { open: 'Đang chờ xử lý', actioned: 'Đã xử lý', dismissed: 'Không vi phạm' };
 const actionLabel: Record<Pending['action'], string> = { dismiss: 'Bác báo cáo', hide: 'Ẩn tạm', remove: 'Gỡ nội dung' };
 
-export function CommunityAdminPanel() {
+export function CommunityAdminPanel({ focusId }: { focusId?: string | null }) {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
@@ -25,14 +25,16 @@ export function CommunityAdminPanel() {
     void load();
   }, []);
   const requestAction = (report: CommunityReport, action: Pending['action']) => {
+    setReason('');
+    setPending({ report, action });
+  };
+  const ordered = focusId ? [...reports].sort((a, b) => Number(b.id === focusId) - Number(a.id === focusId)) : reports;
+  const confirm = async () => {
+    if (!pending) return;
     if (!reason.trim()) {
       setMessage('Nhập lý do kiểm duyệt trước khi xác nhận.');
       return;
     }
-    setPending({ report, action });
-  };
-  const confirm = async () => {
-    if (!pending) return;
     try {
       await moderateCommunityReport(pending.report.id, pending.action, reason);
       if (pending.action !== 'dismiss') {
@@ -59,14 +61,6 @@ export function CommunityAdminPanel() {
   };
   return (
     <section>
-      <div className="mb-4">
-        <h2 className="text-h2">Báo cáo nội dung</h2>
-        <p className="mt-1 text-sm text-ink-500">Ẩn, gỡ hoặc bác báo cáo đều cần lý do và xác nhận.</p>
-      </div>
-      <label className="grid max-w-2xl gap-1.5 text-sm font-medium">
-        Lý do quyết định
-        <TextArea aria-label="Lý do quyết định kiểm duyệt" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Lý do bắt buộc" />
-      </label>
       {lastModerated && (
         <Button className="mt-3" tone="secondary" size="sm" onClick={() => void restoreLast()}>
           Khôi phục nội dung vừa xử lý
@@ -78,8 +72,8 @@ export function CommunityAdminPanel() {
         </div>
       ) : (
         <div className="mt-5 space-y-3">
-          {reports.map((report) => (
-            <article key={report.id} className="rounded-xl border border-line bg-surface p-4">
+          {ordered.map((report) => (
+            <article key={report.id} className={`rounded-2xl border bg-surface p-4 ${report.id === focusId ? 'border-brand-navy ring-4 ring-green-100' : 'border-line'}`}>
               <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
                 <div>
                   <div className="flex flex-wrap gap-2">
@@ -93,7 +87,7 @@ export function CommunityAdminPanel() {
                   <Button size="sm" tone="secondary" onClick={() => requestAction(report, 'dismiss')}>
                     Bác báo cáo
                   </Button>
-                  <Button size="sm" onClick={() => requestAction(report, 'hide')}>
+                  <Button size="sm" tone="secondary" onClick={() => requestAction(report, 'hide')}>
                     Ẩn tạm
                   </Button>
                   <Button size="sm" tone="danger" onClick={() => requestAction(report, 'remove')}>
@@ -112,13 +106,17 @@ export function CommunityAdminPanel() {
       )}
       <Modal open={Boolean(pending)} title="Xác nhận quyết định kiểm duyệt" onClose={() => setPending(null)}>
         <p className="text-sm text-ink-500">
-          Hành động <strong className="text-ink-900">{pending ? actionLabel[pending.action] : ''}</strong> sẽ áp dụng cho{' '}
-          {pending?.report.targetType === 'post' ? 'bài viết được báo cáo' : 'bình luận được báo cáo'}. Lý do:{' '}
-          <strong className="text-ink-900">{reason}</strong>
+          <strong className="text-ink-900">{pending ? actionLabel[pending.action] : ''}</strong> ·{' '}
+          {pending?.report.targetType === 'post' ? 'bài viết được báo cáo' : 'bình luận được báo cáo'}
         </p>
-        <Button tone="danger" className="mt-5" onClick={() => void confirm()}>
-          Xác nhận
-        </Button>
+        <label className="mt-4 grid gap-1.5 text-sm font-medium">Lý do quyết định
+          <TextArea aria-label="Lý do quyết định kiểm duyệt" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Bắt buộc, lưu vào lịch sử kiểm duyệt" />
+        </label>
+        {message && pending && <p role="alert" className="mt-2 text-sm text-danger">{message}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button tone="secondary" onClick={() => setPending(null)}>Hủy</Button>
+          <Button tone={pending?.action === 'dismiss' ? 'primary' : 'danger'} onClick={() => void confirm()}>{pending ? actionLabel[pending.action] : 'Xác nhận'}</Button>
+        </div>
       </Modal>
     </section>
   );
