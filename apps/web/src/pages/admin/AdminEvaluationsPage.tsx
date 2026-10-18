@@ -51,13 +51,14 @@ export function AdminEvaluationsPage() {
               </div>
               <Badge tone={row.reviewStatus === 'pending' ? 'warning' : row.reviewStatus === 'approved' ? 'success' : 'danger'}>{row.reviewStatus === 'pending' ? 'Chờ duyệt' : row.reviewStatus === 'approved' ? 'Đã chấp thuận' : 'Đã từ chối'}</Badge>
             </div>
-            {row.reviewStatus === 'pending' && <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => setPending({ row, decision: 'approve' })}>Chấp thuận đánh giá</Button><Button size="sm" tone="danger" onClick={() => setPending({ row, decision: 'reject' })}>Từ chối đánh giá</Button></div>}
+            {row.reviewStatus === 'pending' && <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => setPending({ row, decision: 'approve' })}>Chấp thuận đánh giá</Button><Button size="sm" tone="secondary" className="text-danger" onClick={() => setPending({ row, decision: 'reject' })}>Từ chối đánh giá</Button></div>}
           </article>
         )) : <EmptyState title="Không có đánh giá" description="Không có hàng chờ phù hợp trạng thái đã chọn." />}
       </div>
       <Modal open={Boolean(pending)} title="Xác nhận quyết định đánh giá" onClose={() => setPending(null)}>
-        <p className="text-sm text-ink-500">{pending?.decision === 'approve' ? 'Đánh giá sẽ được đưa vào tổng hợp trình độ.' : 'Đánh giá sẽ bị loại khỏi tổng hợp trình độ.'}</p>
-        <Button className="mt-5" tone={pending?.decision === 'reject' ? 'danger' : 'primary'} onClick={() => void confirm()}>Xác nhận</Button>
+        <p className="text-sm"><strong>{pending?.row.rater.label} → {pending?.row.ratee.label}</strong></p>
+        <p className="mt-1 text-sm text-ink-500">{pending?.decision === 'approve' ? 'Đánh giá sẽ được đưa vào tổng hợp trình độ.' : 'Đánh giá sẽ bị loại khỏi tổng hợp trình độ.'}</p>
+        <div className="mt-5 flex justify-end gap-2"><Button tone="secondary" onClick={() => setPending(null)}>Hủy</Button><Button tone={pending?.decision === 'reject' ? 'danger' : 'primary'} onClick={() => void confirm()}>Xác nhận</Button></div>
       </Modal>
     </>
   )

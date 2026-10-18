@@ -64,8 +64,11 @@ function App() {
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/community/:postId" element={<CommunityDetailPage />} />
           <Route path="/support" element={<SupportPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
+          {/* Trang cá nhân: khách chưa đăng nhập được chuyển sang đăng nhập thay vì thấy lỗi thiếu phiên. */}
+          <Route element={<RoleGuard allow={['player', 'provider', 'admin']} />}>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+          </Route>
           <Route path="/about" element={<FooterInformationPage />} />
           <Route path="/contact" element={<FooterInformationPage />} />
           <Route path="/terms" element={<FooterInformationPage />} />

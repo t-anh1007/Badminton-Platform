@@ -30,6 +30,8 @@ export interface CommunityReport {
   reason: string;
   status: 'open' | 'actioned' | 'dismissed';
   createdAt: string;
+  /** Chỉ có ở danh sách admin: trích nội dung bị báo cáo. */
+  target?: { excerpt: string; authorUserId: string; status: string; createdAt: string; postId: string | null } | null;
 }
 export const getOpenCommunityReports = () => api<{ reports: CommunityReport[] }>('/admin/reports');
 export const moderateCommunityReport = (id: string, action: 'hide' | 'remove' | 'dismiss', reason: string) =>

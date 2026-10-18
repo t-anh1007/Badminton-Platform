@@ -95,7 +95,7 @@ test('HT1 đăng ký → xác minh → đăng nhập → cập nhật hồ sơ',
   await page.goto('/auth');
   await page.getByRole('tab', { name: 'Đăng ký', exact: true }).click();
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Mật khẩu').fill(password);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   await page.getByLabel('Tên hiển thị').fill('Người chơi E2E');
   await page.locator('form').getByRole('button', { name: 'Tạo tài khoản' }).click();
   await expect(page.getByRole('status')).toContainText('Đã gửi mã xác minh');

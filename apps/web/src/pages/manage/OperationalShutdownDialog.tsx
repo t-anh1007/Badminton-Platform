@@ -95,7 +95,7 @@ export function OperationalShutdownDialog({ target, current, onClose, onDone }: 
         <div className="flex justify-end gap-2"><Button tone="secondary" disabled={busy} onClick={onClose}>Hủy</Button><Button disabled={busy} onClick={() => void showImpact()}>{busy ? 'Đang kiểm tra…' : 'Xem ảnh hưởng'}</Button></div>
       </>}
       {stage === 'confirm' && preview && <>
-        <button type="button" onClick={() => setStage('choice')} className="flex items-start gap-3 rounded-2xl border border-brand-navy bg-surface px-4 py-3 text-left ring-4 ring-green-100">
+        <button type="button" aria-label={`Đổi cách ngừng (đang chọn: ${chosen.title})`} onClick={() => setStage('choice')} className="flex items-start gap-3 rounded-2xl border border-brand-navy bg-surface px-4 py-3 text-left ring-4 ring-green-100">
           <span aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-[6px] border-brand-navy" />
           <span><span className="block font-bold text-ink-900">{mode === 'scheduled_close' && preview.closeAt ? `Đóng cửa từ ${formatDateTimeVi(preview.closeAt)}` : chosen.title}</span><span className="block text-sm text-ink-500">Đổi cách ngừng</span></span>
         </button>

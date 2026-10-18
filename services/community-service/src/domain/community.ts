@@ -289,10 +289,20 @@ export async function createReport(
 }
 
 export async function listOpenReports() {
-  return attachReportTargetCodes(await prisma.report.findMany({
+  const reports = await attachReportTargetCodes(await prisma.report.findMany({
     where: { status: 'open' },
     orderBy: { createdAt: 'asc' },
   }));
+  // Chỉ admin: kèm trích nội dung bị báo cáo để quyết định mà không phải mở từng bài.
+  const [posts, comments] = await Promise.all([
+    prisma.post.findMany({ where: { id: { in: reports.filter((row) => row.targetType === 'post').map((row) => row.targetId) } }, select: { id: true, body: true, authorUserId: true, status: true, createdAt: true } }),
+    prisma.comment.findMany({ where: { id: { in: reports.filter((row) => row.targetType === 'comment').map((row) => row.targetId) } }, select: { id: true, body: true, authorUserId: true, status: true, createdAt: true, postId: true } }),
+  ]);
+  const targets = new Map<string, { body: string; authorUserId: string; status: string; createdAt: Date; postId?: string }>([...posts, ...comments].map((row) => [row.id, row]));
+  return reports.map((row) => {
+    const target = targets.get(row.targetId);
+    return { ...row, target: target ? { excerpt: target.body.slice(0, 500), authorUserId: target.authorUserId, status: target.status, createdAt: target.createdAt, postId: target.postId ?? null } : null };
+  });
 }
 
 export async function moderateReport(reportId: string, adminUserId: string, action: ModerationAction, reason: string) {

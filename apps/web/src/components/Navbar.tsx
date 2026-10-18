@@ -25,7 +25,7 @@ export function Navbar({ onOpenAuth }: { onOpenAuth: (options?: AuthPromptOption
   return (
     <header className="sticky top-0 z-50 bg-brand-navy text-surface">
       <div className="page-container flex h-16 items-center justify-between gap-3 sm:h-[76px]">
-        <Link to="/" className="flex items-center gap-2.5"><img src="/logo.png" alt="" aria-hidden="true" className="h-10 w-auto sm:h-11" /><span className="font-display text-xl font-extrabold">COURTIN</span></Link>
+        <Link to="/" aria-label="COURTIN — về trang chủ" className="flex items-center gap-2.5"><img src="/logo.png" alt="" aria-hidden="true" className="h-10 w-auto sm:h-11" /><span className="font-display text-xl font-extrabold">COURTIN</span></Link>
         <nav aria-label="Điều hướng chính" className="hidden gap-1 md:flex">{navItems(false)}</nav>
         <div className="flex items-center gap-2">
           {session ? <><NotificationBell /><UserMenu /></> : <>
