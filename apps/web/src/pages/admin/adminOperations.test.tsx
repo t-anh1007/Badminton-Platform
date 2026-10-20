@@ -13,6 +13,7 @@ import { getAdminEvaluations, reviewAdminEvaluation } from '../../lib/matchApi.j
 import { addSupportTicketMessage, getSupportTicket, listSupportTickets, setSupportTicketStatus } from '../../lib/communityApi.js'
 
 vi.mock('../../lib/accountApi.js', () => ({
+  getAdminAccounts: vi.fn().mockResolvedValue([{ id: 'u9', email: 'new-player@example.com', displayName: 'Người chơi mới', businessCode: 'ND-00000999', status: 'active', roles: ['player'] }]),
   getAdminAccountIdentities: vi.fn().mockResolvedValue([{ id: 'u1', email: 'owner@example.com', displayName: 'Chủ sân A' }, { id: 'u2', email: 'owner-2@example.com', displayName: 'Chủ sân B' }]),
 }))
 
@@ -136,6 +137,19 @@ it('opens reconciliation controls only for the selected event and uses selectabl
   fireEvent.click(within(incomingCard).getByRole('button', { name: 'Xác nhận gán ví cá nhân' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(reconcileIncoming).toHaveBeenCalledWith('rc1', 'u1', 'Khớp ví người chơi'))
+})
+
+it('credits an incoming transfer to any account found by search, not only past withdrawers', async () => {
+  show(<AdminFinancePage />, '/admin?tab=reconciliation')
+  const incomingCard = (await screen.findByRole('button', { name: 'Gán ví cá nhân' })).closest('article')!
+  fireEvent.click(within(incomingCard).getByRole('button', { name: 'Gán ví cá nhân' }))
+  fireEvent.change(within(incomingCard).getByLabelText('Tìm người nhận rc1'), { target: { value: 'new-player' } })
+  expect(await within(incomingCard).findByRole('option', { name: /Người chơi mới · ND-00000999/ })).toBeInTheDocument()
+  fireEvent.change(within(incomingCard).getByLabelText('Chọn người nhận rc1'), { target: { value: 'u9' } })
+  fireEvent.change(within(incomingCard).getByLabelText('Lý do đối soát rc1'), { target: { value: 'Khách chuyển nhầm nội dung' } })
+  fireEvent.click(within(incomingCard).getByRole('button', { name: 'Xác nhận gán ví cá nhân' }))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
+  await waitFor(() => expect(reconcileIncoming).toHaveBeenCalledWith('rc1', 'u9', 'Khách chuyển nhầm nội dung'))
 })
 
 it('finalizes a partial withdrawal and supports out-of-scope reconciliation', async () => {

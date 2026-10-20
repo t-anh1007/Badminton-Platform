@@ -1,7 +1,7 @@
 import { BusinessCode } from './BusinessCode.js';
 import { useEffect, useMemo, useState } from 'react';
 import { confirmManualWithdrawalPayout, finalizePartialWithdrawal, getAdminWithdrawals, getReconciliationQueue, markOutOfScope, reconcileIncoming, reconcileOutgoing, rejectWithdrawal, type ReconciliationRow, type WithdrawalRow } from '../lib/financeApi';
-import { getAdminAccountIdentities, type AdminAccountIdentity } from '../lib/accountApi';
+import { getAdminAccountIdentities, getAdminAccounts, type AdminAccountIdentity } from '../lib/accountApi';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { Badge, Button, EmptyState, Modal, Pagination, SelectInput, TextInput } from './ui';
 import { SepayPayBox } from './SepayPayBox.js';
@@ -53,6 +53,21 @@ export function FinanceAdminPanel({ mode, focusId }: { mode: 'withdrawals' | 're
   const [sortBy, setSortBy] = useState('newest');
   const [page, setPage] = useState(1);
   const [accountIdentities, setAccountIdentities] = useState<Map<string, AdminAccountIdentity>>(() => new Map());
+  // Gán tiền vào ví cá nhân: tìm trong toàn bộ tài khoản, không chỉ người từng rút tiền.
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [recipientResults, setRecipientResults] = useState<AdminAccountIdentity[] | null>(null);
+  useEffect(() => {
+    const query = recipientQuery.trim();
+    if (query.length < 2) { setRecipientResults(null); return; }
+    const timer = window.setTimeout(() => {
+      getAdminAccounts({ query }).then(
+        (rows) => setRecipientResults(rows.slice(0, 20).map((row) => ({ id: row.id, email: row.email, displayName: row.displayName, businessCode: row.businessCode }))),
+        () => setRecipientResults([]),
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [recipientQuery]);
+  useEffect(() => { setRecipientQuery(''); }, [reconciliationAction?.id]);
 
   const reload = async () => {
     try {
@@ -214,7 +229,7 @@ export function FinanceAdminPanel({ mode, focusId }: { mode: 'withdrawals' | 're
             <p className="text-figures font-bold text-ink-900 lg:text-right">{formatMoneyVnd(event.amount)}</p>
             <div className="flex justify-end gap-1.5 whitespace-nowrap">{!action ? <>{event.direction === 'in' ? <Button tone="secondary" size="sm" onClick={() => setReconciliationAction({ id: event.id, kind: 'incoming' })}>Gán ví cá nhân</Button> : <Button tone="secondary" size="sm" onClick={() => setReconciliationAction({ id: event.id, kind: 'outgoing' })}>Gán yêu cầu rút</Button>}<Button tone="ghost" size="sm" onClick={() => setReconciliationAction({ id: event.id, kind: 'outOfScope' })}>Ngoài phạm vi</Button></> : null}</div>
             {action ? <div className="grid gap-2 rounded-xl bg-canvas p-3 lg:col-span-5 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-              {action.kind === 'incoming' ? <label className="grid gap-1 text-sm font-medium">Chọn người nhận<SelectInput aria-label={`Chọn người nhận ${event.id}`} value={reconciliationTargets[event.id] ?? ''} onChange={(input) => setReconciliationTargets({ ...reconciliationTargets, [event.id]: input.target.value })}><option value="">Chọn tài khoản</option>{[...accountIdentities.values()].map((identity) => <option key={identity.id} value={identity.id}>{identity.displayName || identity.email}</option>)}</SelectInput></label> : null}
+              {action.kind === 'incoming' ? <div className="grid gap-1 text-sm font-medium">Chọn người nhận<TextInput aria-label={`Tìm người nhận ${event.id}`} value={recipientQuery} onChange={(input) => setRecipientQuery(input.target.value)} placeholder="Email, tên hoặc mã ND-…" /><SelectInput aria-label={`Chọn người nhận ${event.id}`} value={reconciliationTargets[event.id] ?? ''} onChange={(input) => setReconciliationTargets({ ...reconciliationTargets, [event.id]: input.target.value })}><option value="">{recipientResults === null ? 'Chọn tài khoản' : recipientResults.length ? `${recipientResults.length} tài khoản khớp` : 'Không tìm thấy tài khoản'}</option>{(recipientResults ?? [...accountIdentities.values()]).map((identity) => <option key={identity.id} value={identity.id}>{identity.displayName || identity.email}{identity.businessCode ? ` · ${identity.businessCode}` : ''}{identity.displayName ? ` · ${identity.email}` : ''}</option>)}</SelectInput></div> : null}
               {action.kind === 'outgoing' ? <label className="grid gap-1 text-sm font-medium">Chọn yêu cầu rút tiền<SelectInput aria-label={`Chọn yêu cầu rút ${event.id}`} value={reconciliationTargets[event.id] ?? ''} onChange={(input) => setReconciliationTargets({ ...reconciliationTargets, [event.id]: input.target.value })}><option value="">Chọn yêu cầu rút phù hợp</option>{matchingWithdrawals.map((row) => <option key={row.id} value={row.id}>{row.transferCode} · {accountIdentities.get(row.sellerUserId)?.displayName || accountIdentities.get(row.sellerUserId)?.email || row.bankAccountName} · {formatMoneyVnd(BigInt(row.amount) - BigInt(row.paidAmount))}</option>)}</SelectInput>{matchingWithdrawals.length === 0 ? <span className="text-xs text-danger">Không có yêu cầu rút đang chờ có số tiền khớp.</span> : null}</label> : null}
               <label className={`grid gap-1 text-sm font-medium ${action.kind === 'outOfScope' ? 'lg:col-span-2' : ''}`}>Lý do đối soát *<TextInput aria-label={`Lý do đối soát ${event.id}`} value={reasonForEvent} onChange={(input) => setReconciliationReasons({ ...reconciliationReasons, [event.id]: input.target.value })} placeholder="Bắt buộc trước khi xác nhận" autoFocus /></label>
               <div className="flex gap-2"><Button tone="ghost" size="sm" onClick={() => setReconciliationAction(null)}>Hủy</Button><Button size="sm" disabled={needsTarget && !reconciliationTargets[event.id]} onClick={submit}>{action.kind === 'incoming' ? 'Xác nhận gán ví cá nhân' : action.kind === 'outgoing' ? 'Xác nhận gán yêu cầu rút' : 'Xác nhận ngoài phạm vi'}</Button></div>

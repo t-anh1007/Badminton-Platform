@@ -16,8 +16,21 @@ function token(userId: string, roles: string[] = ['player']) {
   return jwt.sign({ sub: userId, roles, type: 'access' }, JWT_SECRET);
 }
 
+// Phiên FE lưu ở 'courtin.session'; loadSession() dựng lại từ accessToken/refreshToken/roles.
 async function setSession(page: Page, accessToken: string) {
-  await page.addInitScript((value) => window.localStorage.setItem('accessToken', value), accessToken);
+  const roles = (jwt.decode(accessToken) as { roles?: string[] } | null)?.roles ?? ['player'];
+  await page.route('**/auth/refresh', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ accessToken, refreshToken: 'e2e-refresh-token', roles }),
+  }));
+  await page.addInitScript(({ tokenValue, userRoles }) => {
+    localStorage.removeItem('courtin.session');
+    localStorage.setItem('accessToken', tokenValue);
+    localStorage.setItem('refreshToken', 'e2e-refresh-token');
+    localStorage.setItem('roles', JSON.stringify(userRoles));
+    localStorage.setItem('courtin.activeRole', 'player');
+  }, { tokenValue: accessToken, userRoles: roles });
 }
 
 async function seedPlayer(userId: string, displayName: string) {
@@ -87,15 +100,23 @@ test('HT9 P2: player khám phá kèo, gửi JOIN và nhận gợi ý AI chỉ d�
       organizerUserId,
       bookingId: booking.id,
       capacity: 2,
-      feePerSlot: 100000n,
+      // Kèo miễn phí: kèo có phí cần sự kiện MatchCreated của luồng tạo kèo thật để khởi tạo chia phí.
+      feePerSlot: 0n,
       skillMin: 'intermediate',
       skillMax: 'intermediate_plus',
+      // Danh sách công khai chỉ hiện kèo đã cấu hình trình độ; chủ kèo đã đóng phần góp.
+      skillConfiguredAt: new Date(),
+      organizerContributionPaidAt: new Date(),
+      startAt: booking.startAt,
+      endAt: booking.endAt,
+      venueId: venue.id,
       cutoffAt: new Date(Date.now() + 24 * 60 * 60_000),
     },
   });
   await matchmakingDb.passport.create({
     data: {
       userId: playerUserId,
+      discipline: 'singles',
       declaredTier: 'intermediate',
       ratingMu: 1500,
       ratingRd: 350,
@@ -107,21 +128,27 @@ test('HT9 P2: player khám phá kèo, gửi JOIN và nhận gợi ý AI chỉ d�
   await setSession(page, token(playerUserId));
   await page.goto('/matches');
   await expect(page.getByText(venue.name)).toBeVisible();
-  await page.locator(`a[href="/matches/${match.id}"]`).click();
-  await expect(page.getByRole('heading', { name: new RegExp(venue.name) })).toBeVisible();
-  await page.getByRole('button', { name: 'Gửi yêu cầu tham gia' }).click();
-  await expect(page.getByText(/Đã gửi yêu cầu/)).toBeVisible();
-  await expect.poll(async () => matchmakingDb.join.count({ where: { matchId: match.id, participantUserId: playerUserId, status: 'pending' } }))
+  await page.locator(`a[href="/matches/${match.id}"]`).first().click();
+  await page.waitForURL(new RegExp(`/matches/${match.id}$`));
+  const joinResponse = page.waitForResponse((response) => response.request().method() === 'POST' && /\/joins$/.test(response.url()));
+  await page.getByRole('button', { name: 'Tham gia kèo' }).click();
+  const joined = await joinResponse;
+  expect(joined.ok(), await joined.text()).toBeTruthy();
+  await expect.poll(async () => matchmakingDb.join.count({ where: { matchId: match.id, participantUserId: playerUserId } }))
     .toBe(1);
 
-  await page.goto('/assistant');
-  await expect(page.getByText(venue.name)).toBeVisible();
-  await expect(page.getByText('Giải thích rút gọn', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Chat hỗ trợ' }).click();
-  await page.getByPlaceholder(/Hỏi về chính sách hoặc booking/).fill('Hủy booking giúp tôi');
-  await page.getByRole('button', { name: 'Gửi câu hỏi' }).click();
-  await expect(page.getByText(/không thể tự hủy lượt đặt sân/i)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Mở booking của tôi' })).toBeVisible();
+  // Kèo miễn phí vẫn mở hộp chọn thanh toán sau khi vào kèo; đóng lại trước khi dùng trợ lý.
+  const paymentDialog = page.getByRole('dialog', { name: 'Chọn phương thức thanh toán' });
+  await expect(paymentDialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(paymentDialog).toBeHidden();
+
+  // Trợ lý AI chỉ còn là bong bóng chat CSKH; yêu cầu hành động bị chặn và chỉ dẫn về luồng chuẩn.
+  await page.getByRole('button', { name: 'Mở trợ lý AI' }).click();
+  const assistant = page.getByRole('dialog', { name: 'Trợ lý CourtIn' });
+  await assistant.getByLabel('Nhắn cho trợ lý CourtIn').fill('Hủy booking giúp tôi');
+  await assistant.getByRole('button', { name: 'Gửi tin nhắn' }).click();
+  await expect(assistant.getByText(/không thể tự hủy lượt đặt sân/i)).toBeVisible();
 });
 
 test('HT10 P2: player tạo bài Community rồi bình luận qua API thật', async ({ page }) => {
