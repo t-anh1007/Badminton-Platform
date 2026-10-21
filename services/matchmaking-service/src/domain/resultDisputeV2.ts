@@ -11,8 +11,10 @@ import { adminReviewNotification, lockMatch, notifyRoster, resultTeams } from '.
 import {
   insertSubmission, lockedCaseV2, prepareSubmission, sideOf, vnClock, type CaseContext, type SubmissionInput,
 } from './resultClaimsV2.js';
-import { enterAdminReview } from './resultLifecycle.js';
+import { enterAdminReview, writeResultFinal } from './resultLifecycle.js';
 import { rereadUpload } from './resultOcr.js';
+import { inspectResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
+import { upsertChunks } from './knowledge.js';
 
 // Tranh chấp tỉ số tầng 1 (BR-RA-30..34a) cho hồ sơ ra_v1.
 
@@ -166,4 +168,135 @@ export async function closeEvidenceWindow(caseId: string, deps: CloseDeps): Prom
       `${reasons[0]!.text} Bên bị xử thua có tới ${vnClock(appeal.at)} để kháng nghị kèm ảnh mới hoặc chỉ ra điểm sai.`);
     return 'rule_ruling' as const;
   });
+}
+
+// ---- Task 15: kháng nghị, chấp nhận phán quyết, án lệ (BR-RA-38..41, 63) ----
+
+export const APPEAL_MAX_PHOTOS = 2;
+
+/** Bên bị xử thua theo kết quả tạm/phán quyết tạm; NO_RESULT → cả hai đội (BR-RA-38). */
+function rulingLosers(teams: CaseContext['teams'], outcome: MatchOutcome): string[] {
+  if (outcome === 'TEAM_A_WIN') return teams.B;
+  if (outcome === 'TEAM_B_WIN') return teams.A;
+  return [...teams.A, ...teams.B];
+}
+
+async function currentRuling(tx: Tx, caseId: string, rulingId: string) {
+  const ruling = await tx.aiRuling.findFirst({ where: { caseId, publishedAt: { not: null } }, orderBy: { createdAt: 'desc' } });
+  if (!ruling || ruling.id !== rulingId) {
+    throw new AppError(409, 'RESULT_VERSION_STALE', 'Kết quả tạm đã thay đổi; hãy xem lại trước khi thao tác.');
+  }
+  return ruling;
+}
+
+function assertAppealOpen(ctx: CaseContext, now: Date) {
+  if (ctx.resultCase.status !== 'appeal_window' || !ctx.resultCase.appealDeadlineAt || now >= ctx.resultCase.appealDeadlineAt) {
+    throw new AppError(409, 'RESULT_APPEAL_CLOSED', 'Đã hết thời gian kháng nghị.');
+  }
+}
+
+/**
+ * BR-RA-38: chỉ bên bị xử thua, trong 6 giờ, kèm ảnh mới (≤ 2, ngoài hạn mức 7) hoặc chỉ ra điểm sai cụ thể.
+ * Thiếu căn cứ thì bị từ chối (vẫn ghi lại để đo đạc); hợp lệ thì chuyển Admin, phán quyết tạm không có hiệu lực tiền.
+ */
+export async function submitAppeal(
+  input: { matchId: string; userId: string; rulingId: string; reason: string; pointedReason?: string; evidence?: ResultEvidenceItem[] },
+  deps: { storage: PrivateObjectStorageClient; now?: Date },
+) {
+  const now = deps.now ?? new Date();
+  const items = input.evidence ?? [];
+  if (items.length > APPEAL_MAX_PHOTOS) throw new AppError(400, 'RESULT_EVIDENCE_COUNT', 'Kháng nghị kèm tối đa 2 ảnh mới.');
+  const verified = items.length > 0 ? await inspectResultEvidence(deps.storage, input.userId, items) : [];
+  const grounded = verified.length > 0 || Boolean(input.pointedReason?.trim());
+  const outcome = await prisma.$transaction(async (tx) => {
+    const ctx = await lockedCaseV2(tx, input.matchId, input.userId);
+    assertAppealOpen(ctx, now);
+    const ruling = await currentRuling(tx, ctx.resultCase.id, input.rulingId);
+    if (!rulingLosers(ctx.teams, ruling.outcome).includes(input.userId)) {
+      throw new AppError(403, 'RESULT_APPEAL_LOSER_ONLY', 'Chỉ bên bị xử thua được kháng nghị.');
+    }
+    if (!grounded) {
+      await tx.resultAppeal.create({
+        data: { caseId: ctx.resultCase.id, rulingId: ruling.id, userId: input.userId, reason: input.reason, evidenceIds: [], accepted: false, createdAt: now },
+      });
+      return 'rejected' as const;
+    }
+    const used = await tx.resultEvidence.count({ where: { caseId: ctx.resultCase.id, ownerUserId: input.userId, purpose: 'appeal' } });
+    if (used + verified.length > APPEAL_MAX_PHOTOS) throw new AppError(409, 'RESULT_EVIDENCE_LIMIT', 'Kháng nghị kèm tối đa 2 ảnh mới.');
+    const evidence = await Promise.all(verified.map((item, index) => tx.resultEvidence.create({
+      data: { ...item, caseId: ctx.resultCase.id, ownerUserId: input.userId, position: 100 + used + index, purpose: 'appeal', createdAt: now },
+      select: { id: true },
+    })));
+    const appeal = await tx.resultAppeal.create({
+      data: {
+        caseId: ctx.resultCase.id, rulingId: ruling.id, userId: input.userId, reason: input.reason, pointedReason: input.pointedReason ?? null,
+        evidenceIds: evidence.map((item) => item.id), accepted: true, createdAt: now,
+      },
+    });
+    await tx.aiRuling.update({ where: { id: ruling.id }, data: { appealedAt: now } });
+    await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: enterAdminReview(now) });
+    await notifyRoster(tx, ctx.match, ctx.resultCase.id, 'match.result.appealed', 'Kết quả tạm bị kháng nghị',
+      'Hồ sơ chuyển Admin quyết định. Tiền giữ cho kết quả và điểm tiếp tục khóa tới khi có quyết định.');
+    await writeResultNotification(tx, adminReviewNotification(ctx.match.id, ctx.resultCase.id, 'match.result.admin_review', 'Có kháng nghị kết quả kèo cần quyết định'));
+    return appeal.id;
+  });
+  if (outcome === 'rejected') {
+    throw new AppError(400, 'RESULT_APPEAL_GROUNDS_REQUIRED', 'Kháng nghị cần kèm ảnh mới hoặc chỉ ra điểm sai cụ thể trong lý do.');
+  }
+  return { appealId: outcome, status: 'admin_review' as const };
+}
+
+/** BR-RA-38a: bên bị xử thua Chấp nhận để chốt sớm; đơn → final, đôi/NO_RESULT → khi mọi người bên thua đã Chấp nhận. */
+export async function acceptRuling(input: { matchId: string; userId: string; rulingId: string }, now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    const ctx = await lockedCaseV2(tx, input.matchId, input.userId);
+    assertAppealOpen(ctx, now);
+    const ruling = await currentRuling(tx, ctx.resultCase.id, input.rulingId);
+    const losers = rulingLosers(ctx.teams, ruling.outcome);
+    if (!losers.includes(input.userId)) throw new AppError(403, 'RESULT_APPEAL_LOSER_ONLY', 'Chỉ bên bị xử thua được chấp nhận phán quyết.');
+    const accepted = new Set((await tx.resultResponse.findMany({
+      where: { caseId: ctx.resultCase.id, kind: 'confirm', createdAt: { gte: ruling.publishedAt! } }, select: { userId: true },
+    })).map((row) => row.userId));
+    if (!accepted.has(input.userId)) {
+      await tx.resultResponse.create({ data: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'confirm', createdAt: now } });
+      accepted.add(input.userId);
+    }
+    if (!losers.every((userId) => accepted.has(userId))) {
+      await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: { version: { increment: 1 } } });
+      return { status: 'appeal_window' as const };
+    }
+    await writeResultFinal(tx, ctx.resultCase, ruling.outcome, ruling.id, now);
+    await tx.aiRuling.update({ where: { id: ruling.id }, data: { finalOutcome: ruling.outcome, overturned: false } });
+    return { status: 'final' as const };
+  });
+}
+
+const LEVEL_TEXT: Record<string, string> = { green: 'Xanh', yellow: 'Vàng', red: 'Đỏ' };
+
+/**
+ * BR-RA-63: hồ sơ có quyết định Admin thành án lệ ẩn danh theo template cố định (không dùng LLM, không tên/id người).
+ * Gọi sau khi quyết định đã ghi (embedding nằm ngoài transaction).
+ */
+export async function recordPrecedent(caseId: string, deps: { ai: AiChains }) {
+  const resultCase = await prisma.matchResultCase.findUniqueOrThrow({
+    where: { id: caseId }, include: { match: true, adminDecision: true },
+  });
+  if (resultCase.rulesVersion !== 'ra_v1' || !resultCase.adminDecision) return null;
+  const teams = await resultTeams(prisma, resultCase.match);
+  const evidence = await prisma.resultEvidence.findMany({
+    where: { caseId, purpose: { in: ['claim', 'evidence'] } }, select: { ownerUserId: true, level: true, supports: true, capturedAt: true, nearDuplicateOfId: true, exactDuplicateOfId: true },
+  });
+  const describe = (side: 'A' | 'B') => {
+    const own = evidence.filter((item) => sideOf(teams, item.ownerUserId) === side);
+    if (own.length === 0) return 'không có ảnh';
+    return own.map((item) => [
+      `ảnh ${LEVEL_TEXT[item.level ?? ''] ?? 'chưa xếp mức'} ủng hộ ${item.supports ?? 'chưa rõ'}`,
+      item.capturedAt ? null : 'không có giờ chụp', item.nearDuplicateOfId ? 'nghi trùng' : null, item.exactDuplicateOfId ? 'trùng chính xác' : null,
+    ].filter(Boolean).join(', ')).join('; ');
+  };
+  const decision = resultCase.adminDecision;
+  const text = `Tranh chấp ${resultCase.match.format.toUpperCase()}: bằng chứng bên A ${describe('A')}; bên B ${describe('B')}; `
+    + `kết luận ${decision.outcome}; lý do: ${decision.reason}`;
+  await upsertChunks([{ id: `precedent:${caseId}`, kind: 'precedent', ref: caseId, text, metadata: { decisionId: decision.id } }], deps);
+  return text;
 }

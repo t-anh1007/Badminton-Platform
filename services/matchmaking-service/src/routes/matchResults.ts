@@ -7,7 +7,9 @@ import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.j
 import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
 import { readUploads } from '../domain/resultOcr.js';
 import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../domain/resultClaimsV2.js';
-import { closeEvidenceWindow, markEvidenceDone, openEvidenceWindow, submitDisputeEvidence } from '../domain/resultDisputeV2.js';
+import {
+  acceptRuling, closeEvidenceWindow, markEvidenceDone, openEvidenceWindow, recordPrecedent, submitAppeal, submitDisputeEvidence,
+} from '../domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
 import { sweepAllResultDeadlines } from '../domain/resultSweepV2.js';
 import { prisma } from '../lib/prisma.js';
@@ -84,6 +86,16 @@ const recommendationSchema = z.object({ outcome: outcomeSchema, reason: reasonSc
 const decisionSchema = z.object({
   outcome: outcomeSchema, reason: reasonSchema, caseVersion: z.number().int().positive(),
   previewToken: z.string().min(1).max(100), confirm: z.literal(true),
+  appealGrounded: z.boolean().optional(),
+  violations: z.array(z.object({ userId: z.string().uuid(), kind: z.string().trim().min(1).max(60) }).strict()).max(4).optional(),
+}).strict();
+const appealSchema = z.object({
+  rulingId: z.string().uuid(),
+  reason: reasonSchema,
+  pointedReason: z.string().trim().min(1).max(1000).optional(),
+  evidence: z.array(z.object({
+    objectKey: z.string().min(1).max(300), mimeType: z.enum(IMAGE_MIME_TYPES), checksumSha256: checksumSchema.optional(),
+  }).strict()).max(2).optional(),
 }).strict();
 
 export function createMatchResultRouter(
@@ -209,6 +221,19 @@ export function createMatchResultRouter(
     res.status(200).json({ bothTeamsDone: done.bothTeamsDone, tier1 });
   }));
 
+  router.post('/:matchId/result-appeals', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = appealSchema.parse(req.body);
+    const appeal = await submitAppeal({ ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id }, { storage: storage() });
+    res.status(201).json({ appeal });
+  }));
+
+  router.post('/:matchId/result-rulings/:rulingId/accept', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const result = await acceptRuling({
+      matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id, rulingId: z.string().uuid().parse(req.params.rulingId),
+    });
+    res.status(200).json({ result });
+  }));
+
   router.get('/:matchId/result-case', requireAuth, withErrorHandling(async (req, res) => {
     const matchId = matchIdSchema.parse(req.params.matchId);
     const now = new Date();
@@ -267,6 +292,9 @@ export function createMatchResultRouter(
   router.post('/:matchId/admin-decision', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
     const { confirm: _confirmed, ...input } = decisionSchema.parse(req.body);
     const decision = await decideAdminResult(viewer(req).id, matchIdSchema.parse(req.params.matchId), input);
+    // BR-RA-63: quyết định Admin của hồ sơ ra_v1 thành án lệ ẩn danh; lỗi nạp án lệ không làm hỏng quyết định đã ghi.
+    const decided = await prisma.adminResultDecision.findUniqueOrThrow({ where: { id: decision.decisionId }, select: { caseId: true } });
+    await recordPrecedent(decided.caseId, { ai: aiChains }).catch((error) => console.error('[precedent]', error));
     res.status(201).json({ decision });
   }));
 

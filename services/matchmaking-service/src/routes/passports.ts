@@ -5,6 +5,7 @@ import { requireAuth, requirePlayer, type AuthenticatedRequest } from '../middle
 import { withErrorHandling } from './handler.js';
 import { getMatchHistory } from '../domain/leaderboards.js';
 import type { AccountClient } from '../clients/account.js';
+import { reputationOf } from '../domain/reputation.js';
 
 export function createPassportRouter(accountClient: AccountClient) {
 const passportRouter = Router();
@@ -33,6 +34,16 @@ passportRouter.get(
   withErrorHandling(async (req, res) => {
     const userId = (req as AuthenticatedRequest).user!.id;
     res.status(200).json(await getOwnPassport(userId));
+  }),
+);
+
+// BR-RA-53: uy tín chỉ chính chủ (và Admin) xem; không có trong API công khai.
+passportRouter.get(
+  '/me/reputation',
+  requireAuth,
+  requirePlayer,
+  withErrorHandling(async (req, res) => {
+    res.status(200).json({ reputation: await reputationOf((req as AuthenticatedRequest).user!.id, new Date()) });
   }),
 );
 
