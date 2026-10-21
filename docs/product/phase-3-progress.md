@@ -72,5 +72,11 @@ Nguồn bổ sung đo ngày 22/10/2026 (Cloudflare Workers AI free 10.000 neuron
 | Tầng 2 (đối chứng) | gemini-3.7-flash | là tên khác của 3.8-flash, chung hạn mức free 20 lượt/ngày |
 | Tầng 2 (đối chứng) | gemini-3.5-flash-lite / 3.6-flash | 3/3 và 2/3 đúng, không lỗi |
 
+Chuỗi chốt ngày 22/10/2026 (PO chọn model tầm trung, tiết kiệm token): đọc ảnh `gemini-3.5-flash-lite` →
+Cloudflare `llama-4-scout` → Groq `qwen3.8-27b` → OpenRouter `nemotron-3.5-super-vl:free`; tầng 2 Groq `gpt-oss-120b` →
+`gemini-3.5-flash-lite` → OpenRouter `nemotron-3-ultra:free`. Chạy lại với chuỗi mới: đọc ảnh 4/4 đúng ở mắt xích 1, 2, 4
+(Groq qwen 2/4 lỗi giới hạn token/phút); tầng 2 Groq 2/3, 3.5-flash-lite 3/3, Nemotron 2/3, Faithfulness 83–100%
+(`ruling-eval` nay đếm riêng lượt giám khảo lỗi thay vì tính là "không hỗ trợ"). Kết quả dao động giữa các lần chạy vì bộ thử nhỏ.
+
 Sửa sau lượt gọi thật: tầng 2 gửi `reasoning_effort: low` (Gemini/Groq), thời hạn riêng `AI_RULING_TIMEOUT_MS` (mặc định
 90 s, tầng 2 chạy nền); prompt nói rõ chỉ trích `rules[].id` (Nemotron từng trích mã bằng chứng và bị bộ kiểm loại đúng).

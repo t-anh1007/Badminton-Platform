@@ -63,6 +63,7 @@ async function main() {
     let failures = 0;
     let reasons = 0;
     let supported = 0;
+    let judgeErrors = 0;
     const latencies: number[] = [];
     for (const sample of samples) {
       current = sample;
@@ -76,8 +77,11 @@ async function main() {
       if (!judgeLink) continue;
       const texts = new Map(hits.map((hit) => [hit.id, hit.text]));
       for (const reason of result.ruling.reasons) {
+        // Giám khảo lỗi (429, sai khuôn) không được tính là "không hỗ trợ" — đếm riêng.
+        const verdict = await judge(judgeLink, reason, texts, fetchImpl);
+        if (verdict === null) { judgeErrors += 1; continue; }
         reasons += 1;
-        if (await judge(judgeLink, reason, texts, fetchImpl)) supported += 1;
+        if (verdict) supported += 1;
       }
     }
     const sorted = [...latencies].sort((a, b) => a - b);
@@ -86,7 +90,8 @@ async function main() {
       'số ca': String(samples.length),
       '% đúng kết luận': ((100 * correct) / samples.length).toFixed(1),
       'lỗi/sai khuôn': String(failures),
-      Faithfulness: judgeLink && reasons > 0 ? ((100 * supported) / reasons).toFixed(1) : 'chưa chấm (thiếu AI_JUDGE)',
+      Faithfulness: judgeLink && reasons > 0 ? ((100 * supported) / reasons).toFixed(1) : judgeLink ? 'chưa chấm được' : 'chưa chấm (thiếu AI_JUDGE)',
+      'chấm lỗi': String(judgeErrors),
       'trễ trung vị (ms)': String(sorted[Math.floor((sorted.length - 1) / 2)] ?? 0),
     });
   }
