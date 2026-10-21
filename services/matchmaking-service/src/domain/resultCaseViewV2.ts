@@ -10,8 +10,9 @@ const iso = (date: Date | null | undefined) => date?.toISOString() ?? null;
 const reasonsOf = (value: unknown) => publicReasons(Array.isArray(value) ? value.map(String) : []);
 
 /** BR-RA-30: ảnh nộp trong 2h tranh chấp giữ kín với đội kia tới khi hết hạn hoặc cả hai đội bấm Đã nộp đủ. */
-export function evidenceSealed(resultCase: MatchResultCase) {
-  return resultCase.status === 'evidence_window' && resultCase.evidenceClosedAt === null;
+export function evidenceSealed(resultCase: MatchResultCase, now: Date) {
+  return resultCase.status === 'evidence_window' && resultCase.evidenceClosedAt === null
+    && resultCase.evidenceDeadlineAt !== null && now < resultCase.evidenceDeadlineAt;
 }
 
 export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id: string; organizerUserId: string }, viewerUserId: string, now: Date) {
@@ -29,7 +30,7 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
   const readingOf = new Map<string, unknown>();
   for (const row of readings) if (!readingOf.has(row.uploadId)) readingOf.set(row.uploadId, row.reading);
 
-  const sealed = evidenceSealed(resultCase);
+  const sealed = evidenceSealed(resultCase, now);
   const claimView = (claim: (typeof claims)[number]) => ({
     id: claim.id,
     claimantUserId: claim.claimantUserId,
@@ -88,7 +89,7 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
       canReplace: Boolean(own && proposal?.id === own.id && resultCase.status === 'proposed' && claims.length === 1
         && responses.length === 0 && now < resultCase.declarationDeadlineAt),
       canConfirm: responseOpen && losers.includes(viewerUserId) && !mine('confirm'),
-      canObject: responseOpen && proposal !== null && proposal.claimantUserId !== viewerUserId,
+      canObject: responseOpen && losers.includes(viewerUserId),
       canReportIncident: incidentOpen && !mine('incident'),
       canSubmitEvidence: evidenceOpen,
       canAppeal: appealOpen && rulingLosers.includes(viewerUserId),

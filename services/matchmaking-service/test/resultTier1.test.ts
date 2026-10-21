@@ -7,6 +7,7 @@ import { readUploads } from '../src/domain/resultOcr.js';
 import { objectV2, submitClaimV2 } from '../src/domain/resultClaimsV2.js';
 import { openEvidenceWindow, submitDisputeEvidence, tier1Decide } from '../src/domain/resultDisputeV2.js';
 import { sweepAllResultDeadlines } from '../src/domain/resultSweepV2.js';
+import { evidenceSealed } from '../src/domain/resultCaseViewV2.js';
 import type { AiChains } from '../src/lib/aiClients.js';
 import {
   HOUR, MIN, MemoryStorage, accountClient, cleanupV2, fakeAi, photo, reading, token, v2Fixture, venueBookingClient,
@@ -108,5 +109,28 @@ describe('sealed evidence window and tier 1', () => {
     expect((await caseOf(match.id)).status).toBe('evidence_window');
     await sweepAllResultDeadlines(at(125 + 31), [match.id], { ai: failing, storage: () => storage });
     expect((await caseOf(match.id)).status).toBe('admin_review');
+  });
+
+  // Review 22/10: ảnh của bản khai đã bị thay không còn là bằng chứng tranh chấp.
+  it('ignores photos of a replaced claim at tier 1', async () => {
+    const fixture = await v2Fixture({ endAt: END });
+    const { match, organizer, b1 } = fixture;
+    const first = await upload(match.id, organizer, A_WIN, undefined, new Date(END.getTime() + MIN));
+    await submitClaimV2({ matchId: match.id, userId: organizer, draftId: first, sets: A_WIN, columnMapping: null, editedCells: [] },
+      { accountClient, now: T0, openDispute: openEvidenceWindow });
+    const tied = [{ teamA: 21, teamB: 18 }, { teamA: 18, teamB: 21 }, { teamA: 15, teamB: 15 }];
+    const second = await upload(match.id, organizer, tied, undefined, new Date(END.getTime() + 2 * MIN));
+    await submitClaimV2({ matchId: match.id, userId: organizer, draftId: second, sets: tied, columnMapping: null, editedCells: [], outcome: 'NO_RESULT' },
+      { accountClient, now: at(1), openDispute: openEvidenceWindow });
+    const { version } = await caseOf(match.id);
+    await objectV2({ matchId: match.id, userId: b1, reason: 'score_wrong', claimVersion: version }, { accountClient, now: at(5), openDispute: openEvidenceWindow });
+    await sweepAllResultDeadlines(at(125), [match.id], { ai: fakeAi().ai, storage: () => storage });
+    expect(await caseOf(match.id)).toMatchObject({ status: 'appeal_window', outcome: 'NO_RESULT' });
+  });
+
+  it('stops sealing at the evidence deadline even before the window is processed', () => {
+    const base = { status: 'evidence_window', evidenceClosedAt: null, evidenceDeadlineAt: at(120) } as never;
+    expect(evidenceSealed(base, at(119))).toBe(true);
+    expect(evidenceSealed(base, at(120))).toBe(false);
   });
 });

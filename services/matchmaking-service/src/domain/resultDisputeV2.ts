@@ -9,7 +9,7 @@ import { deadlineFor, resultWindows, type Level } from './deadlines.js';
 import type { MatchOutcome } from './matchRules.js';
 import { adminReviewNotification, lockMatch, notifyRoster, resultTeams } from './matchResults.js';
 import {
-  insertSubmission, lockedCaseV2, prepareSubmission, sideOf, vnClock, type CaseContext, type SubmissionInput,
+  insertSubmission, lockedCaseV2, prepareSubmission, sideOf, supersededClaimIds, vnClock, type CaseContext, type SubmissionInput,
 } from './resultClaimsV2.js';
 import { enterAdminReview, writeResultFinal } from './resultLifecycle.js';
 import { rereadUpload } from './resultOcr.js';
@@ -128,7 +128,10 @@ export async function closeEvidenceWindow(caseId: string, deps: CloseDeps): Prom
       return 'admin_review' as const;
     }
     const evidence = await tx.resultEvidence.findMany({
-      where: { caseId, purpose: { in: ['claim', 'evidence'] }, supports: { not: null }, level: { not: null } },
+      where: {
+        caseId, purpose: { in: ['claim', 'evidence'] }, supports: { not: null }, level: { not: null },
+        claimId: { notIn: await supersededClaimIds(tx, caseId) },
+      },
       select: { supports: true, level: true },
     });
     const decision = tier1Decide(evidence.map((item) => ({ supports: item.supports!, level: item.level! })));

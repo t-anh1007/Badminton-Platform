@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { resetCircuitBreaker, type OcrReading } from '@khoaluantn/ai';
 import { prisma } from '../src/lib/prisma.js';
 import { readUploads } from '../src/domain/resultOcr.js';
-import { confirmV2, objectV2, submitClaimV2 } from '../src/domain/resultClaimsV2.js';
+import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../src/domain/resultClaimsV2.js';
 import { openEvidenceWindow } from '../src/domain/resultDisputeV2.js';
 import { HOUR, MIN, MemoryStorage, accountClient, cleanupV2, fakeAi, photo, reading, v2Fixture } from './resultV2TestUtils.js';
 
@@ -122,5 +122,35 @@ describe('acceptance, grace and objections (ra_v1)', () => {
     const { match, organizer, partner } = await v2Fixture({ doubles: true, endAt: END });
     await claim(match.id, organizer);
     expect((await claim(match.id, partner, B_WIN, at(5))).caseStatus).toBe('evidence_window');
+  });
+
+  // Review 22/10: người đội thắng gửi bản cùng bên thắng không được tính là "đội thua chấp nhận" (lách BR-RA-23).
+  it('a winner-side matching claim after a paid partner self-declared loss does not open grace', async () => {
+    const { match, partner, b1 } = await v2Fixture({ doubles: true, payerForPartner: true, endAt: END });
+    expect((await claim(match.id, partner, B_WIN)).caseStatus).toBe('proposed');
+    expect((await claim(match.id, b1, B_WIN, at(5))).caseStatus).toBe('proposed');
+    expect(await status(match.id)).toBe('proposed');
+  });
+
+  it('a teammate of the claimant cannot press Object; they must file their own claim', async () => {
+    const { match, organizer, partner } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    await expect(objectV2({ matchId: match.id, userId: partner, reason: 'score_wrong', claimVersion: await version(match.id) }, deps(at(5))))
+      .rejects.toMatchObject({ code: 'RESULT_OBJECT_LOSER_ONLY' });
+  });
+
+  it('an incident whose photos exceed the cap is rejected whole, not half-recorded', async () => {
+    const { match, resultCase, b1 } = await v2Fixture({ endAt: END });
+    await prisma.resultEvidence.createMany({
+      data: Array.from({ length: 7 }, (_, position) => ({
+        caseId: resultCase.id, objectKey: `match/results/${b1}/${position}-${resultCase.id}.jpg`, mimeType: 'image/jpeg', size: 1,
+        checksumSha256: `c${position}`, ownerUserId: b1, position,
+      })),
+    });
+    const photo1 = { objectKey: `match/results/${b1}/extra-${resultCase.id}.jpg`, mimeType: 'image/jpeg', size: 1, checksumSha256: 'x' };
+    await expect(reportIncidentV2({ matchId: match.id, userId: b1, type: 'other', description: 'Bỏ dở', evidence: [photo1] }, at(5)))
+      .rejects.toMatchObject({ code: 'RESULT_EVIDENCE_LIMIT' });
+    expect(await prisma.resultResponse.count({ where: { caseId: resultCase.id, kind: 'incident' } })).toBe(0);
+    expect(await status(match.id)).toBe('declaration_open');
   });
 });

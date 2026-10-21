@@ -4,7 +4,7 @@ import { IMAGE_MIME_TYPES, type PrivateObjectStorageClient } from '@khoaluantn/o
 import type { AccountClient } from '../clients/account.js';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.js';
-import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
+import { authorizeResultEvidenceUpload, inspectResultEvidence, readResultEvidence, resultRosterUserIds } from '../domain/resultEvidence.js';
 import { readUploads } from '../domain/resultOcr.js';
 import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../domain/resultClaimsV2.js';
 import {
@@ -186,8 +186,8 @@ export function createMatchResultRouter(
     // Hồ sơ chưa mở (sự cố trước/trong trận) sẽ là ra_v1 → đi thẳng Admin (BR-RA-42).
     if (await rulesOf(matchId) !== 'legacy') {
       const input = incidentV2Schema.parse(req.body);
-      const incident = await reportIncidentV2({ ...input, matchId, userId: viewer(req).id });
-      if (input.evidence) await supplementResultEvidence(storage(), { evidence: input.evidence, matchId, userId: viewer(req).id });
+      const evidence = input.evidence ? await inspectResultEvidence(storage(), viewer(req).id, input.evidence) : undefined;
+      const incident = await reportIncidentV2({ ...input, evidence, matchId, userId: viewer(req).id });
       res.status(201).json({ incident });
       return;
     }
@@ -213,10 +213,11 @@ export function createMatchResultRouter(
 
   router.post('/:matchId/result-evidence/done', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
     const now = new Date();
+    const evidenceStorage = storage();
     const done = await markEvidenceDone(matchIdSchema.parse(req.params.matchId), viewer(req).id, now);
     // Hai đội đã nộp đủ: đóng sớm và xử tầng 1 ngay (đọc lại ảnh nếu cần), không chờ sweeper.
     const tier1 = done.bothTeamsDone
-      ? await closeEvidenceWindow(done.caseId, { ai: aiChains, storage: storage(), now: () => now })
+      ? await closeEvidenceWindow(done.caseId, { ai: aiChains, storage: evidenceStorage, now: () => now })
       : null;
     res.status(200).json({ bothTeamsDone: done.bothTeamsDone, tier1 });
   }));
@@ -238,7 +239,10 @@ export function createMatchResultRouter(
     const matchId = matchIdSchema.parse(req.params.matchId);
     const now = new Date();
     // Quét lười: service ngủ (Railway) thì hạn vẫn được xử lý khi có người mở hồ sơ (tech design §4.2).
-    await sweepAllResultDeadlines(now, [matchId], { ai: aiChains, storage });
+    // Chỉ roster kích hoạt được (quét có thể đọc lại ảnh bằng AI); người ngoài vẫn nhận 403 từ bước đọc bên dưới.
+    if ((await resultRosterUserIds(prisma, matchId)).includes(viewer(req).id)) {
+      await sweepAllResultDeadlines(now, [matchId], { ai: aiChains, storage });
+    }
     const resultCase = await getPlayerResultCase(venueBookingClient, accountClient, matchId, viewer(req).id, now);
     const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId }, include: { resultCase: true } });
     if (match.resultCase?.rulesVersion !== 'ra_v1') {

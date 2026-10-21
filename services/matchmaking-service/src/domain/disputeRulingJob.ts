@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma.js';
 import { deadlineFor, resultWindows } from './deadlines.js';
 import { searchKnowledge } from './knowledge.js';
 import { adminReviewNotification, lockMatch, notifyRoster, resultTeams } from './matchResults.js';
-import { sideOf, vnClock } from './resultClaimsV2.js';
+import { sideOf, supersededClaimIds, vnClock } from './resultClaimsV2.js';
 import { enterAdminReview } from './resultLifecycle.js';
 
 // Tầng 2 (BR-RA-35..37, 40): AI soạn phán quyết tạm chỉ từ văn bản (không ảnh, không uy tín), chạy trong sweeper.
@@ -16,7 +16,10 @@ async function rulingEvidence(caseId: string): Promise<{ evidence: RulingEvidenc
   const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { id: caseId }, include: { match: true } });
   const teams = await resultTeams(prisma, resultCase.match);
   const rows = await prisma.resultEvidence.findMany({
-    where: { caseId, purpose: { in: ['claim', 'evidence'] }, level: { in: ['green', 'yellow'] }, supports: { not: null } },
+    where: {
+      caseId, purpose: { in: ['claim', 'evidence'] }, level: { in: ['green', 'yellow'] }, supports: { not: null },
+      claimId: { notIn: await supersededClaimIds(prisma, caseId) },
+    },
     include: { claim: { include: { sets: { orderBy: { position: 'asc' } } } } },
     orderBy: { createdAt: 'asc' },
   });

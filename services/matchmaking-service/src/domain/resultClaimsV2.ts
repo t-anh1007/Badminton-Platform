@@ -12,6 +12,7 @@ import { adminReviewNotification, lockMatch, notifyRoster, resultTeams } from '.
 import { imageInput, teamNames } from './resultOcr.js';
 import { enterAdminReview, writeResultFinal } from './resultLifecycle.js';
 import { reputationOf } from './reputation.js';
+import type { VerifiedResultEvidence } from './resultEvidence.js';
 
 // Bản khai bằng ảnh, kết quả đề xuất, đội thua chấp nhận (BR-RA-01..07, 20..29) cho hồ sơ ra_v1.
 
@@ -46,6 +47,12 @@ export async function currentClaims(db: Tx | typeof prisma, caseId: string): Pro
   });
   const superseded = new Set(claims.map((claim) => claim.supersedesClaimId).filter(Boolean));
   return claims.filter((claim) => !superseded.has(claim.id));
+}
+
+/** Id các bản khai đã bị thay (BR-RA-05): ảnh của chúng không còn là bằng chứng của tranh chấp. */
+export async function supersededClaimIds(db: Tx | typeof prisma, caseId: string): Promise<string[]> {
+  const rows = await db.resultClaim.findMany({ where: { caseId, supersedesClaimId: { not: null } }, select: { supersedesClaimId: true } });
+  return rows.map((row) => row.supersedesClaimId!);
 }
 
 /** Kết quả đề xuất = bản hiện hành sớm nhất; bản thay kế thừa vị trí bản gốc. */
@@ -287,14 +294,19 @@ export async function submitClaimV2(
     }
     const claim = await insertSubmission(tx, resultCase, ctx.match, input.userId, prepared, { purpose: 'claim', now });
     const proposerSide = sideOf(ctx.teams, proposal.claimantUserId)!;
+    const losers = ctx.teams[losingTeamOf(resultCase.outcome!, proposerSide)];
     let caseStatus: string = resultCase.status;
     if (prepared.outcome !== resultCase.outcome) {
       await deps.openDispute(tx, ctx, now);
       caseStatus = 'evidence_window';
-    } else if (side === proposerSide) {
-      // BR-RA-29: đồng đội cùng bên thắng ở mức cao hơn rút ngắn cửa sổ, không bao giờ kéo dài.
+    } else if (losers.includes(input.userId)) {
+      // BR-RA-22: người đội bị xử thua gửi bản cùng bên thắng = đội thua chấp nhận.
+      caseStatus = await acceptByLosingTeam(tx, ctx, input.userId, now).then(statusAfterAccept);
+    } else {
+      // Người đội thắng gửi bản cùng bên thắng chỉ bổ sung bằng chứng (không phải "đội thua chấp nhận").
+      // BR-RA-29: đồng đội người khai ở mức cao hơn rút ngắn cửa sổ, không bao giờ kéo dài.
       const shorter = deadlineFor(proposal.createdAt, windows[prepared.level]);
-      const shorten = resultCase.status === 'proposed' && LEVEL_RANK[prepared.level] < LEVEL_RANK[proposal.level ?? 'yellow']
+      const shorten = side === proposerSide && resultCase.status === 'proposed' && LEVEL_RANK[prepared.level] < LEVEL_RANK[proposal.level ?? 'yellow']
         && resultCase.responseDeadlineAt && shorter.at < resultCase.responseDeadlineAt;
       await tx.matchResultCase.update({
         where: { id: resultCase.id },
@@ -302,8 +314,6 @@ export async function submitClaimV2(
           ? { responseDeadlineBaseAt: shorter.baseAt, responseDeadlineAt: shorter.at, version: { increment: 1 } }
           : { version: { increment: 1 } },
       });
-    } else {
-      caseStatus = await acceptByLosingTeam(tx, ctx, input.userId, now).then(statusAfterAccept);
     }
     return claimResult(tx, resultCase.id, claim.id, prepared, caseStatus);
   });
@@ -430,7 +440,11 @@ export async function objectV2(
     assertVersion(ctx.resultCase, input.claimVersion);
     assertResponseOpen(ctx.resultCase, now);
     const proposal = proposalOf(await currentClaims(tx, ctx.resultCase.id))!;
-    if (proposal.claimantUserId === input.userId) throw new AppError(409, 'RESULT_OBJECT_OWN_CLAIM', 'Bạn không thể phản đối bản khai của chính mình.');
+    // BR-RA-24: chỉ đội bị xử thua bấm Phản đối; người đội thắng không đồng ý thì gửi bản khác bên thắng.
+    const losers = ctx.teams[losingTeamOf(ctx.resultCase.outcome!, sideOf(ctx.teams, proposal.claimantUserId)!)];
+    if (!losers.includes(input.userId)) {
+      throw new AppError(409, 'RESULT_OBJECT_LOSER_ONLY', 'Chỉ đội bị xử thua được phản đối; nếu tỉ số sai, hãy gửi bản khai của bạn.');
+    }
     if (input.reason === 'no_match') {
       const response = await enterIncident(tx, ctx, input.userId, { incidentType: 'not_played', reason: input.note ?? 'Không có trận' }, now);
       return { responseId: response.id, status: 'admin_review' as const };
@@ -448,7 +462,7 @@ const NO_SHOW_AFTER_START_MS = 15 * 60_000;
 
 /** Báo sự cố ra_v1 (BR-RA-42): trong cửa sổ khai, phản hồi hoặc 2h bằng chứng; hồ sơ chưa có thì mở (sự cố trước/trong trận). */
 export async function reportIncidentV2(
-  input: { matchId: string; userId: string; type: IncidentType; description: string },
+  input: { matchId: string; userId: string; type: IncidentType; description: string; evidence?: VerifiedResultEvidence[] },
   now = new Date(),
 ) {
   return prisma.$transaction(async (tx) => {
@@ -477,6 +491,19 @@ export async function reportIncidentV2(
     const { resultCase: _omit, ...rest } = match;
     const response = await enterIncident(tx, { match: rest as Match, teams, resultCase }, input.userId,
       { incidentType: input.type, reason: input.description }, now);
+    // Ảnh kèm sự cố ghi cùng transaction, gắn responseId; vượt hạn mức 7 ảnh thì cả sự cố bị từ chối (không ghi nửa vời).
+    const evidence = input.evidence ?? [];
+    if (evidence.length > 0) {
+      const used = await tx.resultEvidence.count({ where: { caseId: resultCase.id, ownerUserId: input.userId, purpose: { not: 'appeal' } } });
+      if (used + evidence.length > RESULT_EVIDENCE_MAX_PER_USER_V2) {
+        throw new AppError(409, 'RESULT_EVIDENCE_LIMIT', 'Mỗi người tối đa 7 ảnh cho một hồ sơ.');
+      }
+      await tx.resultEvidence.createMany({
+        data: evidence.map((item, index) => ({
+          ...item, caseId: resultCase.id, ownerUserId: input.userId, responseId: response.id, position: used + index, createdAt: now,
+        })),
+      });
+    }
     return { responseId: response.id };
   });
 }

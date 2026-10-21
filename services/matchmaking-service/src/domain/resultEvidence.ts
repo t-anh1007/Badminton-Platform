@@ -159,12 +159,13 @@ export async function readResultEvidence(
     where: { id: input.evidenceId, case: { matchId: input.matchId } },
     select: {
       objectKey: true, deletedAt: true, purpose: true, ownerUserId: true,
-      case: { select: { status: true, evidenceClosedAt: true, match: { select: { providerUserId: true, organizerUserId: true } } } },
+      case: { select: { status: true, evidenceClosedAt: true, evidenceDeadlineAt: true, match: { select: { providerUserId: true, organizerUserId: true } } } },
     },
   });
   if (!evidence) throw new AppError(404, 'RESULT_EVIDENCE_NOT_FOUND', 'Không tìm thấy ảnh bằng chứng.');
   // BR-RA-30: ảnh tranh chấp của đội kia giữ kín tới khi hết 2 giờ hoặc cả hai đội bấm Đã nộp đủ.
-  const sealed = evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null;
+  const sealed = evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null
+    && evidence.case.evidenceDeadlineAt !== null && new Date() < evidence.case.evidenceDeadlineAt;
   if (sealed && !input.viewer.roles.includes('admin')) {
     const sideOf = async (userId: string) => (userId === evidence.case.match.organizerUserId ? 'A'
       : (await prisma.join.findFirst({ where: { matchId: input.matchId, participantUserId: userId, status: 'confirmed' }, select: { teamSide: true } }))?.teamSide ?? 'B');
