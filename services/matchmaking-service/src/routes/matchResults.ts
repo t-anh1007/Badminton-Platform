@@ -6,7 +6,7 @@ import type { VenueBookingClient } from '../clients/venueBooking.js';
 import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.js';
 import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
 import { readUploads } from '../domain/resultOcr.js';
-import { submitClaimV2 } from '../domain/resultClaimsV2.js';
+import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../domain/resultClaimsV2.js';
 import { openEvidenceWindow } from '../domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
 import { prisma } from '../lib/prisma.js';
@@ -59,6 +59,18 @@ const incidentSchema = z.object({
   evidence: evidenceSchema,
 }).strict();
 const supplementSchema = z.object({ evidence: evidenceSchema }).strict();
+const objectionV2Schema = z.object({
+  reason: z.enum(['score_wrong', 'no_match']),
+  note: z.string().trim().min(1).max(1000).optional(),
+  claimVersion: z.number().int().positive(),
+  /** Ảnh kèm theo: bản nháp đã tải qua /result-uploads (bắt buộc với người uy tín Thấp). */
+  submission: submissionSchema.strict().optional(),
+}).strict();
+const incidentV2Schema = z.object({
+  type: z.enum(['no_show', 'not_played', 'interrupted', 'other']),
+  description: z.string().trim().min(1).max(1000),
+  evidence: evidenceSchema.optional(),
+}).strict();
 
 const outcomeSchema = z.enum(['TEAM_A_WIN', 'TEAM_B_WIN', 'NO_RESULT']);
 const reasonSchema = z.string().trim().min(1).max(1000);
@@ -130,17 +142,42 @@ export function createMatchResultRouter(
   }));
 
   router.post('/:matchId/result-responses/confirm', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
-    const result = await confirmResult(matchIdSchema.parse(req.params.matchId), viewer(req).id);
+    const matchId = matchIdSchema.parse(req.params.matchId);
+    if (await rulesOf(matchId) === 'ra_v1') {
+      const { claimVersion } = z.object({ claimVersion: z.number().int().positive() }).parse(req.body);
+      res.status(200).json({ result: await confirmV2({ matchId, userId: viewer(req).id, claimVersion }) });
+      return;
+    }
+    const result = await confirmResult(matchId, viewer(req).id);
     res.status(200).json({ result });
   }));
 
   router.post('/:matchId/result-responses/object', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = matchIdSchema.parse(req.params.matchId);
+    if (await rulesOf(matchId) === 'ra_v1') {
+      const input = objectionV2Schema.parse(req.body);
+      const objection = await objectV2(
+        { ...input, matchId, userId: viewer(req).id },
+        { accountClient, openDispute: openEvidenceWindow },
+      );
+      res.status(201).json({ objection });
+      return;
+    }
     const input = objectionSchema.parse(req.body);
-    const objection = await objectResult(storage(), { ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id });
+    const objection = await objectResult(storage(), { ...input, matchId, userId: viewer(req).id });
     res.status(201).json({ objection });
   }));
 
   router.post('/:matchId/incidents', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = matchIdSchema.parse(req.params.matchId);
+    // Hồ sơ chưa mở (sự cố trước/trong trận) sẽ là ra_v1 → đi thẳng Admin (BR-RA-42).
+    if (await rulesOf(matchId) !== 'legacy') {
+      const input = incidentV2Schema.parse(req.body);
+      const incident = await reportIncidentV2({ ...input, matchId, userId: viewer(req).id });
+      if (input.evidence) await supplementResultEvidence(storage(), { evidence: input.evidence, matchId, userId: viewer(req).id });
+      res.status(201).json({ incident });
+      return;
+    }
     const input = incidentSchema.parse(req.body);
     const incident = await reportIncident(storage(), { ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id });
     res.status(201).json({ incident });

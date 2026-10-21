@@ -1,0 +1,126 @@
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { resetCircuitBreaker, type OcrReading } from '@khoaluantn/ai';
+import { prisma } from '../src/lib/prisma.js';
+import { readUploads } from '../src/domain/resultOcr.js';
+import { confirmV2, objectV2, submitClaimV2 } from '../src/domain/resultClaimsV2.js';
+import { openEvidenceWindow } from '../src/domain/resultDisputeV2.js';
+import { HOUR, MIN, MemoryStorage, accountClient, cleanupV2, fakeAi, photo, reading, v2Fixture } from './resultV2TestUtils.js';
+
+afterAll(cleanupV2);
+beforeEach(() => resetCircuitBreaker());
+
+const storage = new MemoryStorage();
+const vn = (local: string) => new Date(`${local}+07:00`);
+const END = vn('2026-10-21T09:00:00');
+const T0 = vn('2026-10-21T10:00:00');
+const at = (minutes: number) => new Date(T0.getTime() + minutes * MIN);
+const A_WIN = [{ teamA: 21, teamB: 18 }, { teamA: 21, teamB: 15 }];
+const B_WIN = [{ teamA: 18, teamB: 21 }, { teamA: 15, teamB: 21 }];
+const deps = (now: Date) => ({ accountClient, now, openDispute: openEvidenceWindow });
+
+async function claim(matchId: string, userId: string, sets = A_WIN, now = T0, capturedAt: Date | undefined = new Date(END.getTime() + MIN)) {
+  const read: OcrReading = reading(sets.map((set) => [set.teamA, set.teamB] as [number, number]));
+  const { draftId } = await readUploads(
+    { matchId, userId, items: [storage.put(userId, await photo(800, capturedAt))] }, { storage, ai: fakeAi({ ocr: read }).ai, accountClient },
+  );
+  return submitClaimV2({ matchId, userId, draftId, sets, columnMapping: null, editedCells: [] }, deps(now));
+}
+
+const version = async (matchId: string) => (await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId } })).version;
+const status = async (matchId: string) => (await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId } })).status;
+const finalEvents = (matchId: string) => prisma.outbox.count({ where: { aggregateId: matchId, eventType: 'MatchResultFinalized' } });
+
+describe('acceptance, grace and objections (ra_v1)', () => {
+  it('singles: the loser agrees -> final with one result event', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ endAt: END });
+    await claim(match.id, organizer);
+    expect(await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5))).toEqual({ status: 'final' });
+    expect(await finalEvents(match.id)).toBe(1);
+  });
+
+  it('doubles: first loser opens grace, second loser closes it', async () => {
+    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    expect((await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5))).status).toBe('acceptance_grace');
+    const graced = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
+    expect(graced.graceDeadlineAt?.toISOString()).toBe(new Date(at(5).getTime() + HOUR).toISOString());
+    expect((await confirmV2({ matchId: match.id, userId: b2, claimVersion: graced.version }, at(10))).status).toBe('final');
+  });
+
+  it('doubles: the other loser objects during grace -> evidence window', async () => {
+    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5));
+    const result = await objectV2({ matchId: match.id, userId: b2, reason: 'score_wrong', claimVersion: await version(match.id) }, deps(at(20)));
+    expect(result.status).toBe('evidence_window');
+    const disputed = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
+    expect(disputed.evidenceDeadlineAt?.toISOString()).toBe(new Date(at(20).getTime() + 2 * HOUR).toISOString());
+  });
+
+  it('a matching claim from the losing team counts as acceptance but still waits for grace in doubles', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    expect((await claim(match.id, b1, A_WIN, at(5))).caseStatus).toBe('acceptance_grace');
+  });
+
+  it('a paid-for partner agreeing does not settle early; the payer agreeing does', async () => {
+    const { match, partner, organizer, b1 } = await v2Fixture({ doubles: true, payerForPartner: true, endAt: END });
+    await claim(match.id, b1, B_WIN);
+    expect((await confirmV2({ matchId: match.id, userId: partner, claimVersion: await version(match.id) }, at(5))).status).toBe('proposed');
+    expect(await status(match.id)).toBe('proposed');
+    expect((await confirmV2({ matchId: match.id, userId: organizer, claimVersion: await version(match.id) }, at(6))).status).toBe('final');
+  });
+
+  it('a red proposal goes to Admin even when the loser agrees', async () => {
+    const { match, organizer, b1, startAt } = await v2Fixture({ endAt: END });
+    const result = await claim(match.id, organizer, A_WIN, T0, new Date(startAt.getTime() - 2 * HOUR));
+    expect(result.level).toBe('red');
+    expect((await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5))).status).toBe('admin_review');
+    expect(await finalEvents(match.id)).toBe(0);
+  });
+
+  it('agreeing with a stale version after the claim was replaced is rejected', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ endAt: END });
+    await claim(match.id, organizer);
+    const seen = await version(match.id);
+    await claim(match.id, organizer, A_WIN, at(2));
+    await expect(confirmV2({ matchId: match.id, userId: b1, claimVersion: seen }, at(3))).rejects.toMatchObject({ code: 'RESULT_VERSION_STALE' });
+  });
+
+  it('agree and object at the same moment: exactly one wins, no 500', async () => {
+    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    const seen = await version(match.id);
+    const results = await Promise.allSettled([
+      confirmV2({ matchId: match.id, userId: b1, claimVersion: seen }, at(5)),
+      objectV2({ matchId: match.id, userId: b2, reason: 'score_wrong', claimVersion: seen }, deps(at(5))),
+    ]);
+    expect(results.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((item) => item.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason.code).toBe('RESULT_VERSION_STALE');
+  });
+
+  it('"no match" objection goes to Admin, once per person', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ endAt: END });
+    await claim(match.id, organizer);
+    const first = await objectV2({ matchId: match.id, userId: b1, reason: 'no_match', claimVersion: await version(match.id) }, deps(at(5)));
+    expect(first.status).toBe('admin_review');
+    await expect(objectV2({ matchId: match.id, userId: b1, reason: 'no_match', claimVersion: await version(match.id) }, deps(at(6))))
+      .rejects.toMatchObject({ code: 'RESULT_INCIDENT_LIMIT' });
+  });
+
+  it('low-reputation players must attach photos to object', async () => {
+    const { match, resultCase, organizer, b1 } = await v2Fixture({ endAt: END });
+    for (const suffix of ['v1', 'v2']) await prisma.playerViolation.create({ data: { userId: b1, caseId: `${resultCase.id}-${suffix}`, kind: 'test', source: 'admin' } });
+    await claim(match.id, organizer);
+    await expect(objectV2({ matchId: match.id, userId: b1, reason: 'score_wrong', claimVersion: await version(match.id) }, deps(at(5))))
+      .rejects.toMatchObject({ code: 'RESULT_OBJECTION_EVIDENCE_REQUIRED' });
+    await prisma.playerViolation.deleteMany({ where: { userId: b1 } });
+  });
+
+  it('a teammate claiming the other winner opens a dispute', async () => {
+    const { match, organizer, partner } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    expect((await claim(match.id, partner, B_WIN, at(5))).caseStatus).toBe('evidence_window');
+  });
+});

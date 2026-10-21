@@ -349,3 +349,132 @@ async function propose(
   }
   return claimResult(tx, resultCase.id, claimId, prepared, caseStatus);
 }
+
+// ---- Task 10: Đồng ý, Phản đối, sự cố (BR-RA-22..24, 28, 42) ----
+
+function assertVersion(resultCase: MatchResultCase, claimVersion: number) {
+  if (resultCase.version !== claimVersion) {
+    throw new AppError(409, 'RESULT_VERSION_STALE', 'Kết quả đã thay đổi; hãy xem lại trước khi phản hồi.');
+  }
+}
+
+function assertResponseOpen(resultCase: MatchResultCase, now: Date) {
+  const until = responseOpenUntil(resultCase);
+  if (!until || now >= until) throw new AppError(409, 'RESULT_RESPONSE_CLOSED', 'Kết quả không còn nhận phản hồi.');
+}
+
+/** BR-RA-22/28: Đồng ý gắn đúng phiên bản đang xem; chỉ thành viên đội bị xử thua. */
+export async function confirmV2(input: { matchId: string; userId: string; claimVersion: number }, now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    const ctx = await lockedCaseV2(tx, input.matchId, input.userId);
+    assertVersion(ctx.resultCase, input.claimVersion);
+    assertResponseOpen(ctx.resultCase, now);
+    const proposal = proposalOf(await currentClaims(tx, ctx.resultCase.id))!;
+    const losers = ctx.teams[losingTeamOf(ctx.resultCase.outcome!, sideOf(ctx.teams, proposal.claimantUserId)!)];
+    if (!losers.includes(input.userId)) throw new AppError(403, 'RESULT_CONFIRM_LOSER_ONLY', 'Chỉ đội bị xử thua được đồng ý kết quả.');
+    if (await tx.resultResponse.count({ where: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'confirm' } }) > 0) {
+      throw new AppError(409, 'RESULT_ALREADY_CONFIRMED', 'Bạn đã đồng ý kết quả này.');
+    }
+    await tx.resultResponse.create({ data: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'confirm', createdAt: now } });
+    const status = statusAfterAccept(await acceptByLosingTeam(tx, ctx, input.userId, now));
+    if (status === 'proposed') await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: { version: { increment: 1 } } });
+    return { status };
+  });
+}
+
+type IncidentType = 'no_show' | 'not_played' | 'interrupted' | 'other';
+
+/** BR-RA-42: sự cố đi thẳng Admin, mỗi người một lần mỗi hồ sơ; dừng mọi bộ đếm. */
+async function enterIncident(tx: Tx, ctx: CaseContext, userId: string, data: { incidentType: IncidentType; reason: string }, now: Date) {
+  if (await tx.resultResponse.count({ where: { caseId: ctx.resultCase.id, userId, kind: 'incident' } }) > 0) {
+    throw new AppError(409, 'RESULT_INCIDENT_LIMIT', 'Mỗi người chỉ được báo sự cố một lần cho kèo này.');
+  }
+  const response = await tx.resultResponse.create({
+    data: { caseId: ctx.resultCase.id, userId, kind: 'incident', incidentType: data.incidentType, reason: data.reason, createdAt: now },
+  });
+  await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: { ...enterAdminReview(now), outcome: null } });
+  await notifyRoster(tx, ctx.match, ctx.resultCase.id, 'match.result.incident', 'Có báo sự cố về trận',
+    'Hồ sơ chuyển Admin quyết định. Tiền giữ cho kết quả và điểm tạm khóa tới khi có quyết định.');
+  await writeResultNotification(tx, adminReviewNotification(ctx.match.id, ctx.resultCase.id, 'match.result.admin_review', 'Có sự cố kết quả kèo cần quyết định'));
+  return response;
+}
+
+/**
+ * BR-RA-24: Phản đối với lý do "tỉ số sai" → tranh chấp; "không có trận" → sự cố tới Admin. Người uy tín Thấp phải
+ * kèm ảnh (bản nháp đã tải). Ảnh kèm theo được chèn như bằng chứng tranh chấp.
+ */
+export async function objectV2(
+  input: {
+    matchId: string; userId: string; reason: 'score_wrong' | 'no_match'; note?: string; claimVersion: number;
+    submission?: SubmissionInput;
+  },
+  deps: { accountClient?: AccountClient; now?: Date; openDispute: DisputeOpener },
+) {
+  const now = deps.now ?? new Date();
+  if (input.reason === 'score_wrong' && !input.submission && await reputationOf(input.userId, now) === 'low') {
+    throw new AppError(400, 'RESULT_OBJECTION_EVIDENCE_REQUIRED', 'Bạn cần kèm ảnh khi phản đối kết quả.');
+  }
+  let prepared: PreparedSubmission | null = null;
+  if (input.submission) {
+    const match = await prisma.match.findUnique({ where: { id: input.matchId }, include: { resultCase: true } });
+    if (!match?.resultCase) throw new AppError(404, 'RESULT_CASE_NOT_FOUND', 'Kèo chưa mở khai kết quả.');
+    const teams = await resultTeams(prisma, match);
+    if (!sideOf(teams, input.userId)) throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được thao tác với kết quả.');
+    prepared = await prepareSubmission(match, match.resultCase, teams, input.userId, input.submission, { accountClient: deps.accountClient, now });
+  }
+  return prisma.$transaction(async (tx) => {
+    const ctx = await lockedCaseV2(tx, input.matchId, input.userId);
+    if (input.reason === 'no_match' && await tx.resultResponse.count({ where: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'incident' } }) > 0) {
+      throw new AppError(409, 'RESULT_INCIDENT_LIMIT', 'Mỗi người chỉ được báo sự cố một lần cho kèo này.');
+    }
+    assertVersion(ctx.resultCase, input.claimVersion);
+    assertResponseOpen(ctx.resultCase, now);
+    const proposal = proposalOf(await currentClaims(tx, ctx.resultCase.id))!;
+    if (proposal.claimantUserId === input.userId) throw new AppError(409, 'RESULT_OBJECT_OWN_CLAIM', 'Bạn không thể phản đối bản khai của chính mình.');
+    if (input.reason === 'no_match') {
+      const response = await enterIncident(tx, ctx, input.userId, { incidentType: 'not_played', reason: input.note ?? 'Không có trận' }, now);
+      return { responseId: response.id, status: 'admin_review' as const };
+    }
+    const response = await tx.resultResponse.create({
+      data: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'object', reason: input.note ?? 'Tỉ số sai', createdAt: now },
+    });
+    if (prepared) await insertSubmission(tx, ctx.resultCase, ctx.match, input.userId, prepared, { purpose: 'evidence', now });
+    await deps.openDispute(tx, ctx, now);
+    return { responseId: response.id, status: 'evidence_window' as const };
+  });
+}
+
+const NO_SHOW_AFTER_START_MS = 15 * 60_000;
+
+/** Báo sự cố ra_v1 (BR-RA-42): trong cửa sổ khai, phản hồi hoặc 2h bằng chứng; hồ sơ chưa có thì mở (sự cố trước/trong trận). */
+export async function reportIncidentV2(
+  input: { matchId: string; userId: string; type: IncidentType; description: string },
+  now = new Date(),
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockMatch(tx, input.matchId);
+    const match = await tx.match.findUnique({ where: { id: input.matchId }, include: { resultCase: true } });
+    if (!match) throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo.');
+    const teams = await resultTeams(tx, match);
+    if (!sideOf(teams, input.userId)) throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được thao tác với kết quả.');
+    if (input.type === 'no_show' && (!match.startAt || now.getTime() < match.startAt.getTime() + NO_SHOW_AFTER_START_MS)) {
+      throw new AppError(409, 'RESULT_NO_SHOW_TOO_EARLY', 'Chỉ báo vắng mặt sau giờ bắt đầu 15 phút.');
+    }
+    let resultCase = match.resultCase;
+    if (!resultCase && match.endAt && (match.status === 'confirmed' || match.status === 'completed')) {
+      resultCase = await tx.matchResultCase.create({
+        data: { matchId: match.id, declarationDeadlineAt: deadlineFor(match.endAt, 12 * 3_600_000).at },
+      });
+    }
+    const open = resultCase && (
+      (resultCase.status === 'declaration_open' && now < resultCase.declarationDeadlineAt)
+      || (responseOpenUntil(resultCase)?.getTime() ?? 0) > now.getTime()
+      || (resultCase.status === 'evidence_window' && resultCase.evidenceDeadlineAt !== null && now < resultCase.evidenceDeadlineAt)
+    );
+    if (!resultCase || !open) throw new AppError(409, 'RESULT_INCIDENT_CLOSED', 'Hồ sơ kết quả không còn nhận báo sự cố.');
+    const { resultCase: _omit, ...rest } = match;
+    const response = await enterIncident(tx, { match: rest as Match, teams, resultCase }, input.userId,
+      { incidentType: input.type, reason: input.description }, now);
+    return { responseId: response.id };
+  });
+}
