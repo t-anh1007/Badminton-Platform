@@ -1,7 +1,7 @@
 // Client kiểu OpenAI bằng fetch cho mọi nguồn miễn phí (Gemini, Groq, OpenRouter) + chuỗi dự phòng.
 // Tên model/thứ tự chỉ đến từ env (tech design §2); không log nội dung prompt hay ảnh.
 
-export type ProviderId = 'gemini' | 'groq' | 'openrouter';
+export type ProviderId = 'gemini' | 'groq' | 'openrouter' | 'cloudflare' | 'ollama';
 
 export interface ChainLink { provider: ProviderId; model: string; baseUrl: string; apiKey: string }
 
@@ -11,7 +11,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   jsonSchema?: { name: string; schema: object };
   temperature?: number;
-  /** Mức suy nghĩ cho model có suy nghĩ (Gemini, Groq gpt-oss); OpenRouter không gửi để tránh lỗi tham số lạ. */
+  /** Mức suy nghĩ cho model có suy nghĩ; chỉ gửi tới provider trong REASONING_EFFORT_PROVIDERS. */
   reasoningEffort?: 'low' | 'medium' | 'high';
 }
 
@@ -34,11 +34,22 @@ export interface RunChainOptions {
   now?: () => number;
 }
 
-const PROVIDERS: Record<ProviderId, { baseUrl: string; keyEnv: string }> = {
-  gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'GEMINI_API_KEY' },
-  groq: { baseUrl: 'https://api.groq.com/openai/v1', keyEnv: 'GROQ_API_KEY' },
-  openrouter: { baseUrl: 'https://openrouter.ai/api/v1', keyEnv: 'OPENROUTER_API_KEY' },
+type Env = Record<string, string | undefined>;
+
+/** `baseUrl` trả null khi thiếu cấu hình phụ (vd mã tài khoản Cloudflare) → bỏ mắt xích như thiếu key. */
+const PROVIDERS: Record<ProviderId, { baseUrl: (env: Env) => string | null; keyEnv: string }> = {
+  gemini: { baseUrl: () => 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'GEMINI_API_KEY' },
+  groq: { baseUrl: () => 'https://api.groq.com/openai/v1', keyEnv: 'GROQ_API_KEY' },
+  openrouter: { baseUrl: () => 'https://openrouter.ai/api/v1', keyEnv: 'OPENROUTER_API_KEY' },
+  cloudflare: {
+    baseUrl: (env) => (env.CLOUDFLARE_ACCOUNT_ID ? `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1` : null),
+    keyEnv: 'CLOUDFLARE_API_TOKEN',
+  },
+  ollama: { baseUrl: () => 'https://ollama.com/v1', keyEnv: 'OLLAMA_API_KEY' },
 };
+
+/** Provider đã kiểm chứng nhận `reasoning_effort` (tech design §2.2); provider khác không gửi để tránh lỗi tham số lạ. */
+const REASONING_EFFORT_PROVIDERS: ReadonlySet<ProviderId> = new Set(['gemini', 'groq']);
 
 /** `provider:model[,provider:model…]`; tách ở dấu `:` đầu tiên; thiếu key hoặc provider lạ thì bỏ mắt xích. */
 export function parseChain(spec: string | undefined, env: Record<string, string | undefined>): ChainLink[] {
@@ -51,8 +62,9 @@ export function parseChain(spec: string | undefined, env: Record<string, string 
     const model = item.slice(colon + 1).trim();
     const config = PROVIDERS[provider];
     const apiKey = config && env[config.keyEnv];
-    if (!config || !model || !apiKey) continue;
-    links.push({ provider, model, baseUrl: config.baseUrl, apiKey });
+    const baseUrl = config?.baseUrl(env);
+    if (!config || !model || !apiKey || !baseUrl) continue;
+    links.push({ provider, model, baseUrl, apiKey });
   }
   return links;
 }
@@ -117,7 +129,7 @@ export async function runChain<T>(
     }
     const timeoutMs = opts.deadlineAt === undefined ? opts.timeoutMs : Math.min(opts.timeoutMs, opts.deadlineAt - started);
     const body: Record<string, unknown> = { model: link.model, messages: req.messages, temperature: req.temperature ?? 0 };
-    if (req.reasoningEffort && link.provider !== 'openrouter') body.reasoning_effort = req.reasoningEffort;
+    if (req.reasoningEffort && REASONING_EFFORT_PROVIDERS.has(link.provider)) body.reasoning_effort = req.reasoningEffort;
     if (req.jsonSchema) {
       body.response_format = { type: 'json_schema', json_schema: { ...req.jsonSchema, strict: true } };
     }

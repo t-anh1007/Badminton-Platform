@@ -34,6 +34,14 @@ describe('parseChain', () => {
       .toBe('nvidia/nemotron-3.5-super-vl:free');
   });
 
+  it('builds Cloudflare (needs account id) and Ollama links; Ollama models keep their own colon', () => {
+    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_API_TOKEN: 't' })).toEqual([]);
+    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc' })[0]).toMatchObject({
+      model: '@cf/openai/gpt-oss-120b', baseUrl: 'https://api.cloudflare.com/client/v4/accounts/acc/ai/v1',
+    });
+    expect(parseChain('ollama:gpt-oss:120b', { OLLAMA_API_KEY: 'o' })[0]).toMatchObject({ model: 'gpt-oss:120b', baseUrl: 'https://ollama.com/v1' });
+  });
+
   it('ignores unknown providers and blank specs', () => {
     expect(parseChain('nvidia:x, ,', { GEMINI_API_KEY: 'k' })).toEqual([]);
     expect(parseChain(undefined, {})).toEqual([]);
