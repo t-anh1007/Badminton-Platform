@@ -10,6 +10,7 @@ import { createCompetitionRouter } from './routes/competition.js';
 import { createRewardRouter } from './routes/rewards.js';
 import { createInternalRouter } from './routes/internal.js';
 import { createPrivateObjectStorageClientFromEnv, type PrivateObjectStorageClient } from '@khoaluantn/object-storage';
+import { aiChainsFromEnv, type AiChains } from './lib/aiClients.js';
 
 const SERVICE_NAME = 'matchmaking-service';
 
@@ -18,6 +19,7 @@ export function createApp(dependencies?: {
   accountClient?: AccountClient;
   matchmakerClient?: MatchmakerExplanationClient;
   resultStorage?: PrivateObjectStorageClient;
+  aiChains?: AiChains;
 }) {
   const venueBookingClient = dependencies?.venueBookingClient ?? new HttpVenueBookingClient();
   const accountClient = dependencies?.accountClient ?? new HttpAccountClient();
@@ -31,7 +33,7 @@ export function createApp(dependencies?: {
   });
   // Bằng chứng kết quả chỉ nằm ở bucket private; client tạo lười để service vẫn chạy khi thiếu cấu hình.
   const resolveResultStorage = () => dependencies?.resultStorage ?? createPrivateObjectStorageClientFromEnv();
-  app.use('/matches', createMatchResultRouter(venueBookingClient, accountClient, resolveResultStorage));
+  app.use('/matches', createMatchResultRouter(venueBookingClient, accountClient, resolveResultStorage, dependencies?.aiChains ?? aiChainsFromEnv()));
   app.use('/matches', createMatchRouter(venueBookingClient, accountClient, matchmakerClient));
   app.use('/passports', createPassportRouter(accountClient));
   app.use('/competition', createCompetitionRouter(accountClient));

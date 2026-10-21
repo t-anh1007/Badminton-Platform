@@ -5,6 +5,8 @@ import type { AccountClient } from '../clients/account.js';
 import type { VenueBookingClient } from '../clients/venueBooking.js';
 import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.js';
 import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
+import { readUploads } from '../domain/resultOcr.js';
+import type { AiChains } from '../lib/aiClients.js';
 import {
   confirmResult, decideAdminResult, getAdminResultCase, getProviderResultCase, listAdminResultCases, listProviderResultCases,
   objectResult, previewAdminDecision, reportIncident, submitProviderRecommendation, supplementResultEvidence,
@@ -25,6 +27,13 @@ const evidenceSchema = z.array(z.object({
   mimeType: z.enum(IMAGE_MIME_TYPES),
   checksumSha256: checksumSchema.optional(),
 }).strict()).min(1).max(3);
+const resultUploadsSchema = z.object({
+  items: z.array(z.object({
+    objectKey: z.string().min(1).max(300),
+    mimeType: z.enum(IMAGE_MIME_TYPES),
+    checksumSha256: checksumSchema,
+  }).strict()).min(1).max(5),
+}).strict();
 const claimSchema = z.object({
   sets: z.array(z.object({ teamA: z.number().int(), teamB: z.number().int() }).strict()).min(1).max(5),
   evidence: evidenceSchema,
@@ -55,6 +64,7 @@ export function createMatchResultRouter(
   venueBookingClient: VenueBookingClient,
   accountClient: AccountClient,
   resolveStorage: () => PrivateObjectStorageClient,
+  aiChains: AiChains,
 ) {
   const router = Router();
   const storage = () => {
@@ -72,6 +82,16 @@ export function createMatchResultRouter(
       ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id,
     });
     res.status(201).json({ upload });
+  }));
+
+  // T1: đọc ảnh đồng bộ (tối đa ~30 giây) rồi trả bản nháp; AI lỗi thì bản nháp gõ tay.
+  router.post('/:matchId/result-uploads', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = resultUploadsSchema.parse(req.body);
+    const result = await readUploads(
+      { ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id },
+      { storage: storage(), ai: aiChains, accountClient },
+    );
+    res.status(200).json(result);
   }));
 
   router.post('/:matchId/result-claims', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {

@@ -149,18 +149,25 @@ export function buildDraft(
       else slots.set(set.index, [...(slots.get(set.index) ?? []), entry]);
     });
   });
+  // T7: ảnh chưa đọc kịp/lỗi giữ một chỗ set trống (gõ tay) theo giờ chụp, không quá số set tối đa của thể thức.
+  images.forEach((image, order) => {
+    if (read.some((item) => item.order === order)) return;
+    unindexed.push({ uploadId: image.uploadId, capturedAt: image.signals.capturedAt, order: order * 10, teamA: NaN, teamB: NaN, conf: 0 });
+  });
   unindexed.sort((a, b) => timeKey(a) - timeKey(b) || a.order - b.order);
+  const maxSets = ctx.format === 'bo5' ? 5 : 3;
   let next = 1;
   for (const entry of unindexed) {
     while (slots.has(next)) next += 1;
+    if (Number.isNaN(entry.teamA) && next > maxSets) continue;
     slots.set(next, [entry]);
   }
 
   const maxSet = Math.max(...slots.keys());
   const sets: DraftSet[] = [];
   for (let position = 1; position <= maxSet; position += 1) {
-    const entries = slots.get(position);
-    if (!entries) {
+    const entries = slots.get(position)?.filter((entry) => !Number.isNaN(entry.teamA));
+    if (!entries || entries.length === 0) {
       reasons.push('MANUAL_SET');
       sets.push({ teamA: null, teamB: null, sourceUploadId: null, lowConfidence: true });
       continue;
