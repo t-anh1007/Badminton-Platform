@@ -250,12 +250,12 @@ describe('Task 11 player result read model', () => {
     const { match, opponentUserId } = await completedMatch();
     const response = await request(app).post(`/matches/${match.id}/result-evidence/uploads`)
       .set('Authorization', `Bearer ${token(opponentUserId)}`)
-      .send({ mimeType: 'image/webp', size: 5 * 1024 * 1024, checksumSha256: CHECKSUM });
+      .send({ mimeType: 'image/webp', size: 15 * 1024 * 1024, checksumSha256: CHECKSUM });
     expect(response.status).toBe(201);
     expect(response.body.upload.headers['x-amz-checksum-sha256']).toBe(CHECKSUM);
     const tooLarge = await request(app).post(`/matches/${match.id}/result-evidence/uploads`)
       .set('Authorization', `Bearer ${token(opponentUserId)}`)
-      .send({ mimeType: 'image/webp', size: 5 * 1024 * 1024 + 1, checksumSha256: CHECKSUM });
+      .send({ mimeType: 'image/webp', size: 15 * 1024 * 1024 + 1, checksumSha256: CHECKSUM });
     expect(tooLarge.body.error.code).toBe('RESULT_EVIDENCE_TOO_LARGE');
   });
 });

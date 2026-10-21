@@ -6,6 +6,12 @@ export async function purgeResultCases(matchIds: string[], client: typeof prisma
   if (caseIds.length === 0) return caseIds;
   await client.$transaction([
     client.$executeRaw`SET LOCAL app.result_audit_purge = 'on'`,
+    client.evidenceReading.deleteMany({ where: { upload: { caseId: { in: caseIds } } } }),
+    client.resultUpload.deleteMany({ where: { caseId: { in: caseIds } } }),
+    client.aiRuling.deleteMany({ where: { caseId: { in: caseIds } } }),
+    client.resultAppeal.deleteMany({ where: { caseId: { in: caseIds } } }),
+    client.playerViolation.deleteMany({ where: { caseId: { in: caseIds } } }),
+    client.aiCallLog.deleteMany({ where: { caseId: { in: caseIds } } }),
     client.resultEvidence.deleteMany({ where: { caseId: { in: caseIds } } }),
     client.resultSet.deleteMany({ where: { claim: { caseId: { in: caseIds } } } }),
     client.resultClaim.deleteMany({ where: { caseId: { in: caseIds } } }),
