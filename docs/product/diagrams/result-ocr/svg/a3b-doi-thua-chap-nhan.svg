@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 872" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="a3b-doi-thua-chap-nhan-title a3b-doi-thua-chap-nhan-desc" style="min-width:1000px" id="a3b-doi-thua-chap-nhan-root"><title id="a3b-doi-thua-chap-nhan-title">A3b — Đội thua chấp nhận kết quả</title><desc id="a3b-doi-thua-chap-nhan-desc">Chấp nhận của partner được trả thay cần chủ kèo đồng ý; kèo đơn chốt ngay, kèo đôi chờ người còn lại tối đa 1 giờ.</desc><defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #a3b-doi-thua-chap-nhan-root { font-family: 'Geist', system-ui, sans-serif; color: #2d3142; }
+      #a3b-doi-thua-chap-nhan-root .diagram-container { width: 100%; overflow-x: auto; }
+      #a3b-doi-thua-chap-nhan-root .diagram-container { overflow-x: visible; }</style>
+<marker id="a3b-doi-thua-chap-nhan-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+<marker id="a3b-doi-thua-chap-nhan-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+<marker id="a3b-doi-thua-chap-nhan-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+<marker id="a3b-doi-thua-chap-nhan-arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+<marker id="a3b-doi-thua-chap-nhan-arrow-gen" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><polygon points="0 0, 11 5, 0 10" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/></marker>
+</defs><rect width="100%" height="100%" fill="#f5f5f5"/><path d="M 400 55 L 400 96.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<path d="M 520.0 140 L 612.0 140" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="536" y="120" width="32" height="12" rx="2" fill="#f5f5f5"/>
+<text x="552" y="129" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CÓ]</text>
+<path d="M 788.0 140 L 892 140 A 8 8 0 0 1 900 148 L 900 212.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="814" y="120" width="44" height="12" rx="2" fill="#f5f5f5"/>
+<text x="836" y="129" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CHƯA]</text>
+<path d="M 700 184.0 L 700 244 A 8 8 0 0 1 692 252 L 410 252" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="714" y="208" width="32" height="12" rx="2" fill="#f5f5f5"/>
+<text x="730" y="217" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CÓ]</text>
+<path d="M 400 184.0 L 400 242" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="410" y="200" width="52" height="12" rx="2" fill="#f5f5f5"/>
+<text x="436" y="209" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[KHÔNG]</text>
+<path d="M 900 260.0 L 900 315" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="922" y="294" width="44" height="12" rx="2" fill="#f5f5f5"/>
+<text x="944" y="303" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">VỀ A3A</text>
+<path d="M 400 262 L 400 300.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<path d="M 400 388.0 L 400 432.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="408" y="402" width="40" height="12" rx="2" fill="#f5f5f5"/>
+<text x="428" y="411" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[ĐÔI]</text>
+<path d="M 312.0 344 L 168 344 A 8 8 0 0 0 160 352 L 160 652 A 8 8 0 0 0 168 660 L 390 660" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="220" y="324" width="40" height="12" rx="2" fill="#f5f5f5"/>
+<text x="240" y="333" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[ĐƠN]</text>
+<path d="M 400 480.0 L 400 520.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<path d="M 488.0 564 L 612.0 564" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="516" y="544" width="68" height="12" rx="2" fill="#f5f5f5"/>
+<text x="550" y="553" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[PHẢN ĐỐI]</text>
+<path d="M 400 608.0 L 400 650" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<rect x="418" y="622" width="124" height="12" rx="2" fill="#f5f5f5"/>
+<text x="480" y="631" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CHẤP NHẬN / HẾT 1H]</text>
+<path d="M 400 670 L 400 700.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<path d="M 400 748.0 L 400 779" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<circle cx="400" cy="48" r="7" fill="#2d3142"/>
+<polygon points="400,96.0 520.0,140 400,184.0 280.0,140" fill="#f5f5f5"/>
+<polygon points="400,96.0 520.0,140 400,184.0 280.0,140" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="400" y="137" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người chấp nhận là</text>
+<text x="400" y="151" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">partner được trả thay?</text>
+<polygon points="700,96.0 788.0,140 700,184.0 612.0,140" fill="#f5f5f5"/>
+<polygon points="700,96.0 788.0,140 700,184.0 612.0,140" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="700" y="137" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chủ kèo cũng</text>
+<text x="700" y="151" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">chấp nhận?</text>
+<rect x="828.0" y="212.0" width="144" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="828.0" y="212.0" width="144" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="900.0" y="232.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chờ tiếp</text>
+<text x="900.0" y="247.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">cửa sổ thường</text>
+<polygon points="400,242 410,252 400,262 390,252" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<polygon points="400,300.0 488.0,344 400,388.0 312.0,344" fill="#f5f5f5"/>
+<polygon points="400,300.0 488.0,344 400,388.0 312.0,344" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="400" y="341" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Kèo đơn</text>
+<text x="400" y="355" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">hay đôi?</text>
+<rect x="276.0" y="432.0" width="248" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="276.0" y="432.0" width="248" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="400.0" y="452.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Grace 1h cho người còn lại</text>
+<text x="400.0" y="467.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">giãn qua đêm nếu rơi 23:00–07:00</text>
+<polygon points="400,520.0 488.0,564 400,608.0 312.0,564" fill="#f5f5f5"/>
+<polygon points="400,520.0 488.0,564 400,608.0 312.0,564" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="400" y="561" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người còn lại</text>
+<text x="400" y="575" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">phản hồi?</text>
+<rect x="612.0" y="540.0" width="216" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="612.0" y="540.0" width="216" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="720.0" y="568.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tranh chấp tỉ số (A4)</text>
+<polygon points="400,650 410,660 400,670 390,660" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="276.0" y="700.0" width="248" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="276.0" y="700.0" width="248" height="48" rx="10" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<text x="400.0" y="720.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chốt kết quả</text>
+<text x="400.0" y="735.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">chia tiền tạm giữ · rating · điểm BXH</text>
+<circle cx="900" cy="324" r="9" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/>
+<circle cx="900" cy="324" r="5" fill="#2d3142"/>
+<circle cx="400" cy="788" r="9" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/>
+<circle cx="400" cy="788" r="5" fill="#2d3142"/>
+<line x1="40" y1="804" x2="960" y2="804" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.10"/>
+<text x="40" y="820" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+<circle cx="44" cy="837" r="4" fill="#2d3142"/><circle cx="54" cy="837" r="5" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/><circle cx="54" cy="837" r="2.5" fill="#2d3142"/>
+<text x="72" y="840" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Bắt đầu / kết thúc</text>
+<rect x="197" y="832" width="16" height="11" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="229" y="840" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Hành động</text>
+<polygon points="305,837 313,831 321,837 313,843" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="337" y="840" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Quyết định / hợp nhánh</text>
+<rect x="483" y="832" width="16" height="11" rx="2" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<text x="515" y="840" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Bước trọng tâm</text>
+<line x1="618" y1="837" x2="642" y2="837" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a3b-doi-thua-chap-nhan-arrow)"/>
+<text x="650" y="840" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Luồng điều khiển</text></svg>

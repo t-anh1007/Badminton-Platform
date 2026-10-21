@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Use case 2 — Phản hồi, tranh chấp và kháng nghị</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Geist', system-ui, sans-serif; background: #f5f5f5; color: #2d3142; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1040px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #4f5d75; margin-bottom: 0.5rem; }
+    h1 { font-family: 'Noto Serif', serif; font-size: clamp(1.4rem, 2vw + 0.75rem, 1.9rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.2; margin-bottom: 1.5rem; }
+    svg { width: 100%; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0 !important; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Use case · UML · Kết quả kèo</p>
+    <h1>Use case 2 — Phản hồi, tranh chấp và kháng nghị</h1>
+    <div class="diagram-container">
+<svg viewBox="0 0 1000 740" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="uc-2-phan-hoi-tranh-chap-title uc-2-phan-hoi-tranh-chap-desc" style="min-width:1000px"><title id="uc-2-phan-hoi-tranh-chap-title">Use case 2 — Phản hồi, tranh chấp và kháng nghị</title><desc id="uc-2-phan-hoi-tranh-chap-desc">Người chơi phản hồi kết quả đề xuất, báo sự cố, nộp bằng chứng, kháng nghị hoặc chấp nhận phán quyết; chủ kèo chấp nhận thay khi partner được trả thay.</desc><defs>
+<marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+<marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+<marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+<marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+<marker id="arrow-gen" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><polygon points="0 0, 11 5, 0 10" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/></marker>
+</defs><rect width="100%" height="100%" fill="#f5f5f5"/><rect x="200" y="56" width="720" height="592" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+<text x="216" y="78" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.16em">HỆ THỐNG KẾT QUẢ KÈO</text>
+<path d="M 112 284 L 144 284 A 8 8 0 0 0 152 276 L 152 118 A 8 8 0 0 1 160 110 L 296 110" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 296 L 156 296 A 8 8 0 0 0 164 288 L 164 198 A 8 8 0 0 1 172 190 L 296 190" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 308 L 168 308 A 8 8 0 0 0 176 300 L 176 278 A 8 8 0 0 1 184 270 L 296 270" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 320 L 168 320 A 8 8 0 0 1 176 328 L 176 342 A 8 8 0 0 0 184 350 L 296 350" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 332 L 156 332 A 8 8 0 0 1 164 340 L 164 422 A 8 8 0 0 0 172 430 L 296 430" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 344 L 144 344 A 8 8 0 0 1 152 352 L 152 502 A 8 8 0 0 0 160 510 L 296 510" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 112 588 L 296 588" fill="none" stroke="#2d3142" stroke-width="1"/>
+<path d="M 96 556 L 96 392" fill="none" stroke="#2d3142" stroke-width="1" marker-end="url(#arrow-gen)"/>
+<path d="M 360 163.74581942016025 L 360 139.75473799048504" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+<rect x="294" y="146" width="56" height="12" rx="2" fill="#f5f5f5"/>
+<text x="322" y="155" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">«extend»</text>
+<path d="M 544 270 L 680 270" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+<rect x="582" y="250" width="60" height="12" rx="2" fill="#f5f5f5"/>
+<text x="612" y="259" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">«include»</text>
+<path d="M 544 588 L 876 588 A 8 8 0 0 0 884 580 L 884 118 A 8 8 0 0 0 876 110 L 544 110" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+<rect x="808" y="424" width="56" height="12" rx="2" fill="#f5f5f5"/>
+<text x="836" y="433" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">«extend»</text>
+<ellipse cx="420" cy="110" rx="124" ry="34" fill="#f5f5f5"/>
+<ellipse cx="420" cy="110" rx="124" ry="34" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+<text x="420" y="100" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC06</text>
+<text x="420" y="114" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Phản hồi kết quả đề xuất</text>
+<text x="420" y="128" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Đồng ý · Phản đối</text>
+<ellipse cx="420" cy="190" rx="124" ry="30" fill="#f5f5f5"/>
+<ellipse cx="420" cy="190" rx="124" ry="30" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="180" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC08</text>
+<text x="420" y="194" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Báo sự cố</text>
+<text x="420" y="208" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">không có trận · vắng · bỏ dở</text>
+<ellipse cx="420" cy="270" rx="124" ry="30" fill="#f5f5f5"/>
+<ellipse cx="420" cy="270" rx="124" ry="30" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="267" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC09</text>
+<text x="420" y="281" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Nộp bằng chứng tranh chấp</text>
+<ellipse cx="420" cy="350" rx="124" ry="30" fill="#f5f5f5"/>
+<ellipse cx="420" cy="350" rx="124" ry="30" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="340" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC10</text>
+<text x="420" y="354" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Kháng nghị</text>
+<text x="420" y="368" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">bên bị xử thua, có căn cứ</text>
+<ellipse cx="420" cy="430" rx="124" ry="30" fill="#f5f5f5"/>
+<ellipse cx="420" cy="430" rx="124" ry="30" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="427" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC11</text>
+<text x="420" y="441" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chấp nhận phán quyết</text>
+<ellipse cx="420" cy="510" rx="124" ry="30" fill="#f5f5f5"/>
+<ellipse cx="420" cy="510" rx="124" ry="30" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="507" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC12</text>
+<text x="420" y="521" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Xem uy tín của mình</text>
+<ellipse cx="420" cy="588" rx="124" ry="32" fill="#f5f5f5"/>
+<ellipse cx="420" cy="588" rx="124" ry="32" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="420" y="578" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC07</text>
+<text x="420" y="592" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chấp nhận thay</text>
+<text x="420" y="606" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">khi partner được trả thay</text>
+<ellipse cx="780" cy="270" rx="100" ry="28" fill="#f5f5f5"/>
+<ellipse cx="780" cy="270" rx="100" ry="28" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1"/>
+<text x="780" y="267" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.1em">UC02 · xem UC1</text>
+<text x="780" y="281" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Đọc ảnh tỉ số</text>
+<circle cx="96" cy="292" r="9" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="301" x2="96" y2="326" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="82" y1="310" x2="110" y2="310" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="326" x2="84" y2="344" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="326" x2="108" y2="344" stroke="#2d3142" stroke-width="1.2"/>
+<text x="96" y="362" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người chơi</text>
+<circle cx="96" cy="570" r="9" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="579" x2="96" y2="604" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="82" y1="588" x2="110" y2="588" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="604" x2="84" y2="622" stroke="#2d3142" stroke-width="1.2"/>
+<line x1="96" y1="604" x2="108" y2="622" stroke="#2d3142" stroke-width="1.2"/>
+<text x="96" y="640" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chủ kèo</text>
+<text x="96" y="654" fill="#2d3142" font-size="11.5" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">người trả slot</text>
+<line x1="40" y1="668" x2="960" y2="668" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="40" y="684" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+<circle cx="48" cy="696" r="3" fill="none" stroke="#2d3142" stroke-width="1"/><line x1="48" y1="699" x2="48" y2="705" stroke="#2d3142"/><line x1="43" y1="701" x2="53" y2="701" stroke="#2d3142"/>
+<text x="72" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Tác nhân</text>
+<ellipse cx="151" cy="701" rx="9" ry="5" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="175" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Ca sử dụng</text>
+<rect x="257" y="696" width="16" height="11" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+<text x="289" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Ca sử dụng chính</text>
+<line x1="403" y1="701" x2="427" y2="701" stroke="#2d3142" stroke-width="1"/>
+<text x="435" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Liên kết</text>
+<line x1="506" y1="701" x2="530" y2="701" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/>
+<text x="538" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">«include» / «extend»</text>
+<line x1="674" y1="701" x2="692" y2="701" stroke="#2d3142" stroke-width="1"/><polygon points="692,696 701,701 692,706" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+<text x="706" y="704" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Tổng quát hoá</text></svg>
+    </div>
+  </div>
+</body>
+</html>
