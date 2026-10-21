@@ -33,6 +33,7 @@ export {
 
 export * from './llm/openaiCompatChain.js';
 export * from './resultOcr.js';
+export * from './disputeRuling.js';
 
 export interface CompatibilityInput {
   player: { rating: number; rd: number };
