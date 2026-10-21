@@ -74,7 +74,7 @@ export async function runPendingRulings(now: Date, deps: { ai: AiChains }, match
     const logger = aiCallLogger('ruling', target.id);
     let okLog: CallLog | undefined;
     const result = deps.ai.ruling.length === 0 || chunks.length === 0 ? null : await proposeRuling(deps.ai.ruling, input, {
-      timeoutMs: settings.callTimeoutMs, fetchImpl: deps.ai.fetchImpl,
+      timeoutMs: settings.rulingTimeoutMs, fetchImpl: deps.ai.fetchImpl,
       onCall: (log) => { logger.onCall(log); if (log.ok) okLog = log; },
     });
     await logger.flush();

@@ -42,5 +42,23 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 | AC-RA-27 | `resultOcr.test.ts` (AI lỗi → gõ tay); đóng bằng chứng khi chuỗi tầng 2 rỗng → Admin theo code, chưa có test `RESULT_AI_ENABLED=false` | một phần |
 | AC-RA-28 | Án lệ chỉ được tạo khi Admin quyết định (`resultAppeals.test.ts`) + ca mẫu từ `scripts/knowledge/ingest.ts` | một phần |
 
-Đánh giá NCKH: `scripts/eval/ocr-eval.ts`, `scripts/eval/ruling-eval.ts` (đã chạy `--dry`), `scripts/eval/metrics.sql`
-(đã chạy trên DB local). Chưa có số liệu thật vì chưa có bộ ảnh nhãn và key AI.
+Đánh giá NCKH: `scripts/eval/ocr-eval.ts`, `scripts/eval/ruling-eval.ts`, `scripts/eval/metrics.sql` (đã chạy trên DB local).
+
+### Lượt gọi thật đầu tiên (22/10/2026, free tier, dữ liệu giả)
+
+Bộ thử rất nhỏ — 4 ảnh bảng tỉ số tự sinh (bảng in, chữ kiểu viết tay nghiêng, bảng lật điểm không tên, ảnh mờ nghiêng)
+và 3 ca mẫu — nên chỉ là kiểm tra khói, **chưa phải số liệu cho chương thực nghiệm** (cần bộ ảnh thật của team, 30–50 ca mẫu).
+
+| Việc | Mắt xích | Kết quả |
+|---|---|---|
+| Đọc ảnh | gemini-3.6-flash | 87,5% ô, 75% bên thắng; 1/4 lỗi 503 (quá tải); trễ ~3,8 s |
+| Đọc ảnh | gemini-3.5-flash-lite | 100% ô, 100% bên thắng; trễ ~1,3 s |
+| Đọc ảnh | groq qwen3.8-27b | 62,5% ô; 2/4 bị từ chối ngay (~150 ms, nghi giới hạn token/phút 8K); lượt gọi lẻ đọc đúng |
+| Đọc ảnh | openrouter nemotron-3.5-super-vl:free | 100% ô, 100% bên thắng; trễ ~7,9 s |
+| Tầng 2 | gemini-3.8-flash | 1/3 đúng; 2/3 lỗi 503 phía Google; khi chạy được trễ 15–67 s |
+| Tầng 2 | groq gpt-oss-120b | 2/3 đúng, Faithfulness 100%; trễ ~1,2 s |
+| Tầng 2 | openrouter nemotron-3-ultra:free | 2/3 đúng, 1 sai khuôn; trễ ~17 s |
+| Embedding | gemini-embedding-2 | 62 đoạn, 768 chiều, ~0,6 s/lượt |
+
+Sửa sau lượt gọi thật: tầng 2 gửi `reasoning_effort: low` (Gemini/Groq), thời hạn riêng `AI_RULING_TIMEOUT_MS` (mặc định
+90 s, tầng 2 chạy nền); prompt nói rõ chỉ trích `rules[].id` (Nemotron từng trích mã bằng chứng và bị bộ kiểm loại đúng).

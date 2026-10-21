@@ -36,6 +36,8 @@ export function aiSettings(env: Env = process.env) {
     ocrBudgetMs: numberEnv(env, 'AI_OCR_BUDGET_MS', 30_000),
     cellConfidence: numberEnv(env, 'OCR_CELL_CONFIDENCE', 0.9),
     rulingThreshold: numberEnv(env, 'RULING_CONFIDENCE_THRESHOLD', 0.85),
+    /** Tầng 2 chạy nền nên chờ lâu hơn đọc ảnh đồng bộ; gemini-3.8-flash đo được 15–67 giây (22/10/2026). */
+    rulingTimeoutMs: numberEnv(env, 'AI_RULING_TIMEOUT_MS', 90_000),
   };
 }
 

@@ -69,7 +69,7 @@ async function main() {
       const hits = (await searchKnowledge(knowledgeQuery(sample.evidence), { kinds: ['rule', 'precedent', 'sample'], limit: 7 }, { ai }))
         .filter((hit) => hit.id !== `sample:${sample.id}`).slice(0, 6);
       const started = Date.now();
-      const result = await proposeRuling([link], { caseRef: sample.id, format: 'bo3', evidence: sample.evidence, chunks: hits }, { timeoutMs: 60_000, fetchImpl });
+      const result = await proposeRuling([link], { caseRef: sample.id, format: 'bo3', evidence: sample.evidence, chunks: hits }, { timeoutMs: 90_000, fetchImpl });
       latencies.push(Date.now() - started);
       if (!result) { failures += 1; continue; }
       if (result.ruling.outcome === sample.outcome) correct += 1;

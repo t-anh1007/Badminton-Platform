@@ -72,5 +72,6 @@ describe('proposeRuling', () => {
     expect(bodies[0]).not.toContain('data:image');
     expect(bodies[0]?.toLowerCase()).not.toMatch(/reputation|uy tín/);
     expect(bodies[0]).toContain('BR-RA-34');
+    expect(JSON.parse(bodies[0]!).reasoning_effort).toBe('low');
   });
 });

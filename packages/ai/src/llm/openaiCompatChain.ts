@@ -11,6 +11,8 @@ export interface ChatRequest {
   messages: ChatMessage[];
   jsonSchema?: { name: string; schema: object };
   temperature?: number;
+  /** Mức suy nghĩ cho model có suy nghĩ (Gemini, Groq gpt-oss); OpenRouter không gửi để tránh lỗi tham số lạ. */
+  reasoningEffort?: 'low' | 'medium' | 'high';
 }
 
 export interface CallLog {
@@ -115,6 +117,7 @@ export async function runChain<T>(
     }
     const timeoutMs = opts.deadlineAt === undefined ? opts.timeoutMs : Math.min(opts.timeoutMs, opts.deadlineAt - started);
     const body: Record<string, unknown> = { model: link.model, messages: req.messages, temperature: req.temperature ?? 0 };
+    if (req.reasoningEffort && link.provider !== 'openrouter') body.reasoning_effort = req.reasoningEffort;
     if (req.jsonSchema) {
       body.response_format = { type: 'json_schema', json_schema: { ...req.jsonSchema, strict: true } };
     }
