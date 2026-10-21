@@ -205,3 +205,32 @@ export async function readUploads(
     })),
   };
 }
+
+/** BR-RA-14/30: đọc lại một ảnh chưa đọc được; ghi một EvidenceReading mới (chỉ ghi thêm). */
+export async function rereadUpload(
+  uploadId: string, deps: { storage: PrivateObjectStorageClient; ai: AiChains; now?: () => Date },
+): Promise<OcrReading | null> {
+  if (deps.ai.ocr.length === 0) return null;
+  const upload = await prisma.resultUpload.findUniqueOrThrow({ where: { id: uploadId }, include: { case: { include: { match: true } } } });
+  const settings = aiSettings();
+  const logger = aiCallLogger('ocr', upload.caseId);
+  const started = Date.now();
+  let result: Awaited<ReturnType<typeof readScoreImage>> = null;
+  try {
+    const { aiJpegBase64 } = await prepareImage(await loadBytes(deps.storage, upload.objectKey));
+    result = await readScoreImage(deps.ai.ocr, {
+      jpegBase64: aiJpegBase64, discipline: upload.case.match.discipline, format: upload.case.match.format,
+    }, { timeoutMs: settings.callTimeoutMs, fetchImpl: deps.ai.fetchImpl, onCall: logger.onCall });
+  } catch {
+    result = null;
+  }
+  await prisma.evidenceReading.create({
+    data: {
+      uploadId, ok: result !== null, reading: (result?.reading ?? undefined) as Prisma.InputJsonValue | undefined,
+      provider: result?.link.provider, model: result?.link.model, chainIndex: result ? deps.ai.ocr.indexOf(result.link) : undefined,
+      latencyMs: Date.now() - started, createdAt: deps.now?.() ?? new Date(),
+    },
+  });
+  await logger.flush();
+  return result?.reading ?? null;
+}

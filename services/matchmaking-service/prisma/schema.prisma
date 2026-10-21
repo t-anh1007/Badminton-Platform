@@ -220,6 +220,8 @@ enum ResultResponseKind {
   confirm
   object
   incident
+  /// BR-RA-30: đội đã nộp đủ bằng chứng tranh chấp.
+  evidence_done
 }
 
 enum ResultIncidentType {

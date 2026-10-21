@@ -84,6 +84,8 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
       canObject: responseOpen && proposal !== null && proposal.claimantUserId !== viewerUserId,
       canReportIncident: incidentOpen && !mine('incident'),
       canSubmitEvidence: evidenceOpen,
+      canMarkEvidenceDone: evidenceOpen
+        && !responses.some((row) => row.kind === 'evidence_done' && sideOf(teams, row.userId) === viewerSide),
     } as Record<string, boolean>,
     viewerSide: viewerSide as TeamSide,
   };

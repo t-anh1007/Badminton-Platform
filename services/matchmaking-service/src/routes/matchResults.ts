@@ -7,7 +7,7 @@ import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.j
 import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
 import { readUploads } from '../domain/resultOcr.js';
 import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../domain/resultClaimsV2.js';
-import { openEvidenceWindow } from '../domain/resultDisputeV2.js';
+import { closeEvidenceWindow, markEvidenceDone, openEvidenceWindow, submitDisputeEvidence } from '../domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
 import { sweepAllResultDeadlines } from '../domain/resultSweepV2.js';
 import { prisma } from '../lib/prisma.js';
@@ -190,11 +190,30 @@ export function createMatchResultRouter(
     res.status(204).end();
   }));
 
+  // BR-RA-30: ảnh tranh chấp trong 2 giờ (bản nháp từ /result-uploads), giữ kín với đội kia.
+  router.post('/:matchId/result-evidence/dispute', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const input = submissionSchema.strict().parse(req.body);
+    const submission = await submitDisputeEvidence(
+      { ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id }, { accountClient },
+    );
+    res.status(201).json({ submission });
+  }));
+
+  router.post('/:matchId/result-evidence/done', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const now = new Date();
+    const done = await markEvidenceDone(matchIdSchema.parse(req.params.matchId), viewer(req).id, now);
+    // Hai đội đã nộp đủ: đóng sớm và xử tầng 1 ngay (đọc lại ảnh nếu cần), không chờ sweeper.
+    const tier1 = done.bothTeamsDone
+      ? await closeEvidenceWindow(done.caseId, { ai: aiChains, storage: storage(), now: () => now })
+      : null;
+    res.status(200).json({ bothTeamsDone: done.bothTeamsDone, tier1 });
+  }));
+
   router.get('/:matchId/result-case', requireAuth, withErrorHandling(async (req, res) => {
     const matchId = matchIdSchema.parse(req.params.matchId);
     const now = new Date();
     // Quét lười: service ngủ (Railway) thì hạn vẫn được xử lý khi có người mở hồ sơ (tech design §4.2).
-    await sweepAllResultDeadlines(now, [matchId]);
+    await sweepAllResultDeadlines(now, [matchId], { ai: aiChains, storage });
     const resultCase = await getPlayerResultCase(venueBookingClient, accountClient, matchId, viewer(req).id, now);
     const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId }, include: { resultCase: true } });
     if (match.resultCase?.rulesVersion !== 'ra_v1') {

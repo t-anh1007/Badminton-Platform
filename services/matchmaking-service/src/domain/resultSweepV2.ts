@@ -4,11 +4,14 @@ import { prisma } from '../lib/prisma.js';
 import { adminReviewNotification, lockMatch } from './matchResults.js';
 import { currentClaims, proposalOf } from './resultClaimsV2.js';
 import { enterAdminReview, sweepResultDeadlines, writeResultFinal } from './resultLifecycle.js';
+import { closeEvidenceWindow } from './resultDisputeV2.js';
+import type { PrivateObjectStorageClient } from '@khoaluantn/object-storage';
+import type { AiChains } from '../lib/aiClients.js';
 
 // Sweeper hạn của hồ sơ ra_v1 (BR-RA-21, 22, 34a, 38): idempotent, kiểm tra lại dưới khóa kèo.
 
 type Tx = Prisma.TransactionClient;
-export type EvidenceCloser = (caseId: string, now: Date) => Promise<unknown>;
+export interface SweepDeps { ai?: AiChains; storage?: () => PrivateObjectStorageClient }
 
 function dueWhere(now: Date): Prisma.MatchResultCaseWhereInput[] {
   return [
@@ -44,9 +47,7 @@ async function settleDue(tx: Tx, resultCase: MatchResultCase, now: Date): Promis
   return false;
 }
 
-export async function sweepResultDeadlinesV2(
-  now = new Date(), matchIds?: string[], deps: { closeEvidence?: EvidenceCloser } = {},
-): Promise<number> {
+export async function sweepResultDeadlinesV2(now = new Date(), matchIds?: string[], deps: SweepDeps = {}): Promise<number> {
   const scope = matchIds ? { matchId: { in: matchIds } } : {};
   const due = await prisma.matchResultCase.findMany({
     where: { ...scope, rulesVersion: 'ra_v1', OR: dueWhere(now) }, select: { id: true, matchId: true }, take: 100,
@@ -59,19 +60,29 @@ export async function sweepResultDeadlinesV2(
     });
     if (settled) changed += 1;
   }
-  if (deps.closeEvidence) {
+  if (deps.ai) {
     const evidenceDue = await prisma.matchResultCase.findMany({
-      where: { ...scope, rulesVersion: 'ra_v1', status: 'evidence_window', evidenceDeadlineAt: { lte: now } }, select: { id: true }, take: 100,
+      where: {
+        ...scope, rulesVersion: 'ra_v1', status: 'evidence_window',
+        OR: [{ evidenceDeadlineAt: { lte: now } }, { evidenceClosedAt: { lte: now } }],
+      },
+      select: { id: true }, take: 100,
     });
+    let storage: PrivateObjectStorageClient | undefined;
+    try {
+      storage = deps.storage?.();
+    } catch {
+      storage = undefined; // thiếu cấu hình kho ảnh: không đọc lại được, ảnh chưa đọc sẽ chuyển Admin sau 30 phút
+    }
     for (const target of evidenceDue) {
-      await deps.closeEvidence(target.id, now);
-      changed += 1;
+      const result = await closeEvidenceWindow(target.id, { ai: deps.ai, storage, now: () => now });
+      if (result !== 'noop' && result !== 'retry') changed += 1;
     }
   }
   return changed;
 }
 
 /** Sweeper chung (60 giây) và quét lười khi đọc hồ sơ: luật cũ cho mọi hồ sơ theo trạng thái cũ, rồi nhánh ra_v1. */
-export async function sweepAllResultDeadlines(now = new Date(), matchIds?: string[], deps: { closeEvidence?: EvidenceCloser } = {}) {
+export async function sweepAllResultDeadlines(now = new Date(), matchIds?: string[], deps: SweepDeps = {}) {
   return (await sweepResultDeadlines(now, matchIds)) + (await sweepResultDeadlinesV2(now, matchIds, deps));
 }

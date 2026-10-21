@@ -157,9 +157,21 @@ export async function readResultEvidence(
 ): Promise<{ url: string }> {
   const evidence = await prisma.resultEvidence.findFirst({
     where: { id: input.evidenceId, case: { matchId: input.matchId } },
-    select: { objectKey: true, deletedAt: true, case: { select: { status: true, match: { select: { providerUserId: true } } } } },
+    select: {
+      objectKey: true, deletedAt: true, purpose: true, ownerUserId: true,
+      case: { select: { status: true, evidenceClosedAt: true, match: { select: { providerUserId: true, organizerUserId: true } } } },
+    },
   });
   if (!evidence) throw new AppError(404, 'RESULT_EVIDENCE_NOT_FOUND', 'Không tìm thấy ảnh bằng chứng.');
+  // BR-RA-30: ảnh tranh chấp của đội kia giữ kín tới khi hết 2 giờ hoặc cả hai đội bấm Đã nộp đủ.
+  const sealed = evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null;
+  if (sealed && !input.viewer.roles.includes('admin')) {
+    const sideOf = async (userId: string) => (userId === evidence.case.match.organizerUserId ? 'A'
+      : (await prisma.join.findFirst({ where: { matchId: input.matchId, participantUserId: userId, status: 'confirmed' }, select: { teamSide: true } }))?.teamSide ?? 'B');
+    if (await sideOf(evidence.ownerUserId) !== await sideOf(input.viewer.userId)) {
+      throw new AppError(404, 'RESULT_EVIDENCE_SEALED', 'Ảnh bằng chứng của đội kia đang được giữ kín tới khi hết hạn nộp.');
+    }
+  }
   const allowed = input.viewer.roles.includes('admin')
     || (evidence.case.status === 'provider_review' && evidence.case.match.providerUserId === input.viewer.userId)
     || (await resultRosterUserIds(prisma, input.matchId)).includes(input.viewer.userId);
