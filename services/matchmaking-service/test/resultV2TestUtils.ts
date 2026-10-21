@@ -94,7 +94,7 @@ type Reply = OcrReading | Record<string, unknown> | 'fail' | 'hang';
  * AI giả kiểu OpenAI: đọc ảnh thì tra theo chiều rộng ảnh; phán quyết thì trả `ruling`.
  * Ghi lại body từng request để kiểm tra nội dung gửi đi.
  */
-export function fakeAi(options: { byWidth?: Map<number, Reply>; ocr?: Reply; ruling?: Reply | (() => Reply); delayMs?: number } = {}) {
+export function fakeAi(options: { byWidth?: Map<number, Reply>; ocr?: Reply; ruling?: Reply | ((body: { messages: Array<{ content: unknown }> }) => Reply); delayMs?: number } = {}) {
   const bodies: string[] = [];
   let inFlight = 0;
   let maxInFlight = 0;
@@ -113,7 +113,7 @@ export function fakeAi(options: { byWidth?: Map<number, Reply>; ocr?: Reply; rul
         const { width } = await sharp(Buffer.from(image[1]!, 'base64')).metadata();
         reply = options.byWidth?.get(width!) ?? options.ocr;
       } else {
-        reply = typeof options.ruling === 'function' ? options.ruling() : options.ruling;
+        reply = typeof options.ruling === 'function' ? options.ruling(parsed) : options.ruling;
       }
       if (reply === 'hang') {
         return await new Promise<Response>((_resolve, reject) => {
