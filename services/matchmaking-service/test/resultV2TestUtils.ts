@@ -64,8 +64,13 @@ export function randomChecksum() {
 
 /** Ảnh JPEG nhận diện được bằng chiều rộng (AI giả tra chiều rộng → kết quả đọc). */
 export async function photo(width: number, capturedAt?: Date) {
+  // Khối ngẫu nhiên để mỗi ảnh có dHash riêng (tránh "gần trùng" với ảnh của test khác).
+  const blocks = Array.from({ length: 8 }, () => ({
+    input: { create: { width: 60, height: 60, channels: 3 as const, background: { r: Math.floor(Math.random() * 120), g: 0, b: 0 } } },
+    left: Math.floor(Math.random() * (width - 60)), top: Math.floor(Math.random() * 240),
+  }));
   let image = sharp({ create: { width, height: 300, channels: 3, background: { r: 200, g: 200, b: 200 } } })
-    .composite([{ input: { create: { width: 50, height: 50, channels: 3, background: '#000' } }, left: width % 300, top: 100 }])
+    .composite(blocks)
     .jpeg();
   if (capturedAt) {
     const local = new Date(capturedAt.getTime() + 7 * HOUR).toISOString();

@@ -81,6 +81,10 @@ async function completedMatch(options: { endedAgoMs?: number; providerUserId?: s
   const eventId = randomUUID();
   eventIds.push(eventId);
   await handleBookingCompletedForMatch(eventId, { bookingId, completedAt: new Date().toISOString() });
+  // Hồ sơ mở trước ra_v1 giữ luật cũ (T8): các test này kiểm luồng legacy với hạn 12 giờ không giãn.
+  await prisma.matchResultCase.updateMany({
+    where: { matchId: match.id }, data: { rulesVersion: 'legacy', declarationDeadlineAt: new Date(endAt.getTime() + 12 * 60 * 60_000) },
+  });
   return { match, organizerUserId, opponentUserId };
 }
 

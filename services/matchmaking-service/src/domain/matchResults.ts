@@ -18,6 +18,7 @@ import {
 } from './matchRules.js';
 import { participantIdentity } from './matches.js';
 import { inspectResultEvidence, insertResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
+import { deadlineFor } from './deadlines.js';
 
 const HOUR_MS = 60 * 60_000;
 export const DECLARATION_WINDOW_MS = 12 * HOUR_MS;
@@ -47,11 +48,12 @@ export async function resultTeams(db: Tx | typeof prisma, match: Pick<Match, 'id
 export async function openResultCase(tx: Tx, match: Pick<Match, 'id' | 'endAt' | 'organizerUserId'>) {
   if (!match.endAt) return; // kèo cũ không có snapshot giờ chơi
   if (await tx.matchResultCase.findUnique({ where: { matchId: match.id } })) return;
+  // Hồ sơ mới chạy luồng ảnh ra_v1: hạn khai 12 giờ giãn qua đêm (BR-RA-20a).
   const resultCase = await tx.matchResultCase.create({
-    data: { matchId: match.id, declarationDeadlineAt: new Date(match.endAt.getTime() + DECLARATION_WINDOW_MS) },
+    data: { matchId: match.id, declarationDeadlineAt: deadlineFor(match.endAt, DECLARATION_WINDOW_MS).at },
   });
-  await notifyRoster(tx, match, resultCase.id, 'match.result.declaration_open', 'Hãy khai kết quả trận',
-    'Trận đã kết thúc. Người trong kèo có 12 giờ để nhập tỷ số kèm ảnh bằng chứng.');
+  await notifyRoster(tx, match, resultCase.id, 'match.result.declaration_open', 'Hãy chụp hoặc tải ảnh bảng tỉ số',
+    'Trận đã kết thúc. Người trong kèo có 12 giờ để tải ảnh bảng tỉ số; hệ thống sẽ đọc và điền sẵn tỉ số.');
 }
 
 /** Thông báo roster về hồ sơ kết quả (in-app + email bắt buộc), mở trang kèo. */

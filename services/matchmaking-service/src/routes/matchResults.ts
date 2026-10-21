@@ -6,6 +6,10 @@ import type { VenueBookingClient } from '../clients/venueBooking.js';
 import { getPlayerResultCase, submitResultClaim } from '../domain/matchResults.js';
 import { authorizeResultEvidenceUpload, readResultEvidence } from '../domain/resultEvidence.js';
 import { readUploads } from '../domain/resultOcr.js';
+import { submitClaimV2 } from '../domain/resultClaimsV2.js';
+import { openEvidenceWindow } from '../domain/resultDisputeV2.js';
+import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
+import { prisma } from '../lib/prisma.js';
 import type { AiChains } from '../lib/aiClients.js';
 import {
   confirmResult, decideAdminResult, getAdminResultCase, getProviderResultCase, listAdminResultCases, listProviderResultCases,
@@ -34,6 +38,15 @@ const resultUploadsSchema = z.object({
     checksumSha256: checksumSchema,
   }).strict()).min(1).max(5),
 }).strict();
+const setsSchema = z.array(z.object({ teamA: z.number().int(), teamB: z.number().int() }).strict()).min(1).max(5);
+const submissionSchema = z.object({
+  draftId: z.string().uuid(),
+  sets: setsSchema,
+  columnMapping: z.enum(['left_is_A', 'left_is_B']).nullable(),
+  editedCells: z.array(z.object({ set: z.number().int().min(0).max(4), side: z.enum(['A', 'B']) }).strict()).max(10),
+});
+// Không strict: trường lạ (vd `level` do FE tự gửi) bị bỏ qua, server tự tính mức.
+const claimV2Schema = submissionSchema.extend({ outcome: z.literal('NO_RESULT').optional() });
 const claimSchema = z.object({
   sets: z.array(z.object({ teamA: z.number().int(), teamB: z.number().int() }).strict()).min(1).max(5),
   evidence: evidenceSchema,
@@ -94,7 +107,21 @@ export function createMatchResultRouter(
     res.status(200).json(result);
   }));
 
+  /** T8: hồ sơ legacy chạy nguyên luật cũ; hồ sơ ra_v1 dùng luồng ảnh. */
+  const rulesOf = async (matchId: string) => (await prisma.matchResultCase.findUnique({
+    where: { matchId }, select: { rulesVersion: true },
+  }))?.rulesVersion ?? null;
+
   router.post('/:matchId/result-claims', requireAuth, requirePlayer, withErrorHandling(async (req, res) => {
+    const matchId = matchIdSchema.parse(req.params.matchId);
+    if (await rulesOf(matchId) === 'ra_v1') {
+      const claim = await submitClaimV2(
+        { ...claimV2Schema.parse(req.body), matchId, userId: viewer(req).id },
+        { accountClient, openDispute: openEvidenceWindow },
+      );
+      res.status(201).json({ claim });
+      return;
+    }
     const input = claimSchema.parse(req.body);
     const claim = await submitResultClaim(storage(), {
       ...input, matchId: matchIdSchema.parse(req.params.matchId), userId: viewer(req).id,
@@ -126,10 +153,15 @@ export function createMatchResultRouter(
   }));
 
   router.get('/:matchId/result-case', requireAuth, withErrorHandling(async (req, res) => {
-    const resultCase = await getPlayerResultCase(
-      venueBookingClient, accountClient, matchIdSchema.parse(req.params.matchId), viewer(req).id,
-    );
-    res.status(200).json({ resultCase });
+    const matchId = matchIdSchema.parse(req.params.matchId);
+    const now = new Date();
+    const resultCase = await getPlayerResultCase(venueBookingClient, accountClient, matchId, viewer(req).id, now);
+    const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId }, include: { resultCase: true } });
+    if (match.resultCase?.rulesVersion !== 'ra_v1') {
+      res.status(200).json({ resultCase });
+      return;
+    }
+    res.status(200).json({ resultCase: { ...resultCase, ...await resultCaseViewV2(match.resultCase, match, viewer(req).id, now) } });
   }));
 
   router.get('/:matchId/result-evidence/:evidenceId/read', requireAuth, withErrorHandling(async (req, res) => {

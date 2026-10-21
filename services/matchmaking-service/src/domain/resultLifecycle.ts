@@ -412,7 +412,7 @@ export async function getAdminResultCase(
   return { ...detail, actions: { canPreviewDecision: resultCase.status === 'admin_review' } };
 }
 
-function enterAdminReview(now: Date) {
+export function enterAdminReview(now: Date) {
   return {
     status: 'admin_review' as const, adminReviewStartedAt: now,
     adminNextReminderAt: new Date(now.getTime() + REVIEW_REMINDER_MS), version: { increment: 1 },
