@@ -32,6 +32,7 @@ export {
 } from './policyCorpus.js';
 
 export * from './llm/openaiCompatChain.js';
+export * from './resultOcr.js';
 
 export interface CompatibilityInput {
   player: { rating: number; rd: number };
