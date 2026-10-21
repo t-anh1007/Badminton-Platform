@@ -1,0 +1,34 @@
+[
+  {
+    "id": "sample-01",
+    "summary": "Đôi BO3. Chỉ đội A có ảnh Xanh (tờ giấy ghi đủ 2 set, giờ chụp ngay sau trận); đội B phản đối nhưng không nộp ảnh nào.",
+    "evidence": [
+      { "evidenceId": "s1-e1", "team": "A", "supports": "TEAM_A_WIN", "level": "green", "capturedAt": "2026-10-01T12:05:00.000Z", "nearDuplicate": false, "screenshot": false, "sets": [{ "a": 21, "b": 17 }, { "a": 21, "b": 19 }], "submittedAt": "2026-10-01T12:10:00.000Z" }
+    ],
+    "outcome": "TEAM_A_WIN",
+    "reasons": [{ "text": "Chỉ có bằng chứng hợp lệ ủng hộ đội A thắng; phản đối không kèm bằng chứng.", "citations": ["BR-RA-31"] }]
+  },
+  {
+    "id": "sample-02",
+    "summary": "Đơn BO3. Đội A có ảnh Xanh chụp đúng giờ; đội B có ảnh Vàng là ảnh chụp màn hình, không có giờ chụp và gần trùng ảnh của một hồ sơ khác, ủng hộ đội B thắng.",
+    "evidence": [
+      { "evidenceId": "s2-e1", "team": "A", "supports": "TEAM_A_WIN", "level": "green", "capturedAt": "2026-10-02T13:02:00.000Z", "nearDuplicate": false, "screenshot": false, "sets": [{ "a": 21, "b": 15 }, { "a": 22, "b": 20 }], "submittedAt": "2026-10-02T13:05:00.000Z" },
+      { "evidenceId": "s2-e2", "team": "B", "supports": "TEAM_B_WIN", "level": "yellow", "capturedAt": null, "nearDuplicate": true, "screenshot": true, "sets": [{ "a": 15, "b": 21 }, { "a": 20, "b": 22 }], "submittedAt": "2026-10-02T14:30:00.000Z" }
+    ],
+    "outcome": "TEAM_A_WIN",
+    "reasons": [
+      { "text": "Ảnh của đội A đủ điều kiện mức Xanh: AI đọc chắc chắn, giờ chụp nằm trong khung trận.", "citations": ["BR-RA-15"] },
+      { "text": "Ảnh của đội B không có giờ chụp và gần trùng ảnh của hồ sơ khác nên độ tin cậy thấp hơn.", "citations": ["BR-RA-16"] }
+    ]
+  },
+  {
+    "id": "sample-03",
+    "summary": "Đôi BO3. Hai đội đều chỉ có ảnh Vàng không có giờ chụp, tỉ số mâu thuẫn và không có tín hiệu nào nghiêng về một bên.",
+    "evidence": [
+      { "evidenceId": "s3-e1", "team": "A", "supports": "TEAM_A_WIN", "level": "yellow", "capturedAt": null, "nearDuplicate": false, "screenshot": false, "sets": [{ "a": 21, "b": 18 }, { "a": 21, "b": 16 }], "submittedAt": "2026-10-03T15:00:00.000Z" },
+      { "evidenceId": "s3-e2", "team": "B", "supports": "TEAM_B_WIN", "level": "yellow", "capturedAt": null, "nearDuplicate": false, "screenshot": false, "sets": [{ "a": 18, "b": 21 }, { "a": 16, "b": 21 }], "submittedAt": "2026-10-03T15:20:00.000Z" }
+    ],
+    "outcome": "NO_RESULT",
+    "reasons": [{ "text": "Bằng chứng hai bên ngang nhau về độ tin cậy và mâu thuẫn trực tiếp, không đủ căn cứ xác định bên thắng.", "citations": ["BR-RA-34", "BR-RA-33"] }]
+  }
+]
