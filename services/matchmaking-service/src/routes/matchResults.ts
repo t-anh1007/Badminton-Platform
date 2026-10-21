@@ -9,6 +9,7 @@ import { readUploads } from '../domain/resultOcr.js';
 import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../domain/resultClaimsV2.js';
 import { openEvidenceWindow } from '../domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
+import { sweepAllResultDeadlines } from '../domain/resultSweepV2.js';
 import { prisma } from '../lib/prisma.js';
 import type { AiChains } from '../lib/aiClients.js';
 import {
@@ -192,6 +193,8 @@ export function createMatchResultRouter(
   router.get('/:matchId/result-case', requireAuth, withErrorHandling(async (req, res) => {
     const matchId = matchIdSchema.parse(req.params.matchId);
     const now = new Date();
+    // Quét lười: service ngủ (Railway) thì hạn vẫn được xử lý khi có người mở hồ sơ (tech design §4.2).
+    await sweepAllResultDeadlines(now, [matchId]);
     const resultCase = await getPlayerResultCase(venueBookingClient, accountClient, matchId, viewer(req).id, now);
     const match = await prisma.match.findUniqueOrThrow({ where: { id: matchId }, include: { resultCase: true } });
     if (match.resultCase?.rulesVersion !== 'ra_v1') {

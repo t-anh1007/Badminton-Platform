@@ -56,7 +56,8 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
   const mine = (kind: string) => responses.some((row) => row.userId === viewerUserId && row.kind === kind);
   const evidenceOpen = resultCase.status === 'evidence_window' && resultCase.evidenceDeadlineAt !== null
     && now < resultCase.evidenceDeadlineAt && resultCase.evidenceClosedAt === null;
-  const incidentOpen = (resultCase.status === 'declaration_open' && now < resultCase.declarationDeadlineAt) || responseOpen || evidenceOpen;
+  const incidentOpen = (resultCase.status === 'declaration_open' && now < resultCase.declarationDeadlineAt) || responseOpen || evidenceOpen
+    || (resultCase.status === 'incident_window' && resultCase.incidentDeadlineAt !== null && now < resultCase.incidentDeadlineAt);
 
   return {
     rulesVersion: resultCase.rulesVersion,

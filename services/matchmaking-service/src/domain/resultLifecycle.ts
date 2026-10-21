@@ -15,6 +15,7 @@ import { participantIdentity } from './matches.js';
 import { reserveRatedResults } from './ratedResults.js';
 import { DECLARATION_WINDOW_MS, adminReviewNotification, lockMatch, notifyRoster, openResultDispute, resultTeams } from './matchResults.js';
 import { inspectResultEvidence, insertResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
+import { effectiveDeadline } from './deadlines.js';
 
 type Tx = Prisma.TransactionClient;
 const HOUR_MS = 60 * 60_000;
@@ -207,7 +208,11 @@ export async function sweepResultDeadlines(now = new Date(), matchIds?: string[]
         where: { id: resultCase.id },
         data: {
           status: 'incident_window', outcome: 'NO_RESULT',
-          incidentDeadlineAt: new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS), version: { increment: 1 },
+          // ra_v1: hạn báo sự cố cũng giãn qua đêm (BR-RA-20a); legacy giữ nguyên.
+          incidentDeadlineAt: resultCase.rulesVersion === 'ra_v1'
+            ? effectiveDeadline(new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS))
+            : new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS),
+          version: { increment: 1 },
         },
       });
       const match = await tx.match.findUniqueOrThrow({ where: { id: target.matchId }, select: { id: true, organizerUserId: true } });

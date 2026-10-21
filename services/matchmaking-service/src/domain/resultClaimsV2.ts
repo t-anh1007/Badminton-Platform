@@ -470,6 +470,8 @@ export async function reportIncidentV2(
       (resultCase.status === 'declaration_open' && now < resultCase.declarationDeadlineAt)
       || (responseOpenUntil(resultCase)?.getTime() ?? 0) > now.getTime()
       || (resultCase.status === 'evidence_window' && resultCase.evidenceDeadlineAt !== null && now < resultCase.evidenceDeadlineAt)
+      // BR-CM-33 giữ nguyên: không ai khai → 12 giờ báo sự cố.
+      || (resultCase.status === 'incident_window' && resultCase.incidentDeadlineAt !== null && now < resultCase.incidentDeadlineAt)
     );
     if (!resultCase || !open) throw new AppError(409, 'RESULT_INCIDENT_CLOSED', 'Hồ sơ kết quả không còn nhận báo sự cố.');
     const { resultCase: _omit, ...rest } = match;
