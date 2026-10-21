@@ -31,6 +31,8 @@ export {
   type PolicyRetriever,
 } from './policyCorpus.js';
 
+export * from './llm/openaiCompatChain.js';
+
 export interface CompatibilityInput {
   player: { rating: number; rd: number };
   match: {
