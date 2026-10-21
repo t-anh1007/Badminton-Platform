@@ -35,8 +35,8 @@ describe('parseChain', () => {
   });
 
   it('builds Cloudflare (needs account id) and Ollama links; Ollama models keep their own colon', () => {
-    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_API_TOKEN: 't' })).toEqual([]);
-    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc' })[0]).toMatchObject({
+    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_AI_API_TOKEN: 't' })).toEqual([]);
+    expect(parseChain('cloudflare:@cf/openai/gpt-oss-120b', { CLOUDFLARE_AI_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'acc' })[0]).toMatchObject({
       model: '@cf/openai/gpt-oss-120b', baseUrl: 'https://api.cloudflare.com/client/v4/accounts/acc/ai/v1',
     });
     expect(parseChain('ollama:gpt-oss:120b', { OLLAMA_API_KEY: 'o' })[0]).toMatchObject({ model: 'gpt-oss:120b', baseUrl: 'https://ollama.com/v1' });
@@ -81,6 +81,18 @@ describe('runChain', () => {
       { timeoutMs: 1000, fetchImpl, onCall: (log) => logs.push(log) });
     expect(result.value).toEqual({ ok: true });
     expect(logs[0]?.errorCode).toBe('SCHEMA_INVALID');
+  });
+
+  it('unwraps ```json fences and surrounding prose before schema validation', async () => {
+    resetCircuitBreaker();
+    const fetchImpl = (async () => new Response(JSON.stringify({
+      choices: [{ message: { content: 'Kết quả:
+```json
+{"ok": true}
+```' } }],
+    }))) as unknown as typeof fetch;
+    const result = await runChain([link('gemini', 'a')], { messages: [] }, parseOk, { timeoutMs: 1000, fetchImpl });
+    expect(result.value).toEqual({ ok: true });
   });
 
   it('times out slow links', async () => {

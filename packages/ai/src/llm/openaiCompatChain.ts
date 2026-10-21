@@ -43,7 +43,7 @@ const PROVIDERS: Record<ProviderId, { baseUrl: (env: Env) => string | null; keyE
   openrouter: { baseUrl: () => 'https://openrouter.ai/api/v1', keyEnv: 'OPENROUTER_API_KEY' },
   cloudflare: {
     baseUrl: (env) => (env.CLOUDFLARE_ACCOUNT_ID ? `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1` : null),
-    keyEnv: 'CLOUDFLARE_API_TOKEN',
+    keyEnv: 'CLOUDFLARE_AI_API_TOKEN',
   },
   ollama: { baseUrl: () => 'https://ollama.com/v1', keyEnv: 'OLLAMA_API_KEY' },
 };
@@ -107,6 +107,16 @@ async function postJson(link: ChainLink, path: string, body: object, timeoutMs: 
   }
 }
 
+/**
+ * Provider không ép `json_schema` (Cloudflare, Ollama) hay bọc JSON trong ```json hoặc kèm chữ thừa: lấy đoạn từ `{` đầu
+ * tới `}` cuối. Chỉ gỡ khung — kiểm khuôn bằng `parse` (zod) vẫn nguyên vẹn.
+ */
+export function jsonBody(content: string): string {
+  const start = content.indexOf('{');
+  const end = content.lastIndexOf('}');
+  return start >= 0 && end > start ? content.slice(start, end + 1) : content;
+}
+
 /** Thử lần lượt từng mắt xích; chuyển nguồn khi lỗi HTTP, timeout, mạng hoặc sai khuôn (`parse` ném lỗi). */
 export async function runChain<T>(
   links: ChainLink[], req: ChatRequest, parse: (raw: unknown) => T, opts: RunChainOptions,
@@ -145,7 +155,7 @@ export async function runChain<T>(
     let value: T;
     try {
       const content = raw.choices?.[0]?.message?.content;
-      value = parse(typeof content === 'string' ? JSON.parse(content) : content);
+      value = parse(typeof content === 'string' ? JSON.parse(jsonBody(content)) : content);
     } catch {
       fail('SCHEMA_INVALID');
       continue;

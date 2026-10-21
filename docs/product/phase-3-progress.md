@@ -60,5 +60,17 @@ và 3 ca mẫu — nên chỉ là kiểm tra khói, **chưa phải số liệu c
 | Tầng 2 | openrouter nemotron-3-ultra:free | 2/3 đúng, 1 sai khuôn; trễ ~17 s |
 | Embedding | gemini-embedding-2 | 62 đoạn, 768 chiều, ~0,6 s/lượt |
 
+Nguồn bổ sung đo ngày 22/10/2026 (Cloudflare Workers AI free 10.000 neurons/ngày; Ollama Cloud free):
+
+| Việc | Mắt xích | Kết quả |
+|---|---|---|
+| Đọc ảnh | cloudflare llama-4-scout-17b | 100% ô, 100% bên thắng; trễ ~4,5 s; ~68 neurons/ảnh (~147 ảnh/ngày free) |
+| Đọc ảnh | cloudflare gemma-4-26b | 75% ô; 1/4 lỗi; trễ ~17,5 s |
+| Đọc ảnh | ollama gemma4:31b | 0/4 (sai khuôn) |
+| Tầng 2 | cloudflare gpt-oss-120b / qwen3-30b; ollama gpt-oss:120b/20b, gemma4:31b | 0–1/3 đúng, đa số sai khuôn: hai nguồn này không ép `json_schema` |
+| — | ollama kimi-k3, deepseek-v4.1-flash, glm-5.3-flash | HTTP 402: không thuộc gói free |
+| Tầng 2 (đối chứng) | gemini-3.7-flash | là tên khác của 3.8-flash, chung hạn mức free 20 lượt/ngày |
+| Tầng 2 (đối chứng) | gemini-3.5-flash-lite / 3.6-flash | 3/3 và 2/3 đúng, không lỗi |
+
 Sửa sau lượt gọi thật: tầng 2 gửi `reasoning_effort: low` (Gemini/Groq), thời hạn riêng `AI_RULING_TIMEOUT_MS` (mặc định
 90 s, tầng 2 chạy nền); prompt nói rõ chỉ trích `rules[].id` (Nemotron từng trích mã bằng chứng và bị bộ kiểm loại đúng).
