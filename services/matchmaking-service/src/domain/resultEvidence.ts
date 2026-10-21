@@ -7,8 +7,8 @@ import {
 import { AppError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 
-/** BR-CM-25..27: 1–3 ảnh mỗi lần nộp, tối đa 5 ảnh/người/hồ sơ, 5 MB/ảnh, giữ 90 ngày sau đóng. */
-export const RESULT_EVIDENCE_MAX_BYTES = 5 * 1024 * 1024;
+/** BR-CM-25..27: 1–3 ảnh mỗi lần nộp, tối đa 5 ảnh/người/hồ sơ, giữ 90 ngày sau đóng; 15 MB/ảnh (BR-RA-02, T4). */
+export const RESULT_EVIDENCE_MAX_BYTES = 15 * 1024 * 1024;
 export const RESULT_EVIDENCE_MAX_PER_SUBMISSION = 3;
 export const RESULT_EVIDENCE_MAX_PER_USER = 5;
 export const RESULT_EVIDENCE_RETENTION_MS = 90 * 24 * 60 * 60 * 1_000;
@@ -63,7 +63,7 @@ export async function authorizeResultEvidenceUpload(
   input: { matchId: string; userId: string; mimeType: ImageMimeType; size: number; checksumSha256: string },
 ) {
   if (!Number.isInteger(input.size) || input.size < 1 || input.size > RESULT_EVIDENCE_MAX_BYTES) {
-    throw new AppError(400, 'RESULT_EVIDENCE_TOO_LARGE', 'Mỗi ảnh bằng chứng tối đa 5 MB.');
+    throw new AppError(400, 'RESULT_EVIDENCE_TOO_LARGE', 'Mỗi ảnh bằng chứng tối đa 15 MB.');
   }
   if (!(await resultRosterUserIds(prisma, input.matchId)).includes(input.userId)) {
     throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được gửi bằng chứng.');

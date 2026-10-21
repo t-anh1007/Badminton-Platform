@@ -66,7 +66,8 @@ async function commit(matchId: string, ownerUserId: string, evidence: VerifiedRe
 }
 
 describe('Task 10 result evidence', () => {
-  it('signs a checksum-bound private upload only for roster members and caps size at 5 MB', async () => {
+  it('signs a checksum-bound private upload only for roster members and caps size at 15 MB', async () => {
+    expect(RESULT_EVIDENCE_MAX_BYTES).toBe(15 * 1024 * 1024);
     const { match, organizerUserId } = await fixture();
     const upload = await authorizeResultEvidenceUpload(storage, {
       matchId: match.id, userId: organizerUserId, mimeType: 'image/png', size: RESULT_EVIDENCE_MAX_BYTES, checksumSha256: CHECKSUM,
@@ -76,6 +77,12 @@ describe('Task 10 result evidence', () => {
 
     await expect(authorizeResultEvidenceUpload(storage, {
       matchId: match.id, userId: organizerUserId, mimeType: 'image/png', size: RESULT_EVIDENCE_MAX_BYTES + 1, checksumSha256: CHECKSUM,
+    })).rejects.toMatchObject({ code: 'RESULT_EVIDENCE_TOO_LARGE' });
+    await expect(authorizeResultEvidenceUpload(storage, {
+      matchId: match.id, userId: organizerUserId, mimeType: 'image/png', size: 14 * 1024 * 1024, checksumSha256: CHECKSUM,
+    })).resolves.toMatchObject({ headers: { 'x-amz-checksum-sha256': CHECKSUM } });
+    await expect(authorizeResultEvidenceUpload(storage, {
+      matchId: match.id, userId: organizerUserId, mimeType: 'image/png', size: 16 * 1024 * 1024, checksumSha256: CHECKSUM,
     })).rejects.toMatchObject({ code: 'RESULT_EVIDENCE_TOO_LARGE' });
     await expect(authorizeResultEvidenceUpload(storage, {
       matchId: match.id, userId: randomUUID(), mimeType: 'image/png', size: 1_000, checksumSha256: CHECKSUM,

@@ -65,6 +65,18 @@ describe('object-storage upload boundary', () => {
     })).toThrow(/8 MiB/);
   });
 
+  it('allows up to 15 MiB only for match result photos', () => {
+    const owner = ownerUserId;
+    expect(() => validateUploadInput({
+      objectKey: `match/results/${owner}/photo.jpg`, namespace: 'match/results', ownerUserId: owner,
+      mimeType: 'image/jpeg', maxBytes: 15 * 1024 * 1024,
+    })).not.toThrow();
+    expect(() => validateUploadInput({
+      objectKey: `match/results/${owner}/photo.jpg`, namespace: 'match/results', ownerUserId: owner,
+      mimeType: 'image/jpeg', maxBytes: 15 * 1024 * 1024 + 1,
+    })).toThrow(/15 MiB/);
+  });
+
   it('uses 10-minute presigns and a deterministic public read URL', async () => {
     const signedUrl = vi.mocked(getSignedUrl).mockResolvedValue('https://storage.test/signed');
     const storage = new S3ObjectStorageClient({
