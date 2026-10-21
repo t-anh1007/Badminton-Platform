@@ -39,7 +39,7 @@ async function rulingEvidence(caseId: string): Promise<{ evidence: RulingEvidenc
   };
 }
 
-function knowledgeQuery(evidence: RulingEvidence[]): string {
+export function knowledgeQuery(evidence: RulingEvidence[]): string {
   const parts = ['tranh chấp tỉ số bằng chứng hai bên mâu thuẫn tầng 2'];
   if (evidence.some((item) => item.nearDuplicate)) parts.push('ảnh gần trùng hồ sơ khác nghi trùng');
   if (evidence.some((item) => item.capturedAt === null)) parts.push('ảnh không có thời gian chụp');
