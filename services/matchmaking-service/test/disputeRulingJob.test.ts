@@ -80,6 +80,17 @@ describe('tier-2 provisional ruling job', () => {
     expect(Object.keys(payload)).toEqual(['caseRef', 'format', 'evidence', 'rules']);
   });
 
+  it('sends each photo capture time and tells the model not to copy signals from samples or precedents', async () => {
+    const { match } = await pendingCase();
+    const { ai, bodies } = rulingAi(0.9);
+    await runPendingRulings(NOW, { ai }, [match.id]);
+    const messages = JSON.parse(bodies[0]!).messages as Array<{ content: string }>;
+    const payload = JSON.parse(messages[1]!.content) as { evidence: Array<{ team: string; capturedAt: string | null }> };
+    expect(payload.evidence.map((item) => [item.team, item.capturedAt])).toEqual([['A', NOW.toISOString()], ['B', null]]);
+    expect(messages[0]!.content).toMatch(/capturedAt/);
+    expect(messages[0]!.content).toMatch(/ca mẫu|án lệ/);
+  });
+
   it('confidence 0.6 goes straight to Admin', async () => {
     const { match } = await pendingCase();
     await runPendingRulings(NOW, { ai: rulingAi(0.6).ai }, [match.id]);
