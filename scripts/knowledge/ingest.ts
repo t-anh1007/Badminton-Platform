@@ -33,7 +33,7 @@ interface Sample {
   reasons: Array<{ text: string; citations: string[] }>;
 }
 
-function sampleChunk(sample: Sample): KnowledgeInput {
+export function sampleChunk(sample: Sample): KnowledgeInput {
   const evidence = sample.evidence.map((item) => `đội ${item.team} ủng hộ ${item.supports}, mức ${item.level}`
     + `${item.capturedAt ? '' : ', không có giờ chụp'}${item.nearDuplicate ? ', nghi trùng' : ''}${item.screenshot ? ', chụp màn hình' : ''}`).join('; ');
   return {
