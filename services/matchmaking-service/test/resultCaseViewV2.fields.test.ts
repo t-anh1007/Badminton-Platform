@@ -97,3 +97,48 @@ describe('result case view fields for the web (ra_v1)', () => {
     expect(appealed.adminReason).toBe('appeal');
   });
 });
+
+describe('readable citations for players (A2, B8)', () => {
+  it('returns rule and precedent excerpts without other case ids, names or admin notes', async () => {
+    const NOW = new Date('2026-10-21T03:00:00.000Z');
+    const otherCaseId = randomUUID();
+    const ruleId = `BR-RA-T${randomUUID().slice(0, 6)}`;
+    await prisma.knowledgeChunk.createMany({
+      data: [
+        { id: ruleId, kind: 'rule', ref: ruleId, text: `${ruleId}: Một set có nhiều ảnh thì lấy ảnh chụp muộn nhất. ${'x'.repeat(600)}`, embedding: [] },
+        { id: `precedent:${otherCaseId}`, kind: 'precedent', ref: otherCaseId, embedding: [],
+          text: 'Tranh chấp BO3: bằng chứng bên A ảnh Xanh ủng hộ TEAM_A_WIN; bên B không có ảnh; kết luận TEAM_A_WIN; lý do: Nguyễn Minh khai đúng' },
+      ],
+    });
+    const fixture = await v2Fixture({
+      endAt: new Date(NOW.getTime() - 4 * HOUR), status: 'appeal_window',
+      caseData: { outcome: 'TEAM_A_WIN', appealDeadlineAt: new Date(NOW.getTime() + 6 * HOUR) },
+    });
+    await prisma.aiRuling.create({
+      data: {
+        caseId: fixture.resultCase.id, tier: 2, outcome: 'TEAM_A_WIN', confidence: 0.9, publishedAt: NOW, adminNotes: 'GHI-CHU-RIENG',
+        citations: [ruleId, `precedent:${otherCaseId}`, 'BR-RA-99'],
+        reasons: [{ text: 'Lấy ảnh chụp muộn nhất.', citations: [ruleId, `precedent:${otherCaseId}`] }, { text: 'Khác.', citations: ['BR-RA-99'] }],
+      },
+    });
+    try {
+      const result = await view(fixture.match.id, fixture.b1, NOW);
+      const raw = JSON.stringify(result);
+      expect(raw).not.toContain(otherCaseId);
+      expect(raw).not.toContain('Nguyễn Minh');
+      expect(raw).not.toContain('GHI-CHU-RIENG');
+      const ruling = result.ruling!;
+      expect(ruling.citations).toEqual([
+        { id: ruleId, title: `Luật ${ruleId.slice(6)}`, excerpt: expect.stringMatching(/^Một set có nhiều ảnh/) },
+        { id: 'precedent-1', title: 'Án lệ đã xử', excerpt: 'Tranh chấp BO3: bằng chứng bên A ảnh Xanh ủng hộ TEAM_A_WIN; bên B không có ảnh; kết luận TEAM_A_WIN' },
+        { id: 'BR-RA-99', title: 'Luật 99', excerpt: null },
+      ]);
+      expect(ruling.citations[0]!.excerpt!.length).toBeLessThanOrEqual(400);
+      expect(ruling.reasons).toEqual([
+        { text: 'Lấy ảnh chụp muộn nhất.', citations: [ruleId, 'precedent-1'] }, { text: 'Khác.', citations: ['BR-RA-99'] },
+      ]);
+    } finally {
+      await prisma.knowledgeChunk.deleteMany({ where: { id: { in: [ruleId, `precedent:${otherCaseId}`] } } });
+    }
+  });
+});

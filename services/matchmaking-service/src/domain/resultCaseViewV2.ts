@@ -11,6 +11,44 @@ import type { AccountClient } from '../clients/account.js';
 const iso = (date: Date | null | undefined) => date?.toISOString() ?? null;
 const reasonsOf = (value: unknown) => publicReasons(Array.isArray(value) ? value.map(String) : []);
 
+const EXCERPT_MAX = 400;
+const KIND_TITLE: Record<string, string> = { precedent: 'Án lệ đã xử', sample: 'Ca mẫu' };
+
+/**
+ * Plan web A2 (B8, Q5): trích dẫn đọc được cho roster. Luật → "Luật N" + đoạn luật; án lệ/ca mẫu → id thay thế theo
+ * thứ tự (không lộ id hồ sơ khác) và bỏ phần "lý do:" của Admin (có thể có tên người).
+ */
+async function playerCitations(rawReasons: unknown, rawCitations: unknown) {
+  const reasons = (Array.isArray(rawReasons) ? rawReasons : []) as Array<{ text?: unknown; citations?: unknown }>;
+  const ids = [...new Set([
+    ...(Array.isArray(rawCitations) ? rawCitations.map(String) : []),
+    ...reasons.flatMap((reason) => (Array.isArray(reason.citations) ? reason.citations.map(String) : [])),
+  ])];
+  const chunks = new Map((await prisma.knowledgeChunk.findMany({
+    where: { id: { in: ids } }, select: { id: true, kind: true, text: true },
+  })).map((chunk) => [chunk.id, chunk]));
+  let hidden = 0;
+  const publicOf = new Map(ids.map((id) => {
+    const chunk = chunks.get(id);
+    const kind = chunk?.kind ?? (/^(precedent|sample):/.exec(id)?.[1] ?? 'rule');
+    if (kind !== 'rule') {
+      hidden += 1;
+      const text = chunk?.text.split(/;\s*lý do:/)[0]!.trim() ?? null;
+      return [id, { id: `${kind}-${hidden}`, title: KIND_TITLE[kind] ?? 'Án lệ đã xử', excerpt: text && text.slice(0, EXCERPT_MAX) }];
+    }
+    const ref = id.split('#')[0]!;
+    const excerpt = chunk ? chunk.text.replace(new RegExp(`^${ref}:\\s*`), '').slice(0, EXCERPT_MAX) : null;
+    return [id, { id, title: `Luật ${ref.replace(/^BR-[A-Z]+-/, '')}`, excerpt }];
+  }));
+  return {
+    reasons: reasons.map((reason) => ({
+      text: String(reason.text ?? ''),
+      citations: (Array.isArray(reason.citations) ? reason.citations.map(String) : []).map((id) => publicOf.get(id)!.id),
+    })),
+    citations: [...publicOf.values()],
+  };
+}
+
 /** BR-RA-30: ảnh nộp trong 2h tranh chấp giữ kín với đội kia tới khi hết hạn hoặc cả hai đội bấm Đã nộp đủ. */
 export function evidenceSealed(resultCase: MatchResultCase, now: Date) {
   return resultCase.status === 'evidence_window' && resultCase.evidenceClosedAt === null
@@ -101,7 +139,8 @@ export async function resultCaseViewV2(
     claims: claims.map(claimView),
     // Kết quả tạm tầng 1 / phán quyết tạm tầng 2: chỉ lý do công bố, không có adminNotes.
     ruling: ruling && {
-      id: ruling.id, tier: ruling.tier, outcome: ruling.outcome, reasons: ruling.reasons, publishedAt: ruling.publishedAt!.toISOString(),
+      id: ruling.id, tier: ruling.tier, outcome: ruling.outcome, publishedAt: ruling.publishedAt!.toISOString(),
+      ...await playerCitations(ruling.reasons, ruling.citations),
     },
     disputeEvidence: submissions
       .filter((item) => !sealed || sideOf(teams, item.claimantUserId) === viewerSide)
