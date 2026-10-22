@@ -37,6 +37,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
+/** Dùng chung cho `resultApi.ts` (luồng kết quả bằng ảnh). */
+export const matchRequest = api;
 
 export type SkillTier = 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
 export type MatchSourceType = 'hold' | 'paid_booking';
