@@ -83,3 +83,13 @@ it('A2/A3 shows photo claims, AI ruling with admin notes, appeal and reputation;
     violations: [{ userId: 'a2', kind: 'near_duplicate_fraud' }],
   }))
 })
+
+it('BO5: the admin case lists all five sets of a claim (mục 4)', async () => {
+  const sets = [{ teamA: 21, teamB: 18 }, { teamA: 19, teamB: 21 }, { teamA: 21, teamB: 15 }, { teamA: 17, teamB: 21 }, { teamA: 21, teamB: 19 }]
+  const base = photoDetail as unknown as { claimViews: Array<Record<string, unknown>>; match: Record<string, unknown> }
+  vi.mocked(listAdminResultCases).mockResolvedValue({ items: [item()], total: 1, page: 1, pageSize: 10 })
+  vi.mocked(getAdminResultCase).mockResolvedValue({ ...base, match: { ...base.match, format: 'bo5' }, claimViews: [{ ...base.claimViews[0], sets }] } as unknown as ReviewCaseDetail)
+  render(<MemoryRouter><AdminMatchResultsPage /></MemoryRouter>)
+  expect(await screen.findByText(/21–18, 19–21, 21–15, 17–21, 21–19/)).toBeInTheDocument()
+  expect(screen.getByText(/Đội A thắng 3–2/)).toBeInTheDocument()
+})

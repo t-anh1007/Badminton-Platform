@@ -79,3 +79,11 @@ it('P4 red: warns that the result will not settle on its own', () => {
   expect(screen.getByText(/Kết quả có ảnh lạ không tự chốt/)).toBeInTheDocument();
   expect(screen.getByText('Ảnh trùng với ảnh của một trận khác')).toBeInTheDocument();
 });
+
+it('BO5: P1 shows every set of the proposal (mục 4)', () => {
+  vi.mocked(readResultPhoto).mockResolvedValue({ url: 'x' });
+  const sets = [{ teamA: 21, teamB: 18 }, { teamA: 19, teamB: 21 }, { teamA: 21, teamB: 15 }, { teamA: 17, teamB: 21 }, { teamA: 21, teamB: 19 }];
+  render(<MatchResultPanel matchId="m1" reload={reload} resultCase={proposedCase({ claims: [claimView({ sets, editedCells: [] })] })} />);
+  expect(screen.getByText('Set 5')).toBeInTheDocument();
+  expect(screen.getByText('Đội A khai: Đội A thắng 3–2')).toBeInTheDocument();
+});

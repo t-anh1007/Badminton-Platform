@@ -112,3 +112,14 @@ it('shows the Admin decision reason on the final result (mục 1)', () => {
   expect(screen.getByText('Giữ nguyên phán quyết tạm. Ảnh mới không phải sân khác.')).toBeInTheDocument();
   expect(screen.getByText(/Quyết định lúc 15:20 23\/10/)).toBeInTheDocument();
 });
+
+it('BO5: T2 shows the five-set scores of the evidence it groups (mục 4)', () => {
+  vi.mocked(readResultPhoto).mockResolvedValue({ url: 'x' });
+  const sets = [{ teamA: 21, teamB: 18 }, { teamA: 19, teamB: 21 }, { teamA: 21, teamB: 15 }, { teamA: 17, teamB: 21 }, { teamA: 21, teamB: 19 }];
+  render(<MatchResultPanel matchId="m1" reload={reload} resultCase={photoCase({
+    ...disputed, claims: [claimView({ sets })], status: 'final', finalOutcome: 'TEAM_A_WIN',
+  })} />);
+  expect(screen.getByText('Đội A thắng 3–2')).toBeInTheDocument();
+  expect(screen.getByText('17–21')).toBeInTheDocument();
+  expect(screen.getByText('21–19')).toBeInTheDocument();
+});

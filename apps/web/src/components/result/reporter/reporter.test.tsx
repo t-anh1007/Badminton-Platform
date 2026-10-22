@@ -112,3 +112,28 @@ it('K1 says automatic photo reading is off and scores are typed by hand (mục 2
   expect(screen.getByText(/Đọc ảnh tự động đang tạm tắt, bạn nhập tỉ số tay/)).toBeInTheDocument();
   expect(screen.queryByText(/AI đọc ảnh và điền sẵn/)).not.toBeInTheDocument();
 });
+
+it('BO5: K3 shows five set rows and sends a 3–2 result (mục 4)', async () => {
+  const five = [[21, 18], [19, 21], [21, 15], [17, 21], [21, 19]] as const;
+  vi.mocked(readResultPhotos).mockResolvedValue({
+    ...flipDraft(), draft: { ...flipDraft().draft, format: 'bo5', columnMappedBy: 'ai', level: 'green', reasons: [],
+      sets: five.map(([teamA, teamB]) => ({ teamA, teamB, sourceUploadId: 'u1', lowConfidence: false })) },
+  });
+  vi.mocked(submitResultClaimV2).mockResolvedValue({ claim: {} });
+  const bo5 = photoCase();
+  render(<MatchResultPanel matchId="m1" resultCase={{ ...bo5, match: { ...bo5.match, format: 'bo5' } }} reload={reload} />);
+  pick([jpeg()]);
+  expect(await screen.findByLabelText('Set 5 Đội A')).toHaveValue('21');
+  expect(screen.getByText('Đội A thắng 3–2')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi kết quả' }));
+  await waitFor(() => expect(submitResultClaimV2).toHaveBeenCalledWith('m1', expect.objectContaining({ sets: five.map(([teamA, teamB]) => ({ teamA, teamB })) })));
+});
+
+it('BO5: K4 typing by hand offers five rows', async () => {
+  vi.mocked(readResultPhotos).mockResolvedValue(flipDraft({ format: 'bo5', manualEntry: true, sets: [], reasons: ['AI_UNAVAILABLE'] }));
+  const bo5 = photoCase();
+  render(<MatchResultPanel matchId="m1" resultCase={{ ...bo5, match: { ...bo5.match, format: 'bo5' } }} reload={reload} />);
+  pick([jpeg()]);
+  expect(await screen.findByLabelText('Set 5 Đội B')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Set 6 Đội B')).not.toBeInTheDocument();
+});

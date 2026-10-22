@@ -166,3 +166,23 @@ describe('draft column labels and photo quota (plan web A3: B9, B12)', () => {
     expect(await photoQuota(fixture.resultCase, fixture.organizer, NOW)).toEqual({ photosUsed: 0, photosLimit: 7, draftsLeft: 15 });
   });
 });
+
+describe('BO5 matches (mục 4)', () => {
+  it('drafts five sets from one sheet and accepts a 3–2 claim', async () => {
+    resetCircuitBreaker();
+    const { match, organizer, endAt } = await v2Fixture();
+    await prisma.match.update({ where: { id: match.id }, data: { format: 'bo5' } });
+    const five = reading([[21, 18], [19, 21], [21, 15], [17, 21], [21, 19]]);
+    const { ai } = fakeAi({ ocr: five });
+    const result = await readUploads({ matchId: match.id, userId: organizer, items: [storage.put(organizer, await photo(800, endAt))] }, { storage, ai, accountClient });
+    expect(result.draft.format).toBe('bo5');
+    expect(result.draft.sets.map((set) => [set.teamA, set.teamB])).toEqual([[21, 18], [19, 21], [21, 15], [17, 21], [21, 19]]);
+    const { submitClaimV2 } = await import('../src/domain/resultClaimsV2.js');
+    const { openEvidenceWindow } = await import('../src/domain/resultDisputeV2.js');
+    const claim = await submitClaimV2({
+      matchId: match.id, userId: organizer, draftId: result.draftId, columnMapping: null, editedCells: [],
+      sets: result.draft.sets.map((set) => ({ teamA: set.teamA!, teamB: set.teamB! })),
+    }, { accountClient, openDispute: openEvidenceWindow });
+    expect(claim).toMatchObject({ outcome: 'TEAM_A_WIN' });
+  });
+});
