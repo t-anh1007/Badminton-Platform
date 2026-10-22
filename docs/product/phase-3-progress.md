@@ -91,5 +91,27 @@ Cloudflare `llama-4-scout` → Groq `qwen3.8-27b` → OpenRouter `nemotron-3.5-s
 (Groq qwen 2/4 lỗi giới hạn token/phút); tầng 2 Groq 2/3, 3.5-flash-lite 3/3, Nemotron 2/3, Faithfulness 83–100%
 (`ruling-eval` nay đếm riêng lượt giám khảo lỗi thay vì tính là "không hỗ trợ"). Kết quả dao động giữa các lần chạy vì bộ thử nhỏ.
 
+Đo lại sau khi siết prompt tầng 2 (`a577d29`: tín hiệu chỉ lấy từ trường của chính bằng chứng, không chép từ ca mẫu/án lệ),
+22/10/2026, cùng chuỗi trong `.env`, 3 ca mẫu. `ruling-eval` nay đếm thêm "chép tín hiệu" (lý do nhắc thiếu giờ chụp / trùng
+ảnh / chụp màn hình trong khi bằng chứng của ca không có; bỏ câu phủ định và câu đối chiếu với ca mẫu) và "lỗi hạn mức 429"
+(gồm cả lượt giám khảo; không tính là sai):
+
+| Lượt | Mắt xích | Đúng | Lỗi/sai khuôn | Faithfulness | Chấm lỗi | Chép tín hiệu | 429 |
+|---|---|---|---|---|---|---|---|
+| 1 | groq gpt-oss-120b | 3/3 | 0 | 83,3% | 0 | 0 | 0 |
+| 1 | gemini-3.5-flash-lite | 2/3 | 1 | 100% | 0 | 0 | 0 |
+| 1 | nemotron-3-ultra:free | 3/3 | 0 | 70% | 0 | 2 (báo nhầm, xem dưới) | 0 |
+| 2 | groq gpt-oss-120b | 3/3 | 0 | 100% | 0 | 0 | 0 |
+| 2 | gemini-3.5-flash-lite | 3/3 | 0 | 100% | 2 | 0 | 1 |
+| 2 | nemotron-3-ultra:free | 2/3 | 0 | 90% | 0 | 2 (báo nhầm) | 0 |
+| 3 | groq gpt-oss-120b | 3/3 | 0 | 83,3% | 0 | 0 | 0 |
+| 3 | gemini-3.5-flash-lite | 3/3 | 0 | 100% | 1 | 0 | 1 |
+| 3 | nemotron-3-ultra:free | 3/3 | 0 | 100% | 0 | 0 | 0 |
+
+Lượt 1–2 bộ dò còn bắt nhầm câu phủ định ("không gần trùng, không phải ảnh chụp màn hình") và câu đối chiếu ("khác với ca mẫu
+sample-03 (không giờ chụp)"); đọc nguyên văn thì không có ca chép thật, bộ dò đã sửa trước lượt 3. Hồ sơ thử luồng 3
+(`ai-notes/qa/result-ocr/flow3-ruling.log`): input có `capturedAt` cho cả hai ảnh; trước khi siết prompt AI viết "thiếu giờ chụp"
+(chép từ `sample-03`), sau khi siết 5/5 phán quyết chạy được không còn nhắc thiếu giờ chụp (1 lượt Nemotron sai khuôn).
+
 Sửa sau lượt gọi thật: tầng 2 gửi `reasoning_effort: low` (Gemini/Groq), thời hạn riêng `AI_RULING_TIMEOUT_MS` (mặc định
 90 s, tầng 2 chạy nền); prompt nói rõ chỉ trích `rules[].id` (Nemotron từng trích mã bằng chứng và bị bộ kiểm loại đúng).

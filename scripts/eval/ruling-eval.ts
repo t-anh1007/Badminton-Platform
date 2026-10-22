@@ -32,6 +32,26 @@ function dryFetch(expected: () => Ruling['outcome']): typeof fetch {
   }) as unknown as typeof fetch;
 }
 
+/** Ghi lỗi hạn mức (HTTP 429) riêng: không tính là phán quyết sai. */
+let rateLimited = 0;
+const onCall = (log: { ok: boolean; errorCode?: string }) => { if (!log.ok && log.errorCode === 'HTTP_429') rateLimited += 1; };
+
+/**
+ * Phán quyết nhắc một tín hiệu mà bằng chứng của ca đang xét không có (thường chép từ ca mẫu/án lệ được truy hồi).
+ * Trả danh sách tín hiệu bị chép.
+ */
+export function copiedSignals(ruling: Ruling, evidence: RulingEvidence[]): string[] {
+  const text = [...ruling.reasons.map((reason) => reason.text), ruling.adminNotes].join('. ').toLowerCase()
+    // Câu đối chiếu với ca mẫu/án lệ và câu phủ định ("không gần trùng") không phải là chép tín hiệu.
+    .split(/[.;|]/).filter((sentence) => !/(ca mẫu|án lệ|sample|precedent)/.test(sentence)).join('. ')
+    .replace(/không (phải )?(là )?(ảnh )?(bị )?(gần trùng|nghi trùng|trùng ảnh|trùng|chụp màn hình)/g, '');
+  const copied: string[] = [];
+  if (/(không có|thiếu|không|chưa có) giờ chụp/.test(text) && evidence.every((item) => item.capturedAt !== null)) copied.push('giờ chụp');
+  if (/(gần trùng|nghi trùng|trùng ảnh)/.test(text) && evidence.every((item) => !item.nearDuplicate)) copied.push('trùng ảnh');
+  if (/chụp màn hình/.test(text) && evidence.every((item) => !item.screenshot)) copied.push('chụp màn hình');
+  return copied;
+}
+
 async function judge(link: ChainLink, reason: Ruling['reasons'][number], chunks: Map<string, string>, fetchImpl?: typeof fetch) {
   const cited = reason.citations.map((id) => `[${id}] ${chunks.get(id) ?? ''}`).join('\n');
   const result = await runChain([link], {
@@ -44,7 +64,7 @@ async function judge(link: ChainLink, reason: Ruling['reasons'][number], chunks:
     const value = raw as { supported?: unknown };
     if (typeof value.supported !== 'boolean') throw new Error('bad judge output');
     return value.supported;
-  }, { timeoutMs: 30_000, fetchImpl });
+  }, { timeoutMs: 30_000, fetchImpl, onCall });
   return result.value;
 }
 
@@ -64,16 +84,21 @@ async function main() {
     let reasons = 0;
     let supported = 0;
     let judgeErrors = 0;
+    let copiedCases = 0;
+    rateLimited = 0;
     const latencies: number[] = [];
     for (const sample of samples) {
       current = sample;
       const hits = (await searchKnowledge(knowledgeQuery(sample.evidence), { kinds: ['rule', 'precedent', 'sample'], limit: 7 }, { ai }))
         .filter((hit) => hit.id !== `sample:${sample.id}`).slice(0, 6);
       const started = Date.now();
-      const result = await proposeRuling([link], { caseRef: sample.id, format: 'bo3', evidence: sample.evidence, chunks: hits }, { timeoutMs: 90_000, fetchImpl });
+      const result = await proposeRuling([link], { caseRef: sample.id, format: 'bo3', evidence: sample.evidence, chunks: hits }, { timeoutMs: 90_000, fetchImpl, onCall });
       latencies.push(Date.now() - started);
       if (!result) { failures += 1; continue; }
       if (result.ruling.outcome === sample.outcome) correct += 1;
+      const copied = copiedSignals(result.ruling, sample.evidence);
+      if (copied.length > 0) { copiedCases += 1; console.log(`[chép tín hiệu] ${link.model} ${sample.id}: ${copied.join(', ')}
+  ${[...result.ruling.reasons.map((reason) => reason.text), result.ruling.adminNotes].join(' | ')}`); }
       if (!judgeLink) continue;
       const texts = new Map(hits.map((hit) => [hit.id, hit.text]));
       for (const reason of result.ruling.reasons) {
@@ -92,13 +117,16 @@ async function main() {
       'lỗi/sai khuôn': String(failures),
       Faithfulness: judgeLink && reasons > 0 ? ((100 * supported) / reasons).toFixed(1) : judgeLink ? 'chưa chấm được' : 'chưa chấm (thiếu AI_JUDGE)',
       'chấm lỗi': String(judgeErrors),
+      'chép tín hiệu': String(copiedCases),
+      'lỗi hạn mức 429': String(rateLimited),
       'trễ trung vị (ms)': String(sorted[Math.floor((sorted.length - 1) / 2)] ?? 0),
     });
   }
   console.table(rows);
 }
 
-main()
+// Chỉ chạy khi gọi trực tiếp (import để dùng copiedSignals thì không gọi AI).
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main()
   .catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
