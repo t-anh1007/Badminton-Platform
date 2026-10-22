@@ -106,3 +106,9 @@ it('K5 shows the sent result with the moved deadline and lets the reporter repla
   fireEvent.click(screen.getByRole('button', { name: 'Thay bản khai' }));
   expect(screen.getByLabelText('Chọn ảnh bảng tỉ số')).toBeInTheDocument();
 });
+
+it('K1 says automatic photo reading is off and scores are typed by hand (mục 2)', () => {
+  render(<MatchResultPanel matchId="m1" resultCase={photoCase({ photoReadingEnabled: false })} reload={reload} />);
+  expect(screen.getByText(/Đọc ảnh tự động đang tạm tắt, bạn nhập tỉ số tay/)).toBeInTheDocument();
+  expect(screen.queryByText(/AI đọc ảnh và điền sẵn/)).not.toBeInTheDocument();
+});

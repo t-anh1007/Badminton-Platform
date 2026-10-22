@@ -53,6 +53,8 @@ export interface ResultCaseV2 extends Omit<PlayerResultCase, 'status' | 'viewerA
   viewerSide: TeamSide | null;
   responses: Array<{ userId: string; displayName: string | null; kind: 'confirm' | 'object'; createdAt: string }>;
   pendingPayerUserId: string | null;
+  /** false khi đọc ảnh tự động đang tắt: người khai nhập tỉ số tay. */
+  photoReadingEnabled: boolean;
   viewerQuota: ViewerQuota;
   viewerAppeal: { accepted: boolean; createdAt: string } | null;
   adminReason: AdminReason | null;

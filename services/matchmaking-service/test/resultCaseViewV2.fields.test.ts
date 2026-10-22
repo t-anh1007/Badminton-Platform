@@ -6,7 +6,9 @@ import { readUploads } from '../src/domain/resultOcr.js';
 import { confirmV2, objectV2, reportIncidentV2, submitClaimV2 } from '../src/domain/resultClaimsV2.js';
 import { markEvidenceDone, openEvidenceWindow, submitAppeal } from '../src/domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../src/domain/resultCaseViewV2.js';
-import { HOUR, MIN, MemoryStorage, accountClient, cleanupV2, fakeAi, photo, reading, v2Fixture } from './resultV2TestUtils.js';
+import request from 'supertest';
+import { createApp } from '../src/app.js';
+import { HOUR, MIN, MemoryStorage, accountClient, cleanupV2, fakeAi, photo, reading, token, v2Fixture, venueBookingClient } from './resultV2TestUtils.js';
 
 // Các trường hồ sơ người chơi mà màn web cần (plan web A1: B1, B2, B3, B13).
 
@@ -165,5 +167,15 @@ describe('admin decision reason for players (mục 1)', () => {
   it('is null while no Admin decision exists', async () => {
     const fixture = await v2Fixture();
     expect((await view(fixture.match.id, fixture.organizer, new Date())).adminDecision).toBeNull();
+  });
+});
+
+describe('photo reading switch (mục 2)', () => {
+  it('tells the roster whether automatic photo reading is on', async () => {
+    const fixture = await v2Fixture();
+    const read = async (aiChains: Parameters<typeof createApp>[0]['aiChains']) => (await request(createApp({ venueBookingClient, accountClient, aiChains }))
+      .get(`/matches/${fixture.match.id}/result-case`).set('Authorization', `Bearer ${token(fixture.organizer)}`)).body.resultCase;
+    expect((await read(fakeAi().ai)).photoReadingEnabled).toBe(true);
+    expect((await read({ ocr: [], ruling: [], embedding: null, embeddingDims: 768 })).photoReadingEnabled).toBe(false);
   });
 });

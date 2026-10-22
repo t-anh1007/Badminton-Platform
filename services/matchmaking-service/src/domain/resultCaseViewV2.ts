@@ -58,7 +58,7 @@ export function evidenceSealed(resultCase: MatchResultCase, now: Date) {
 
 export async function resultCaseViewV2(
   resultCase: MatchResultCase, match: { id: string; organizerUserId: string }, viewerUserId: string, now: Date,
-  deps: { accountClient?: AccountClient } = {},
+  deps: { accountClient?: AccountClient; photoReadingEnabled?: boolean } = {},
 ) {
   const teams = await resultTeams(prisma, match);
   const viewerSide = sideOf(teams, viewerUserId);
@@ -170,6 +170,8 @@ export async function resultCaseViewV2(
       userId: row.userId, displayName: await displayName(row.userId), kind: row.kind, createdAt: row.createdAt.toISOString(),
     }))),
     pendingPayerUserId,
+    // Mục 2: chuỗi đọc ảnh rỗng (RESULT_AI_ENABLED=false hoặc thiếu key) → web báo nhập tỉ số tay.
+    photoReadingEnabled: deps.photoReadingEnabled ?? true,
     viewerQuota: await photoQuota(resultCase, viewerUserId, now),
     viewerAppeal: viewerAppeal && { accepted: viewerAppeal.accepted, createdAt: viewerAppeal.createdAt.toISOString() },
     adminReason: await loadAdminReason(resultCase),

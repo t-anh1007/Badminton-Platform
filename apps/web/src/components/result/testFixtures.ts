@@ -36,7 +36,7 @@ export function photoCase(patch: Partial<ResultCaseV2> = {}): ResultCaseV2 {
       canUpload: true, canClaim: true, canReplace: false, canConfirm: false, canObject: false, canReportIncident: true,
       canSubmitEvidence: false, canAppeal: false, canAcceptRuling: false, canMarkEvidenceDone: false,
     },
-    viewerSide: 'A', responses: [], pendingPayerUserId: null, viewerQuota: { photosUsed: 0, photosLimit: 7, draftsLeft: 15 },
+    viewerSide: 'A', responses: [], pendingPayerUserId: null, photoReadingEnabled: true, viewerQuota: { photosUsed: 0, photosLimit: 7, draftsLeft: 15 },
     viewerAppeal: null, adminReason: null, adminReviewStartedAt: null, adminDecision: null, evidenceDoneSides: [],
     ...patch,
   };

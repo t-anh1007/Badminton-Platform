@@ -60,6 +60,7 @@ export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro
       {phase.kind === 'pick' && (
         <>
           {intro}
+          {!resultCase.photoReadingEnabled && <Note tone="warning">Đọc ảnh tự động đang tạm tắt, bạn nhập tỉ số tay. Ảnh vẫn được gửi kèm; kết quả ở mức Vàng.</Note>}
           <label
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => { event.preventDefault(); void read(Array.from(event.dataTransfer.files)); }}
@@ -69,7 +70,7 @@ export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro
             </span>
             <span className="min-w-0 flex-1">
               <span className="text-h3 block text-xl">Gửi ảnh bảng tỉ số</span>
-              <span className="mt-1 block text-ink-500">AI đọc ảnh và điền sẵn tỉ số từng set. Chọn 1–{Math.max(1, maxPick)} ảnh, mỗi ảnh đến 15 MB. Dùng ảnh gốc trong máy để giữ giờ chụp.</span>
+              <span className="mt-1 block text-ink-500">{resultCase.photoReadingEnabled ? 'AI đọc ảnh và điền sẵn tỉ số từng set. ' : ''}Chọn 1–{Math.max(1, maxPick)} ảnh, mỗi ảnh đến 15 MB. Dùng ảnh gốc trong máy để giữ giờ chụp.</span>
             </span>
             <span className="inline-flex min-h-11 items-center rounded-full bg-brand-yellow px-6 text-sm font-bold uppercase tracking-[0.035em] text-brand-navy">Chọn ảnh</span>
             <input aria-label="Chọn ảnh bảng tỉ số" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={maxPick === 0}
