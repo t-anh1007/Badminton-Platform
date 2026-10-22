@@ -4,6 +4,7 @@ import { publicReasons } from './confidence.js';
 import { resultTeams } from './matchResults.js';
 import { currentClaims, losingTeamOf, proposalOf, responseOpenUntil, sideOf } from './resultClaimsV2.js';
 import { loadAdminReason } from './resultAdminReason.js';
+import { photoQuota } from './resultOcr.js';
 import type { AccountClient } from '../clients/account.js';
 
 // Phần hồ sơ kết quả riêng của ra_v1 cho roster (BR-RA-06): mức, lý do (không nêu uy tín), hạn, ảnh + số AI đọc.
@@ -166,6 +167,7 @@ export async function resultCaseViewV2(
       userId: row.userId, displayName: await displayName(row.userId), kind: row.kind, createdAt: row.createdAt.toISOString(),
     }))),
     pendingPayerUserId,
+    viewerQuota: await photoQuota(resultCase, viewerUserId, now),
     viewerAppeal: viewerAppeal && { accepted: viewerAppeal.accepted, createdAt: viewerAppeal.createdAt.toISOString() },
     adminReason: await loadAdminReason(resultCase),
     adminReviewStartedAt: iso(resultCase.adminReviewStartedAt),

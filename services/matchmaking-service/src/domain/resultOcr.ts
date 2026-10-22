@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Prisma } from '@prisma/client';
+import type { MatchResultCase, Prisma } from '@prisma/client';
 import { readScoreImage, type OcrReading } from '@khoaluantn/ai';
 import { ObjectStorageError, type PrivateObjectStorageClient } from '@khoaluantn/object-storage';
 import type { AccountClient } from '../clients/account.js';
@@ -19,6 +19,33 @@ const READ_CONCURRENCY = 3;
 const NAMESPACE = 'match/results';
 /** Hồ sơ ra_v1 còn nhận ảnh cần đọc (khai, phản hồi, nộp bằng chứng tranh chấp). */
 export const UPLOAD_OPEN_STATUSES = ['declaration_open', 'proposed', 'acceptance_grace', 'evidence_window'] as const;
+
+/** BR-RA-02 (trùng giá trị RESULT_EVIDENCE_MAX_PER_USER_V2 / APPEAL_MAX_PHOTOS; không import để tránh vòng import). */
+const PHOTOS_PER_USER = 7;
+const APPEAL_EXTRA_PHOTOS = 2;
+
+/** Plan web A3 (B12): số ảnh đã nộp / được nộp và số ảnh nháp còn tải được của một người trong hồ sơ. */
+export async function photoQuota(resultCase: MatchResultCase, userId: string, now: Date) {
+  const [photosUsed, drafts] = await Promise.all([
+    prisma.resultEvidence.count({ where: { caseId: resultCase.id, ownerUserId: userId } }),
+    prisma.resultUpload.count({ where: { caseId: resultCase.id, userId } }),
+  ]);
+  let appealing = false;
+  if (resultCase.status === 'appeal_window' && resultCase.appealDeadlineAt !== null && now < resultCase.appealDeadlineAt) {
+    const ruling = await prisma.aiRuling.findFirst({
+      where: { caseId: resultCase.id, publishedAt: { not: null } }, orderBy: { createdAt: 'desc' }, select: { outcome: true },
+    });
+    const match = await prisma.match.findUniqueOrThrow({ where: { id: resultCase.matchId } });
+    const teams = await resultTeams(prisma, match);
+    const losers = ruling?.outcome === 'TEAM_A_WIN' ? teams.B : ruling?.outcome === 'TEAM_B_WIN' ? teams.A : ruling ? [...teams.A, ...teams.B] : [];
+    appealing = losers.includes(userId);
+  }
+  return {
+    photosUsed,
+    photosLimit: PHOTOS_PER_USER + (appealing ? APPEAL_EXTRA_PHOTOS : 0),
+    draftsLeft: Math.max(0, RESULT_DRAFT_MAX_PER_USER - drafts),
+  };
+}
 
 export interface UploadDeps {
   storage: PrivateObjectStorageClient;
@@ -104,7 +131,10 @@ export async function teamNames(accountClient: AccountClient | undefined, teams:
 export async function readUploads(
   input: { matchId: string; userId: string; items: ResultEvidenceItem[] },
   deps: UploadDeps,
-): Promise<{ draftId: string; draft: Draft; images: Array<{ uploadId: string; read: boolean; flags: string[] }> }> {
+): Promise<{
+  draftId: string; draft: Draft; images: Array<{ uploadId: string; read: boolean; flags: string[] }>;
+  columns: { left: string | null; right: string | null }; viewerQuota: Awaited<ReturnType<typeof photoQuota>>;
+}> {
   const now = deps.now ?? (() => new Date());
   const settings = { ...aiSettings(), ...deps.settings };
   if (input.items.length < 1 || input.items.length > RESULT_UPLOAD_MAX_ITEMS) {
@@ -195,8 +225,12 @@ export async function readUploads(
   const draft = buildDraft(images, {
     format: match.format, teams: await teamNames(deps.accountClient, teams), match: window, cellThreshold: settings.cellConfidence,
   });
+  // B9: nhãn chữ trên đầu cột của ảnh đầu tiên AI đọc được nhãn; FE dùng để hỏi "cột trái là đội nào".
+  const labelled = prepared.find((image) => image.reading?.columns.left || image.reading?.columns.right)?.reading?.columns;
   return {
     draftId,
+    columns: { left: labelled?.left ?? null, right: labelled?.right ?? null },
+    viewerQuota: await photoQuota(resultCase, input.userId, now()),
     draft: { ...draft, reasons: publicReasons(draft.reasons) },
     images: images.map((image) => ({
       uploadId: image.uploadId,

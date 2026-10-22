@@ -131,3 +131,38 @@ describe('result uploads read synchronously into a draft', () => {
     expect([limited.status, limited.body.error.code]).toEqual([409, 'RESULT_DRAFT_LIMIT']);
   });
 });
+
+describe('draft column labels and photo quota (plan web A3: B9, B12)', () => {
+  it('returns the column labels the AI read and the viewer quota', async () => {
+    resetCircuitBreaker();
+    const { match, organizer, endAt } = await v2Fixture();
+    const { ai } = fakeAi({ ocr: reading([[21, 18], [21, 15]], { columns: { left: 'Minh–Hùng', right: null } }) });
+    const items = [storage.put(organizer, await photo(800, endAt)), storage.put(organizer, await photo(800, endAt))];
+    const result = await readUploads({ matchId: match.id, userId: organizer, items }, { storage, ai, accountClient });
+    expect(result.columns).toEqual({ left: 'Minh–Hùng', right: null });
+    expect(result.viewerQuota).toEqual({ photosUsed: 0, photosLimit: 7, draftsLeft: 13 });
+  });
+
+  it('returns null labels when no photo could be read', async () => {
+    resetCircuitBreaker();
+    const { match, organizer, endAt } = await v2Fixture();
+    const { ai } = fakeAi({ ocr: 'fail' });
+    const result = await readUploads({ matchId: match.id, userId: organizer, items: [storage.put(organizer, await photo(800, endAt))] }, { storage, ai, accountClient });
+    expect(result.columns).toEqual({ left: null, right: null });
+  });
+
+  it('counts sent photos and adds two while an appeal is open', async () => {
+    const NOW = new Date();
+    const fixture = await v2Fixture({ status: 'appeal_window', caseData: { outcome: 'TEAM_A_WIN', appealDeadlineAt: new Date(NOW.getTime() + 60 * MIN) } });
+    await prisma.aiRuling.create({ data: { caseId: fixture.resultCase.id, tier: 1, outcome: 'TEAM_A_WIN', citations: [], reasons: [], publishedAt: NOW } });
+    await prisma.resultEvidence.create({
+      data: {
+        caseId: fixture.resultCase.id, objectKey: `match/results/${fixture.b1}/${randomUUID()}.jpg`, mimeType: 'image/jpeg', size: 1,
+        checksumSha256: 'x', ownerUserId: fixture.b1, position: 0, purpose: 'claim',
+      },
+    });
+    const { photoQuota } = await import('../src/domain/resultOcr.js');
+    expect(await photoQuota(fixture.resultCase, fixture.b1, NOW)).toEqual({ photosUsed: 1, photosLimit: 9, draftsLeft: 15 });
+    expect(await photoQuota(fixture.resultCase, fixture.organizer, NOW)).toEqual({ photosUsed: 0, photosLimit: 7, draftsLeft: 15 });
+  });
+});
