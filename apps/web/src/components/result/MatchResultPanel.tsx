@@ -1,8 +1,9 @@
 import type { ResultCaseV2 } from '../../lib/resultApi';
 import { ResultProgressRail } from './ResultProgressRail';
-import { LevelBadge, ReasonList, ScoreChips, outcomeText } from './shared';
 import { ReportFrame, SentFrame, WaitingFrame } from './reporter/ReportFrames';
 import { RespondFrame } from './respond/RespondFrame';
+import { EvidenceFrame } from './dispute/EvidenceFrame';
+import { AdminFrame, FinalFrame, RulingFrame } from './dispute/DisputeFrames';
 
 export interface FrameProps { matchId: string; resultCase: ResultCaseV2; reload: () => Promise<void> }
 
@@ -20,20 +21,9 @@ export function frameOf(resultCase: ResultCaseV2): FrameKey {
   return 'respond';
 }
 
-function Summary({ resultCase }: FrameProps) {
-  const proposal = resultCase.claims.find((claim) => claim.id === resultCase.proposalClaimId);
-  if (!proposal) return <p className="text-sm text-ink-500">Chưa có ai gửi kết quả.</p>;
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4"><p className="text-h3">{outcomeText(proposal.outcome, proposal.sets)}</p>{proposal.level && <LevelBadge level={proposal.level} />}</div>
-      <ScoreChips sets={proposal.sets} />
-      <ReasonList level={proposal.level} reasons={resultCase.reasons} />
-    </div>
-  );
-}
-
 const FRAMES: Record<FrameKey, (props: FrameProps) => React.ReactNode> = {
-  report: ReportFrame, sent: SentFrame, respond: RespondFrame, evidence: Summary, ruling: Summary, admin: Summary, final: Summary, waiting: WaitingFrame,
+  report: ReportFrame, sent: SentFrame, respond: RespondFrame, evidence: EvidenceFrame, ruling: RulingFrame, admin: AdminFrame, final: FinalFrame,
+  waiting: WaitingFrame,
 };
 
 export function MatchResultPanel(props: FrameProps) {
