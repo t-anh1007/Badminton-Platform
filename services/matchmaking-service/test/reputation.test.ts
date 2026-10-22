@@ -39,3 +39,36 @@ describe('player reputation', () => {
     expect(JSON.stringify(publicView.body).toLowerCase()).not.toMatch(/reputation|violation|uy tín/);
   });
 });
+
+describe('my reputation lists active violations (plan web A4, B4)', () => {
+  it('returns active violations with match code, expiry and recovery date; only for the caller', async () => {
+    const { v2Fixture, cleanupV2 } = await import('./resultV2TestUtils.js');
+    try {
+      const fixture = await v2Fixture();
+      const me = fixture.b1;
+      const recent = new Date(Date.now() - 10 * DAY);
+      const older = new Date(Date.now() - 30 * DAY);
+      await prisma.playerViolation.createMany({
+        data: [
+          { userId: me, caseId: fixture.resultCase.id, kind: 'exact_duplicate_photo', source: 'auto', createdAt: recent },
+          { userId: me, caseId: randomUUID(), kind: 'false_claim', source: 'admin', createdAt: older },
+          { userId: me, caseId: randomUUID(), kind: 'false_claim', source: 'admin', createdAt: new Date(Date.now() - 100 * DAY) },
+        ],
+      });
+      const app = createApp({ venueBookingClient, accountClient, aiChains: fakeAi().ai });
+      const own = await request(app).get('/passports/me/reputation').set('Authorization', `Bearer ${token(me)}`);
+      expect(own.status).toBe(200);
+      expect(own.body.reputation).toBe('low');
+      expect(own.body.violations).toEqual([
+        { matchCode: fixture.match.businessCode, kind: 'exact_duplicate_photo', createdAt: recent.toISOString(), expiresAt: new Date(recent.getTime() + 90 * DAY).toISOString() },
+        { matchCode: null, kind: 'false_claim', createdAt: older.toISOString(), expiresAt: new Date(older.getTime() + 90 * DAY).toISOString() },
+      ]);
+      expect(own.body.recoversAt).toBe(new Date(recent.getTime() + 90 * DAY).toISOString());
+      const other = await request(app).get('/passports/me/reputation').set('Authorization', `Bearer ${token(fixture.organizer)}`);
+      expect(other.body).toEqual({ reputation: 'good', violations: [], recoversAt: null });
+      await prisma.playerViolation.deleteMany({ where: { userId: me } });
+    } finally {
+      await cleanupV2();
+    }
+  });
+});
