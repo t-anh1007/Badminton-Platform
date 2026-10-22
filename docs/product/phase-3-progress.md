@@ -5,7 +5,7 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 
 ## M-RA — Quét ảnh tỉ số, tự chốt, tranh chấp hai tầng (backend + AI)
 
-- Plan: `docs/plans/active/2026-10-21-result-ocr-autoconfirm.md` (16 task, không gồm UI web).
+- Plan: `docs/plans/completed/2026-10-21-result-ocr-autoconfirm.md` (16 task, không gồm UI web).
 - Spec: `specs/result-ocr-autoconfirm.md` (vẫn `draft-for-po-review`); thiết kế: `architecture/result-ocr-tech-design.md`; D60, D61.
 - Trạng thái: backend + AI xong theo plan, **chưa kiểm chứng E2E và chưa gọi thật nhà cung cấp AI** (`GEMINI_API_KEY` local trống).
   Mọi test dùng AI giả (`fetchImpl`), không gọi mạng. UI web làm plan riêng sau khi PO duyệt mockup desktop.
@@ -42,7 +42,7 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 | AC-RA-27 | `resultOcr.test.ts` (AI lỗi → gõ tay), `resultAiOffAndKnowledge.test.ts` (`RESULT_AI_ENABLED=false` tắt mọi chuỗi kể cả khi có key; ảnh → gõ tay, Vàng; tầng 1 vẫn xử một bên; hai bên → Admin thay tầng 2) | pass |
 | AC-RA-28 | `resultAiOffAndKnowledge.test.ts` (ca mẫu từ `samples.json` qua `sampleChunk` gắn nhãn "mẫu"; hồ sơ AI tự chốt không thành án lệ; hồ sơ có quyết định Admin thành án lệ ẩn danh; truy hồi kind án lệ/ca mẫu không trả đoạn luật hay hồ sơ AI tự chốt), `resultAppeals.test.ts` | pass |
 
-### Phần web và bù backend (plan `2026-10-22-result-ocr-web.md`, 22/10/2026)
+### Phần web và bù backend (plan `docs/plans/completed/2026-10-22-result-ocr-web.md`, 22/10/2026)
 
 - Mockup PO duyệt 22/10 (Q1–Q9 theo khuyến nghị). Backend bù: `resultCaseViewV2.fields.test.ts` (B1–B3, B8, B13),
   `resultOcr.test.ts` (B9, B12), `reputation.test.ts` (B4), `adminResultCasesV2.test.ts` (B5–B7).

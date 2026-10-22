@@ -414,3 +414,12 @@
 - Test không gọi mạng thật: mọi AI qua `fetchImpl` giả hoặc `aiChains` tiêm vào `createApp`.
 - Không sửa code luật cũ ngoài điểm rẽ nhánh theo `rulesVersion`; test cũ phải xanh sau mỗi task.
 - Một phiên khác đang đổi `GEMINI_MODEL` cho tính năng AI cũ (`packages/ai/src/geminiMatchmaker.ts`, `supportAssistant.ts`); plan này chỉ thêm file mới trong `packages/ai`, tránh sửa hai file đó.
+
+## Kết quả (đóng plan 22/10/2026)
+
+- Hoàn thành 16 task (`49b24a2` … `e60bc54`), các lượt chỉnh sau đo thật (`ded2653`, `7c9482d`, `6d9c1f0`, `a577d29`) và bù test AC
+  (`7ad529b`, `abf0c03`, `387132e`). Chuỗi model chốt ở D62.
+- Kiểm chứng: toàn bộ test `matchmaking-service` chạy 22/10 (310 pass; các lỗi còn lại là quá thời gian khi chạy song song và một test
+  phụ thuộc giờ, đã sửa ở `2bf073b`); test tập trung của từng task và bù AC xanh; root `npm run build` xanh trước mỗi commit; gọi thật
+  nhà cung cấp AI miễn phí với dữ liệu giả. Bảng AC-RA-01..28 ở `docs/product/phase-3-progress.md` đều pass.
+- Chưa làm: `npm run e2e`, push/deploy. Spec vẫn `draft-for-po-review` chờ PO duyệt.
