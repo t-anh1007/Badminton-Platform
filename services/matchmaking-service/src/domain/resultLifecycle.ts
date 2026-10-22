@@ -364,9 +364,10 @@ export function listProviderResultCases(
 }
 
 export function listAdminResultCases(
-  venueBookingClient: VenueBookingClient, input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date(),
+  venueBookingClient: VenueBookingClient,
+  input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number; caseIds?: string[] }, now = new Date(),
 ) {
-  return listQueue(venueBookingClient, { status: input.status ?? 'admin_review' }, input, now);
+  return listQueue(venueBookingClient, { status: input.status ?? 'admin_review', ...(input.caseIds && { id: { in: input.caseIds } }) }, input, now);
 }
 
 async function reviewDetail(

@@ -11,11 +11,13 @@ import {
   acceptRuling, closeEvidenceWindow, markEvidenceDone, openEvidenceWindow, recordPrecedent, submitAppeal, submitDisputeEvidence,
 } from '../domain/resultDisputeV2.js';
 import { resultCaseViewV2 } from '../domain/resultCaseViewV2.js';
+import { ADMIN_REASONS } from '../domain/resultAdminReason.js';
+import { adminCaseExtrasV2, assertAdminViolationKinds, listAdminQueueV2 } from '../domain/resultAdminViewV2.js';
 import { sweepAllResultDeadlines } from '../domain/resultSweepV2.js';
 import { prisma } from '../lib/prisma.js';
 import type { AiChains } from '../lib/aiClients.js';
 import {
-  confirmResult, decideAdminResult, getAdminResultCase, getProviderResultCase, listAdminResultCases, listProviderResultCases,
+  confirmResult, decideAdminResult, getAdminResultCase, getProviderResultCase, listProviderResultCases,
   objectResult, previewAdminDecision, reportIncident, submitProviderRecommendation, supplementResultEvidence,
 } from '../domain/resultLifecycle.js';
 import { requireAdmin, requireAuth, requirePlayer, requireProvider, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -82,6 +84,7 @@ const queueSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
+const adminQueueSchema = queueSchema.extend({ reason: z.enum(ADMIN_REASONS).optional(), level: z.enum(['green', 'yellow', 'red']).optional() });
 const recommendationSchema = z.object({ outcome: outcomeSchema, reason: reasonSchema }).strict();
 const decisionSchema = z.object({
   outcome: outcomeSchema, reason: reasonSchema, caseVersion: z.number().int().positive(),
@@ -278,12 +281,13 @@ export function createMatchResultRouter(
   }));
 
   router.get('/admin/result-cases', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
-    res.status(200).json(await listAdminResultCases(venueBookingClient, queueSchema.parse(req.query)));
+    res.status(200).json(await listAdminQueueV2(venueBookingClient, adminQueueSchema.parse(req.query)));
   }));
 
   router.get('/admin/result-cases/:caseId', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
-    const resultCase = await getAdminResultCase(venueBookingClient, accountClient, z.string().uuid().parse(req.params.caseId));
-    res.status(200).json({ resultCase });
+    const caseId = z.string().uuid().parse(req.params.caseId);
+    const resultCase = await getAdminResultCase(venueBookingClient, accountClient, caseId);
+    res.status(200).json({ resultCase: { ...resultCase, ...await adminCaseExtrasV2(caseId) } });
   }));
 
   router.post('/:matchId/admin-decision/preview', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
@@ -294,6 +298,7 @@ export function createMatchResultRouter(
   }));
 
   router.post('/:matchId/admin-decision', requireAuth, requireAdmin, withErrorHandling(async (req, res) => {
+    assertAdminViolationKinds((req.body as { violations?: unknown } | undefined)?.violations);
     const { confirm: _confirmed, ...input } = decisionSchema.parse(req.body);
     const decision = await decideAdminResult(viewer(req).id, matchIdSchema.parse(req.params.matchId), input);
     // BR-RA-63: quyết định Admin của hồ sơ ra_v1 thành án lệ ẩn danh; lỗi nạp án lệ không làm hỏng quyết định đã ghi.
