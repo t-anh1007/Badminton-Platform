@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorageClient } from '@khoaluantn/object-storage';
@@ -150,17 +150,27 @@ describe('Task 12 confirmation and deadlines', () => {
     expect(await finalEvents(match.id)).toHaveLength(1);
   });
 
-  it('no declaration: opens a 12-hour incident window then finalizes NO_RESULT', async () => {
-    const deadline = new Date(Date.now() - 1_000);
-    const { match, resultCase } = await fixture({ status: 'declaration_open', declarationDeadlineAt: deadline });
-    await sweepResultDeadlines(new Date(), matchIds);
-    const window = await caseOf(match.id);
-    expect(window).toMatchObject({ status: 'incident_window', outcome: 'NO_RESULT' });
-    expect(window.incidentDeadlineAt!.getTime()).toBe(deadline.getTime() + 12 * HOUR);
-    expect(await finalizeUndisputedResult(resultCase.id, new Date(deadline.getTime() + 11 * HOUR))).toBe(false);
-    expect(await finalizeUndisputedResult(resultCase.id, new Date(deadline.getTime() + 12 * HOUR))).toBe(true);
-    expect(await caseOf(match.id)).toMatchObject({ status: 'final', outcome: 'NO_RESULT' });
-    expect((await finalEvents(match.id))[0]!.payload).toMatchObject({ outcome: 'NO_RESULT' });
+  // Giờ giả cố định (chỉ giả Date): hồ sơ mặc định ra_v1 nên hạn báo sự cố giãn qua đêm (BR-RA-20a); kết quả không phụ thuộc giờ chạy.
+  describe.each([
+    { clock: '2026-10-21T09:00:00+07:00', label: 'ban ngày: hạn 21:00 giữ nguyên', incident: '2026-10-21T21:00:00+07:00' },
+    { clock: '2026-10-21T15:00:00+07:00', label: 'buổi chiều: hạn 03:00 dời sang 08:00 sáng hôm sau', incident: '2026-10-22T08:00:00+07:00' },
+  ])('no declaration at $clock ($label)', ({ clock, incident }) => {
+    beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(clock)); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('opens the incident window with the right deadline then finalizes NO_RESULT once', async () => {
+      const deadline = new Date(Date.now());
+      const { match, resultCase } = await fixture({ status: 'declaration_open', declarationDeadlineAt: deadline });
+      await sweepResultDeadlines(new Date(deadline.getTime() + 1_000), [match.id]);
+      const window = await caseOf(match.id);
+      expect(window).toMatchObject({ status: 'incident_window', outcome: 'NO_RESULT' });
+      const due = new Date(incident);
+      expect(window.incidentDeadlineAt!.toISOString()).toBe(due.toISOString());
+      expect(await finalizeUndisputedResult(resultCase.id, new Date(due.getTime() - MIN))).toBe(false);
+      expect(await finalizeUndisputedResult(resultCase.id, due)).toBe(true);
+      expect(await caseOf(match.id)).toMatchObject({ status: 'final', outcome: 'NO_RESULT' });
+      expect((await finalEvents(match.id))[0]!.payload).toMatchObject({ outcome: 'NO_RESULT' });
+    });
   });
 });
 
