@@ -57,6 +57,8 @@ export interface ResultCaseV2 extends Omit<PlayerResultCase, 'status' | 'viewerA
   viewerAppeal: { accepted: boolean; createdAt: string } | null;
   adminReason: AdminReason | null;
   adminReviewStartedAt: string | null;
+  /** Lý do quyết định cuối Admin viết cho cả kèo (không có ghi chú nội bộ). */
+  adminDecision: { outcome: MatchOutcome; reason: string; decidedAt: string } | null;
   evidenceDoneSides: TeamSide[];
 }
 export type AnyResultCase = (PlayerResultCase & { rulesVersion?: 'legacy' }) | ResultCaseV2;

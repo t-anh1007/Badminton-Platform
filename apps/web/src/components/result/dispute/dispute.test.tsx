@@ -101,3 +101,14 @@ it('shows the final result', () => {
   expect(screen.getByText('Đội A thắng 2–1')).toBeInTheDocument();
   expect(screen.getAllByText('Đã chốt').length).toBeGreaterThan(0);
 });
+
+it('shows the Admin decision reason on the final result (mục 1)', () => {
+  vi.mocked(readResultPhoto).mockResolvedValue({ url: 'x' });
+  render(<MatchResultPanel matchId="m1" reload={reload} resultCase={photoCase({
+    ...disputed, status: 'final', finalOutcome: 'TEAM_A_WIN', adminReviewStartedAt: vn('2026-10-23T07:10:00'),
+    adminDecision: { outcome: 'TEAM_A_WIN', reason: 'Giữ nguyên phán quyết tạm. Ảnh mới không phải sân khác.', decidedAt: vn('2026-10-23T15:20:00') },
+  })} />);
+  expect(screen.getByText('Quyết định của quản trị viên')).toBeInTheDocument();
+  expect(screen.getByText('Giữ nguyên phán quyết tạm. Ảnh mới không phải sân khác.')).toBeInTheDocument();
+  expect(screen.getByText(/Quyết định lúc 15:20 23\/10/)).toBeInTheDocument();
+});

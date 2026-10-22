@@ -142,3 +142,28 @@ describe('readable citations for players (A2, B8)', () => {
     }
   });
 });
+
+describe('admin decision reason for players (mục 1)', () => {
+  it('returns the reason Admin wrote for the roster, never the AI admin notes or adminUserId', async () => {
+    const NOW = new Date('2026-10-21T03:00:00.000Z');
+    const fixture = await v2Fixture({ endAt: new Date(NOW.getTime() - 4 * HOUR), status: 'final', caseData: { outcome: 'TEAM_A_WIN', adminReviewStartedAt: NOW } });
+    await prisma.aiRuling.create({
+      data: { caseId: fixture.resultCase.id, tier: 2, outcome: 'TEAM_A_WIN', confidence: 0.9, publishedAt: NOW, adminNotes: 'GHI-CHU-RIENG-ADMIN', citations: [], reasons: [{ text: 'x', citations: [] }] },
+    });
+    const adminUserId = randomUUID();
+    await prisma.adminResultDecision.create({
+      data: { caseId: fixture.resultCase.id, adminUserId, outcome: 'TEAM_A_WIN', reason: 'Giữ nguyên phán quyết tạm.', caseVersion: 1, createdAt: NOW },
+    });
+    const result = await view(fixture.match.id, fixture.b1, NOW);
+    expect(result.adminDecision).toEqual({ outcome: 'TEAM_A_WIN', reason: 'Giữ nguyên phán quyết tạm.', decidedAt: NOW.toISOString() });
+    const raw = JSON.stringify(result);
+    expect(raw).not.toContain('GHI-CHU-RIENG-ADMIN');
+    expect(raw).not.toContain(adminUserId);
+    expect(raw.toLowerCase()).not.toMatch(/reputation|violation/);
+  });
+
+  it('is null while no Admin decision exists', async () => {
+    const fixture = await v2Fixture();
+    expect((await view(fixture.match.id, fixture.organizer, new Date())).adminDecision).toBeNull();
+  });
+});

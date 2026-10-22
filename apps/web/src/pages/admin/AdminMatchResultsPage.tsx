@@ -177,6 +177,7 @@ function AdminCase({ caseId, onDecided }: { caseId: string; onDecided: () => voi
                 <TextArea className="mt-1" rows={3} value={reason}
                   onChange={(event) => { setReason(event.target.value); setPreview(null); setChecked(false); }} />
               </label>
+              {isPhotoReview(detail) && <p className="mt-1 text-xs text-ink-500">Cả kèo đọc được lý do này. Không ghi uy tín hay ghi chú nội bộ.</p>}
               <Button tone="secondary" className="mt-3 w-full" disabled={pending || !outcome || !reason.trim() || previewMatches} onClick={() => void loadPreview()}>Xem trước tác động</Button>
               {previewMatches && preview && (
                 <dl className="mt-3 divide-y divide-line text-sm">

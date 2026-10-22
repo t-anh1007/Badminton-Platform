@@ -101,6 +101,9 @@ export async function resultCaseViewV2(
   const own = claims.find((claim) => claim.claimantUserId === viewerUserId);
   const mine = (kind: string) => responses.some((row) => row.userId === viewerUserId && row.kind === kind);
   const displayName = async (userId: string) => (await deps.accountClient?.getPublicMatchProfile(userId).catch(() => null))?.displayName ?? null;
+  const adminDecision = await prisma.adminResultDecision.findUnique({
+    where: { caseId: resultCase.id }, select: { outcome: true, reason: true, createdAt: true },
+  });
   const viewerAppeal = await prisma.resultAppeal.findFirst({
     where: { caseId: resultCase.id, userId: viewerUserId }, orderBy: { createdAt: 'desc' }, select: { accepted: true, createdAt: true },
   });
@@ -171,6 +174,8 @@ export async function resultCaseViewV2(
     viewerAppeal: viewerAppeal && { accepted: viewerAppeal.accepted, createdAt: viewerAppeal.createdAt.toISOString() },
     adminReason: await loadAdminReason(resultCase),
     adminReviewStartedAt: iso(resultCase.adminReviewStartedAt),
+    // Lý do Admin viết cho cả kèo; không có ghi chú nội bộ của AI, không có người quyết, uy tín hay vi phạm.
+    adminDecision: adminDecision && { outcome: adminDecision.outcome, reason: adminDecision.reason, decidedAt: adminDecision.createdAt.toISOString() },
     evidenceDoneSides: [...new Set(responses.filter((row) => row.kind === 'evidence_done').map((row) => sideOf(teams, row.userId)))]
       .filter((side): side is TeamSide => side !== null).sort(),
   };

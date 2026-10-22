@@ -164,7 +164,14 @@ export function FinalFrame({ matchId, resultCase }: FrameProps) {
         <Badge tone="success">Đã chốt</Badge>
       </div>
       {sameAsClaim && <ScoreChips sets={proposal.sets} />}
-      {resultCase.adminReviewStartedAt && <Note>Quyết định của quản trị viên là quyết định cuối, không kháng nghị tiếp.</Note>}
+      {resultCase.adminDecision && (
+        <div className="rounded-2xl border border-line p-4">
+          <p className="font-bold text-ink-900">Quyết định của quản trị viên</p>
+          <p className="mt-1 whitespace-pre-line text-sm text-ink-700">{resultCase.adminDecision.reason}</p>
+          <p className="mt-2 text-xs text-ink-500">Quyết định lúc {shortTime(resultCase.adminDecision.decidedAt)}. Đây là quyết định cuối, không kháng nghị tiếp.</p>
+        </div>
+      )}
+      {!resultCase.adminDecision && resultCase.adminReviewStartedAt && <Note>Quyết định của quản trị viên là quyết định cuối, không kháng nghị tiếp.</Note>}
       {resultCase.finalOutcome === 'NO_RESULT' && <Note>Không có kết quả: chi phí chia đều hai đội, không tính điểm xếp hạng.</Note>}
       {proposal && <details><summary className="cursor-pointer text-sm font-bold text-brand-navy">Ảnh và bản khai</summary><div className="mt-3"><ResultPhotos matchId={matchId} images={proposal.images} /></div></details>}
       <p className="text-xs text-ink-500">Ảnh gửi sau khi chốt chỉ được lưu, không đổi kết quả.</p>
