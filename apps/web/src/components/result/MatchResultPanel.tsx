@@ -1,6 +1,7 @@
 import type { ResultCaseV2 } from '../../lib/resultApi';
 import { ResultProgressRail } from './ResultProgressRail';
 import { LevelBadge, ReasonList, ScoreChips, outcomeText } from './shared';
+import { ReportFrame, SentFrame, WaitingFrame } from './reporter/ReportFrames';
 
 export interface FrameProps { matchId: string; resultCase: ResultCaseV2; reload: () => Promise<void> }
 
@@ -31,7 +32,7 @@ function Summary({ resultCase }: FrameProps) {
 }
 
 const FRAMES: Record<FrameKey, (props: FrameProps) => React.ReactNode> = {
-  report: Summary, sent: Summary, respond: Summary, evidence: Summary, ruling: Summary, admin: Summary, final: Summary, waiting: Summary,
+  report: ReportFrame, sent: SentFrame, respond: Summary, evidence: Summary, ruling: Summary, admin: Summary, final: Summary, waiting: WaitingFrame,
 };
 
 export function MatchResultPanel(props: FrameProps) {
