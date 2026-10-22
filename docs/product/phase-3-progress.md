@@ -42,6 +42,19 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 | AC-RA-27 | `resultOcr.test.ts` (AI lỗi → gõ tay); đóng bằng chứng khi chuỗi tầng 2 rỗng → Admin theo code, chưa có test `RESULT_AI_ENABLED=false` | một phần |
 | AC-RA-28 | Án lệ chỉ được tạo khi Admin quyết định (`resultAppeals.test.ts`) + ca mẫu từ `scripts/knowledge/ingest.ts` | một phần |
 
+### Phần web và bù backend (plan `2026-10-22-result-ocr-web.md`, 22/10/2026)
+
+- Mockup PO duyệt 22/10 (Q1–Q9 theo khuyến nghị). Backend bù: `resultCaseViewV2.fields.test.ts` (B1–B3, B8, B13),
+  `resultOcr.test.ts` (B9, B12), `reputation.test.ts` (B4), `adminResultCasesV2.test.ts` (B5–B7).
+- Web: khối "Kết quả trận" (`apps/web/src/components/result/`), hồ sơ legacy vẫn dùng `MatchResultFlow`. Test FE:
+  `resultApi.test.ts`, `components/result/**/*.test.tsx`, `PassportPage.test.tsx` (U1), `admin/adminPhotoResults.test.tsx`.
+- AC có thêm test FE: AC-RA-03, 05, 06, 08 (K3/K4), 11, 12, 13, 15, 16 (P1–P4), 17, 18, 20, 21 (T1–T4), 26 (Q2: DOM đội kia
+  không có "uy tín"; U1 chỉ chính chủ).
+- Chạy thử local 1440px (Playwright, AI thật free tier, dữ liệu giả; ảnh ở `ai-notes/qa/result-ocr/`): luồng khớp → đồng ý
+  hai người → chốt; luồng phản đối → nộp bằng chứng giữ kín → tầng 1 (ảnh dùng lại bị phát hiện trùng chính xác → Đỏ, loại →
+  không có kết quả); luồng hai bên có bằng chứng → AI phán quyết tạm → kháng nghị → Admin (hàng chờ ghi "Kháng nghị").
+  Chưa chạy `npm run e2e` và chưa chạy toàn bộ test workspace.
+
 Đánh giá NCKH: `scripts/eval/ocr-eval.ts`, `scripts/eval/ruling-eval.ts`, `scripts/eval/metrics.sql` (đã chạy trên DB local).
 
 ### Lượt gọi thật đầu tiên (22/10/2026, free tier, dữ liệu giả)
