@@ -215,7 +215,7 @@ Không có đội cố định (D58): "đội" là Team A / Team B của một k
 
 | Mã | Quy tắc |
 |---|---|
-| BR-RA-60 | Chỉ dùng nguồn AI **miễn phí, đăng ký đơn giản** (không xác minh số điện thoại, không thẻ), theo thứ tự dự phòng chọn bằng biến môi trường. Đọc ảnh: Gemini (2 model) → Groq → OpenRouter `:free` → gõ tay. Tầng 2: Gemini → Groq → OpenRouter `:free` → chuyển Admin. Bỏ NVIDIA. Tên model không viết cứng; chi tiết ở `docs/architecture/result-ocr-tech-design.md` (PO 21/10/2026). |
+| BR-RA-60 | Chỉ dùng nguồn AI **miễn phí, đăng ký đơn giản** (không xác minh số điện thoại, không thẻ), theo thứ tự dự phòng chọn bằng biến môi trường. Đọc ảnh: Gemini → Cloudflare Workers AI → Groq → OpenRouter `:free` → gõ tay. Tầng 2: Groq → Gemini → OpenRouter `:free` → chuyển Admin. Bỏ NVIDIA. Tên model không viết cứng; chi tiết ở `docs/architecture/result-ocr-tech-design.md` (PO 21/10/2026; thứ tự nguồn theo D62, 22/10/2026). |
 | BR-RA-61 | Đồ án chỉ dùng dữ liệu giả của team. Free tier có thể dùng dữ liệu gửi lên để cải thiện sản phẩm; không đưa ảnh/người dùng thật lên free tier. |
 | BR-RA-62 | RAG chỉ cho văn bản: luật (spec) và án lệ, ẩn danh. Tiền, trạng thái, roster lấy qua tool/API chỉ đọc, không vector hóa. |
 | BR-RA-63 | Án lệ được **truy hồi** cho AI chỉ gồm: hồ sơ có quyết định Admin, và 30–50 ca mẫu team tự tạo (nhãn "mẫu"). Hồ sơ AI tự chốt không bị kháng nghị được lưu để đo đạc nhưng **không** đưa vào truy hồi, tránh AI tự củng cố lỗi. *(quyết định của Claude)* |
