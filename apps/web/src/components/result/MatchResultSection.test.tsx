@@ -45,3 +45,16 @@ it('offers a retry when the case cannot be loaded', async () => {
   expect(await screen.findByText('Chưa tải được kết quả trận')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
 });
+
+it('says the deadline just passed and waits for the server instead of changing state itself', async () => {
+  vi.mocked(getResultCaseAny).mockResolvedValue(proposedCase({ serverNow: '2026-10-23T01:00:30Z', responseDeadlineAt: '2026-10-23T01:00:00Z', responseDeadlineBaseAt: '2026-10-23T01:00:00Z' }));
+  render(<MatchResultSection matchId="m1" />);
+  expect(await screen.findByText(/Đã hết hạn lúc 08:00 23\/10\. Hệ thống đang cập nhật/)).toBeInTheDocument();
+});
+
+it('wraps the block in the anchor used by result notifications', async () => {
+  vi.mocked(getResultCaseAny).mockResolvedValue(photoCase());
+  const { container } = render(<MatchResultSection matchId="m1" />);
+  await screen.findByRole('complementary', { name: 'Tiến trình kết quả' });
+  expect(container.querySelector('#ket-qua-tran')).not.toBeNull();
+});

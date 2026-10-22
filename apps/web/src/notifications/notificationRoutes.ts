@@ -3,7 +3,8 @@ export function resolveNotificationRoute(item: Pick<NotificationItem, 'actionKin
   if (item.actionKind === 'leaderboard.view') return '/leaderboard';
   if (!item.entityId) return null;
   switch (item.actionKind) {
-    case 'match.result.view': return `/matches/${item.entityId}`;
+    // Mở đúng khối "Kết quả trận" trên trang kèo (plan web B8).
+    case 'match.result.view': return `/matches/${item.entityId}#ket-qua-tran`;
     case 'provider.match-result.review': return `/manage/match-results?caseId=${item.entityId}`;
     case 'admin.match-result.review': return `/admin/match-results?caseId=${item.entityId}`;
     case 'reward.view': return `/rewards/${item.entityId}`;

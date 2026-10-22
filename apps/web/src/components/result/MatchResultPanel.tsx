@@ -1,5 +1,6 @@
 import type { ResultCaseV2 } from '../../lib/resultApi';
-import { ResultProgressRail } from './ResultProgressRail';
+import { ResultProgressRail, nextDeadline } from './ResultProgressRail';
+import { Note, shortTime } from './shared';
 import { ReportFrame, SentFrame, WaitingFrame } from './reporter/ReportFrames';
 import { RespondFrame } from './respond/RespondFrame';
 import { EvidenceFrame } from './dispute/EvidenceFrame';
@@ -28,9 +29,15 @@ const FRAMES: Record<FrameKey, (props: FrameProps) => React.ReactNode> = {
 
 export function MatchResultPanel(props: FrameProps) {
   const Frame = FRAMES[frameOf(props.resultCase)];
+  // Hạn vừa qua nhưng server chưa quét: chỉ báo và chờ tải lại, không tự đổi trạng thái ở FE.
+  const deadline = nextDeadline(props.resultCase);
+  const expired = deadline !== null && new Date(props.resultCase.serverNow) >= new Date(deadline);
   return (
-    <section id="ket-qua-tran" aria-label="Kết quả trận" className="surface-card grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 p-6 sm:p-7"><Frame {...props} /></div>
+    <section aria-label="Kết quả trận" className="surface-card grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 p-6 sm:p-7">
+        {expired && <div className="mb-4"><Note tone="info">Đã hết hạn lúc {shortTime(deadline!)}. Hệ thống đang cập nhật, trang tự tải lại.</Note></div>}
+        <Frame {...props} />
+      </div>
       <ResultProgressRail resultCase={props.resultCase} />
     </section>
   );

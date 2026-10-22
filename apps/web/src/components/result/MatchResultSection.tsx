@@ -7,6 +7,8 @@ import { MatchResultPanel } from './MatchResultPanel';
 import { nextDeadline } from './ResultProgressRail';
 import { errorText } from './shared';
 
+const RESULT_ANCHOR = 'ket-qua-tran';
+
 /**
  * Khối "Kết quả trận" trên trang kèo: hồ sơ legacy (hoặc chưa mở) dùng luồng cũ không đổi; hồ sơ ra_v1 dùng luồng ảnh.
  */
@@ -30,6 +32,11 @@ export function MatchResultSection({ matchId, allowIncident = false, onFinalChan
   useServerCountdown(photo?.serverNow, photo ? nextDeadline(photo) : null, () => void load());
   const isFinal = photo?.status === 'final';
   useEffect(() => { if (photo) onFinalChange?.(isFinal); }, [photo, isFinal, onFinalChange]);
+  // Link thông báo kết quả (#ket-qua-tran) cuộn tới khối này sau khi hồ sơ tải xong.
+  const loaded = resultCase !== undefined;
+  useEffect(() => {
+    if (loaded && window.location.hash === `#${RESULT_ANCHOR}`) document.getElementById(RESULT_ANCHOR)?.scrollIntoView?.({ block: 'start' });
+  }, [loaded]);
 
   if (loadError && !resultCase) {
     return (
@@ -43,6 +50,9 @@ export function MatchResultSection({ matchId, allowIncident = false, onFinalChan
   if (resultCase === undefined) {
     return <section aria-label="Kết quả trận" aria-busy="true" className="surface-card space-y-4 p-6"><Skeleton className="h-7 w-1/3" /><Skeleton className="h-14 w-2/3" /><Skeleton className="h-4 w-1/2" /></section>;
   }
-  if (!photo) return <MatchResultFlow matchId={matchId} allowIncident={allowIncident} onFinalChange={onFinalChange} />;
-  return <MatchResultPanel matchId={matchId} resultCase={photo} reload={load} />;
+  return (
+    <div id={RESULT_ANCHOR} className="scroll-mt-24">
+      {photo ? <MatchResultPanel matchId={matchId} resultCase={photo} reload={load} /> : <MatchResultFlow matchId={matchId} allowIncident={allowIncident} onFinalChange={onFinalChange} />}
+    </div>
+  );
 }
