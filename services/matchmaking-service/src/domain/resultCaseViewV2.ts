@@ -3,6 +3,8 @@ import { prisma } from '../lib/prisma.js';
 import { publicReasons } from './confidence.js';
 import { resultTeams } from './matchResults.js';
 import { currentClaims, losingTeamOf, proposalOf, responseOpenUntil, sideOf } from './resultClaimsV2.js';
+import { loadAdminReason } from './resultAdminReason.js';
+import type { AccountClient } from '../clients/account.js';
 
 // Phần hồ sơ kết quả riêng của ra_v1 cho roster (BR-RA-06): mức, lý do (không nêu uy tín), hạn, ảnh + số AI đọc.
 
@@ -15,7 +17,10 @@ export function evidenceSealed(resultCase: MatchResultCase, now: Date) {
     && resultCase.evidenceDeadlineAt !== null && now < resultCase.evidenceDeadlineAt;
 }
 
-export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id: string; organizerUserId: string }, viewerUserId: string, now: Date) {
+export async function resultCaseViewV2(
+  resultCase: MatchResultCase, match: { id: string; organizerUserId: string }, viewerUserId: string, now: Date,
+  deps: { accountClient?: AccountClient } = {},
+) {
   const teams = await resultTeams(prisma, match);
   const viewerSide = sideOf(teams, viewerUserId);
   const claims = await currentClaims(prisma, resultCase.id);
@@ -23,7 +28,7 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
     where: { caseId: resultCase.id, purpose: 'evidence' }, include: { sets: { orderBy: { position: 'asc' } }, evidence: { orderBy: { position: 'asc' } } },
     orderBy: { createdAt: 'asc' },
   });
-  const responses = await prisma.resultResponse.findMany({ where: { caseId: resultCase.id }, select: { userId: true, kind: true, createdAt: true } });
+  const responses = await prisma.resultResponse.findMany({ where: { caseId: resultCase.id }, select: { userId: true, kind: true, createdAt: true }, orderBy: { createdAt: 'asc' } });
   const ruling = await prisma.aiRuling.findFirst({ where: { caseId: resultCase.id, publishedAt: { not: null } }, orderBy: { createdAt: 'desc' } });
   const uploadIds = [...claims, ...submissions].flatMap((claim) => claim.evidence.map((item) => item.uploadId)).filter((id): id is string => Boolean(id));
   const readings = await prisma.evidenceReading.findMany({ where: { uploadId: { in: uploadIds }, ok: true }, orderBy: { createdAt: 'desc' } });
@@ -56,6 +61,24 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
   const losers = proposal && resultCase.outcome ? teams[losingTeamOf(resultCase.outcome, sideOf(teams, proposal.claimantUserId)!)] : [];
   const own = claims.find((claim) => claim.claimantUserId === viewerUserId);
   const mine = (kind: string) => responses.some((row) => row.userId === viewerUserId && row.kind === kind);
+  const displayName = async (userId: string) => (await deps.accountClient?.getPublicMatchProfile(userId).catch(() => null))?.displayName ?? null;
+  const viewerAppeal = await prisma.resultAppeal.findFirst({
+    where: { caseId: resultCase.id, userId: viewerUserId }, orderBy: { createdAt: 'desc' }, select: { accepted: true, createdAt: true },
+  });
+
+  // BR-RA-23: partner được trả thay đã chấp nhận nhưng người trả (cùng đội thua) chưa → còn chờ người trả.
+  let pendingPayerUserId: string | null = null;
+  if (resultCase.status === 'proposed' && proposal && resultCase.outcome) {
+    const accepted = new Set([
+      ...responses.filter((row) => row.kind === 'confirm').map((row) => row.userId),
+      ...claims.filter((claim) => claim.outcome === resultCase.outcome).map((claim) => claim.claimantUserId),
+    ].filter((userId) => losers.includes(userId)));
+    const paid = await prisma.join.findMany({
+      where: { matchId: match.id, status: 'confirmed', payerUserId: { not: null } }, select: { participantUserId: true, payerUserId: true },
+    });
+    pendingPayerUserId = paid.find((join) => accepted.has(join.participantUserId) && join.payerUserId !== join.participantUserId
+      && losers.includes(join.payerUserId!) && !accepted.has(join.payerUserId!))?.payerUserId ?? null;
+  }
   const evidenceOpen = resultCase.status === 'evidence_window' && resultCase.evidenceDeadlineAt !== null
     && now < resultCase.evidenceDeadlineAt && resultCase.evidenceClosedAt === null;
   const appealOpen = resultCase.status === 'appeal_window' && resultCase.appealDeadlineAt !== null && now < resultCase.appealDeadlineAt && ruling !== null;
@@ -99,5 +122,15 @@ export async function resultCaseViewV2(resultCase: MatchResultCase, match: { id:
         && !responses.some((row) => row.kind === 'evidence_done' && sideOf(teams, row.userId) === viewerSide),
     } as Record<string, boolean>,
     viewerSide: viewerSide as TeamSide,
+    // Web (plan A1): ai đã Đồng ý / Phản đối, chờ người trả phần, kháng nghị của chính người xem, lý do ở Admin.
+    responses: await Promise.all(responses.filter((row) => row.kind === 'confirm' || row.kind === 'object').map(async (row) => ({
+      userId: row.userId, displayName: await displayName(row.userId), kind: row.kind, createdAt: row.createdAt.toISOString(),
+    }))),
+    pendingPayerUserId,
+    viewerAppeal: viewerAppeal && { accepted: viewerAppeal.accepted, createdAt: viewerAppeal.createdAt.toISOString() },
+    adminReason: await loadAdminReason(resultCase),
+    adminReviewStartedAt: iso(resultCase.adminReviewStartedAt),
+    evidenceDoneSides: [...new Set(responses.filter((row) => row.kind === 'evidence_done').map((row) => sideOf(teams, row.userId)))]
+      .filter((side): side is TeamSide => side !== null).sort(),
   };
 }

@@ -249,7 +249,7 @@ export function createMatchResultRouter(
       res.status(200).json({ resultCase });
       return;
     }
-    res.status(200).json({ resultCase: { ...resultCase, ...await resultCaseViewV2(match.resultCase, match, viewer(req).id, now) } });
+    res.status(200).json({ resultCase: { ...resultCase, ...await resultCaseViewV2(match.resultCase, match, viewer(req).id, now, { accountClient }) } });
   }));
 
   router.get('/:matchId/result-evidence/:evidenceId/read', requireAuth, withErrorHandling(async (req, res) => {
