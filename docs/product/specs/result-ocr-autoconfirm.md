@@ -1,7 +1,7 @@
 ---
 type: functional-spec
-status: draft-for-po-review
-updated: 2026-10-21
+status: approved
+updated: 2026-10-22
 owner: Tuan Anh (PO)
 author: Claude Code
 scope: MMP (kết quả kèo), AI (NCKH — AI agent + RAG)
