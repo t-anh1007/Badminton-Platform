@@ -368,6 +368,9 @@ export interface ReviewQueueItem {
   matchCode: string | null; bookingCode: string | null; venueName: string | null; courtName: string | null;
   discipline: MatchDiscipline; mode: MatchMode; startAt: string | null; endAt: string | null;
   providerDeadlineAt: string | null; adminReviewStartedAt: string | null; adminOverdue: boolean;
+  /** Hàng chờ Admin (luồng ảnh): vì sao vào hàng chờ và mức của bản đề xuất. */
+  adminReason?: 'unknown_photo' | 'appeal' | 'ai_unavailable' | 'evidence_unreadable' | 'incident' | 'legacy' | null;
+  level?: 'green' | 'yellow' | 'red' | null;
 }
 export interface ReviewCaseDetail extends ReviewQueueItem {
   serverNow: string;
@@ -386,12 +389,14 @@ export interface AdminDecisionPreview {
   ratingEffect: 'apply_ranked_result' | 'no_change'; bookingRevenueEffect: 'no_change';
 }
 type ReviewPage = { items: ReviewQueueItem[]; total: number; page: number; pageSize: number };
-const reviewQuery = (page: number, status?: ResultCaseStatus) => `?${new URLSearchParams({ page: String(page), pageSize: '10', ...(status ? { status } : {}) })}`;
+const reviewQuery = (page: number, status?: ResultCaseStatus, filters?: { reason?: string; level?: string }) =>
+  `?${new URLSearchParams({ page: String(page), pageSize: '10', ...(status ? { status } : {}), ...(filters?.reason ? { reason: filters.reason } : {}), ...(filters?.level ? { level: filters.level } : {}) })}`;
 export const listProviderResultCases = (page = 1, status?: ResultCaseStatus) => api<ReviewPage>(`/matches/provider/result-cases${reviewQuery(page, status)}`);
 export const getProviderResultCase = async (caseId: string) => (await api<{ resultCase: ReviewCaseDetail }>(`/matches/provider/result-cases/${caseId}`)).resultCase;
 export const submitProviderRecommendation = (matchId: string, body: { outcome: MatchOutcome; reason: string }) =>
   api(`/matches/${matchId}/provider-recommendation`, { method: 'POST', body: JSON.stringify(body) });
-export const listAdminResultCases = (page = 1, status?: ResultCaseStatus) => api<ReviewPage>(`/matches/admin/result-cases${reviewQuery(page, status)}`);
+export const listAdminResultCases = (page = 1, status?: ResultCaseStatus, filters?: { reason?: string; level?: string }) =>
+  api<ReviewPage>(`/matches/admin/result-cases${reviewQuery(page, status, filters)}`);
 export const getAdminResultCase = async (caseId: string) => (await api<{ resultCase: ReviewCaseDetail }>(`/matches/admin/result-cases/${caseId}`)).resultCase;
 export const previewAdminDecision = async (matchId: string, body: { outcome: MatchOutcome; reason: string }) =>
   (await api<{ preview: AdminDecisionPreview }>(`/matches/${matchId}/admin-decision/preview`, { method: 'POST', body: JSON.stringify(body) })).preview;
