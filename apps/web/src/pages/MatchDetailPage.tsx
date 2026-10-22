@@ -6,7 +6,7 @@ import { Avatar, Badge, Button, Modal, SurfaceCard, Toast } from '../components/
 import { RouteState } from '../components/RouteState.js';
 import { LocationMap } from '../components/map/LocationMap';
 import { cancelMatch, getMatchDetail, MatchApiError, getMyScheduleConflicts, requestMatchJoin, withdrawMatchJoin, type MatchDetail, type ScheduleConflict, type SkillTier, type TeamSide } from '../lib/matchApi';
-import { MatchResultFlow } from '../components/MatchResultFlow.js';
+import { MatchResultSection } from '../components/result/MatchResultSection.js';
 import { getOwnPassport, type OwnPassport } from '../lib/passportApi';
 import { LockBanner, LockedConfig, MatchProgress, MoneyStatus, TeamRoster, disciplineLabel, modeLabel } from '../components/MatchCompetitiveSections.js';
 import {
@@ -308,7 +308,7 @@ export function MatchDetailPage() {
             </aside>
           </div>
           {(detail.status === 'confirmed' || detail.status === 'completed') && (
-            <MatchResultFlow matchId={detail.id} allowIncident={Boolean(detail.actions.canReportIncident)} onFinalChange={setResultFinal} />
+            <MatchResultSection matchId={detail.id} allowIncident={Boolean(detail.actions.canReportIncident)} onFinalChange={setResultFinal} />
           )}
         </div>
       ) : (
