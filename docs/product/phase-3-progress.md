@@ -17,12 +17,12 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 | AC-RA-02 | `resultClaimsV2.test.ts` (bản đầu mở cửa sổ ngay theo mức) | pass |
 | AC-RA-03 | `resultOcr.test.ts` (mọi mắt xích lỗi → gõ tay, Vàng), `packages/ai/test/resultOcr.test.ts` (JSON sai khuôn bị loại) | pass |
 | AC-RA-04 | `confidence.test.ts` (từng điều kiện Xanh/Vàng/Đỏ), `resultClaimsV2.test.ts` (lý do không lộ uy tín) | pass |
-| AC-RA-05 | `confidence.test.ts`, `resultClaimsV2.test.ts` (sửa ô → Vàng + `EDITED_CELL`); DTO trả `aiReading` từng ảnh nhưng chưa có test đọc DTO | một phần |
+| AC-RA-05 | `confidence.test.ts`, `resultClaimsV2.test.ts` (sửa ô → Vàng + `EDITED_CELL`), `resultAcGaps.test.ts` (DTO trả `aiReading` từng ảnh cùng `editedCells` và số đã sửa) | pass |
 | AC-RA-06 | `confidence.test.ts` (cột người khai chọn không bao giờ Xanh) | pass |
-| AC-RA-07 | `confidence.test.ts` (gộp set, ảnh chụp muộn nhất, lệch set → Vàng), `resultOcr.test.ts` (ảnh không đọc kịp → set gõ tay); giới hạn 6 ảnh/bản (zod) và ảnh thứ 8/người chưa có test riêng | một phần |
+| AC-RA-07 | `confidence.test.ts` (gộp set, ảnh chụp muộn nhất, lệch set → Vàng), `resultOcr.test.ts` (ảnh không đọc kịp → set gõ tay; BO5), `resultAcGaps.test.ts` (6 ảnh/lượt → `RESULT_EVIDENCE_COUNT`; ảnh thứ 8 của cùng người, kể cả ảnh của bản bị thay → `RESULT_EVIDENCE_LIMIT`) | pass |
 | AC-RA-08 | `resultClaimsV2.test.ts` (NO_RESULT hết giờ hòa) | pass |
 | AC-RA-09 | `resultClaimsV2.test.ts` (2h/6h/12h), `resultSweepV2.test.ts` (final đúng một lần) | pass |
-| AC-RA-10 | `deadlines.test.ts`, `resultClaimsV2.test.ts` (22:30 → 08:00), `resultSweepV2.test.ts` (hạn khai 02:00 → 08:00); SLA Admin không giãn theo code, chưa có test riêng | một phần |
+| AC-RA-10 | `deadlines.test.ts`, `resultClaimsV2.test.ts` (22:30 → 08:00), `resultSweepV2.test.ts` (hạn khai 02:00 → 08:00), `resultLifecycle.test.ts` (giờ giả 09:00 và 15:00), `resultAcGaps.test.ts` (vào Admin 23:30: SLA 48 giờ và nhắc 24 giờ tính đúng từ 23:30, không dời) | pass |
 | AC-RA-11 | `resultResponsesV2.test.ts` (đơn final ngay; đôi grace 1h; phản đối trong grace → tranh chấp; bản cùng bên thắng) | pass |
 | AC-RA-12 | `resultResponsesV2.test.ts` (partner được trả thay không chốt sớm; chủ kèo chấp nhận → final) | pass |
 | AC-RA-13 | `resultResponsesV2.test.ts` (Đỏ + Đồng ý → Admin), `resultSweepV2.test.ts` (Đỏ hết 12h → Admin) | pass |
@@ -35,12 +35,12 @@ tự động xanh ở mức ghi trong cột bằng chứng, không thay cho E2E 
 | AC-RA-20 | `resultAppeals.test.ts` (bên thắng, thiếu căn cứ, quá 6h bị từ chối; hợp lệ → Admin) | pass |
 | AC-RA-21 | `resultAppeals.test.ts` (Chấp nhận đơn/đôi) | pass |
 | AC-RA-22 | `resultResponsesV2.test.ts` (sự cố mỗi người một lần), `resultAppeals.test.ts` (Admin ra kết quả cuối) | pass |
-| AC-RA-23 | `packages/ai/test/disputeRuling.test.ts` (ngoài 3 kết quả bị loại); không có đường code AI ghi tiền (tiền chỉ qua `writeResultFinal` hiện có) | một phần |
-| AC-RA-24 | `resultSweepV2.test.ts` (quét hai lần chỉ một sự kiện final), `disputeRulingJob.test.ts` (chạy song song chỉ một phán quyết) | một phần |
+| AC-RA-23 | `packages/ai/test/disputeRuling.test.ts` (ngoài 3 kết quả bị loại), `resultFinalityGuards.test.ts` (AI trả kèm `amount` → bị loại, chuyển Admin, không final; phán quyết tự hiệu lực chốt qua `writeResultFinal`, sự kiện chỉ có `matchId/decisionId/outcome/finalizedAt`; bảng `AiRuling` không có cột tiền) | pass |
+| AC-RA-24 | `resultSweepV2.test.ts` (quét hai lần), `disputeRulingJob.test.ts` (tầng 2 song song), `resultFinalityGuards.test.ts` (hai người đội thua cùng Đồng ý; hết grace quét hai lần + Đồng ý cùng lúc; hết 6h kháng nghị quét hai lần + Chấp nhận cùng lúc; cùng quyết định Admin gửi hai lần) — mỗi đường đúng một sự kiện final | pass |
 | AC-RA-25 | `resultAppeals.test.ts` (vi phạm tự động chỉ khi trùng chính xác, Admin xác nhận, tối đa 1/người/hồ sơ) | pass |
 | AC-RA-26 | `resultClaimsV2.test.ts`, `resultResponsesV2.test.ts`, `reputation.test.ts` (API công khai không có uy tín) | pass |
-| AC-RA-27 | `resultOcr.test.ts` (AI lỗi → gõ tay); đóng bằng chứng khi chuỗi tầng 2 rỗng → Admin theo code, chưa có test `RESULT_AI_ENABLED=false` | một phần |
-| AC-RA-28 | Án lệ chỉ được tạo khi Admin quyết định (`resultAppeals.test.ts`) + ca mẫu từ `scripts/knowledge/ingest.ts` | một phần |
+| AC-RA-27 | `resultOcr.test.ts` (AI lỗi → gõ tay), `resultAiOffAndKnowledge.test.ts` (`RESULT_AI_ENABLED=false` tắt mọi chuỗi kể cả khi có key; ảnh → gõ tay, Vàng; tầng 1 vẫn xử một bên; hai bên → Admin thay tầng 2) | pass |
+| AC-RA-28 | `resultAiOffAndKnowledge.test.ts` (ca mẫu từ `samples.json` qua `sampleChunk` gắn nhãn "mẫu"; hồ sơ AI tự chốt không thành án lệ; hồ sơ có quyết định Admin thành án lệ ẩn danh; truy hồi kind án lệ/ca mẫu không trả đoạn luật hay hồ sơ AI tự chốt), `resultAppeals.test.ts` | pass |
 
 ### Phần web và bù backend (plan `2026-10-22-result-ocr-web.md`, 22/10/2026)
 
