@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { PassportPage } from './PassportPage.js'
 import { declarePassportTier, getMatchHistory, getOwnPassport } from '../lib/passportApi'
 import { getCurrentSeason, getLeaderboard, selectSeasonRegion } from '../lib/competitionApi'
+import { getMyReputation } from '../lib/resultApi'
 
 vi.mock('../lib/passportApi', () => ({
   getOwnPassport: vi.fn(), getPublicPassport: vi.fn(), declarePassportTier: vi.fn(), getMatchHistory: vi.fn(), submitMatchEvaluation: vi.fn(),
@@ -11,6 +12,10 @@ vi.mock('../lib/passportApi', () => ({
 vi.mock('../lib/competitionApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/competitionApi')>()),
   getCurrentSeason: vi.fn(), getLeaderboard: vi.fn(), selectSeasonRegion: vi.fn(),
+}))
+vi.mock('../lib/resultApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/resultApi')>()),
+  getMyReputation: vi.fn().mockResolvedValue({ reputation: 'good', violations: [], recoversAt: null }),
 }))
 vi.mock('../lib/accountApi', () => ({ getMyProfile: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.c', phone: null, roles: ['player'], playerProfile: { displayName: 'Minh Anh', avatarUrl: null, visibility: 'public' } }) }))
 
@@ -98,4 +103,17 @@ it('asks for confirmation before locking the season region', async () => {
   fireEvent.click(within(dialog).getByRole('button', { name: 'Xác nhận khu vực' }))
   await waitFor(() => expect(selectSeasonRegion).toHaveBeenCalledWith('ha-noi'))
   expect(await screen.findByText('Khu vực xếp hạng mùa này')).toBeInTheDocument()
+})
+
+it('shows my reputation with active violations and the recovery date (U1)', async () => {
+  vi.mocked(getMyReputation).mockResolvedValue({
+    reputation: 'watch', recoversAt: '2026-12-14T03:00:00Z',
+    violations: [{ matchCode: 'KEO-00003991', kind: 'exact_duplicate_photo', createdAt: '2026-09-15T03:00:00Z', expiresAt: '2026-12-14T03:00:00Z' }],
+  })
+  renderPage()
+  expect(await screen.findByText('Uy tín khi khai kết quả: Cần chú ý')).toBeInTheDocument()
+  expect(screen.getByText('Gửi ảnh trùng với ảnh của trận khác')).toBeInTheDocument()
+  expect(screen.getByText('KEO-00003991')).toBeInTheDocument()
+  expect(screen.getAllByText('14/12/2026').length).toBeGreaterThan(0)
+  expect(screen.getByText('Chỉ bạn và quản trị viên thấy')).toBeInTheDocument()
 })

@@ -7,6 +7,7 @@ import { RouteState } from '../components/RouteState.js';
 import { formatDateTimeVi, formatDateVi, formatMoneyVnd } from '../lib/formatters.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { MetricCard } from '../components/courtin/MetricCard';
+import { MyReputationCard } from '../components/result/MyReputationCard';
 import type { SkillTier } from '../lib/matchApi';
 import { getMyProfile } from '../lib/accountApi';
 import { DIVISION_LABEL, getCurrentSeason, getLeaderboard, selectSeasonRegion, type CurrentSeason, type LeaderboardRow } from '../lib/competitionApi';
@@ -204,6 +205,8 @@ function OwnPassportView() {
             </SurfaceCard>
             <MyRewardsCard />
           </div>
+
+          <div className="mt-5"><MyReputationCard /></div>
 
           <SurfaceCard className="mt-5">
             <div className="flex items-start justify-between gap-3">
