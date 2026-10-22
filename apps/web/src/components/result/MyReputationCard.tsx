@@ -20,7 +20,8 @@ const KIND: Record<string, string> = {
 export function MyReputationCard() {
   const [data, setData] = useState<MyReputation | null>(null);
   const [failed, setFailed] = useState(false);
-  useEffect(() => { getMyReputation().then(setData, () => setFailed(true)); }, []);
+  // Lỗi nào (kể cả lỗi đồng bộ) cũng chỉ làm thẻ này báo chưa tải được, không làm hỏng cả trang hồ sơ.
+  useEffect(() => { Promise.resolve().then(getMyReputation).then(setData, () => setFailed(true)); }, []);
   if (failed) return <SurfaceCard><h2 className="text-h3">Uy tín khi khai kết quả</h2><p className="mt-2 text-sm text-ink-500">Chưa tải được uy tín. Tải lại trang để thử lại.</p></SurfaceCard>;
   if (!data) return null;
   return (
