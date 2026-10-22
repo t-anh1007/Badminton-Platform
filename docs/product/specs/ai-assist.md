@@ -35,7 +35,7 @@ người dùng bấm nút để thực hiện qua luồng nghiệp vụ chuẩn 
 | Provider | Google Gemini API |
 | Vị trí gọi | `packages/ai` — một client Gemini dùng chung; các service gọi qua interface nội bộ, KHÔNG rải key khắp nơi |
 | Credential | `GEMINI_API_KEY` qua env; **không hardcode**, không commit key |
-| Model | 【PO-REVIEW: model cụ thể, ví dụ `gemini-2.x-flash` cho rẻ/nhanh】 |
+| Model | Qua env `GEMINI_MODEL`, hiện dùng `gemini-3.5-flash-lite` (Stable, có free tier). `gemini-2.0-flash` đã bị Google tắt từ 01/06/2026 |
 | Fallback | Khi Gemini lỗi/hết quota: AI-01 rơi về gợi ý **thuần thuật toán F-02** (không LLM) + nhãn "giải thích rút gọn"; AI-02 trả thông báo "trợ lý tạm bận, thử lại sau", KHÔNG chặn nghiệp vụ chính |
 | Chi phí | Đồ án free-tier: cache prompt/kết quả khi hợp lý; giới hạn tần suất mỗi user 【PO-REVIEW】 |
 | Riêng tư | KHÔNG gửi dữ liệu người dùng khác vào prompt của một user; chỉ dữ liệu của chính user + dữ liệu công khai (xem AI-02) |
