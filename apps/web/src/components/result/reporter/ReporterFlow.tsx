@@ -4,7 +4,7 @@ import { Button } from '../../ui';
 import { Note, errorText, teamLabel } from '../shared';
 import { DraftEditor } from './DraftEditor';
 
-type Phase = { kind: 'pick' } | { kind: 'reading'; files: File[] } | { kind: 'draft'; draft: ResultDraftResponse };
+type Phase = { kind: 'pick' } | { kind: 'reading'; files: File[] } | { kind: 'draft'; draft: ResultDraftResponse; files: File[] };
 
 const READ_BUDGET_S = 30;
 
@@ -44,7 +44,7 @@ export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro
     abort.current = new AbortController();
     setPhase({ kind: 'reading', files });
     try {
-      setPhase({ kind: 'draft', draft: await readResultPhotos(matchId, files, abort.current.signal) });
+      setPhase({ kind: 'draft', draft: await readResultPhotos(matchId, files, abort.current.signal), files });
     } catch (cause) {
       if ((cause as { name?: string }).name === 'AbortError') setPhase({ kind: 'pick' });
       else { setError(errorText(cause, 'Không đọc được ảnh.')); setPhase({ kind: 'pick' }); }
@@ -93,7 +93,7 @@ export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro
         </div>
       )}
       {phase.kind === 'draft' && (
-        <DraftEditor draft={phase.draft} format={resultCase.match.format} teamNames={{ A: teamLabel(resultCase, 'A'), B: teamLabel(resultCase, 'B') }}
+        <DraftEditor draft={phase.draft} files={phase.files} format={resultCase.match.format} teamNames={{ A: teamLabel(resultCase, 'A'), B: teamLabel(resultCase, 'B') }}
           submitLabel={submitLabel} busy={busy} onSubmit={(submission) => void submit(submission)} onRestart={() => setPhase({ kind: 'pick' })} />
       )}
       {error && <Note tone="danger">{error}</Note>}

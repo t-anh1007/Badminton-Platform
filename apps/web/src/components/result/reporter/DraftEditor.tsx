@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { previewOutcome, type MatchFormat, type SetScore } from '../../../lib/matchApi';
 import { estimateLevel, type ColumnMapping, type EditedCell, type ResultDraftResponse, type Submission } from '../../../lib/resultApi';
 import { Button } from '../../ui';
@@ -11,11 +11,18 @@ type Cell = string;
  * K3/K4: bản nháp tỉ số theo set. Q3: "AI chưa chắc" đánh dấu cả hàng set. Q4: không gán lại ảnh, mỗi set hiện ảnh nguồn.
  * Q8: mức dự kiến tính ở FE, server tính lại khi gửi.
  */
-export function DraftEditor({ draft: response, format, teamNames, submitLabel, busy, onSubmit, onRestart }: {
-  draft: ResultDraftResponse; format: MatchFormat; teamNames: { A: string; B: string }; submitLabel: string; busy: boolean;
+export function DraftEditor({ draft: response, files, format, teamNames, submitLabel, busy, onSubmit, onRestart }: {
+  draft: ResultDraftResponse; files: File[]; format: MatchFormat; teamNames: { A: string; B: string }; submitLabel: string; busy: boolean;
   onSubmit: (submission: Submission & { outcome?: 'NO_RESULT' }) => void; onRestart: () => void;
 }) {
   const { draft } = response;
+  // Ảnh thu nhỏ từ file cục bộ để đối chiếu khi duyệt; thứ tự trùng "Ảnh N" vì server giữ thứ tự file.
+  const [previews, setPreviews] = useState<string[]>([]);
+  useEffect(() => {
+    const urls = files.map((file) => URL.createObjectURL(file));
+    setPreviews(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [files]);
   const maxSets = format === 'bo5' ? 5 : 3;
   const needsColumns = draft.columnMappedBy === null;
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>(null);
@@ -72,9 +79,14 @@ export function DraftEditor({ draft: response, format, teamNames, submitLabel, b
         </fieldset>
       )}
 
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_200px]">
       <table className="w-full border-separate border-spacing-0" aria-label="Tỉ số theo set">
         <thead><tr className="text-left text-[13px] font-semibold text-ink-500">
-          <th className="pb-2">Set</th><th className="pb-2 text-center">Đội A</th><th className="pb-2 text-center">Đội B</th><th className="pb-2 text-right">Ảnh</th>
+          <th className="pb-2 align-bottom">Set</th>
+          {(['A', 'B'] as const).map((side) => (
+            <th key={side} className="pb-2 text-center align-bottom">Đội {side}{teamNames[side] !== `Đội ${side}` && <span className="block text-xs font-medium text-ink-700">{teamNames[side]}</span>}</th>
+          ))}
+          <th className="pb-2 text-right align-bottom">Ảnh</th>
         </tr></thead>
         <tbody>
           {rows.map((row, index) => {
@@ -106,6 +118,17 @@ export function DraftEditor({ draft: response, format, teamNames, submitLabel, b
           })}
         </tbody>
       </table>
+      {previews.length > 0 && (
+        <aside aria-label="Ảnh đã chọn" className="grid content-start gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          {previews.map((url, index) => (
+            <a key={index} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-line" title="Mở ảnh lớn để đối chiếu">
+              <img src={url} alt={`Ảnh ${index + 1}`} className="aspect-[4/3] w-full object-cover" />
+              <span className="block px-2 py-1 text-xs font-semibold text-ink-500">Ảnh {index + 1}</span>
+            </a>
+          ))}
+        </aside>
+      )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-green-50 p-4">
         <div><p className="text-sm text-ink-500">Kết quả</p><p className="text-h3 text-2xl">{preview ? outcomeText(preview.outcome, sets) : 'Chưa đủ để xác định'}</p></div>
@@ -120,7 +143,7 @@ export function DraftEditor({ draft: response, format, teamNames, submitLabel, b
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-md text-xs text-ink-500">Gửi xong không sửa được. Bạn được thay bản khai khi đội kia chưa phản hồi.</p>
+        <p className="max-w-md text-xs text-ink-500">Gửi xong không sửa từng số. Nếu sai, bạn có thể gửi bản khai mới thay thế khi đội kia chưa phản hồi.</p>
         <div className="flex gap-2">
           <Button tone="secondary" onClick={onRestart}>Chọn lại ảnh</Button>
           <Button disabled={!canSend} onClick={() => onSubmit({
