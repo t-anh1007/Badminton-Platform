@@ -1,7 +1,7 @@
 ---
 type: functional-spec
 status: approved
-updated: 2026-10-22
+updated: 2026-10-24
 owner: Tuan Anh (PO)
 author: Claude Code
 scope: MMP (kết quả kèo), AI (NCKH — AI agent + RAG)
@@ -28,7 +28,7 @@ Admin. Khi mâu thuẫn, spec này thay thế phần tương ứng của `compet
 | BR-CM-25 phần số lượng và dung lượng ảnh (1–3 ảnh/bản khai, 5 ảnh/người/hồ sơ, 5 MB/ảnh) | BR-RA-02: 1–5 ảnh/bản khai, 7 ảnh/người/hồ sơ (+2 khi kháng nghị), tối đa 15 MB/ảnh; định dạng giữ nguyên |
 | BR-CM-28 (cửa sổ phản hồi cố định 12h) | BR-RA-20, 20a: cửa sổ theo mức tin cậy, giãn qua đêm |
 | BR-CM-29 (đã hết hiệu lực) | BR-RA-03, 29: nhiều bản khai, gộp theo đội |
-| BR-CM-31 (grace 1h kèo đôi khi một người đội thua xác nhận) | BR-RA-22, 23: mở rộng thành luật chung "đội thua chấp nhận" cho Đồng ý, ảnh khớp và tự khai thua |
+| BR-CM-31 (grace 1h kèo đôi khi một người đội thua xác nhận) | BR-RA-22, 23: luật chung "đội thua chấp nhận" cho Đồng ý, ảnh khớp và tự khai thua; bỏ grace từ D63 |
 | BR-CM-33 phần "không ai khai" | Giữ, nhưng hạn được giãn qua đêm (BR-RA-20a) và được khai `NO_RESULT` hợp luật (BR-RA-07) |
 | BR-CM-37..39 (chủ sân đề xuất 24h) | Bỏ bước chủ sân. Tranh chấp tỉ số đi BR-RA-30..41; sự cố đi thẳng Admin (BR-RA-42) |
 | Bất biến 1.3 #3, #4 | Bất biến mới §1.4: kết quả tạm của tầng 1 và phán quyết tạm của AI tự hiệu lực nếu không có kháng nghị hợp lệ; Admin là cấp phúc thẩm và quyết định cuối |
@@ -70,8 +70,8 @@ BR-CM-47), BXH §8, thưởng §9; sự cố/no-show BR-CM-34..36; Admin BR-CM-4
 
 - Người chơi trung thực phải chờ lâu hơn luồng hiện tại.
 - Người sửa đúng chỗ AI đọc sai bị bất lợi.
-- Một thành viên (kể cả partner được trả thay) chốt được thua thay cho đồng đội mà
-  đồng đội không kịp phản ứng.
+- Partner được trả thay chốt được thua thay cho người đã trả tiền mà người đó không kịp
+  phản ứng. (Từ D63, thành viên tự trả tiền được chốt thay cả đội.)
 - AI chốt sai mà không còn đường kháng nghị.
 - AI tự tính số tiền hoặc tự quyết ngoài đúng 3 kết quả `TEAM_A_WIN`, `TEAM_B_WIN`,
   `NO_RESULT`.
@@ -116,7 +116,7 @@ Không có đội cố định (D58): "đội" là Team A / Team B của một k
 | FR3 | AI đọc từng ảnh → tỉ số từng set, cột nào là đội nào, độ chắc từng ô. | AI lỗi → gõ tay (BR-RA-14) | Có bản nháp tỉ số |
 | FR4 | Code kiểm tra từng ảnh và cả bản (luật, thể thức, đội, thời gian chụp, trùng ảnh) → gán mức. | Không xác định được cột → người khai chọn (tối đa Vàng) | Có mức Xanh/Vàng/Đỏ |
 | FR5 | Người khai xem bản điền sẵn, sửa nếu cần, bấm **Gửi**. | Tỉ số sai luật → không gửi được | Bản khai được ghi, bất biến |
-| FR6 | Bản của đội đầu tiên thành kết quả đề xuất; nếu tự khai thua thì xử như đội thua chấp nhận. | Đỏ → không tự final | Chờ phản hồi / grace / chốt |
+| FR6 | Bản của đội đầu tiên thành kết quả đề xuất; nếu tự khai thua thì xử như đội thua chấp nhận. | Đỏ → không tự final | Chờ phản hồi / chốt |
 | FR7 | Đội thua chấp nhận, hoặc im lặng hết cửa sổ → final. Có bất đồng (đội kia hoặc ngay trong đội) → tranh chấp. | Phản đối lý do "không có trận" → sự cố | Final, tranh chấp hoặc Admin |
 | FR8 | Tầng 1: 2h nộp bằng chứng kín, luật bằng chứng ra kết quả tạm. | Bằng chứng hợp lệ cho cả hai bên thắng → FR9 | Kết quả tạm hoặc tầng 2 |
 | FR9 | Tầng 2: AI soạn phán quyết tạm. | Tin cậy thấp / AI lỗi → Admin | Phán quyết tạm hoặc Admin |
@@ -162,9 +162,10 @@ Không có đội cố định (D58): "đội" là Team A / Team B của một k
 | BR-RA-20 | Cửa sổ phản hồi tính từ lúc có kết quả đề xuất: Xanh **2h**, Vàng **6h**, Đỏ **12h**. Các con số là cấu hình, chỉnh được sau thực nghiệm. |
 | BR-RA-20a | **Giãn qua đêm** (PO 21/10/2026): mọi hạn mà người chơi phải hành động — cửa sổ khai, cửa sổ phản hồi, grace, 2h nộp bằng chứng, 6h kháng nghị — được tính từ hạn gốc; nếu hạn cuối cùng rơi vào 23:00–07:00 giờ Việt Nam thì dời tới **08:00 sáng kế tiếp**. Giãn đúng một lần cho mỗi hạn, sau khi đã tính xong. Không áp cho SLA Admin. Đội thua chấp nhận ban đêm vẫn chốt ngay. *(phạm vi áp cho cửa sổ khai và cách tính một lần: quyết định của Claude)* |
 | BR-RA-21 | Hết cửa sổ mà không có bất đồng → final theo kết quả đề xuất (tác vụ idempotent như BR-CM-32). Ngoại lệ: kết quả đề xuất Đỏ → Admin (BR-RA-17). |
-| BR-RA-22 | **Đội thua chấp nhận** = một thành viên của đội bị xử thua theo kết quả đề xuất (với `NO_RESULT`: thành viên đội kia) làm một trong: bấm **Đồng ý**; gửi bản khai **cùng bên thắng** (điểm set có thể lệch); hoặc chính bản đề xuất là bản **tự khai đội mình thua** (BR-RA-04). Hệ quả: kèo đơn → final ngay; kèo đôi → final khi người còn lại của đội đó cũng chấp nhận, hoặc hết **grace 1h** mà người đó không phản đối (BR-CM-31, PO 21/10/2026). Áp chung cho cả ba cách, không có cách nào bỏ qua grace. *(thống nhất ba cách: quyết định của Claude)* |
+| BR-RA-22 | **Đội thua chấp nhận** = một thành viên của đội bị xử thua theo kết quả đề xuất (với `NO_RESULT`: thành viên đội kia) làm một trong: bấm **Đồng ý**; gửi bản khai **cùng bên thắng** (điểm set có thể lệch, BR-RA-25); hoặc chính bản đề xuất là bản **tự khai đội mình thua** (BR-RA-04). Hệ quả: **final ngay** cho cả kèo đơn và kèo đôi — kèo đôi không chờ người còn lại của đội (D63, PO 24/10/2026, bỏ grace 1h của BR-CM-31). Hồ sơ đang trong grace lúc chuyển luật chạy tiếp tới hết grace. |
 | BR-RA-23 | **Slot trả thay:** chấp nhận do **partner được trả thay** thực hiện (Đồng ý, gửi bản cùng bên thắng, hay tự khai thua) **không** tính là đội thua chấp nhận: kết quả đề xuất chạy cửa sổ thường theo mức, và chỉ chốt sớm khi người trả (chủ kèo) cũng chấp nhận (PO 21/10/2026). Chấp nhận do người trả thực hiện áp BR-RA-22 bình thường. |
 | BR-RA-24 | **Bất đồng → tranh chấp** (§5): một thành viên đội kia bấm **Phản đối** hoặc gửi bản **khác bên thắng**; hoặc đồng đội của người khai gửi bản khác bên thắng; hoặc người còn lại phản đối trong grace. Không có bước "chọn bản trong đội". Khi bấm Phản đối, người dùng chọn lý do: **"tỉ số sai"** → tranh chấp tỉ số; **"không có trận / vắng mặt / bỏ dở"** → sự cố (BR-RA-42). Phản đối không bắt buộc kèm ảnh lúc bấm, trừ người uy tín Thấp. Hành động nào tới server trước khi hồ sơ final thì có hiệu lực; một khi đã thành tranh chấp, chấp nhận đến sau không đóng tranh chấp mà chỉ là bằng chứng. *(bỏ bước chọn bản và thêm lý do phản đối: quyết định của Claude)* |
+| BR-RA-25 | **Cùng bên thắng, lệch điểm set** (D63, PO 24/10/2026): khi bản nháp của người đội kia cùng bên thắng với kết quả đề xuất nhưng điểm của ít nhất một set khác, trước khi gửi người khai thấy so sánh từng set (tô ô lệch) và chọn **dùng tỉ số của kết quả đề xuất** (tương đương Đồng ý) hoặc **giữ tỉ số của mình**. Giữ thì bản vẫn tính là đội thua chấp nhận (BR-RA-22) vì tiền và rating chỉ phụ thuộc bên thắng; điểm set chính thức theo kết quả đề xuất; roster thấy nhãn "tỉ số set chưa thống nhất" và cả hai bản (BR-RA-06). |
 | BR-RA-26 | Ảnh/bản khai gửi sau khi đã final chỉ được lưu, không đổi kết quả. |
 | BR-RA-27 | Cửa sổ khai chỉ giới hạn việc tạo **kết quả đề xuất đầu tiên**. Khi đã có kết quả đề xuất, mọi hành động phản hồi được phép tới hết cửa sổ phản hồi, kể cả khi vượt cửa sổ khai. *(quyết định của Claude)* |
 | BR-RA-28 | Đồng ý và Chấp nhận phán quyết gắn với **đúng phiên bản** bản đề xuất/phán quyết người dùng đang xem; nếu bản đã bị thay (BR-RA-05) thì hành động bị từ chối và người dùng phải xem lại. *(quyết định của Claude)* |
@@ -191,7 +192,7 @@ Không có đội cố định (D58): "đội" là Team A / Team B của một k
 | BR-RA-36 | Độ tin cậy ≥ ngưỡng (mặc định 0,85, cấu hình) → công bố **phán quyết tạm** cho roster kèm lý do và trích dẫn, mở **6h kháng nghị**. |
 | BR-RA-37 | Độ tin cậy < ngưỡng, AI lỗi, hoặc kết quả sai khuôn → chuyển Admin kèm bản phân tích nếu có. AI bị giới hạn lượt gọi thì thử lại tối đa 30 phút rồi mới chuyển Admin. *(quyết định của Claude)* |
 | BR-RA-38 | **Kháng nghị** (áp cho kết quả tạm tầng 1 và phán quyết tạm tầng 2) (PO 21/10/2026): chỉ thành viên của **bên bị xử thua** được kháng nghị (với `NO_RESULT`: thành viên cả hai đội); trong 6h; bắt buộc kèm **ảnh mới** (tối đa 2, ngoài giới hạn 7) **hoặc** chỉ ra điểm sai cụ thể trong lý do của kết quả tạm/phán quyết tạm. Thiếu cả hai → bị từ chối, không lên Admin. Kháng nghị hợp lệ → Admin. |
-| BR-RA-38a | Bên bị xử thua được bấm **Chấp nhận** để chốt sớm: kèo đơn → final ngay; kèo đôi → khi người còn lại cũng Chấp nhận (không có grace riêng — cửa sổ 6h vẫn là hạn chót). Chấp nhận của partner được trả thay áp BR-RA-23. *(quyết định của Claude)* |
+| BR-RA-38a | Bên bị xử thua được bấm **Chấp nhận** để chốt sớm: một người của đội bị xử thua Chấp nhận là final, cả kèo đơn và kèo đôi; với `NO_RESULT` cần một người của **mỗi** đội (D63, PO 24/10/2026). Chấp nhận của partner được trả thay áp BR-RA-23: chưa chốt khi người trả chưa Chấp nhận. |
 | BR-RA-39 | Admin xử theo BR-CM-40..42 (SLA 48h, 3 kết quả, lý do, xem trước tác động, xác nhận hai bước, final). Admin thấy phân tích và phán quyết tạm của AI nhưng không bị ràng buộc. Khi giữ nguyên kết quả bị kháng nghị, Admin chọn "có căn cứ" hoặc "không có căn cứ" cho kháng nghị (dùng cho BR-RA-51). |
 | BR-RA-40 | Mọi phán quyết tạm của AI, kể cả bị kháng nghị, được lưu cùng đầu vào, trích dẫn, độ tin cậy và kết quả cuối để đo đạc. |
 | BR-RA-41 | Phán quyết của AI không bao giờ chứa số tiền. Code tính tiền từ kết quả cuối theo §4 của `competitive-matches.md`. |
@@ -226,8 +227,8 @@ Không có đội cố định (D58): "đội" là Team A / Team B của một k
 played -> declaration_open
   declaration_open -> proposed(xanh|vàng|đỏ)             (bản của đội đầu tiên)
   declaration_open -> provisional_no_result -> ...         (BR-CM-33, hạn giãn qua đêm)
-  proposed -> acceptance_grace                             (đôi: một người đội thua chấp nhận)
-  proposed | acceptance_grace -> final_result              (đơn chấp nhận / đôi đủ chấp nhận / hết grace / hết cửa sổ)
+  proposed -> final_result                                 (một người đội thua chấp nhận / hết cửa sổ; D63)
+  acceptance_grace -> final_result                         (chỉ hồ sơ vào grace trước D63: hết grace / người còn lại chấp nhận)
   proposed(đỏ) -> admin_review                             (hết cửa sổ hoặc có chấp nhận)
   proposed | acceptance_grace -> evidence_window           (bất đồng, lý do "tỉ số sai")
   evidence_window -> rule_ruling -> appeal_window          (tầng 1)
@@ -248,7 +249,7 @@ chuyển trạng thái có idempotency key. Không trạng thái nào dừng b�
 In-app + email, như §11 của `competitive-matches.md`, thêm:
 
 - Có kết quả đề xuất (kèm mức tin cậy, lý do Vàng/Đỏ không nêu uy tín, hạn phản hồi).
-- Grace kèo đôi: báo người còn lại "đồng đội đã chấp nhận, còn tới HH:MM để phản đối".
+- Kết quả chốt do một người đội thua chấp nhận (kèo đôi: báo cả đồng đội người đó).
 - Slot trả thay: báo chủ kèo khi partner được trả thay chấp nhận thua.
 - Mở tranh chấp; nhắc trước khi hết 2h nộp bằng chứng.
 - Kết quả tạm tầng 1 / phán quyết tạm tầng 2 (lý do, hạn kháng nghị, ai được kháng nghị).
@@ -283,8 +284,9 @@ In-app + email, như §11 của `competitive-matches.md`, thêm:
 **Phản hồi và tự chốt**
 - `AC-RA-09` — Cửa sổ 2h/6h/12h đúng theo mức; hết hạn không bất đồng → final đúng một lần.
 - `AC-RA-10` — Hạn cuối rơi vào 23:00–07:00 dời tới 08:00 sáng kế tiếp, đúng một lần, cho mọi loại hạn ở BR-RA-20a; SLA Admin không bị giãn.
-- `AC-RA-11` — Đội thua chấp nhận bằng Đồng ý, bản cùng bên thắng hoặc tự khai thua: đơn → final ngay; đôi → final khi người còn lại chấp nhận hoặc hết grace 1h; người còn lại phản đối trong grace → tranh chấp.
-- `AC-RA-12` — Partner được trả thay chấp nhận/tự khai thua không mở grace và không chốt sớm; chủ kèo (người trả) chấp nhận thì áp luật chung.
+- `AC-RA-11` — Đội thua chấp nhận bằng Đồng ý, bản cùng bên thắng hoặc tự khai thua: final ngay cho cả đơn và đôi, không có grace (D63).
+- `AC-RA-11a` — Bản cùng bên thắng nhưng lệch điểm set: người khai thấy cảnh báo so sánh trước khi gửi; giữ tỉ số của mình vẫn final, điểm set chính thức theo kết quả đề xuất, roster thấy nhãn chưa thống nhất.
+- `AC-RA-12` — Partner được trả thay chấp nhận/tự khai thua không chốt sớm; chủ kèo (người trả) chấp nhận thì áp luật chung.
 - `AC-RA-13` — Bản Đỏ (trùng chính xác hoặc chụp trước giờ) không final bằng bất kỳ đường nào; hết cửa sổ hoặc có chấp nhận → Admin.
 - `AC-RA-14` — Đồng đội của người khai gửi bản khác bên thắng → tranh chấp, không có bước chọn bản.
 - `AC-RA-15` — Phản đối lý do "không có trận" → sự cố tới Admin; lý do "tỉ số sai" → tranh chấp.
@@ -295,7 +297,7 @@ In-app + email, như §11 của `competitive-matches.md`, thêm:
 - `AC-RA-18` — Tầng 1 gom theo bên thắng; một ảnh Đỏ chỉ bị loại riêng; xử đúng ba nhánh BR-RA-31, 33, 34; Xanh ngược Vàng → tầng 2.
 - `AC-RA-19` — Tầng 2: tin cậy ≥ ngưỡng → phán quyết tạm + 6h; < ngưỡng, lỗi, AI không đọc được ảnh mới sau 30 phút → Admin; đầu vào AI không chứa uy tín.
 - `AC-RA-20` — Kháng nghị: người thuộc bên thắng, kháng nghị không ảnh mới và không chỉ ra điểm sai, hoặc quá 6h → bị từ chối; kháng nghị hợp lệ → Admin; phán quyết tạm không có hiệu lực tiền khi đang ở Admin.
-- `AC-RA-21` — Bên bị xử thua Chấp nhận → final sớm đúng quy tắc đơn/đôi.
+- `AC-RA-21` — Bên bị xử thua Chấp nhận → final sớm khi một người mỗi đội bị xử thua đã Chấp nhận (`NO_RESULT`: mỗi đội một người); partner được trả thay không chốt khi người trả chưa Chấp nhận.
 - `AC-RA-22` — Sự cố: mỗi người một lần/hồ sơ; Admin xử ra luôn kết quả cuối.
 
 **Tiền, uy tín, AI**
