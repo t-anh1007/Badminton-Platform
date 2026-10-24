@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { checkResultPhotos, readResultPhotos, type ResultCaseV2, type ResultDraftResponse, type Submission } from '../../../lib/resultApi';
+import { checkResultPhotos, readResultPhotos, type ResultCaseV2, type ResultClaimView, type ResultDraftResponse, type Submission } from '../../../lib/resultApi';
 import { Button } from '../../ui';
 import { Note, errorText, teamLabel } from '../shared';
 import { DraftEditor } from './DraftEditor';
@@ -12,8 +12,8 @@ const READ_BUDGET_S = 30;
  * K1 → K2 → K3/K4 trong cùng một khối: chọn ảnh, chờ AI đọc (≤ 30 giây), sửa bản nháp rồi gửi.
  * Dùng chung cho khai kết quả, ảnh tranh chấp và ảnh kèm phản đối (chỉ khác nút gửi).
  */
-export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro, footer }: {
-  matchId: string; resultCase: ResultCaseV2; submitLabel: string;
+export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro, footer, compareWith }: {
+  matchId: string; resultCase: ResultCaseV2; submitLabel: string; compareWith?: ResultClaimView;
   onSubmit: (submission: Submission & { outcome?: 'NO_RESULT' }) => Promise<void>; intro?: ReactNode; footer?: ReactNode;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'pick' });
@@ -93,7 +93,7 @@ export function ReporterFlow({ matchId, resultCase, submitLabel, onSubmit, intro
         </div>
       )}
       {phase.kind === 'draft' && (
-        <DraftEditor draft={phase.draft} files={phase.files} format={resultCase.match.format} teamNames={{ A: teamLabel(resultCase, 'A'), B: teamLabel(resultCase, 'B') }}
+        <DraftEditor draft={phase.draft} files={phase.files} compareWith={compareWith} format={resultCase.match.format} teamNames={{ A: teamLabel(resultCase, 'A'), B: teamLabel(resultCase, 'B') }}
           submitLabel={submitLabel} busy={busy} onSubmit={(submission) => void submit(submission)} onRestart={() => setPhase({ kind: 'pick' })} />
       )}
       {error && <Note tone="danger">{error}</Note>}

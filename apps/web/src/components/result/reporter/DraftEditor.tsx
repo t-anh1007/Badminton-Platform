@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { previewOutcome, type MatchFormat, type SetScore } from '../../../lib/matchApi';
-import { estimateLevel, type ColumnMapping, type EditedCell, type ResultDraftResponse, type Submission } from '../../../lib/resultApi';
+import { estimateLevel, type ColumnMapping, type EditedCell, type ResultClaimView, type ResultDraftResponse, type Submission } from '../../../lib/resultApi';
 import { Button } from '../../ui';
 import { LevelBadge, Note, ReasonList, outcomeText } from '../shared';
 
@@ -11,8 +11,8 @@ type Cell = string;
  * K3/K4: bản nháp tỉ số theo set. Q3: "AI chưa chắc" đánh dấu cả hàng set. Q4: không gán lại ảnh, mỗi set hiện ảnh nguồn.
  * Q8: mức dự kiến tính ở FE, server tính lại khi gửi.
  */
-export function DraftEditor({ draft: response, files, format, teamNames, submitLabel, busy, onSubmit, onRestart }: {
-  draft: ResultDraftResponse; files: File[]; format: MatchFormat; teamNames: { A: string; B: string }; submitLabel: string; busy: boolean;
+export function DraftEditor({ draft: response, files, compareWith, format, teamNames, submitLabel, busy, onSubmit, onRestart }: {
+  draft: ResultDraftResponse; files: File[]; compareWith?: ResultClaimView; format: MatchFormat; teamNames: { A: string; B: string }; submitLabel: string; busy: boolean;
   onSubmit: (submission: Submission & { outcome?: 'NO_RESULT' }) => void; onRestart: () => void;
 }) {
   const { draft } = response;
@@ -59,6 +59,16 @@ export function DraftEditor({ draft: response, files, format, teamNames, submitL
   ), [draft, sets.length, needsColumns, columnMapping, editedCells]);
   const imageNumber = (uploadId: string | null) => (uploadId ? response.images.findIndex((image) => image.uploadId === uploadId) + 1 : 0);
   const canSend = picked && preview !== null && !halfFilled && !busy;
+  // BR-RA-25 (D63): cùng bên thắng với kết quả đề xuất nhưng lệch điểm set → cảnh báo, cho dùng tỉ số đề xuất.
+  const proposed = compareWith?.sets ?? [];
+  const mismatched = compareWith && preview?.outcome === compareWith.outcome
+    ? Array.from({ length: Math.max(sets.length, proposed.length) }, (_, index) => index)
+      .filter((index) => sets[index]?.teamA !== proposed[index]?.teamA || sets[index]?.teamB !== proposed[index]?.teamB)
+    : [];
+  const score = (set?: SetScore) => (set ? `${set.teamA}–${set.teamB}` : 'không có');
+  const useProposed = () => setRows(Array.from({ length: maxSets }, (_, index) => ({
+    A: proposed[index] ? String(proposed[index].teamA) : '', B: proposed[index] ? String(proposed[index].teamB) : '',
+  })));
   const labels = response.columns;
 
   return (
@@ -134,6 +144,16 @@ export function DraftEditor({ draft: response, files, format, teamNames, submitL
         <div><p className="text-sm text-ink-500">Kết quả</p><p className="text-h3 text-2xl">{preview ? outcomeText(preview.outcome, sets) : 'Chưa đủ để xác định'}</p></div>
         {preview?.outcome === 'NO_RESULT' && <p className="text-sm text-ink-700">Hết giờ khi hai đội đang hòa: gửi “Không có kết quả”.</p>}
       </div>
+      {mismatched.length > 0 && compareWith && (
+        <Note tone="warning">
+          <p className="font-bold">Cùng đội thắng nhưng tỉ số set khác bản Đội {compareWith.side ?? 'A'} đã khai</p>
+          <ul className="mt-1 list-disc pl-5">
+            {mismatched.map((index) => <li key={index}>Set {index + 1}: bạn {score(sets[index])}, Đội {compareWith.side ?? 'A'} {score(proposed[index])}</li>)}
+          </ul>
+          <p className="mt-1">Kiểm tra lại ảnh. Nếu vẫn gửi tỉ số của bạn, kết quả vẫn chốt theo đội thắng và tỉ số chính thức theo bản Đội {compareWith.side ?? 'A'}.</p>
+          <Button tone="secondary" size="sm" className="mt-2" onClick={useProposed}>Dùng tỉ số của Đội {compareWith.side ?? 'A'}</Button>
+        </Note>
+      )}
       {sets.length > 0 && !preview && !halfFilled && <Note tone="danger">Tỉ số chưa hợp lệ theo luật: set thắng cần 21 điểm, từ 20–20 phải hơn 2 điểm (tối đa 30).</Note>}
 
       <div className="rounded-2xl border border-line p-4">

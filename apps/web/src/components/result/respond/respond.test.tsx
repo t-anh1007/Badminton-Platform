@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MatchResultPanel } from '../MatchResultPanel';
-import { confirmResultV2, objectResultV2, readResultPhoto } from '../../../lib/resultApi';
+import { confirmResultV2, objectResultV2, readResultPhoto, readResultPhotos } from '../../../lib/resultApi';
 import { MatchApiError } from '../../../lib/matchApi';
 import { claimView, proposedCase, vn } from '../testFixtures';
 
@@ -86,4 +86,23 @@ it('BO5: P1 shows every set of the proposal (mục 4)', () => {
   render(<MatchResultPanel matchId="m1" reload={reload} resultCase={proposedCase({ claims: [claimView({ sets, editedCells: [] })] })} />);
   expect(screen.getByText('Set 5')).toBeInTheDocument();
   expect(screen.getByText('Đội A khai: Đội A thắng 3–2')).toBeInTheDocument();
+});
+
+it('BR-RA-25: a team-B photo with the same winner but other set scores warns and can take the proposal scores', async () => {
+  vi.mocked(readResultPhoto).mockResolvedValue({ url: 'x' });
+  vi.mocked(readResultPhotos).mockResolvedValue({
+    draftId: 'd1',
+    draft: {
+      format: 'bo3', columnMappedBy: 'ai', level: 'green', reasons: [], manualEntry: false,
+      sets: [21, 19, 21].map((teamA, index) => ({ teamA, teamB: [18, 21, 15][index]!, sourceUploadId: 'u1', lowConfidence: false })),
+    },
+    images: [{ uploadId: 'u1', read: true, flags: [] }], columns: { left: null, right: null }, viewerQuota: { photosUsed: 0, photosLimit: 7, draftsLeft: 13 },
+  });
+  render(<MatchResultPanel matchId="m1" resultCase={proposedCase()} reload={reload} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi ảnh của Đội B' }));
+  fireEvent.change(screen.getByLabelText('Chọn ảnh bảng tỉ số'), { target: { files: [new File([new Uint8Array(10)], 'b.jpg', { type: 'image/jpeg' })] } });
+  expect(await screen.findByText('Set 3: bạn 21–15, Đội A 21–16')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Dùng tỉ số của Đội A' }));
+  expect(screen.getByLabelText('Set 3 Đội B')).toHaveValue('16');
+  expect(screen.queryByText(/tỉ số set khác bản Đội A/)).not.toBeInTheDocument();
 });

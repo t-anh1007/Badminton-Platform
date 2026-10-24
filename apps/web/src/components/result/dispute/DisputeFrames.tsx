@@ -5,7 +5,7 @@ import type { MatchOutcome } from '../../../lib/matchApi';
 import { Badge, Button } from '../../ui';
 import type { FrameProps } from '../MatchResultPanel';
 import { ResultPhotos } from '../ResultPhotos';
-import { NightTag, Note, ScoreChips, errorText, nightShiftFrom, outcomeText, shortTime } from '../shared';
+import { NightTag, Note, ScoreChips, errorText, nameOf, nightShiftFrom, outcomeText, shortTime } from '../shared';
 import { AppealDialog } from './AppealDialog';
 
 const SIDE_OF: Record<MatchOutcome, string> = { TEAM_A_WIN: 'Ủng hộ Đội A thắng', TEAM_B_WIN: 'Ủng hộ Đội B thắng', NO_RESULT: 'Ủng hộ không có kết quả' };
@@ -162,6 +162,10 @@ export function finalProposal(resultCase: ResultCaseV2) {
 /** P4/T5: kết quả cuối. */
 export function FinalFrame({ matchId, resultCase, scoreShownAbove = false }: FrameProps) {
   const { proposal, sameAsClaim } = finalProposal(resultCase);
+  // BR-RA-25 (D63): bản khác cùng bên thắng nhưng lệch điểm set → nhãn chưa thống nhất, tỉ số chính thức theo bản đề xuất.
+  const scoreText = (claim: ResultClaimView) => claim.sets.map((set) => `${set.teamA}–${set.teamB}`).join(', ');
+  const differing = sameAsClaim ? resultCase.claims.filter((claim) => claim.id !== proposal.id
+    && claim.outcome === resultCase.finalOutcome && scoreText(claim) !== scoreText(proposal)) : [];
   return (
     <div className="grid gap-5">
       {scoreShownAbove
@@ -173,6 +177,11 @@ export function FinalFrame({ matchId, resultCase, scoreShownAbove = false }: Fra
           </div>
         )}
       {sameAsClaim && !scoreShownAbove && <ScoreChips sets={proposal.sets} />}
+      {differing.length > 0 && (
+        <Note tone="warning">
+          Tỉ số set chưa thống nhất. Tỉ số chính thức theo bản Đội {proposal.side ?? 'A'} ({scoreText(proposal)}); {differing.map((claim) => `${nameOf(resultCase, claim.claimantUserId)} khai ${scoreText(claim)}`).join('; ')}. Đội thắng, tiền và điểm xếp hạng không đổi.
+        </Note>
+      )}
       {resultCase.adminDecision && (
         <div className="rounded-2xl border border-line p-4">
           <p className="font-bold text-ink-900">Quyết định của quản trị viên</p>

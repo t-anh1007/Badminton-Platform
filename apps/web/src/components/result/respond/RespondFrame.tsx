@@ -70,7 +70,7 @@ export function RespondFrame({ matchId, resultCase, reload }: FrameProps) {
       <div className="grid gap-4">
         <div className="flex items-center justify-between gap-3"><h2 className="text-h2 text-[26px]">Gửi ảnh của Đội {resultCase.viewerSide}</h2><Button tone="secondary" size="sm" onClick={() => setClaiming(false)}>Quay lại</Button></div>
         <Note tone="info">Ảnh của bạn cho cùng kết quả được tính là đồng ý; cho kết quả khác thì hồ sơ chuyển sang tranh chấp.</Note>
-        <ReporterFlow matchId={matchId} resultCase={resultCase} submitLabel="Gửi kết quả"
+        <ReporterFlow matchId={matchId} resultCase={resultCase} submitLabel="Gửi kết quả" compareWith={proposal}
           onSubmit={async (submission) => { await submitResultClaimV2(matchId, submission); setClaiming(false); await reload(); }} />
       </div>
     );
@@ -118,7 +118,7 @@ export function RespondFrame({ matchId, resultCase, reload }: FrameProps) {
 
       <div className="flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
         <div className="grid max-w-lg gap-1 text-sm">
-          {!grace && resultCase.match.discipline === 'doubles' && actions.canConfirm && <p>Kèo đôi: khi bạn đồng ý, đồng đội còn 1 giờ để phản đối rồi kết quả chốt.</p>}
+          {!grace && resultCase.match.discipline === 'doubles' && actions.canConfirm && <p>Kèo đôi: chỉ cần một người trong đội đồng ý là kết quả chốt.</p>}
           {actions.canClaim && <p className="text-ink-500">Có ảnh khác? <button type="button" className="font-bold text-brand-navy hover:underline" onClick={() => setClaiming(true)}>Gửi ảnh của Đội {resultCase.viewerSide}</button></p>}
         </div>
         <div className="flex gap-2">
