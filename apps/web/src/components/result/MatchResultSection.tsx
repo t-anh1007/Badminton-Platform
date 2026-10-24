@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MatchResultFlow, useServerCountdown } from '../MatchResultFlow';
 import { getResultCaseAny, isPhotoCase, type AnyResultCase } from '../../lib/resultApi';
+import type { MatchOutcome, SetScore } from '../../lib/matchApi';
+import { finalProposal } from './dispute/DisputeFrames';
 import { useLiveDataRefresh } from '../../realtime/dataInvalidation.js';
 import { Skeleton } from '../ui';
 import { MatchResultPanel } from './MatchResultPanel';
@@ -12,7 +14,13 @@ const RESULT_ANCHOR = 'ket-qua-tran';
 /**
  * Khối "Kết quả trận" trên trang kèo: hồ sơ legacy (hoặc chưa mở) dùng luồng cũ không đổi; hồ sơ ra_v1 dùng luồng ảnh.
  */
-export function MatchResultSection({ matchId, allowIncident = false, onFinalChange }: { matchId: string; allowIncident?: boolean; onFinalChange?: (final: boolean) => void }) {
+export interface FinalScore { outcome: MatchOutcome; sets: SetScore[] | null }
+
+export function MatchResultSection({ matchId, allowIncident = false, onFinalChange, onFinalScore }: {
+  matchId: string; allowIncident?: boolean; onFinalChange?: (final: boolean) => void;
+  /** Có thì trang đưa kết quả cuối lên thẻ Đội hình; khung kết quả cuối không lặp lại tỉ số. */
+  onFinalScore?: (score: FinalScore | null) => void;
+}) {
   const [resultCase, setResultCase] = useState<AnyResultCase | null | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
   const load = useCallback(async () => {
@@ -32,6 +40,12 @@ export function MatchResultSection({ matchId, allowIncident = false, onFinalChan
   useServerCountdown(photo?.serverNow, photo ? nextDeadline(photo) : null, () => void load());
   const isFinal = photo?.status === 'final';
   useEffect(() => { if (photo) onFinalChange?.(isFinal); }, [photo, isFinal, onFinalChange]);
+  useEffect(() => {
+    if (!onFinalScore) return;
+    if (!photo || photo.status !== 'final' || !photo.finalOutcome) { onFinalScore(null); return; }
+    const { proposal, sameAsClaim } = finalProposal(photo);
+    onFinalScore({ outcome: photo.finalOutcome, sets: sameAsClaim ? proposal.sets : null });
+  }, [photo, onFinalScore]);
   // Link thông báo kết quả (#ket-qua-tran) cuộn tới khối này sau khi hồ sơ tải xong.
   const loaded = resultCase !== undefined;
   useEffect(() => {
@@ -52,7 +66,7 @@ export function MatchResultSection({ matchId, allowIncident = false, onFinalChan
   }
   return (
     <div id={RESULT_ANCHOR} className="scroll-mt-24">
-      {photo ? <MatchResultPanel matchId={matchId} resultCase={photo} reload={load} /> : <MatchResultFlow matchId={matchId} allowIncident={allowIncident} onFinalChange={onFinalChange} />}
+      {photo ? <MatchResultPanel matchId={matchId} resultCase={photo} reload={load} scoreShownAbove={Boolean(onFinalScore)} /> : <MatchResultFlow matchId={matchId} allowIncident={allowIncident} onFinalChange={onFinalChange} />}
     </div>
   );
 }

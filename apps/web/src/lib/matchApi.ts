@@ -129,7 +129,9 @@ export interface OwnJoin {
   approvedAt: string | null;
 }
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'> {
-  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed';
+  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed' | 'cancelled';
+  /** Chỉ có khi kèo đã hủy và người xem là chủ kèo/người đã đóng tiền. */
+  cancellation?: MatchCancellation | null;
   skillConfiguredAt: string | null;
   /** Chỉ có khi kèo chờ chủ kèo đóng phần góp: hết hạn thì slot nhả, kèo bị hủy. */
   holdExpiresAt?: string | null;
@@ -229,17 +231,27 @@ export async function waitForMatchOpen(id: string, options: { attempts?: number;
   }
   throw new Error('Khoản cọc đang được xác nhận. Vui lòng chờ thêm hoặc thử kiểm tra lại.');
 }
+// Lý do lấy từ sự kiện MatchCancelled (packages/shared MatchCancelledPayload).
+export type MatchCancelReason ='organizer' | 'cutoff' | 'confirmed_booking_policy' | 'shutdown';
+export interface MatchCancellation {
+  reason: MatchCancelReason | null;
+  refundPercent: number | null;
+  cancelledAt: string | null;
+}
 export interface MyConfirmedMatch {
   businessCode?: string;
   id: string;
-  status: 'confirmed' | 'completed';
+  status: 'confirmed' | 'completed' | 'cancelled';
   participationRole: 'organizer' | 'participant';
   participationLabel: 'Kèo đã tham gia';
+  teamSide: TeamSide;
   feePerSlot: string;
   startAt: string;
   endAt: string;
   court: MatchCourt;
   venue: MatchVenue;
+  result: { status: string; outcome: 'TEAM_A_WIN' | 'TEAM_B_WIN' | 'NO_RESULT' | null; declarationDeadlineAt: string } | null;
+  cancellation: MatchCancellation | null;
 }
 export const requestMatchJoin = (id: string, teamSide: TeamSide) =>
   api<OwnJoin & { matchId: string }>(`/matches/${id}/joins`, {

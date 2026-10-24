@@ -6,7 +6,11 @@ import { RespondFrame } from './respond/RespondFrame';
 import { EvidenceFrame } from './dispute/EvidenceFrame';
 import { AdminFrame, FinalFrame, RulingFrame } from './dispute/DisputeFrames';
 
-export interface FrameProps { matchId: string; resultCase: ResultCaseV2; reload: () => Promise<void> }
+export interface FrameProps {
+  matchId: string; resultCase: ResultCaseV2; reload: () => Promise<void>;
+  /** Tỉ số đã chốt hiện ở thẻ Đội hình phía trên → khung kết quả cuối không lặp lại. */
+  scoreShownAbove?: boolean;
+}
 
 /** Khung nào hiện cho người xem này, theo trạng thái hồ sơ và vai trò (server quyết quyền qua viewerActions). */
 export type FrameKey = 'report' | 'sent' | 'respond' | 'evidence' | 'ruling' | 'admin' | 'final' | 'waiting';

@@ -156,7 +156,7 @@ it('shows the daily free withdrawal allowance, the over-limit fee and keeps both
 
 it('shows a confirmed match in booking history with a link for the participant', async () => {
   vi.mocked(getMyConfirmedMatches).mockResolvedValueOnce({ matches: [{
-    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', feePerSlot: '90000',
+    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', teamSide: 'B', result: null, cancellation: null, feePerSlot: '90000',
     startAt: new Date(Date.now() + 60_000).toISOString(), endAt: new Date(Date.now() + 3_600_000).toISOString(),
     court: { id: 'court-1', name: 'Sân 1' }, venue: { id: 'venue-1', name: 'Sân Linh Xuân', address: 'Thủ Đức', lat: 10.8, lng: 106.7 },
   }] })

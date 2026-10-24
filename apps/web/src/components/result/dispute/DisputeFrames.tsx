@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useServerCountdown } from '../../MatchResultFlow';
-import { acceptRuling, type AdminReason, type ResultClaimView } from '../../../lib/resultApi';
+import { acceptRuling, type AdminReason, type ResultCaseV2, type ResultClaimView } from '../../../lib/resultApi';
 import type { MatchOutcome } from '../../../lib/matchApi';
 import { Badge, Button } from '../../ui';
 import type { FrameProps } from '../MatchResultPanel';
@@ -153,17 +153,26 @@ export function AdminFrame({ resultCase }: FrameProps) {
   );
 }
 
-/** P4/T5: kết quả cuối. */
-export function FinalFrame({ matchId, resultCase }: FrameProps) {
+/** Bản khai làm căn cứ chốt; tỉ số từng set chỉ dùng được khi bản khai cùng kết quả cuối. */
+export function finalProposal(resultCase: ResultCaseV2) {
   const proposal = resultCase.claims.find((claim) => claim.id === resultCase.proposalClaimId) ?? resultCase.claims[0];
-  const sameAsClaim = proposal && proposal.outcome === resultCase.finalOutcome;
+  return { proposal, sameAsClaim: Boolean(proposal && proposal.outcome === resultCase.finalOutcome) };
+}
+
+/** P4/T5: kết quả cuối. */
+export function FinalFrame({ matchId, resultCase, scoreShownAbove = false }: FrameProps) {
+  const { proposal, sameAsClaim } = finalProposal(resultCase);
   return (
     <div className="grid gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div><p className="text-sm text-ink-500">Kết quả cuối</p><h2 className="text-h2 mt-1 text-[28px]">{outcomeText(resultCase.finalOutcome, sameAsClaim ? proposal.sets : undefined)}</h2></div>
-        <Badge tone="success">Đã chốt</Badge>
-      </div>
-      {sameAsClaim && <ScoreChips sets={proposal.sets} />}
+      {scoreShownAbove
+        ? <h2 className="text-h3">Hồ sơ kết quả</h2>
+        : (
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="text-sm text-ink-500">Kết quả cuối</p><h2 className="text-h2 mt-1 text-[28px]">{outcomeText(resultCase.finalOutcome, sameAsClaim ? proposal.sets : undefined)}</h2></div>
+            <Badge tone="success">Đã chốt</Badge>
+          </div>
+        )}
+      {sameAsClaim && !scoreShownAbove && <ScoreChips sets={proposal.sets} />}
       {resultCase.adminDecision && (
         <div className="rounded-2xl border border-line p-4">
           <p className="font-bold text-ink-900">Quyết định của quản trị viên</p>

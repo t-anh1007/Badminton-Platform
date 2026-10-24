@@ -16,9 +16,10 @@ import { RouteState } from '../components/RouteState.js';
 import { Icon } from '../components/Icon';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { getMyConfirmedMatches, type MyConfirmedMatch } from '../lib/matchApi.js';
+import { MatchHistoryPanel } from '../components/MatchHistoryPanel.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
-type Tab = 'bookings' | 'wallet';
+type Tab = 'bookings' | 'history' | 'wallet';
 type Period = 'upcoming' | 'past' | 'cancelled' | 'disputes';
 
 const money = (value?: string) => formatMoneyVnd(value ?? '0');
@@ -26,7 +27,7 @@ const money = (value?: string) => formatMoneyVnd(value ?? '0');
 export function ProfilePage() {
   const [params, setParams] = useSearchParams();
   // ?tab=disputes (liên kết cũ) mở thẳng bộ lọc Tranh chấp trong tab Đặt sân & kèo.
-  const tab: Tab = params.get('tab') === 'wallet' ? 'wallet' : 'bookings';
+  const tab: Tab = params.get('tab') === 'wallet' ? 'wallet' : params.get('tab') === 'history' ? 'history' : 'bookings';
   const [profile, setProfile] = useState<ProfileResult | null>(null);
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [ledgerByWallet, setLedgerByWallet] = useState<Record<string, WalletLedgerEntry[]>>({});
@@ -223,9 +224,9 @@ export function ProfilePage() {
   const bookings = period === 'cancelled'
     ? cancelledBookings
     : (period === 'upcoming' ? upcoming : past).filter((booking) => booking.status !== 'cancelled');
-  const matchesForPeriod = period === 'cancelled' || period === 'disputes' ? [] : confirmedMatches.filter((match) =>
-    period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date(),
-  );
+  const matchesForPeriod = period === 'cancelled' || period === 'disputes' ? [] : confirmedMatches.filter((match) => match.status !== 'cancelled' && (
+    period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date()
+  ));
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
   const freeWithdrawLeft = (() => {
     const left = BigInt(personal?.dailyFreeWithdrawal ?? '1000000') - BigInt(personal?.withdrawnToday ?? '0');
@@ -264,7 +265,7 @@ export function ProfilePage() {
 
         <section>
           <Tabs
-            tabs={[{ value: 'bookings', label: 'Đặt sân & kèo' }, { value: 'wallet', label: 'Ví' }]}
+            tabs={[{ value: 'bookings', label: 'Đặt sân & kèo' }, { value: 'history', label: 'Lịch sử đấu' }, { value: 'wallet', label: 'Ví' }]}
             value={tab}
             onChange={(next) => setParams({ tab: next })}
           />
@@ -287,6 +288,8 @@ export function ProfilePage() {
               {period === 'disputes' ? <div className="mt-4"><DisputePanel /></div> : <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có lượt đặt sân" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>}
             </div>
           )}
+
+          {tab === 'history' && <MatchHistoryPanel matches={confirmedMatches} />}
 
           {tab === 'wallet' && (
             <div className="mt-6">
