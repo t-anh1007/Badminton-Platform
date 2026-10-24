@@ -7,7 +7,9 @@ import { cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, 
 
 vi.mock('../components/map/LocationMap', () => ({ LocationMap: () => null }))
 vi.mock('../lib/passportApi', () => ({ getOwnPassport: vi.fn() }))
-vi.mock('../lib/matchApi.js', () => ({
+vi.mock('../lib/matchApi.js', async (importOriginal) => ({
+  // errorText cần lớp lỗi thật khi khối kết quả trận tải lỗi trong test.
+  MatchApiError: (await importOriginal<typeof import('../lib/matchApi.js')>()).MatchApiError,
   getMatchDetail: vi.fn(), getMyScheduleConflicts: vi.fn(), requestMatchJoin: vi.fn(),
   cancelMatch: vi.fn(), withdrawMatchJoin: vi.fn(),
 }))

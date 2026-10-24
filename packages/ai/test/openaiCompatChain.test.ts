@@ -86,10 +86,7 @@ describe('runChain', () => {
   it('unwraps ```json fences and surrounding prose before schema validation', async () => {
     resetCircuitBreaker();
     const fetchImpl = (async () => new Response(JSON.stringify({
-      choices: [{ message: { content: 'Kết quả:
-```json
-{"ok": true}
-```' } }],
+      choices: [{ message: { content: 'Kết quả:\n```json\n{"ok": true}\n```' } }],
     }))) as unknown as typeof fetch;
     const result = await runChain([link('gemini', 'a')], { messages: [] }, parseOk, { timeoutMs: 1000, fetchImpl });
     expect(result.value).toEqual({ ok: true });
