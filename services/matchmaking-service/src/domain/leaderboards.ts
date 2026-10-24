@@ -107,8 +107,12 @@ export async function getMatchHistory(
     const mySide = sideOf(userId);
     const roster = [match.organizerUserId, ...match.joins.map((join) => join.participantUserId)];
     // Tỷ số hiển thị theo BR-CM-29: bản của chủ kèo cùng bên thắng, nếu không thì bản đầu tiên.
+    // ra_v1 (BR-RA-25, D63): bản hiện hành sớm nhất cùng bên thắng, tức kết quả đề xuất khi đội thua đã chấp nhận.
     const sameWinner = resultCase.claims.filter((claim) => claim.outcome === resultCase.outcome);
-    const shown = sameWinner.find((claim) => claim.claimantUserId === match.organizerUserId) ?? sameWinner[0];
+    const superseded = new Set(resultCase.claims.map((claim) => claim.supersedesClaimId));
+    const shown = resultCase.rulesVersion === 'ra_v1'
+      ? sameWinner.find((claim) => claim.purpose === 'claim' && !superseded.has(claim.id))
+      : sameWinner.find((claim) => claim.claimantUserId === match.organizerUserId) ?? sameWinner[0];
     return {
       matchId: match.id,
       businessCode: match.businessCode,

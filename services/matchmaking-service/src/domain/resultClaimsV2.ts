@@ -169,7 +169,7 @@ export async function insertSubmission(
 export interface CaseContext { match: Match; teams: Teams; resultCase: MatchResultCase }
 
 /** Người trả thay (chủ kèo) của partner; null nếu partner tự trả. */
-async function payerOf(tx: Tx, matchId: string, userId: string): Promise<string | null> {
+export async function payerOf(tx: Tx, matchId: string, userId: string): Promise<string | null> {
   const join = await tx.join.findFirst({
     where: { matchId, participantUserId: userId, status: 'confirmed', payerUserId: { not: null } }, select: { payerUserId: true },
   });
@@ -178,12 +178,12 @@ async function payerOf(tx: Tx, matchId: string, userId: string): Promise<string 
 
 /**
  * BR-RA-22/23/17: một thành viên đội bị xử thua đã chấp nhận (Đồng ý / bản cùng bên thắng / tự khai thua) — caller đã ghi
- * hành động đó. Đơn → final; đôi → grace 1 giờ hoặc final khi cả đội đã chấp nhận; partner được trả thay không chốt sớm
- * khi người trả chưa chấp nhận; bản Đỏ → Admin.
+ * hành động đó. Một người là final cho cả đơn và đôi (D63, không grace); partner được trả thay không chốt sớm khi người
+ * trả chưa chấp nhận; bản Đỏ → Admin.
  */
 export async function acceptByLosingTeam(
   tx: Tx, ctx: CaseContext, actorUserId: string, now: Date,
-): Promise<'final' | 'grace' | 'pending_payer' | 'admin'> {
+): Promise<'final' | 'pending_payer' | 'admin'> {
   const { match, teams, resultCase } = ctx;
   const claims = await currentClaims(tx, resultCase.id);
   const proposal = proposalOf(claims)!;
@@ -210,19 +210,8 @@ export async function acceptByLosingTeam(
     });
     return 'pending_payer';
   }
-  if (losers.every((userId) => accepted.has(userId))) {
-    await writeResultFinal(tx, resultCase, outcome, resultCase.id, now);
-    return 'final';
-  }
-  if (resultCase.status === 'acceptance_grace') return 'grace';
-  const grace = deadlineFor(now, resultWindows().grace);
-  await tx.matchResultCase.update({
-    where: { id: resultCase.id },
-    data: { status: 'acceptance_grace', graceDeadlineAt: grace.at, version: { increment: 1 } },
-  });
-  await notifyRoster(tx, match, resultCase.id, 'match.result.grace', 'Một người đội thua đã chấp nhận kết quả',
-    `Người còn lại của đội có tới ${vnClock(grace.at)} để phản đối; quá hạn kết quả sẽ được chốt.`);
-  return 'grace';
+  await writeResultFinal(tx, resultCase, outcome, resultCase.id, now);
+  return 'final';
 }
 
 /** Hạn phản hồi đang mở (proposed / grace). */
@@ -320,7 +309,7 @@ export async function submitClaimV2(
 }
 
 function statusAfterAccept(result: Awaited<ReturnType<typeof acceptByLosingTeam>>): string {
-  return { final: 'final', grace: 'acceptance_grace', pending_payer: 'proposed', admin: 'admin_review' }[result];
+  return { final: 'final', pending_payer: 'proposed', admin: 'admin_review' }[result];
 }
 
 async function claimResult(tx: Tx, caseId: string, claimId: string, prepared: PreparedSubmission, caseStatus: string) {

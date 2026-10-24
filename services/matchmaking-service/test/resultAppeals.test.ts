@@ -16,15 +16,16 @@ afterAll(async () => {
 const storage = new MemoryStorage();
 const NOW = new Date('2026-10-21T03:00:00.000Z');
 
-/** Hồ sơ đang ở 6 giờ kháng nghị với kết quả tạm tầng 1: đội A thắng. */
-async function appealCase(options: { doubles?: boolean } = {}) {
+/** Hồ sơ đang ở 6 giờ kháng nghị với kết quả tạm tầng 1 (mặc định: đội A thắng). */
+async function appealCase(options: { doubles?: boolean; payerForPartner?: boolean; outcome?: 'TEAM_A_WIN' | 'TEAM_B_WIN' | 'NO_RESULT' } = {}) {
+  const outcome = options.outcome ?? 'TEAM_A_WIN';
   const fixture = await v2Fixture({
-    doubles: options.doubles, endAt: new Date(NOW.getTime() - 4 * HOUR), status: 'appeal_window',
-    caseData: { outcome: 'TEAM_A_WIN', appealDeadlineAt: new Date(NOW.getTime() + 6 * HOUR) },
+    doubles: options.doubles, payerForPartner: options.payerForPartner, endAt: new Date(NOW.getTime() - 4 * HOUR), status: 'appeal_window',
+    caseData: { outcome, appealDeadlineAt: new Date(NOW.getTime() + 6 * HOUR) },
   });
   const ruling = await prisma.aiRuling.create({
     data: {
-      caseId: fixture.resultCase.id, tier: 1, outcome: 'TEAM_A_WIN', citations: ['BR-RA-31'], publishedAt: NOW,
+      caseId: fixture.resultCase.id, tier: 1, outcome, citations: ['BR-RA-31'], publishedAt: NOW,
       reasons: [{ text: 'Chỉ có bằng chứng hợp lệ ủng hộ đội A thắng.', citations: ['BR-RA-31'] }],
     },
   });
@@ -71,12 +72,23 @@ describe('appeals', () => {
       { storage, now: new Date(NOW.getTime() + 6 * HOUR) })).rejects.toMatchObject({ code: 'RESULT_APPEAL_CLOSED' });
   });
 
-  it('accepting the ruling in singles settles at once; doubles waits for both losers', async () => {
+  it('accepting the ruling: one loser settles singles and doubles at once (D63)', async () => {
     const single = await appealCase();
     expect(await acceptRuling({ matchId: single.match.id, userId: single.b1, rulingId: single.ruling.id }, NOW)).toEqual({ status: 'final' });
     const doubles = await appealCase({ doubles: true });
-    expect((await acceptRuling({ matchId: doubles.match.id, userId: doubles.b1, rulingId: doubles.ruling.id }, NOW)).status).toBe('appeal_window');
-    expect((await acceptRuling({ matchId: doubles.match.id, userId: doubles.b2, rulingId: doubles.ruling.id }, NOW)).status).toBe('final');
+    expect((await acceptRuling({ matchId: doubles.match.id, userId: doubles.b1, rulingId: doubles.ruling.id }, NOW)).status).toBe('final');
+  });
+
+  it('NO_RESULT ruling needs one acceptance from each team', async () => {
+    const { match, organizer, b1, ruling } = await appealCase({ doubles: true, outcome: 'NO_RESULT' });
+    expect((await acceptRuling({ matchId: match.id, userId: b1, rulingId: ruling.id }, NOW)).status).toBe('appeal_window');
+    expect((await acceptRuling({ matchId: match.id, userId: organizer, rulingId: ruling.id }, NOW)).status).toBe('final');
+  });
+
+  it('a paid-for partner accepting does not settle; the payer accepting does (BR-RA-23)', async () => {
+    const { match, partner, organizer, ruling } = await appealCase({ doubles: true, payerForPartner: true, outcome: 'TEAM_B_WIN' });
+    expect((await acceptRuling({ matchId: match.id, userId: partner, rulingId: ruling.id }, NOW)).status).toBe('appeal_window');
+    expect((await acceptRuling({ matchId: match.id, userId: organizer, rulingId: ruling.id }, NOW)).status).toBe('final');
   });
 
   it('Admin upholds a groundless appeal: one violation, ruling kept, one precedent chunk', async () => {

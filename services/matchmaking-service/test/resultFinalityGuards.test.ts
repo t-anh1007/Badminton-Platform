@@ -63,10 +63,12 @@ describe('AC-RA-24: every settling path produces exactly one final event', () =>
     expect(await finalEvents(match.id)).toHaveLength(1);
   });
 
-  it('grace expiry swept twice while the last loser agrees settles once', async () => {
-    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+  it('grace (case opened before D63) swept twice while the other loser agrees settles once', async () => {
+    const { match, organizer, b2 } = await v2Fixture({ doubles: true, endAt: END });
     await claim(match.id, organizer);
-    await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, T0);
+    await prisma.matchResultCase.update({
+      where: { matchId: match.id }, data: { status: 'acceptance_grace', graceDeadlineAt: new Date(T0.getTime() + HOUR), version: { increment: 1 } },
+    });
     const after = new Date(T0.getTime() + 2 * HOUR);
     await settle([
       sweepResultDeadlinesV2(after, [match.id]), sweepResultDeadlinesV2(after, [match.id]),

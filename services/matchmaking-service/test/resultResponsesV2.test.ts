@@ -38,29 +38,39 @@ describe('acceptance, grace and objections (ra_v1)', () => {
     expect(await finalEvents(match.id)).toBe(1);
   });
 
-  it('doubles: first loser opens grace, second loser closes it', async () => {
-    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+  it('doubles: one loser agreeing settles at once, no grace (D63)', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ doubles: true, endAt: END });
     await claim(match.id, organizer);
-    expect((await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5))).status).toBe('acceptance_grace');
-    const graced = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
-    expect(graced.graceDeadlineAt?.toISOString()).toBe(new Date(at(5).getTime() + HOUR).toISOString());
-    expect((await confirmV2({ matchId: match.id, userId: b2, claimVersion: graced.version }, at(10))).status).toBe('final');
+    expect((await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5))).status).toBe('final');
+    expect((await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } })).graceDeadlineAt).toBeNull();
+    expect(await finalEvents(match.id)).toBe(1);
   });
 
-  it('doubles: the other loser objects during grace -> evidence window', async () => {
-    const { match, organizer, b1, b2 } = await v2Fixture({ doubles: true, endAt: END });
+  it('a case already in grace before D63: the other loser can still object -> evidence window', async () => {
+    const { match, organizer, b2 } = await v2Fixture({ doubles: true, endAt: END });
     await claim(match.id, organizer);
-    await confirmV2({ matchId: match.id, userId: b1, claimVersion: await version(match.id) }, at(5));
+    await prisma.matchResultCase.update({
+      where: { matchId: match.id }, data: { status: 'acceptance_grace', graceDeadlineAt: at(65), version: { increment: 1 } },
+    });
     const result = await objectV2({ matchId: match.id, userId: b2, reason: 'score_wrong', claimVersion: await version(match.id) }, deps(at(20)));
     expect(result.status).toBe('evidence_window');
     const disputed = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
     expect(disputed.evidenceDeadlineAt?.toISOString()).toBe(new Date(at(20).getTime() + 2 * HOUR).toISOString());
   });
 
-  it('a matching claim from the losing team counts as acceptance but still waits for grace in doubles', async () => {
+  it('a matching claim from the losing team settles doubles at once (D63)', async () => {
     const { match, organizer, b1 } = await v2Fixture({ doubles: true, endAt: END });
     await claim(match.id, organizer);
-    expect((await claim(match.id, b1, A_WIN, at(5))).caseStatus).toBe('acceptance_grace');
+    expect((await claim(match.id, b1, A_WIN, at(5))).caseStatus).toBe('final');
+  });
+
+  it('same winner with different set scores still settles; the proposal keeps its scores (BR-RA-25)', async () => {
+    const { match, organizer, b1 } = await v2Fixture({ doubles: true, endAt: END });
+    await claim(match.id, organizer);
+    expect((await claim(match.id, b1, [{ teamA: 21, teamB: 19 }, { teamA: 23, teamB: 21 }], at(5))).caseStatus).toBe('final');
+    const resultCase = await prisma.matchResultCase.findUniqueOrThrow({ where: { matchId: match.id } });
+    expect(resultCase.outcome).toBe('TEAM_A_WIN');
+    expect(await finalEvents(match.id)).toBe(1);
   });
 
   it('a paid-for partner agreeing does not settle early; the payer agreeing does', async () => {

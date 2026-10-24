@@ -9,7 +9,7 @@ import { deadlineFor, resultWindows, type Level } from './deadlines.js';
 import type { MatchOutcome } from './matchRules.js';
 import { adminReviewNotification, lockMatch, notifyRoster, resultTeams } from './matchResults.js';
 import {
-  insertSubmission, lockedCaseV2, prepareSubmission, sideOf, supersededClaimIds, vnClock, type CaseContext, type SubmissionInput,
+  insertSubmission, lockedCaseV2, payerOf, prepareSubmission, sideOf, supersededClaimIds, vnClock, type CaseContext, type SubmissionInput,
 } from './resultClaimsV2.js';
 import { enterAdminReview, writeResultFinal } from './resultLifecycle.js';
 import { rereadUpload } from './resultOcr.js';
@@ -249,7 +249,10 @@ export async function submitAppeal(
   return { appealId: outcome, status: 'admin_review' as const };
 }
 
-/** BR-RA-38a: bên bị xử thua Chấp nhận để chốt sớm; đơn → final, đôi/NO_RESULT → khi mọi người bên thua đã Chấp nhận. */
+/**
+ * BR-RA-38a (D63): bên bị xử thua Chấp nhận để chốt sớm; một người mỗi đội bị xử thua là đủ (NO_RESULT: mỗi đội một người).
+ * BR-RA-23: partner được trả thay Chấp nhận thì chưa chốt khi người trả chưa Chấp nhận.
+ */
 export async function acceptRuling(input: { matchId: string; userId: string; rulingId: string }, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const ctx = await lockedCaseV2(tx, input.matchId, input.userId);
@@ -264,7 +267,10 @@ export async function acceptRuling(input: { matchId: string; userId: string; rul
       await tx.resultResponse.create({ data: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'confirm', createdAt: now } });
       accepted.add(input.userId);
     }
-    if (!losers.every((userId) => accepted.has(userId))) {
+    const payer = await payerOf(tx, ctx.match.id, input.userId);
+    const waitingPayer = payer !== null && losers.includes(payer) && !accepted.has(payer);
+    const losingTeams = (['A', 'B'] as const).map((side) => ctx.teams[side]).filter((team) => team.some((userId) => losers.includes(userId)));
+    if (waitingPayer || !losingTeams.every((team) => team.some((userId) => accepted.has(userId)))) {
       await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: { version: { increment: 1 } } });
       return { status: 'appeal_window' as const };
     }
