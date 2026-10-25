@@ -129,7 +129,8 @@ export function MatchDetailPage() {
         if (!active) return;
         const completed = sepay.purpose === 'participant'
           ? next.actions.ownJoin?.status === 'confirmed'
-          : next.status === 'confirmed' && !next.actions.canPayOrganizerContribution;
+          // Chủ kèo trả xong thì kèo rời awaiting_deposit sang open (chưa confirmed cho tới khi đủ người).
+          : ['open', 'filled', 'confirmed'].includes(next.status);
         if (completed) {
           setDetail(next);
           setSepay(null);
@@ -140,7 +141,8 @@ export function MatchDetailPage() {
       } catch {
         // Giữ modal mở để người dùng vẫn thấy nội dung chuyển khoản.
       }
-      if (attempts >= 20) {
+      // Người dùng cần thời gian mở app ngân hàng và chuyển khoản: chờ trọn 10 phút giữ chỗ.
+      if (attempts >= 400) {
         setNotice('Chưa thấy giao dịch SePay. Hãy kiểm tra lại trạng thái kèo sau.');
         window.clearInterval(timer);
       }
