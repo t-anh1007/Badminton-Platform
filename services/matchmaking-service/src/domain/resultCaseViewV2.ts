@@ -107,6 +107,10 @@ export async function resultCaseViewV2(
   const viewerAppeal = await prisma.resultAppeal.findFirst({
     where: { caseId: resultCase.id, userId: viewerUserId }, orderBy: { createdAt: 'desc' }, select: { accepted: true, createdAt: true },
   });
+  // Đội người xem đã có kháng nghị hợp lệ cho phán quyết hiện hành (kháng nghị đội kia giữ kín, không lộ ra đây).
+  const teamAppealed = ruling !== null && viewerSide !== null && await prisma.resultAppeal.count({
+    where: { caseId: resultCase.id, rulingId: ruling.id, accepted: true, userId: { in: teams[viewerSide] } },
+  }) > 0;
 
   // BR-RA-23: partner được trả thay đã chấp nhận nhưng người trả (cùng đội thua) chưa → còn chờ người trả.
   let pendingPayerUserId: string | null = null;
@@ -158,8 +162,8 @@ export async function resultCaseViewV2(
       canObject: responseOpen && losers.includes(viewerUserId),
       canReportIncident: incidentOpen && !mine('incident'),
       canSubmitEvidence: evidenceOpen,
-      canAppeal: appealOpen && rulingLosers.includes(viewerUserId),
-      canAcceptRuling: appealOpen && rulingLosers.includes(viewerUserId)
+      canAppeal: appealOpen && rulingLosers.includes(viewerUserId) && !teamAppealed,
+      canAcceptRuling: appealOpen && rulingLosers.includes(viewerUserId) && !teamAppealed
         && !responses.some((row) => row.userId === viewerUserId && row.kind === 'confirm' && ruling !== null && row.createdAt >= ruling.publishedAt!),
       canMarkEvidenceDone: evidenceOpen
         && !responses.some((row) => row.kind === 'evidence_done' && sideOf(teams, row.userId) === viewerSide),
@@ -174,6 +178,7 @@ export async function resultCaseViewV2(
     photoReadingEnabled: deps.photoReadingEnabled ?? true,
     viewerQuota: await photoQuota(resultCase, viewerUserId, now),
     viewerAppeal: viewerAppeal && { accepted: viewerAppeal.accepted, createdAt: viewerAppeal.createdAt.toISOString() },
+    teamAppealed,
     adminReason: await loadAdminReason(resultCase),
     adminReviewStartedAt: iso(resultCase.adminReviewStartedAt),
     // Lý do Admin viết cho cả kèo; không có ghi chú nội bộ của AI, không có người quyết, uy tín hay vi phạm.

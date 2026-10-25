@@ -75,13 +75,16 @@ it('T4 sends the pointed reasons and shows the grounds error by code', async () 
     viewerActions: { ...actions, canAppeal: true, canAcceptRuling: true },
   })} />);
   fireEvent.click(screen.getByRole('button', { name: 'Kháng nghị' }));
-  fireEvent.change(screen.getByLabelText('Vì sao sai?'), { target: { value: 'Ảnh là sân bên cạnh' } });
+  expect(screen.getByRole('button', { name: 'Gửi kháng nghị' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Lý do khác/ }));
+  expect(screen.getByRole('button', { name: 'Gửi kháng nghị' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText(/Ghi chú/), { target: { value: 'Ảnh là sân bên cạnh' } });
   fireEvent.click(screen.getByRole('button', { name: 'Gửi kháng nghị' }));
-  expect(await screen.findByText('Chọn lý do sai trong phán quyết hoặc thêm ảnh mới để gửi kháng nghị.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('checkbox', { name: /Chỉ Đội A thắng có ảnh hợp lệ/ }));
+  expect(await screen.findByText('Chọn điểm sai hoặc thêm ảnh mới để gửi kháng nghị.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Tỉ số đọc từ ảnh bị sai/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Gửi kháng nghị' }));
   await waitFor(() => expect(submitAppeal).toHaveBeenLastCalledWith('m1', {
-    rulingId: 'r1', reason: 'Ảnh là sân bên cạnh', pointedReason: '1. Chỉ Đội A thắng có ảnh hợp lệ.', files: [],
+    rulingId: 'r1', reason: 'Ảnh là sân bên cạnh', pointedReason: '- Tỉ số đọc từ ảnh bị sai\n- Lý do khác', files: [],
   }));
 });
 

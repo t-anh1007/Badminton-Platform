@@ -96,7 +96,8 @@ export function RulingFrame({ matchId, resultCase, reload }: FrameProps) {
         ))}
       </div>
 
-      {resultCase.viewerAppeal && !resultCase.viewerAppeal.accepted && <Note tone="warning">Kháng nghị trước của bạn bị từ chối vì thiếu căn cứ. Bạn vẫn kháng nghị lại được trong thời hạn.</Note>}
+      {resultCase.status === 'appeal_window' && resultCase.teamAppealed && <Note tone="info">Đội bạn đã gửi kháng nghị. Hồ sơ chuyển quản trị viên khi đội kia phản hồi hoặc hết hạn; nội dung kháng nghị giữ kín với đội kia.</Note>}
+      {resultCase.viewerAppeal && !resultCase.viewerAppeal.accepted && !resultCase.teamAppealed && <Note tone="warning">Kháng nghị trước của bạn bị từ chối vì thiếu căn cứ. Bạn vẫn kháng nghị lại được trong thời hạn.</Note>}
       {error && <Note tone="danger">{error}</Note>}
       <div className="flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4">
         <p className="max-w-lg text-sm text-ink-500">

@@ -57,6 +57,8 @@ export interface ResultCaseV2 extends Omit<PlayerResultCase, 'status' | 'viewerA
   photoReadingEnabled: boolean;
   viewerQuota: ViewerQuota;
   viewerAppeal: { accepted: boolean; createdAt: string } | null;
+  /** Đội người xem đã kháng nghị hợp lệ phán quyết hiện hành (NO_RESULT: chờ đội kia hoặc hết hạn). */
+  teamAppealed?: boolean;
   adminReason: AdminReason | null;
   adminReviewStartedAt: string | null;
   /** Lý do quyết định cuối Admin viết cho cả kèo (không có ghi chú nội bộ). */

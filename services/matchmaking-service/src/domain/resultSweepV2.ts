@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { adminReviewNotification, lockMatch } from './matchResults.js';
 import { currentClaims, proposalOf } from './resultClaimsV2.js';
 import { enterAdminReview, sweepResultDeadlines, writeResultFinal } from './resultLifecycle.js';
-import { closeEvidenceWindow } from './resultDisputeV2.js';
+import { closeEvidenceWindow, sendAppealsToAdmin } from './resultDisputeV2.js';
 import type { PrivateObjectStorageClient } from '@khoaluantn/object-storage';
 import type { AiChains } from '../lib/aiClients.js';
 
@@ -39,6 +39,11 @@ async function settleDue(tx: Tx, resultCase: MatchResultCase, now: Date): Promis
     return true;
   }
   if (resultCase.status === 'appeal_window' && resultCase.appealDeadlineAt && resultCase.appealDeadlineAt <= now) {
+    // NO_RESULT: một đội đã kháng nghị, đội kia không phản hồi tới hạn → chuyển Admin cả hồ sơ.
+    if (await tx.resultAppeal.count({ where: { caseId: resultCase.id, accepted: true } }) > 0) {
+      await sendAppealsToAdmin(tx, await tx.match.findUniqueOrThrow({ where: { id: resultCase.matchId } }), resultCase.id, now);
+      return true;
+    }
     // BR-RA-34a/36: hết 6h không có kháng nghị hợp lệ → kết quả tạm thành final.
     await writeResultFinal(tx, resultCase, resultCase.outcome!, resultCase.id, now);
     await tx.aiRuling.updateMany({ where: { caseId: resultCase.id, publishedAt: { not: null }, finalOutcome: null }, data: { finalOutcome: resultCase.outcome, overturned: false } });
