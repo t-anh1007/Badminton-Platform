@@ -1,8 +1,9 @@
 import { releaseMatureRevenue } from '../domain/revenueRelease.js';
 
-export function startRevenueReleaseScheduler(intervalMs = 60_000): () => void {
+export function startRevenueReleaseScheduler(intervalMs = 60_000): () => Promise<void> {
+  let inFlight: Promise<unknown> = Promise.resolve();
   const tick = () => {
-    void releaseMatureRevenue().catch((error) => {
+    inFlight = releaseMatureRevenue().catch((error) => {
       // eslint-disable-next-line no-console
       console.error('[finance-service] lỗi đáo hạn doanh thu:', error);
     });
@@ -11,5 +12,9 @@ export function startRevenueReleaseScheduler(intervalMs = 60_000): () => void {
   tick();
   const timer = setInterval(tick, intervalMs);
   timer.unref();
-  return () => clearInterval(timer);
+  // Chờ lượt đang chạy xong: idle release gọi prisma.$disconnect() ngay sau khi dừng.
+  return async () => {
+    clearInterval(timer);
+    await inFlight;
+  };
 }
