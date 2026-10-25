@@ -88,8 +88,13 @@ Court Credit, XP riêng và level riêng không còn thuộc phạm vi sản ph�
 | result reserve | Phần tổng contribution vượt `P`, giữ để xử lý kết quả. |
 | booking owner | Người sở hữu hold/booking được chuyển thành kèo; mặc định là chủ kèo. |
 | provider reviewer | Chủ sân/cơ sở xem bằng chứng và đưa đề xuất không ràng buộc. |
-| ranked match | Kèo có thể cập nhật rating/BXH sau khi qua mọi điều kiện hợp lệ. |
-| friendly match | Kèo dùng cùng tiền/kết quả/tranh chấp nhưng không cập nhật rating/BXH. |
+| ranked match (kèo xếp hạng) | Kèo cập nhật điểm kinh nghiệm và điểm BXH mùa giải sau khi qua mọi điều kiện hợp lệ. Trình độ Mới chơi không được tạo/tham gia (D59). |
+| friendly match (kèo giao hữu) | Kèo dùng cùng tiền/kết quả/tranh chấp; cập nhật điểm kinh nghiệm nhưng không vào số liệu/BXH mùa giải (D59). |
+| điểm kinh nghiệm | Tên hiển thị của rating Glicko-2 trên Passport (trước gọi "điểm xếp hạng"). |
+| độ tin cậy | Tên hiển thị của RD: Cao `<100`, Vừa `100–199`, Thấp `>=200`. Không hiển thị RD thô. |
+| mùa giải | Tên hiển thị của season (trước gọi "kỳ", "kỳ xếp hạng", "kỳ thi đấu"). |
+| hạng đấu | Không chuyên (Yếu, TB) hoặc Chuyên (TB+, Bán chuyên) của một mùa giải; khóa ở trận xếp hạng đầu tiên. |
+| điểm BXH | Điểm của bảng xếp hạng mùa giải, Elo K=40, sàn 0, reset mỗi mùa; tách khỏi điểm kinh nghiệm. |
 
 ## 3. Tạo kèo, đội hình và cutoff
 
@@ -215,9 +220,12 @@ thua chịu 140.000.
 | BR-CM-55 | Admin tạo một lịch kỳ chung toàn nền tảng; hai kỳ không chồng thời gian. |
 | BR-CM-56 | Sang kỳ mới giữ rating/RD/sigma nhưng reset số trận, số thắng, streak và eligibility của kỳ. |
 | BR-CM-57 | Eligibility: ít nhất 5 ranked result hợp lệ trong kỳ và RD `<200`. Bảng khu vực còn yêu cầu 5 trận thuộc khu vực chính trong kỳ. |
-| BR-CM-58 | Bảng tách singles/doubles, toàn nền tảng/tỉnh-thành và hai nhóm rating `<1600`/`>=1600`. Vượt 1600 thì chuyển bảng ngay. |
+| BR-CM-58 | Bảng tách singles/doubles, toàn nền tảng/tỉnh-thành và hai hạng đấu: Không chuyên (Yếu, TB) và Chuyên (TB+, Bán chuyên). Hạng đấu xác định bằng điểm kinh nghiệm **trước trận xếp hạng đầu tiên trong mùa** (`>=1600` → Chuyên) và khóa tới hết mùa; vượt mốc giữa mùa **không** chuyển bảng (D59). |
 | BR-CM-59 | User chọn một tỉnh/thành chính trước khi tham gia kỳ; khóa đến hết kỳ và chỉ đổi cho kỳ sau. User vẫn có thể đứng bảng toàn nền tảng. |
-| BR-CM-60 | Xếp hạng công khai dùng rating hiện tại sau khi đạt eligibility; thông tin công khai tuân D31. |
+| BR-CM-60 | Xếp hạng công khai theo **điểm BXH mùa giải** (bằng điểm thì nhiều trận thắng hơn xếp trên) sau khi đạt eligibility; thông tin công khai tuân D31. |
+| BR-CM-82 | Điểm BXH mùa giải: mọi người bắt đầu mùa ở 0; mỗi kết quả xếp hạng được tính cộng `round(40 × (S − E))`, `S`=1 thắng/0 thua, `E = 1/(1+10^((Rđối thủ − Rmình)/400))` với `R` là điểm kinh nghiệm trước trận (đôi: trung bình đội đối phương). Không xuống dưới 0. Không ảnh hưởng điểm kinh nghiệm. |
+| BR-CM-83 | Người có điểm kinh nghiệm `<1200` (Mới chơi) của loại hình đó không được tạo, tham gia hoặc nhận lời mời đánh cặp kèo xếp hạng (`NEWCOMER_RANKED_BLOCKED`). |
+| BR-CM-84 | Kèo giao hữu có kết quả thắng/thua chốt cũng cập nhật điểm kinh nghiệm (cùng quy tắc 7 ngày/cùng đối thủ), để Mới chơi lên trình; giao hữu không vào số liệu mùa, BXH, huy hiệu hay chương trình thưởng. |
 | BR-CM-61 | Công khai kết quả thể thao, tỷ số, loại hình và rating change; không công khai contribution, refund, bank info hoặc evidence. |
 
 ## 9. Chương trình thưởng Admin và badge
@@ -326,7 +334,10 @@ Kênh: in-app + email; chưa dùng SMS.
 - `AC-CM-25` — Weekly inactivity tăng RD không vượt 350; RD>=200 ẩn khỏi BXH.
 - `AC-CM-26` — User chỉ tự khai một lần mỗi discipline; sửa qua ticket áp đúng nhánh 0 match hoặc bounded ±50.
 - `AC-CM-27` — Kỳ mới giữ rating nhưng reset season counters/eligibility; đủ 5 trận và RD<200 mới xuất hiện.
-- `AC-CM-28` — Crossing 1600 chuyển group ngay; primary region không đổi giữa kỳ.
+- `AC-CM-28` — Hạng đấu khóa ở trận xếp hạng đầu tiên của mùa; vượt 1600 giữa mùa vẫn ở bảng Không chuyên; primary region không đổi giữa mùa.
+- `AC-CM-41` — Người chơi có điểm kinh nghiệm `<1200` tạo/tham gia/nhận mời kèo xếp hạng bị từ chối `NEWCOMER_RANKED_BLOCKED`; kèo giao hữu vẫn được.
+- `AC-CM-42` — Hai người ngang điểm kinh nghiệm: thắng +20 / thua −20 điểm BXH; thua khi đang 0 điểm vẫn là 0.
+- `AC-CM-43` — Kết quả giao hữu đổi điểm kinh nghiệm nhưng không đổi season_stats/BXH.
 - `AC-CM-29` — Reward program tính đúng bốn criterion, pending result cuối kỳ được chờ và tie prizes được cộng/chia đều.
 - `AC-CM-30` — Bank-info timeout hủy giải không reallocate; Admin payout cần reference + evidence và không lấy từ match funds.
 - `AC-CM-31` — Badge đúng discipline/scope/season, giữ vĩnh viễn và không đổi rating/tiền.

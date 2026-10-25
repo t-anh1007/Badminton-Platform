@@ -362,11 +362,14 @@ describe('G4 review — leaderboard visibility follows the current season rule',
       await prisma.seasonStat.update({ where: { seasonId_userId_discipline: { seasonId: season.id, userId: user.userId, discipline: 'singles' } }, data: { matchesPlayed: 5, wins: 3, currentWinStreak: 2 } });
       const own = await getOwnPassport(user.userId, now);
       expect(own.singles?.leaderboardVisible).toBe(true);
-      expect(own.singles?.season).toEqual({ matchesPlayed: 5, wins: 3, currentWinStreak: 2 });
-      expect(own.singles).toMatchObject({ rating: 1600, leaderboardBand: 'from_1600' });
-      // Hiển thị làm tròn 1600 nhưng nhóm bảng theo rating gốc như truy vấn BXH.
+      expect(own.singles?.season).toEqual({ matchesPlayed: 5, wins: 3, currentWinStreak: 2, points: 0 });
+      // Chưa khóa hạng đấu: hạng dự kiến theo điểm kinh nghiệm gốc (1599,6 hiển thị 1600 nhưng vẫn Không chuyên).
       await prisma.passport.update({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } }, data: { ratingMu: 1599.6 } });
-      expect((await getOwnPassport(user.userId, now)).singles).toMatchObject({ rating: 1600, leaderboardBand: 'under_1600' });
+      expect((await getOwnPassport(user.userId, now)).singles).toMatchObject({ rating: 1600, division: 'amateur', divisionLocked: false, confidence: 'high', rankedAllowed: true });
+      // Đã khóa hạng đấu thì giữ nguyên dù điểm kinh nghiệm vượt mốc.
+      await prisma.seasonStat.update({ where: { seasonId_userId_discipline: { seasonId: season.id, userId: user.userId, discipline: 'singles' } }, data: { division: 'amateur', points: 60 } });
+      await prisma.passport.update({ where: { userId_discipline: { userId: user.userId, discipline: 'singles' } }, data: { ratingMu: 1700 } });
+      expect((await getOwnPassport(user.userId, now)).singles).toMatchObject({ division: 'amateur', divisionLocked: true, season: { points: 60 } });
     } finally {
       await prisma.seasonStat.deleteMany({ where: { seasonId: season.id } });
       await prisma.season.delete({ where: { id: season.id } });

@@ -14,7 +14,7 @@ export function AuthPage() {
   const next = rawNext?.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   if (next && loadSession()) return <Navigate to={next} replace />;
   return (
-    <main className="bg-canvas"><div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
+    <main className="bg-canvas"><div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       {next?.startsWith('/matches/') && (
         <p className="mx-auto mb-4 max-w-md rounded-xl bg-surface px-4 py-3 text-sm text-ink-700 ring-1 ring-line">Đăng nhập để xem kèo bạn được mời.</p>
       )}

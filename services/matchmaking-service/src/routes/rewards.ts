@@ -13,7 +13,7 @@ const createBody = z.object({
   seasonId: z.string().uuid(),
   criterion: z.enum(['ending_rating', 'most_wins', 'largest_rating_gain', 'longest_streak']),
   discipline: z.enum(['singles', 'doubles']),
-  band: z.enum(['under_1600', 'from_1600']),
+  band: z.enum(['amateur', 'pro']),
   scope: z.enum(['global', 'province']),
   provinceCode: vietnamProvinceCodeSchema.optional(),
   startAt: z.coerce.date(),

@@ -11,7 +11,10 @@ import { attachQuickMatchGateway } from './lib/quickMatchGateway.js';
 import { startMatchCutoffScheduler } from './domain/matchLifecycle.js';
 import { createPrivateObjectStorageClientFromEnv } from '@khoaluantn/object-storage';
 import { sweepResultEvidenceRetention } from './domain/resultEvidence.js';
-import { sweepResultDeadlines, sweepResultReviews } from './domain/resultLifecycle.js';
+import { sweepResultReviews } from './domain/resultLifecycle.js';
+import { sweepAllResultDeadlines } from './domain/resultSweepV2.js';
+import { aiChainsFromEnv } from './lib/aiClients.js';
+import { runPendingRulings } from './domain/disputeRulingJob.js';
 import { sweepRatingAging } from './domain/passport.js';
 import { sweepRewardPrograms } from './domain/rewards.js';
 
@@ -38,7 +41,14 @@ const idle = startWithIdleRelease({
     startJoinExpiryScheduler(60_000, () => expireSelfPayPartnerInvites()),
     startMatchCutoffScheduler(),
     // BR-CM-32: hạn khai/phản đối/sự cố chốt trong vòng 5 phút; sweep idempotent.
-    startMatchCutoffScheduler(60_000, sweepResultDeadlines),
+    // ra_v1: đóng 2h bằng chứng và tầng 1 cần AI (đọc lại ảnh) và kho ảnh private.
+    startMatchCutoffScheduler(60_000, async () => {
+      const ai = aiChainsFromEnv();
+      const now = new Date();
+      // Tầng 2 chỉ chạy nền ở đây (không trong quét lười khi đọc hồ sơ) vì gọi AI có thể mất tới vài chục giây.
+      return (await sweepAllResultDeadlines(now, undefined, { ai, storage: createPrivateObjectStorageClientFromEnv }))
+        + (await runPendingRulings(now, { ai }));
+    }),
     // BR-CM-39/40: provider quá hạn chuyển Admin, nhắc SLA Admin; không đổi tiền/kết quả.
     startMatchCutoffScheduler(5 * 60_000, sweepResultReviews),
     // BR-CM-49: tăng RD theo kỳ 7 ngày không hoạt động; idempotent theo lastAgedAt.

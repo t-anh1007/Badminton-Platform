@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, EmptyState, Skeleton } from '../../components/ui';
+import { useSearchParams } from 'react-router-dom';
+import { Button, EmptyState, SegmentedControl, Skeleton } from '../../components/ui';
+import { formatMoneyVnd } from '../../lib/formatters.js';
 import {
   cancelMyWithdrawal, createWithdrawal, getMyFinancialTransparency, getMyWithdrawals, getMyWallets,
   type ProviderTransparencyResult, type WalletRow, type WithdrawalRow,
@@ -23,7 +25,11 @@ export function ManageFinancePage() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
   // Mặc định: từ ngày bỏ trống, đến hôm nay = toàn bộ booking tới hiện tại.
   const [filters, setFilters] = useState<FinanceFilter>({ venueId: '', period: newPeriod('range') });
-  const [flowNav, setFlowNav] = useState<FlowNavState<ProviderFlowTab>>({ tab: 'revenue', nonce: 0 });
+  // ?tab=transactions mở thẳng tab Giao dịch; ?withdrawal=… (link thông báo) mở Giao dịch › Rút tiền.
+  const [params, setParams] = useSearchParams();
+  const tab = params.has('withdrawal') || params.get('tab') === 'transactions' ? 'transactions' : 'overview';
+  const setTab = (next: 'overview' | 'transactions') => setParams(next === 'transactions' ? { tab: 'transactions' } : {}, { replace: true });
+  const [flowNav, setFlowNav] = useState<FlowNavState<ProviderFlowTab>>(() => ({ tab: params.has('withdrawal') ? 'withdraw' : 'revenue', nonce: 0 }));
   const [flowSync, setFlowSync] = useState<FlowSync>({ nonce: 0 });
   const pushSync = (next: Omit<FlowSync, 'nonce'>) => setFlowSync((current) => ({ ...next, nonce: current.nonce + 1 }));
   const [version, setVersion] = useState(0);
@@ -54,7 +60,7 @@ export function ManageFinancePage() {
   useLiveDataRefresh(() => { if (!withdrawOpen) return load(); });
   const openFlows = (tab: ProviderFlowTab, filter?: string) => {
     setFlowNav((current) => ({ tab, filter, nonce: current.nonce + 1 }));
-    window.setTimeout(() => document.getElementById('finance-flows')?.scrollIntoView({ behavior: 'smooth' }), 0);
+    setTab('transactions');
   };
   const activeWithdrawal = useMemo(() => withdrawals.find((row) => ACTIVE_STATUSES.has(row.status)) ?? null, [withdrawals]);
 
@@ -79,18 +85,16 @@ export function ManageFinancePage() {
   if (loading) return <div className="grid gap-6"><Skeleton className="h-64" /><Skeleton className="h-72" /></div>;
   if (!wallet) return <EmptyState title="Chưa có ví kinh doanh" description="Ví kinh doanh sẽ xuất hiện sau khi cơ sở của bạn được duyệt." />;
 
-  return <div className="grid gap-7">
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-caption text-ink-500">QUẢN LÝ TÀI CHÍNH</p><h2 className="mt-1 text-h1">Dòng tiền hôm nay</h2><p className="mt-1 text-sm text-ink-500">Xem tiền có thể rút và hoạt động mới nhất của các cơ sở.</p></div><Button tone="ghost" size="sm" onClick={() => void load()}>Tải lại</Button></header>
-    <section className="overflow-hidden rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-raised)] sm:p-8"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-sm text-surface/70">Số dư có thể rút</p><p className="text-figures mt-2 text-4xl font-bold">{new Intl.NumberFormat('vi-VN').format(BigInt(wallet.available))}đ</p><p className="mt-2 text-xs text-surface/70">{status === 'live' ? '● Đang cập nhật trực tiếp' : '○ Đang kết nối lại'}</p></div><div className="flex flex-wrap gap-2"><Button tone="ghost" onClick={() => openFlows('ledger')} className="text-surface hover:bg-surface/10">Số dư này gồm những khoản nào?</Button><Button aria-label="Tạo yêu cầu rút tiền" onClick={() => setWithdrawOpen(true)} className="bg-brand-yellow text-brand-navy hover:bg-brand-yellow-hover">Rút tiền</Button></div></div></section>
-    {transparency ? <FinanceRevenueExplorer data={transparency} venues={venues} filters={filters}
+  return <div className="grid gap-5">
+    <h1 className="text-h2">Tài chính</h1>
+    <section className="rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-raised)] sm:px-7"><div className="flex flex-wrap items-center justify-between gap-5"><div><p className="text-sm text-surface/70">Số dư có thể rút</p><p className="text-figures mt-1 text-4xl font-bold">{new Intl.NumberFormat('vi-VN').format(BigInt(wallet.available))}đ</p><p className="mt-2 text-xs text-surface/70">Chờ đủ 24 giờ: <strong className="text-figures">{formatMoneyVnd(wallet.pending)}</strong> · Đang chuyển ngân hàng: <strong className="text-figures">{formatMoneyVnd(wallet.reserved)}</strong> · {status === 'live' ? 'cập nhật trực tiếp' : 'đang kết nối lại'}</p></div><div className="flex flex-wrap gap-2"><Button tone="secondary" size="sm" onClick={() => openFlows('ledger')} className="!border-surface/35 !bg-transparent !text-surface hover:!bg-surface/10">Xem sổ ví</Button><Button aria-label="Tạo yêu cầu rút tiền" onClick={() => setWithdrawOpen(true)}>Rút tiền</Button></div></div></section>
+    <div><SegmentedControl options={[{ value: 'overview', label: 'Tổng quan' }, { value: 'transactions', label: 'Giao dịch' }]} value={tab} onChange={setTab} /></div>
+    {tab === 'overview' ? (transparency ? <FinanceRevenueExplorer data={transparency} venues={venues} filters={filters}
       onChange={(next) => { setFilters(next); pushSync({ period: next.period, venueId: next.venueId }); void load(next); }}
       onPickDay={(picked) => { pushSync({ period: { ...newPeriod('day'), day: picked } }); openFlows('revenue'); }}
       onPickVenue={(venueId) => { const next = { ...filters, venueId }; setFilters(next); pushSync({ venueId }); void load(next); openFlows('revenue'); }}
-      onShowPending={() => { const next = { ...filters, period: newPeriod('all') }; setFilters(next); pushSync({ period: next.period }); void load(next); openFlows('revenue', 'pending'); }} /> : null}
-    <section id="finance-flows" className="grid scroll-mt-24 gap-3">
-      <h3 className="text-h2">Chi tiết dòng tiền</h3>
-      <ProviderFinanceFlows nav={flowNav} venues={venues} sync={flowSync} initialPeriod={filters.period} version={version} />
-    </section>
+      onShowPending={() => { const next = { ...filters, period: newPeriod('all') }; setFilters(next); pushSync({ period: next.period }); void load(next); openFlows('revenue', 'pending'); }} /> : null)
+      : <ProviderFinanceFlows nav={flowNav} venues={venues} sync={flowSync} initialPeriod={filters.period} version={version} />}
     {error && <p role="alert" className="rounded-2xl bg-danger-bg px-4 py-3 text-sm text-danger">{error}</p>}
     {message && !error && <p role="status" className="rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">{message}</p>}
     <WithdrawalModal open={withdrawOpen} available={wallet.available} active={activeWithdrawal} busy={busy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />

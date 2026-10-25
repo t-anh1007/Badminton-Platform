@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Avatar, Badge, Pagination, SegmentedControl, SurfaceCard } from '../components/ui';
+import { Avatar, Badge, Button, Pagination, SegmentedControl, SurfaceCard } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { useAuthPrompt } from '../layout/AuthPrompt';
 import { RouteState } from '../components/RouteState.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { formatDateVi } from '../lib/formatters.js';
-import { getCurrentSeason, getLeaderboard, type CurrentSeason, type Leaderboard, type LeaderboardBand, type LeaderboardScope } from '../lib/competitionApi';
+import { DIVISION_LABEL, DIVISION_TIERS, getCurrentSeason, getLeaderboard, type CurrentSeason, type Leaderboard, type LeaderboardBand, type LeaderboardScope } from '../lib/competitionApi';
 import { getOwnPassport, type Discipline } from '../lib/passportApi';
 import { listRewardPrograms, type RewardProgram } from '../lib/rewardApi';
 import { provinceName } from './PassportPage';
 
 const PAGE_SIZE = 20;
 const disciplineOptions = [{ value: 'singles', label: 'Đánh đơn' }, { value: 'doubles', label: 'Đánh đôi' }] as const;
-const bandOptions = [{ value: 'under_1600', label: 'Dưới 1.600' }, { value: 'from_1600', label: 'Từ 1.600' }] as const;
-const bandLabel: Record<LeaderboardBand, string> = { under_1600: 'Dưới 1.600 điểm', from_1600: 'Từ 1.600 điểm' };
+const bandOptions = [{ value: 'amateur', label: DIVISION_LABEL.amateur }, { value: 'pro', label: DIVISION_LABEL.pro }] as const;
+const bandLabel: Record<LeaderboardBand, string> = { amateur: `Hạng Không chuyên (${DIVISION_TIERS.amateur})`, pro: `Hạng Chuyên (${DIVISION_TIERS.pro})` };
 const daysLeft = (endAt: string) => Math.max(0, Math.ceil((new Date(endAt).getTime() - Date.now()) / 86_400_000));
 
 export function LeaderboardPage() {
@@ -22,13 +24,13 @@ export function LeaderboardPage() {
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [error, setError] = useState('');
   const [programs, setPrograms] = useState<RewardProgram[]>([]);
-  const [defaultBand, setDefaultBand] = useState<LeaderboardBand>('under_1600');
+  const [defaultBand, setDefaultBand] = useState<LeaderboardBand>('amateur');
 
   const discipline = (params.get('discipline') === 'doubles' ? 'doubles' : 'singles') as Discipline;
   const region = season?.myRegion ?? null;
   const scope: LeaderboardScope = region && params.get('scope') !== 'global' ? 'province' : 'global';
   const requestedBand = params.get('band');
-  const band: LeaderboardBand = requestedBand === 'from_1600' || requestedBand === 'under_1600' ? requestedBand : defaultBand;
+  const band: LeaderboardBand = requestedBand === 'pro' || requestedBand === 'amateur' ? requestedBand : defaultBand;
   const page = Math.max(1, Number(params.get('page')) || 1);
   const update = (patch: Record<string, string>) => setParams((prev) => {
     const next = new URLSearchParams(prev);
@@ -37,7 +39,7 @@ export function LeaderboardPage() {
     return next;
   });
 
-  // Mặc định mở đúng bảng của người xem: khu vực kỳ này và nhóm điểm hiện tại.
+  // Mặc định mở đúng bảng của người xem: khu vực mùa này và hạng đấu của họ.
   useEffect(() => {
     const signedIn = Boolean(window.localStorage.getItem('accessToken'));
     Promise.all([
@@ -46,7 +48,7 @@ export function LeaderboardPage() {
     ]).then(([currentSeason, passport]) => {
       setSeason(currentSeason);
       const own = passport?.[discipline];
-      if (own) setDefaultBand(own.leaderboardBand);
+      if (own) setDefaultBand(own.division);
       setReady(true);
     });
     listRewardPrograms().then((result) => setPrograms(result.items), () => setPrograms([]));
@@ -65,6 +67,8 @@ export function LeaderboardPage() {
     && item.scope === scope && (scope === 'global' || item.provinceCode === region));
   const pageCount = board ? Math.max(1, Math.ceil(board.total / board.pageSize)) : 1;
   const viewer = board?.viewer ?? null;
+  const signedIn = Boolean(window.localStorage.getItem('accessToken'));
+  const promptAuth = useAuthPrompt();
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -72,17 +76,17 @@ export function LeaderboardPage() {
         eyebrow={season?.season?.name ?? 'Bảng xếp hạng'}
         title="Bảng xếp hạng"
         description="Theo dõi vị trí đánh đơn và đánh đôi trên toàn nền tảng hoặc tại tỉnh/thành của bạn."
-        actions={season?.season ? <Badge tone="warning">Còn {daysLeft(season.season.endAt)} ngày</Badge> : undefined}
+        actions={season?.season ? <div className="surface-card flex items-center gap-3 px-5 py-3"><Icon name="clock" className="h-6 w-6 text-brand-navy" /><div><p className="text-xs text-ink-500">Mùa kết thúc sau</p><p className="text-figures text-lg font-semibold text-brand-navy">{daysLeft(season.season.endAt)} ngày <span className="text-sm font-normal text-ink-500">· {formatDateVi(season.season.endAt)}</span></p></div></div> : undefined}
       />
 
       <SurfaceCard className="mt-6">
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <p className="mb-2 text-xs text-ink-500">Nội dung thi đấu</p>
+            <p className="mb-2 text-sm font-semibold text-ink-700">Nội dung thi đấu</p>
             <SegmentedControl options={disciplineOptions} value={discipline} onChange={(value) => update({ discipline: value })} />
           </div>
           <div>
-            <p className="mb-2 text-xs text-ink-500">Phạm vi xếp hạng</p>
+            <p className="mb-2 text-sm font-semibold text-ink-700">Phạm vi xếp hạng</p>
             {region ? (
               <SegmentedControl
                 options={[{ value: 'province', label: provinceName(region) ?? 'Khu vực' }, { value: 'global', label: 'Toàn nền tảng' }] as const}
@@ -94,7 +98,7 @@ export function LeaderboardPage() {
             )}
           </div>
           <div>
-            <p className="mb-2 text-xs text-ink-500">Nhóm điểm</p>
+            <p className="mb-2 text-sm font-semibold text-ink-700">Hạng đấu</p>
             <SegmentedControl options={bandOptions} value={band} onChange={(value) => update({ band: value })} />
           </div>
         </div>
@@ -105,13 +109,13 @@ export function LeaderboardPage() {
           <h2 className="text-h2">Top người chơi {boardName}</h2>
           <p className="mt-1 text-sm text-ink-500">{discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {bandLabel[band]}</p>
           {!season?.season && ready ? (
-            <div className="mt-5"><RouteState variant="empty" title="Chưa có kỳ xếp hạng" description="Bảng xếp hạng mở khi quản trị viên bắt đầu kỳ thi đấu mới." /></div>
+            <div className="mt-5"><RouteState variant="empty" title="Chưa có mùa giải" description="Bảng xếp hạng mở khi quản trị viên bắt đầu mùa giải mới." /></div>
           ) : error ? (
-            <div className="mt-5"><RouteState variant="error" title="Chưa thể tải bảng xếp hạng" description={error} /></div>
+            <div className="mt-5"><RouteState variant="error" title="Chưa tải được bảng xếp hạng" description="Máy chủ đang bận hoặc kết nối bị gián đoạn. Hãy tải lại trang." /></div>
           ) : !board ? (
             <div className="mt-5"><RouteState variant="loading" title="Đang tải bảng xếp hạng" /></div>
           ) : board.items.length === 0 ? (
-            <div className="mt-5"><RouteState variant="empty" title="Chưa có người chơi đủ điều kiện" description="Người chơi lên bảng khi có ít nhất 5 kèo xếp hạng hợp lệ trong kỳ và điểm đã ổn định." /></div>
+            <div className="mt-5"><RouteState variant="empty" title="Chưa có người chơi đủ điều kiện" description="Người chơi lên bảng khi có ít nhất 5 kèo xếp hạng hợp lệ trong mùa và độ tin cậy từ Vừa trở lên." /></div>
           ) : (
             <>
               <div className="mt-4 overflow-x-auto">
@@ -120,7 +124,7 @@ export function LeaderboardPage() {
                     <tr className="border-b border-line text-left text-xs text-ink-500">
                       <th scope="col" className="px-3 py-3 font-medium">Hạng</th>
                       <th scope="col" className="px-3 py-3 font-medium">Người chơi</th>
-                      <th scope="col" className="px-3 py-3 text-right font-medium">Điểm</th>
+                      <th scope="col" className="px-3 py-3 text-right font-medium">Điểm BXH</th>
                       <th scope="col" className="px-3 py-3 text-right font-medium">Trận</th>
                       <th scope="col" className="px-3 py-3 text-right font-medium">Thắng</th>
                     </tr>
@@ -140,7 +144,7 @@ export function LeaderboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="text-figures px-3 py-3 text-right font-semibold">{row.rating.toLocaleString('vi-VN')}</td>
+                          <td className="text-figures px-3 py-3 text-right font-semibold">{row.points.toLocaleString('vi-VN')}</td>
                           <td className="text-figures px-3 py-3 text-right">{row.matchesPlayed}</td>
                           <td className="text-figures px-3 py-3 text-right">{row.wins}</td>
                         </tr>
@@ -155,27 +159,37 @@ export function LeaderboardPage() {
         </SurfaceCard>
 
         <div className="space-y-5">
-          <SurfaceCard>
-            <h2 className="text-h2">Vị trí của bạn</h2>
-            <p className="mt-1 text-sm text-ink-500">{boardName} · {discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {bandLabel[band]}</p>
-            {viewer ? (
-              <>
-                <div className="mt-4 rounded-2xl bg-brand-navy p-5 text-surface">
-                  <p className="text-xs text-surface/75">Hạng hiện tại</p>
-                  <p className="text-figures text-4xl font-bold text-brand-yellow">#{viewer.rank}</p>
-                </div>
-                <dl className="mt-3 divide-y divide-line text-sm">
-                  <div className="flex justify-between py-3"><dt>Điểm xếp hạng</dt><dd className="text-figures font-semibold">{viewer.rating.toLocaleString('vi-VN')}</dd></div>
-                  <div className="flex justify-between py-3"><dt>Trận hợp lệ kỳ này</dt><dd className="text-figures font-semibold">{viewer.matchesPlayed}</dd></div>
-                  {season?.season && <div className="flex justify-between py-3"><dt>Kỳ xếp hạng kết thúc</dt><dd className="font-semibold">{formatDateVi(season.season.endAt)}</dd></div>}
-                </dl>
-              </>
-            ) : (
-              <p className="mt-4 rounded-xl bg-canvas p-4 text-sm text-ink-700">
-                Bạn chưa có mặt ở bảng này. Cần ít nhất 5 kèo xếp hạng hợp lệ trong kỳ, điểm đã ổn định và đúng nhóm điểm hiện tại.
-              </p>
-            )}
-          </SurfaceCard>
+          {!viewer && !signedIn ? (
+            <section className="rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-card)]">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-yellow/15 text-brand-yellow"><Icon name="trend" /></span>
+              <h2 className="mt-4 font-display text-lg font-extrabold">Bạn đứng thứ mấy?</h2>
+              <p className="mt-1 text-sm text-surface/75">Đăng nhập để xem vị trí, điểm mùa và số kèo còn thiếu để lên bảng.</p>
+              <Button className="mt-5 w-full" onClick={() => promptAuth({ title: 'Đăng nhập để xem vị trí' })}>Đăng nhập</Button>
+            </section>
+          ) : (
+            <SurfaceCard>
+              <h2 className="text-h2">Vị trí của bạn</h2>
+              <p className="mt-1 text-sm text-ink-500">{boardName} · {discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {bandLabel[band]}</p>
+              {viewer ? (
+                <>
+                  <div className="mt-4 rounded-2xl bg-brand-navy p-5 text-surface">
+                    <p className="text-xs text-surface/75">Hạng hiện tại</p>
+                    <p className="text-figures text-4xl font-bold text-brand-yellow">#{viewer.rank}</p>
+                  </div>
+                  <dl className="mt-3 divide-y divide-line text-sm">
+                    <div className="flex justify-between py-3"><dt>Điểm BXH</dt><dd className="text-figures font-semibold">{viewer.points.toLocaleString('vi-VN')}</dd></div>
+                    <div className="flex justify-between py-3"><dt>Trận xếp hạng mùa này</dt><dd className="text-figures font-semibold">{viewer.matchesPlayed}</dd></div>
+                    {season?.season && <div className="flex justify-between py-3"><dt>Mùa giải kết thúc</dt><dd className="font-semibold">{formatDateVi(season.season.endAt)}</dd></div>}
+                  </dl>
+                </>
+              ) : (
+                <p className="mt-4 rounded-xl bg-canvas p-4 text-sm text-ink-700">
+                  Bạn chưa có mặt ở bảng này. Cần ít nhất 5 kèo xếp hạng hợp lệ trong mùa, độ tin cậy từ Vừa trở lên và đúng hạng đấu của bạn.
+                </p>
+              )}
+            </SurfaceCard>
+          )}
+          {!program && <Link to="/rewards" className="surface-card flex items-center gap-4 p-5 hover:shadow-[var(--shadow-raised)]"><span className="grid h-10 w-10 place-items-center rounded-full bg-brand-yellow text-brand-navy"><Icon name="gift" /></span><span className="flex-1 font-bold text-ink-900">Chương trình thưởng</span><Icon name="chevronRight" className="text-brand-navy" /></Link>}
           {program && (
             <SurfaceCard>
               <h2 className="text-h3">Đang có chương trình thưởng</h2>
@@ -183,9 +197,14 @@ export function LeaderboardPage() {
               <Link to={`/rewards/${program.id}`} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line font-bold text-brand-navy hover:bg-canvas">Xem cơ cấu giải thưởng</Link>
             </SurfaceCard>
           )}
-          <p className="rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-4 text-xs text-ink-700">
-            Khi đạt 1.600 điểm, bạn chuyển ngay sang bảng “Từ 1.600”.
-          </p>
+          <details className="group surface-card p-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-ink-900"><span className="flex items-center gap-2.5"><Icon name="info" className="text-brand-navy" />Cách tính điểm</span><Icon name="chevronDown" className="transition group-open:rotate-180" /></summary>
+            <ul className="mt-3 grid list-disc gap-2 pl-5 text-sm text-ink-700">
+              <li>Lên bảng khi có ít nhất 5 kèo xếp hạng hợp lệ trong mùa và độ tin cậy từ Vừa trở lên.</li>
+              <li>Hạng đấu theo trình độ ở trận xếp hạng đầu tiên của mùa, giữ nguyên tới hết mùa.</li>
+              <li>Thắng được cộng điểm, thua bị trừ; thắng người trình cao hơn được cộng nhiều hơn.</li>
+            </ul>
+          </details>
         </div>
       </div>
     </div>

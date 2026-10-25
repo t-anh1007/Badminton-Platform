@@ -84,7 +84,8 @@ describe('Task 19 badges', () => {
     for (const rating of [1900, 1900, ...Array.from({ length: 10 }, (_, index) => 1850 - index)]) {
       const userId = await user(rating, 'doubles');
       players.push(userId);
-      await prisma.seasonStat.create({ data: { seasonId: closing.id, userId, discipline: 'doubles', matchesPlayed: 6 } });
+      // Điểm BXH theo thứ tự rating để giữ nguyên thứ hạng (bằng điểm, bằng thắng → đồng hạng).
+      await prisma.seasonStat.create({ data: { seasonId: closing.id, userId, discipline: 'doubles', matchesPlayed: 6, division: 'pro', points: rating - 1000 } });
     }
     expect(await prisma.playerBadge.count({ where: { seasonId: closing.id } })).toBe(0);
     await closeSeason(closing.id, new Date('2098-03-02T00:00:00Z'));
@@ -114,7 +115,7 @@ describe('G4 review — closing a season', () => {
   it('refuses to close while a result or rating is pending, then freezes the closed leaderboard', async () => {
     const target = await season('Kỳ 2088', '2088-01-01T00:00:00Z', '2088-03-01T00:00:00Z');
     const top = await user(1700, 'doubles');
-    await prisma.seasonStat.create({ data: { seasonId: target.id, userId: top, discipline: 'doubles', matchesPlayed: 6 } });
+    await prisma.seasonStat.create({ data: { seasonId: target.id, userId: top, discipline: 'doubles', matchesPlayed: 6, division: 'pro', points: 70 } });
     const pending = await prisma.match.create({
       data: { bookingId: randomUUID(), organizerUserId: top, capacity: 4, discipline: 'doubles', feePerSlot: 0n, status: 'completed', mode: 'ranked', cutoffAt: new Date('2088-02-01T00:00:00Z'), endAt: new Date('2088-02-01T00:00:00Z') },
     });
@@ -128,7 +129,7 @@ describe('G4 review — closing a season', () => {
     await closeSeason(target.id, after);
 
     await prisma.passport.update({ where: { userId_discipline: { userId: top, discipline: 'doubles' } }, data: { ratingMu: 1500, ratingRd: 300 } });
-    const board = await request(app).get(`/competition/leaderboards?seasonId=${target.id}&discipline=doubles&band=from_1600`).expect(200);
-    expect(board.body.items).toEqual([expect.objectContaining({ userId: top, rating: 1700, rank: 1 })]);
+    const board = await request(app).get(`/competition/leaderboards?seasonId=${target.id}&discipline=doubles&band=pro`).expect(200);
+    expect(board.body.items).toEqual([expect.objectContaining({ userId: top, points: 70, rank: 1 })]);
   });
 });

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Modal, TextInput } from '../../components/ui.js';
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js';
+import { Icon } from '../../components/Icon';
 import {
   confirmOperationalShutdown, previewOperationalShutdown,
   type OperationalShutdownInput, type OperationalShutdownMode,
@@ -8,14 +9,14 @@ import {
   type OperationalShutdownStatus,
 } from '../../lib/venueBookingApi.js';
 
-const modes: Array<{ mode: OperationalShutdownMode; title: string; description: string; note: string }> = [
-  { mode: 'winding_down', title: 'Ngừng nhận lịch đặt mới', description: 'Không nhận thêm lịch mới nhưng vẫn phục vụ hết những lịch đã nhận.', note: 'Không hủy lịch hiện tại' },
-  { mode: 'scheduled_close', title: 'Đóng cửa từ ngày đã chọn', description: 'Các lịch bị ảnh hưởng sẽ được hủy ngay và khách được hoàn 100%.', note: 'Khách được thông báo ngay' },
-  { mode: 'emergency', title: 'Ngừng hoạt động ngay do sự cố', description: 'Mọi lịch chưa kết thúc, kể cả lịch đang diễn ra, sẽ bị hủy và hoàn 100%.', note: 'Chỉ dùng khi không thể tiếp tục phục vụ' },
+const modes: Array<{ mode: OperationalShutdownMode; title: string; description: string; action: string }> = [
+  { mode: 'winding_down', title: 'Ngừng nhận lịch đặt mới', description: 'Vẫn phục vụ hết các lịch đã nhận.', action: 'Ngừng nhận lịch' },
+  { mode: 'scheduled_close', title: 'Đóng cửa từ ngày đã chọn', description: 'Lịch bị ảnh hưởng được hủy và hoàn 100% vào ví khách.', action: 'Đóng cửa sân' },
+  { mode: 'emergency', title: 'Ngừng hoạt động ngay do sự cố', description: 'Hủy mọi lịch chưa kết thúc, hoàn 100%.', action: 'Ngừng hoạt động ngay' },
 ];
 
 type Target = { scope: OperationalShutdownScope; id: string; label: string };
-type Stage = 'choice' | 'impact' | 'confirm';
+type Stage = 'choice' | 'confirm';
 
 export function OperationalShutdownDialog({ target, current, onClose, onDone }: {
   target: Target;
@@ -37,6 +38,8 @@ export function OperationalShutdownDialog({ target, current, onClose, onDone }: 
     ...(mode === 'scheduled_close' ? { closeDate } : {}),
     ...(mode === 'emergency' ? { reason: reason.trim() } : {}),
   };
+  const needsAck = mode !== 'winding_down';
+  const chosen = modes.find((item) => item.mode === mode)!;
   const affectedCount = preview ? preview.affectedMarketplace + preview.affectedMatch + preview.affectedInternal : 0;
   const warning = mode === 'winding_down'
     ? 'Các lịch hiện tại vẫn được phục vụ đến hết. Không lịch nào bị hủy.'
@@ -50,14 +53,14 @@ export function OperationalShutdownDialog({ target, current, onClose, onDone }: 
     setBusy(true); setError('');
     try {
       setPreview(await previewOperationalShutdown(target.scope, target.id, input));
-      setStage('impact');
+      setStage('confirm'); setAcknowledged(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể xem ảnh hưởng.');
     } finally { setBusy(false); }
   }
 
   async function confirm() {
-    if (!preview || !acknowledged) return;
+    if (!preview || (needsAck && !acknowledged)) return;
     setBusy(true); setError('');
     try {
       await confirmOperationalShutdown(target.scope, target.id, input, preview.previewToken);
@@ -65,24 +68,22 @@ export function OperationalShutdownDialog({ target, current, onClose, onDone }: 
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể xác nhận. Vui lòng thử lại.');
-      setStage('impact');
       setAcknowledged(false);
     } finally { setBusy(false); }
   }
 
   return <Modal open title={current ? `Thay đổi cách ngừng hoạt động · ${target.label}` : `Ngừng hoạt động · ${target.label}`} onClose={() => !busy && onClose()}>
     <div className="grid gap-4">
-      <p className="text-xs font-semibold text-ink-500">1. Chọn cách đóng &nbsp;→&nbsp; 2. Xem ảnh hưởng &nbsp;→&nbsp; 3. Xác nhận</p>
+      <p className="flex items-center gap-2 text-xs font-bold"><span className={`rounded-full px-2.5 py-1 ${stage === 'choice' ? 'bg-green-100 text-brand-navy' : 'text-ink-500'}`}>1 Cách ngừng</span><Icon name="chevronRight" className="h-3.5 w-3.5 text-ink-300" /><span className={`rounded-full px-2.5 py-1 ${stage === 'confirm' ? 'bg-green-100 text-brand-navy' : 'text-ink-500'}`}>2 Xác nhận</span></p>
       {stage === 'choice' && <>
         <div className="grid gap-2" role="radiogroup" aria-label="Cách ngừng hoạt động">
           {modes.filter((option) => current?.mode !== 'emergency' || option.mode === 'emergency').map((option) => <button
             key={option.mode} type="button" role="radio" aria-checked={mode === option.mode}
             onClick={() => { setMode(option.mode); setPreview(null); setError(''); }}
-            className={`rounded-2xl border p-4 text-left transition-colors ${mode === option.mode ? 'border-brand-navy bg-brand-navy/5' : 'border-line bg-surface hover:border-brand-navy/40'}`}
+            className={`flex items-start gap-3 rounded-2xl border bg-surface px-4 py-3 text-left transition ${mode === option.mode ? 'border-brand-navy ring-4 ring-green-100' : 'border-line hover:border-ink-300'}`}
           >
-            <span className="font-bold text-brand-navy">{mode === option.mode ? '●' : '○'} {option.title}</span>
-            <span className="mt-1 block text-sm text-ink-600">{option.description}</span>
-            <span className="mt-2 block text-xs font-semibold text-ink-500">{option.note}</span>
+            <span aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 rounded-full ${mode === option.mode ? 'border-[6px] border-brand-navy' : 'border-2 border-ink-300'}`} />
+            <span><span className="block font-bold text-ink-900">{option.title}</span><span className="block text-sm text-ink-500">{option.description}</span></span>
           </button>)}
         </div>
         {mode === 'scheduled_close' && <label className="grid gap-1 text-sm font-semibold">Ngày bắt đầu đóng cửa
@@ -93,33 +94,26 @@ export function OperationalShutdownDialog({ target, current, onClose, onDone }: 
         </label>}
         <div className="flex justify-end gap-2"><Button tone="secondary" disabled={busy} onClick={onClose}>Hủy</Button><Button disabled={busy} onClick={() => void showImpact()}>{busy ? 'Đang kiểm tra…' : 'Xem ảnh hưởng'}</Button></div>
       </>}
-      {stage !== 'choice' && preview && <>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Metric value={affectedCount.toString()} label="Lịch bị hủy" />
-          <Metric value={formatMoneyVnd(preview.estimatedRefund)} label="Dự kiến hoàn cho khách" />
-          <Metric value={preview.continuingBookings.toString()} label="Lịch tiếp tục phục vụ" />
-          <Metric value={(mode === 'scheduled_close' ? preview.closeAt : preview.expectedInactiveAt) ? formatDateTimeVi((mode === 'scheduled_close' ? preview.closeAt : preview.expectedInactiveAt)!) : '—'} label={mode === 'scheduled_close' ? 'Bắt đầu đóng cửa' : 'Thời điểm phục vụ cuối'} />
+      {stage === 'confirm' && preview && <>
+        <button type="button" aria-label={`Đổi cách ngừng (đang chọn: ${chosen.title})`} onClick={() => setStage('choice')} className="flex items-start gap-3 rounded-2xl border border-brand-navy bg-surface px-4 py-3 text-left ring-4 ring-green-100">
+          <span aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-[6px] border-brand-navy" />
+          <span><span className="block font-bold text-ink-900">{mode === 'scheduled_close' && preview.closeAt ? `Đóng cửa từ ${formatDateTimeVi(preview.closeAt)}` : chosen.title}</span><span className="block text-sm text-ink-500">Đổi cách ngừng</span></span>
+        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <div className={`rounded-2xl p-4 ${affectedCount ? 'bg-danger-bg' : 'bg-canvas'}`}><strong className={`text-figures block text-2xl ${affectedCount ? 'text-danger' : 'text-brand-navy'}`}>{affectedCount}</strong><span className="text-xs text-ink-500">Lịch bị hủy</span></div>
+          <div className="rounded-2xl bg-canvas p-4"><strong className="text-figures block text-2xl text-brand-navy">{formatMoneyVnd(preview.estimatedRefund)}</strong><span className="text-xs text-ink-500">Dự kiến hoàn cho khách</span></div>
         </div>
-        <div className="rounded-xl bg-canvas p-3 text-sm text-ink-700">
-          <p>Qua COURTIN: {preview.affectedMarketplace} · Gắn với kèo: {preview.affectedMatch} · Tại quầy: {preview.affectedInternal}</p>
-          <p className="mt-1">Lượt đang thanh toán: {preview.activeCheckoutHolds} · Kèo đang giữ sân: {preview.activeMatchHolds}</p>
-        </div>
-        {stage === 'impact' ? <>
-          <p className="text-sm text-ink-600">{warning}</p>
-          <div className="flex justify-end gap-2"><Button tone="secondary" disabled={busy} onClick={() => setStage('choice')}>Quay lại</Button><Button onClick={() => setStage('confirm')}>Tiếp tục</Button></div>
-        </> : <>
-          <div className="rounded-xl bg-brand-yellow/20 p-3 text-sm"><strong>Xác nhận {modes.find((item) => item.mode === mode)?.title.toLowerCase()}</strong><p className="mt-1">{warning}</p></div>
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-1" />
-            <span>{mode === 'winding_down' ? 'Tôi đã kiểm tra thời điểm phục vụ cuối và hiểu rằng sân sẽ không nhận thêm lịch mới.' : 'Tôi hiểu các lịch bị ảnh hưởng sẽ bị hủy và không tự khôi phục khi thay đổi kế hoạch.'}</span>
-          </label>
-          <div className="flex justify-end gap-2"><Button tone="secondary" disabled={busy} onClick={() => setStage('impact')}>Quay lại</Button><Button tone="danger" disabled={busy || !acknowledged} onClick={() => void confirm()}>{busy ? 'Đang xử lý…' : 'Xác nhận ngừng hoạt động'}</Button></div>
-        </>}
+        {(affectedCount > 0 || preview.continuingBookings > 0 || preview.activeCheckoutHolds > 0 || preview.activeMatchHolds > 0) && <p className="text-sm text-ink-600">
+          {affectedCount > 0 && <>Qua COURTIN: {preview.affectedMarketplace} · Gắn với kèo: {preview.affectedMatch} · Tại quầy: {preview.affectedInternal}. </>}
+          {preview.continuingBookings > 0 && <>{preview.continuingBookings} lịch tiếp tục phục vụ{mode === 'winding_down' && preview.expectedInactiveAt ? ` đến ${formatDateTimeVi(preview.expectedInactiveAt)}` : ''}. </>}
+          {(preview.activeCheckoutHolds > 0 || preview.activeMatchHolds > 0) && <>Đang giữ chỗ: {preview.activeCheckoutHolds} lượt thanh toán, {preview.activeMatchHolds} kèo.</>}
+        </p>}
+        {needsAck ? <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-1 accent-brand-navy" />
+          <span>Tôi hiểu {affectedCount ? `${affectedCount} lịch này` : 'các lịch bị ảnh hưởng'} sẽ bị hủy và không tự khôi phục.</span>
+        </label> : <p className="text-sm text-ink-500">{warning}</p>}
+        <div className="flex justify-end gap-2"><Button tone="secondary" disabled={busy} onClick={() => setStage('choice')}>Quay lại</Button><Button tone={needsAck ? 'danger' : 'primary'} disabled={busy || (needsAck && !acknowledged)} onClick={() => void confirm()}>{busy ? 'Đang xử lý…' : chosen.action}</Button></div>
       </>}
       {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
     </div>
   </Modal>;
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return <div className="rounded-xl border border-line bg-surface p-3"><strong className="block text-lg text-brand-navy">{value}</strong><span className="text-xs text-ink-500">{label}</span></div>;
 }

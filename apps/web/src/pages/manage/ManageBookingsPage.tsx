@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, EmptyState, Pagination, Skeleton, SurfaceCard } from '../../components/ui.js';
+import { Button, EmptyState, Pagination, SegmentedControl, Skeleton, SurfaceCard } from '../../components/ui.js';
+import { ManageCalendarPage } from './ManageCalendarPage.js';
+import type { ProviderBookingTimeScope } from '../../lib/venueBookingApi.js';
 import {
   getMyManagedVenues,
   getProviderBookingDetail,
@@ -23,12 +25,13 @@ import {
 const emptyFilters = () => readProviderBookingFilters(new URLSearchParams());
 const bookingIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const summaryItems = [
-  { key: 'all', label: 'Tất cả lượt đặt sân', icon: '▦' },
-  { key: 'completed', label: 'Đã hoàn thành', icon: '✓' },
-  { key: 'current', label: 'Đang diễn ra', icon: '●' },
-  { key: 'future', label: 'Sắp tới', icon: '→' },
-] as const;
+// Ô tổng kiêm bộ lọc khoảng thời gian.
+const scopeTiles: ReadonlyArray<{ scope: ProviderBookingTimeScope; label: string }> = [
+  { scope: 'all', label: 'Tất cả' },
+  { scope: 'future', label: 'Sắp tới' },
+  { scope: 'current', label: 'Đang diễn ra' },
+  { scope: 'past', label: 'Đã qua' },
+];
 
 function toApiFilters(filters: ProviderBookingPageFilters): ApiFilters {
   return {
@@ -57,6 +60,7 @@ export function ManageBookingsPage() {
   const [notice, setNotice] = useState('');
   const detailRequestRef = useRef(0);
   const selectedId = params.get('booking');
+  const view = params.get('view') === 'calendar' ? 'calendar' : 'list';
   const validSelectedId = selectedId && bookingIdPattern.test(selectedId) ? selectedId : null;
 
   const load = useCallback(async () => {
@@ -139,6 +143,7 @@ export function ManageBookingsPage() {
   const updateFilters = (next: ProviderBookingPageFilters) => {
     const query = writeProviderBookingFilters(next);
     if (validSelectedId) query.set('booking', validSelectedId);
+    if (view === 'calendar') query.set('view', 'calendar');
     setParams(query, { replace: true });
   };
 
@@ -148,36 +153,35 @@ export function ManageBookingsPage() {
     setParams(next, { replace: true });
   };
 
+  const setView = (next: 'list' | 'calendar') => {
+    const query = new URLSearchParams(params);
+    if (next === 'calendar') query.set('view', 'calendar'); else query.delete('view');
+    setParams(query, { replace: true });
+  };
+  const scopeCount = (scope: ProviderBookingTimeScope) => !result ? null : scope === 'past' ? Math.max(0, result.summary.all - result.summary.current - result.summary.future) : result.summary[scope];
+
   const pageCount = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1;
 
   return (
     <div className="grid gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-caption font-bold uppercase tracking-[0.12em] text-ink-500">Vận hành đặt sân</p>
-          <h1 className="mt-1 text-h1">Quản lý đặt sân</h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink-500">
-            Theo dõi toàn bộ booking trong quá khứ, hiện tại và tương lai của các cơ sở bạn quản lý.
-          </p>
-        </div>
-        <Button tone="ghost" size="sm" onClick={() => void load()}>Tải lại</Button>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-h2">Đặt sân</h1>
+        <SegmentedControl options={[{ value: 'calendar', label: 'Lịch' }, { value: 'list', label: 'Danh sách' }]} value={view} onChange={setView} />
       </header>
 
-      {result ? (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Tổng quan lượt đặt sân">
-          {summaryItems.map((item) => (
-            <SurfaceCard key={item.key} className="relative overflow-hidden">
-              <span className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl bg-green-50 font-bold text-brand-navy" aria-hidden="true">{item.icon}</span>
-              <p className="text-sm font-medium text-ink-500">{item.label}</p>
-              <p className="text-figures mt-3 text-3xl font-bold text-brand-navy">{result.summary[item.key]}</p>
-            </SurfaceCard>
-          ))}
-        </section>
-      ) : loading ? (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Đang tải tổng quan lượt đặt sân">
-          {summaryItems.map((item) => <Skeleton key={item.key} className="h-28" />)}
-        </section>
-      ) : null}
+      {view === 'calendar' ? <ManageCalendarPage onSelect={selectBooking} /> : <>
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Khoảng thời gian">
+        {scopeTiles.map((tile) => {
+          const count = scopeCount(tile.scope);
+          return (
+            <button key={tile.scope} type="button" aria-label={tile.label} aria-pressed={filters.timeScope === tile.scope} onClick={() => updateFilters({ ...filters, timeScope: tile.scope, page: 1 })}
+              className={`surface-card px-4 py-3 text-left transition ${filters.timeScope === tile.scope ? 'border-brand-navy ring-4 ring-green-100' : 'hover:border-ink-300'}`}>
+              <span className="block text-sm text-ink-500">{tile.label}</span>
+              {count === null ? <Skeleton className="mt-1 h-8 w-12" /> : <span className="text-figures mt-1 block text-2xl font-semibold text-brand-navy">{count}</span>}
+            </button>
+          );
+        })}
+      </section>
 
       <ProviderBookingFilters
         value={filters}
@@ -196,12 +200,9 @@ export function ManageBookingsPage() {
       {notice ? <p role="status" className="rounded-2xl bg-warning-bg p-4 text-sm text-warning">{notice}</p> : null}
 
       <SurfaceCard className="overflow-hidden p-0 sm:p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-4 sm:px-5">
-          <div>
-            <h2 className="text-h3">Danh sách lượt đặt sân</h2>
-            <p className="mt-1 text-sm text-ink-500">{result ? `${result.total} booking phù hợp` : 'Đang tải dữ liệu'}</p>
-          </div>
-          {loading && result ? <span className="text-xs font-semibold text-ink-500">Đang cập nhật…</span> : null}
+        <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3 text-sm text-ink-500 sm:px-5">
+          <span>{result ? `${result.total} lượt đặt sân` : 'Đang tải…'}</span>
+          {loading && result ? <span className="text-xs font-semibold">Đang cập nhật…</span> : null}
         </div>
 
         {loading && !result ? (
@@ -232,6 +233,7 @@ export function ManageBookingsPage() {
           </div>
         ) : null}
       </SurfaceCard>
+      </>}
 
       <ProviderBookingDetailDrawer
         bookingId={validSelectedId}
@@ -240,6 +242,7 @@ export function ManageBookingsPage() {
         error={detailError}
         onClose={closeBooking}
         onRetry={() => void loadDetail()}
+        onChanged={refreshAll}
       />
     </div>
   );

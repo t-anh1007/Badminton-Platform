@@ -22,7 +22,7 @@ vi.mock('../lib/accountApi.js', () => ({
   login: vi.fn(), refreshSession: vi.fn(), logout: vi.fn(), requestPasswordReset: vi.fn().mockResolvedValue({ message: 'Đã gửi mã' }), verifyPasswordResetCode: vi.fn().mockResolvedValue({ resetToken: 'safe-reset-token' }), resetPassword: vi.fn().mockResolvedValue({ message: 'Đã đổi mật khẩu' }),
 }))
 vi.mock('../lib/financeApi.js', () => ({
-  getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', withdrawable: '120000', pending: '0', reserved: '0', currency: 'VND' }]),
+  getMyWallets: vi.fn().mockResolvedValue([{ id: 'wallet-safe', walletType: 'personal', available: '140000', dailyFreeWithdrawal: '1000000', withdrawnToday: '880000', pending: '0', reserved: '0', currency: 'VND' }]),
   getWalletLedger: vi.fn().mockResolvedValue({ wallet: {}, entries: [] }),
   getMyPersonalWithdrawals: vi.fn().mockResolvedValue([]),
   createPersonalWithdrawal: vi.fn().mockResolvedValue({ id: 'pw1', amount: '100000', walletType: 'personal', status: 'pending', transferCode: 'WDP1' }),
@@ -112,8 +112,8 @@ it('renders a safe top-up instruction with copy action and no intent UUID', asyn
 it('ignores radius in list view and only applies it in map view', async () => {
   render(<MemoryRouter initialEntries={['/venues']}><VenueListPage /></MemoryRouter>)
   await waitFor(() => expect(searchVenues).toHaveBeenCalledWith(expect.not.objectContaining({ radiusKm: expect.anything() })))
-  fireEvent.click(screen.getByRole('button', { name: /hiện bộ lọc/i }))
   fireEvent.change(screen.getByLabelText('Bán kính'), { target: { value: '20' } })
+  fireEvent.click(screen.getByRole('button', { name: /Mọi mức/ }))
   fireEvent.change(screen.getByLabelText('Giá tối thiểu (nhập tay)'), { target: { value: '100000' } })
   fireEvent.change(screen.getByLabelText('Giá tối đa (nhập tay)'), { target: { value: '250000' } })
   fireEvent.change(screen.getByLabelText('Sắp xếp'), { target: { value: 'price' } })
@@ -128,15 +128,16 @@ it('ignores radius in list view and only applies it in map view', async () => {
   await waitFor(() => expect(searchVenues).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: 20 })))
 })
 
-it('shows withdrawable personal balance and keeps both modal actions on one row', async () => {
+it('shows the daily free withdrawal allowance, the over-limit fee and keeps both modal actions on one row', async () => {
   render(<MemoryRouter initialEntries={['/profile?tab=wallet']}><ProfilePage /></MemoryRouter>)
   expect(await screen.findByText('Tổng số dư')).toBeInTheDocument()
-  expect(screen.getByText('Có thể rút')).toBeInTheDocument()
-  expect(screen.getByText('120.000đ')).toBeInTheDocument()
+  expect(screen.getByText('Hôm nay còn rút miễn phí').nextElementSibling).toHaveTextContent('120.000đ')
 
   fireEvent.click(screen.getByRole('button', { name: 'Rút tiền' }))
   const withdrawalDialog = screen.getByRole('dialog')
-  expect(within(withdrawalDialog).getByText('Chỉ tiền hoàn và tiền chuyển dư mới có thể rút.')).toHaveClass('text-danger')
+  expect(within(withdrawalDialog).getByText('Rút miễn phí tới 1.000.000đ mỗi ngày. Phần vượt chịu phí 1%, trừ vào số tiền nhận.')).toBeInTheDocument()
+  fireEvent.change(within(withdrawalDialog).getByLabelText('Số tiền rút'), { target: { value: '140000' } })
+  expect(within(withdrawalDialog).getByText(/Phí vượt hạn mức/)).toHaveTextContent('Phí vượt hạn mức: 200đ · Bạn nhận về: 139.800đ')
   const withdrawalActions = within(withdrawalDialog).getByTestId('personal-withdrawal-actions')
   expect(withdrawalActions).toHaveClass('flex')
   expect(within(withdrawalActions).getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
@@ -155,7 +156,7 @@ it('shows withdrawable personal balance and keeps both modal actions on one row'
 
 it('shows a confirmed match in booking history with a link for the participant', async () => {
   vi.mocked(getMyConfirmedMatches).mockResolvedValueOnce({ matches: [{
-    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', feePerSlot: '90000',
+    id: 'match-confirmed', status: 'confirmed', participationRole: 'participant', participationLabel: 'Kèo đã tham gia', teamSide: 'B', result: null, cancellation: null, feePerSlot: '90000',
     startAt: new Date(Date.now() + 60_000).toISOString(), endAt: new Date(Date.now() + 3_600_000).toISOString(),
     court: { id: 'court-1', name: 'Sân 1' }, venue: { id: 'venue-1', name: 'Sân Linh Xuân', address: 'Thủ Đức', lat: 10.8, lng: 106.7 },
   }] })

@@ -15,6 +15,8 @@ import { participantIdentity } from './matches.js';
 import { reserveRatedResults } from './ratedResults.js';
 import { DECLARATION_WINDOW_MS, adminReviewNotification, lockMatch, notifyRoster, openResultDispute, resultTeams } from './matchResults.js';
 import { inspectResultEvidence, insertResultEvidence, type ResultEvidenceItem } from './resultEvidence.js';
+import { effectiveDeadline } from './deadlines.js';
+import { reputationOf } from './reputation.js';
 
 type Tx = Prisma.TransactionClient;
 const HOUR_MS = 60 * 60_000;
@@ -24,10 +26,20 @@ export const NO_SHOW_AFTER_START_MS = 15 * 60_000;
 
 /** Ghi kết quả final và event duy nhất; dùng chung cho luồng không tranh chấp và quyết định Admin. */
 export async function writeResultFinal(tx: Tx, resultCase: MatchResultCase, outcome: MatchOutcome, decisionId: string, now: Date) {
-  await tx.matchResultCase.update({
+  const updated = await tx.matchResultCase.update({
     where: { id: resultCase.id },
     data: { status: 'final', outcome, finalizedAt: now, closedAt: now, version: { increment: 1 } },
   });
+  if (updated.rulesVersion === 'ra_v1') {
+    // BR-RA-51: vi phạm tự động duy nhất là nộp ảnh trùng chính xác ảnh của hồ sơ khác; tối đa 1/người/hồ sơ.
+    const duplicates = await tx.resultEvidence.findMany({
+      where: { caseId: resultCase.id, exactDuplicateOfId: { not: null } }, select: { ownerUserId: true }, distinct: ['ownerUserId'],
+    });
+    await tx.playerViolation.createMany({
+      data: duplicates.map((row) => ({ userId: row.ownerUserId, caseId: resultCase.id, kind: 'exact_duplicate_photo', source: 'auto', createdAt: now })),
+      skipDuplicates: true,
+    });
+  }
   await writeOutbox(tx, {
     aggregateType: 'Match', aggregateId: resultCase.matchId, eventType: 'MatchResultFinalized',
     payload: { matchId: resultCase.matchId, decisionId, outcome, finalizedAt: now.toISOString() } satisfies MatchResultFinalizedPayload,
@@ -207,7 +219,11 @@ export async function sweepResultDeadlines(now = new Date(), matchIds?: string[]
         where: { id: resultCase.id },
         data: {
           status: 'incident_window', outcome: 'NO_RESULT',
-          incidentDeadlineAt: new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS), version: { increment: 1 },
+          // ra_v1: hạn báo sự cố cũng giãn qua đêm (BR-RA-20a); legacy giữ nguyên.
+          incidentDeadlineAt: resultCase.rulesVersion === 'ra_v1'
+            ? effectiveDeadline(new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS))
+            : new Date(resultCase.declarationDeadlineAt.getTime() + INCIDENT_WINDOW_MS),
+          version: { increment: 1 },
         },
       });
       const match = await tx.match.findUniqueOrThrow({ where: { id: target.matchId }, select: { id: true, organizerUserId: true } });
@@ -348,9 +364,10 @@ export function listProviderResultCases(
 }
 
 export function listAdminResultCases(
-  venueBookingClient: VenueBookingClient, input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number }, now = new Date(),
+  venueBookingClient: VenueBookingClient,
+  input: { status?: ResultCaseStatusFilter; page?: number; pageSize?: number; caseIds?: string[] }, now = new Date(),
 ) {
-  return listQueue(venueBookingClient, { status: input.status ?? 'admin_review' }, input, now);
+  return listQueue(venueBookingClient, { status: input.status ?? 'admin_review', ...(input.caseIds && { id: { in: input.caseIds } }) }, input, now);
 }
 
 async function reviewDetail(
@@ -409,10 +426,31 @@ export async function getAdminResultCase(
   const resultCase = await prisma.matchResultCase.findUnique({ where: { id: caseId }, include: reviewInclude });
   if (!resultCase) throw new AppError(404, 'RESULT_CASE_NOT_FOUND', 'Không tìm thấy hồ sơ kết quả.');
   const detail = await reviewDetail(venueBookingClient, accountClient, resultCase, now);
-  return { ...detail, actions: { canPreviewDecision: resultCase.status === 'admin_review' } };
+  if (resultCase.rulesVersion !== 'ra_v1') return { ...detail, actions: { canPreviewDecision: resultCase.status === 'admin_review' } };
+  // ra_v1: Admin thấy phân tích + phán quyết tạm (kể cả adminNotes), kháng nghị và uy tín (không công khai, BR-RA-53).
+  const roster = Object.values(await resultTeams(prisma, resultCase.match)).flat();
+  const [rulings, appeals] = await Promise.all([
+    prisma.aiRuling.findMany({ where: { caseId }, orderBy: { createdAt: 'asc' } }),
+    prisma.resultAppeal.findMany({ where: { caseId }, orderBy: { createdAt: 'asc' } }),
+  ]);
+  return {
+    ...detail,
+    rulesVersion: resultCase.rulesVersion,
+    rulings: rulings.map((ruling) => ({
+      id: ruling.id, tier: ruling.tier, outcome: ruling.outcome, confidence: ruling.confidence, reasons: ruling.reasons,
+      adminNotes: ruling.adminNotes, citations: ruling.citations, provider: ruling.provider, model: ruling.model,
+      publishedAt: ruling.publishedAt?.toISOString() ?? null, appealedAt: ruling.appealedAt?.toISOString() ?? null,
+    })),
+    appeals: appeals.map((appeal) => ({
+      id: appeal.id, userId: appeal.userId, reason: appeal.reason, pointedReason: appeal.pointedReason,
+      evidenceIds: appeal.evidenceIds, accepted: appeal.accepted, createdAt: appeal.createdAt.toISOString(),
+    })),
+    reputations: Object.fromEntries(await Promise.all(roster.map(async (userId) => [userId, await reputationOf(userId, now)] as const))),
+    actions: { canPreviewDecision: resultCase.status === 'admin_review' },
+  };
 }
 
-function enterAdminReview(now: Date) {
+export function enterAdminReview(now: Date) {
   return {
     status: 'admin_review' as const, adminReviewStartedAt: now,
     adminNextReminderAt: new Date(now.getTime() + REVIEW_REMINDER_MS), version: { increment: 1 },
@@ -475,7 +513,7 @@ export async function previewAdminDecision(
       amount: (allocations.get(userId) ?? 0n).toString(),
       withdrawable: true as const,
     }))),
-    ratingEffect: match.mode === 'ranked' && input.outcome !== 'NO_RESULT' ? 'apply_ranked_result' as const : 'no_change' as const,
+    ratingEffect: input.outcome !== 'NO_RESULT' ?'apply_ranked_result' as const : 'no_change' as const,
     bookingRevenueEffect: 'no_change' as const,
   };
 }
@@ -483,7 +521,11 @@ export async function previewAdminDecision(
 /** BR-CM-41/42: xác nhận bước hai phải khớp version đã preview; quyết định là final. */
 export async function decideAdminResult(
   adminUserId: string, matchId: string,
-  input: { outcome: MatchOutcome; reason: string; caseVersion: number; previewToken: string }, now = new Date(),
+  input: {
+    outcome: MatchOutcome; reason: string; caseVersion: number; previewToken: string;
+    /** ra_v1 (BR-RA-39, 51): kháng nghị có căn cứ không, và vi phạm Admin xác nhận. */
+    appealGrounded?: boolean; violations?: Array<{ userId: string; kind: string }>;
+  }, now = new Date(),
 ) {
   return prisma.$transaction(async (tx) => {
     await lockMatch(tx, matchId);
@@ -503,8 +545,35 @@ export async function decideAdminResult(
       data: { caseId: resultCase.id, adminUserId, outcome: input.outcome, reason: input.reason, caseVersion: input.caseVersion, createdAt: now },
     });
     await writeResultFinal(tx, resultCase, input.outcome, decision.id, now);
+    if (resultCase.rulesVersion === 'ra_v1') await applyAdminFindings(tx, resultCase, input, now);
     return { decisionId: decision.id };
   });
+}
+
+/**
+ * BR-RA-39/40/51: Admin đánh dấu kháng nghị có/không có căn cứ (giữ nguyên + không căn cứ → vi phạm cho người kháng nghị),
+ * ghi vi phạm đã xác nhận (tối đa 1/người/hồ sơ), và lưu kết quả cuối vào phán quyết tạm để đo tỷ lệ bị lật.
+ */
+async function applyAdminFindings(
+  tx: Tx, resultCase: MatchResultCase,
+  input: { outcome: MatchOutcome; appealGrounded?: boolean; violations?: Array<{ userId: string; kind: string }> }, now: Date,
+) {
+  const match = await tx.match.findUniqueOrThrow({ where: { id: resultCase.matchId }, select: { id: true, organizerUserId: true } });
+  const roster = Object.values(await resultTeams(tx, match)).flat();
+  const ruling = await tx.aiRuling.findFirst({ where: { caseId: resultCase.id, publishedAt: { not: null } }, orderBy: { createdAt: 'desc' } });
+  const violations = (input.violations ?? []).filter((item) => roster.includes(item.userId));
+  const appeals = await tx.resultAppeal.findMany({ where: { caseId: resultCase.id, accepted: true, adminGrounded: null } });
+  if (appeals.length > 0 && input.appealGrounded !== undefined) {
+    for (const appeal of appeals) await tx.resultAppeal.update({ where: { id: appeal.id }, data: { adminGrounded: input.appealGrounded } });
+    if (!input.appealGrounded && ruling?.outcome === input.outcome) {
+      violations.push(...appeals.map((appeal) => ({ userId: appeal.userId, kind: 'groundless_appeal' })));
+    }
+  }
+  await tx.playerViolation.createMany({
+    data: violations.map((item) => ({ userId: item.userId, caseId: resultCase.id, kind: item.kind, source: 'admin', createdAt: now })),
+    skipDuplicates: true,
+  });
+  if (ruling) await tx.aiRuling.update({ where: { id: ruling.id }, data: { finalOutcome: input.outcome, overturned: ruling.outcome !== input.outcome } });
 }
 
 /** BR-CM-39/40: provider quá 24 giờ chuyển Admin; Admin nhắc ở 24 giờ, quá hạn ở 48 giờ rồi mỗi 24 giờ. Không đổi tiền/kết quả. */

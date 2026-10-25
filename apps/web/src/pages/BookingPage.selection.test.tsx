@@ -80,8 +80,9 @@ it('uses one confirmation action to create a hold and booking, then locks select
   await waitFor(() => expect(view.getByRole('button', { name: 'XÁC NHẬN' })).toBeInTheDocument())
   fireEvent.click(view.getByRole('button', { name: 'XÁC NHẬN' }))
   await waitFor(() => expect(createBooking).toHaveBeenCalledWith('hold-internal'))
-  await waitFor(() => expect(within(view.container).getByRole('textbox', { name: /ngày đặt sân/i })).toBeDisabled())
-  expect(within(view.container).getByRole('combobox')).toBeDisabled()
+  // Đã giữ chỗ: màn thanh toán thay lưới giờ, không còn chọn ngày/sân.
+  expect(await within(view.container).findByRole('heading', { name: 'Thanh toán đặt sân' })).toBeInTheDocument()
+  expect(within(view.container).queryByRole('textbox', { name: /ngày đặt sân/i })).not.toBeInTheDocument()
 })
 
 it('shows elapsed slots for today but does not allow selecting them', async () => {

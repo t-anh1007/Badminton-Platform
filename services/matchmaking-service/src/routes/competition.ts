@@ -24,7 +24,7 @@ const leaderboardQuery = z.object({
   discipline: z.enum(['singles', 'doubles']),
   scope: z.enum(['global', 'province']).default('global'),
   provinceCode: vietnamProvinceCodeSchema.optional(),
-  band: z.enum(['under_1600', 'from_1600']),
+  band: z.enum(['amateur', 'pro']),
 }).merge(pagination);
 
 export function createCompetitionRouter(accountClient: AccountClient) {

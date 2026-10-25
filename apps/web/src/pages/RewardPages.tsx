@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AsyncButton, Badge, SelectInput, SurfaceCard, TextInput } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
+import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { useServerCountdown } from '../components/MatchResultFlow';
 import { formatDateTimeVi, formatDateVi, formatMoneyVnd } from '../lib/formatters.js';
@@ -12,16 +13,17 @@ import {
   type PayoutInformation, type RewardPayout, type RewardProgram,
 } from '../lib/rewardApi';
 import { provinceName } from './PassportPage';
+import { DIVISION_LABEL } from '../lib/competitionApi';
 
 const scoreUnit: Record<RewardProgram['criterion'], string> = {
-  ending_rating: 'điểm xếp hạng',
+  ending_rating: 'điểm kinh nghiệm',
   most_wins: 'trận thắng',
-  largest_rating_gain: 'điểm tăng trong kỳ',
+  largest_rating_gain: 'điểm kinh nghiệm tăng trong mùa',
   longest_streak: 'trận thắng liên tiếp',
 };
 const rankName = (rank: number) => ({ 1: 'Hạng nhất', 2: 'Hạng nhì', 3: 'Hạng ba' } as Record<number, string>)[rank] ?? `Hạng ${rank}`;
 const programScope = (program: RewardProgram) =>
-  [program.discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi', program.band === 'under_1600' ? 'Dưới 1.600' : 'Từ 1.600'].join(' · ');
+  [program.discipline === 'singles' ? 'Đánh đơn' : 'Đánh đôi', `Hạng ${DIVISION_LABEL[program.band]}`].join(' · ');
 const programArea = (program: RewardProgram) => (program.scope === 'province' ? provinceName(program.provinceCode) ?? 'Tỉnh/thành' : 'Toàn nền tảng');
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
 
@@ -31,24 +33,26 @@ export function RewardProgramsPage() {
   useEffect(() => { listRewardPrograms().then((result) => setPrograms(result.items), (cause) => setError(errorText(cause, 'Không thể tải chương trình thưởng.'))); }, []);
   return (
     <div className="page-container py-8 sm:py-10">
-      <PageHeader eyebrow="Bảng xếp hạng" title="Chương trình thưởng" description="Giải thưởng do quản trị viên, ngân sách marketing hoặc nhà tài trợ chi trả; không lấy từ tiền lượt đặt sân hay tiền kèo." />
+      <Link to="/leaderboard" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-navy hover:underline"><Icon name="arrowLeft" className="h-4 w-4" />Bảng xếp hạng</Link>
+      <div className="mt-3"><PageHeader eyebrow="Mùa giải" title="Chương trình thưởng" description="Giải thưởng do quản trị viên hoặc nhà tài trợ chi trả, không lấy từ tiền đặt sân hay tiền kèo." /></div>
       <div className="mt-6">
-        {error ? <RouteState variant="error" title="Chưa thể tải chương trình" description={error} />
+        {error ? <RouteState variant="error" title="Chưa tải được chương trình" description="Máy chủ đang bận hoặc kết nối bị gián đoạn. Hãy tải lại trang." />
           : !programs ? <RouteState variant="loading" title="Đang tải chương trình thưởng" />
           : programs.length === 0 ? <RouteState variant="empty" title="Chưa có chương trình thưởng" description="Chương trình mới sẽ xuất hiện khi quản trị viên công bố." />
           : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
               {programs.map((program) => (
-                <Link key={program.id} to={`/rewards/${program.id}`} className="block">
-                  <SurfaceCard hoverable className="h-full">
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-h3">{program.name}</h2>
-                      <Badge tone={program.status === 'active' ? 'success' : program.status === 'cancelled' ? 'danger' : 'neutral'}>{REWARD_STATUS_LABELS[program.status]}</Badge>
-                    </div>
-                    <p className="mt-2 text-sm text-ink-500">{programScope(program)} · {programArea(program)}</p>
-                    <p className="mt-1 text-sm text-ink-500">{formatDateVi(program.startAt)} - {formatDateVi(program.endAt)} · {program.criterionLabel}</p>
-                    {program.tiers[0] && <p className="text-figures mt-3 font-bold text-brand-navy">Giải nhất {formatMoneyVnd(program.tiers[0].amount)}</p>}
-                  </SurfaceCard>
+                <Link key={program.id} to={`/rewards/${program.id}`} className="surface-card grid overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)] sm:grid-cols-[minmax(0,1fr)_13rem]">
+                  <div className="p-6">
+                    <Badge tone={program.status === 'active' ? 'success' : program.status === 'cancelled' ? 'danger' : 'neutral'}>{REWARD_STATUS_LABELS[program.status]}</Badge>
+                    <h2 className="mt-3 text-h3">{program.name}</h2>
+                    <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                      <dt className="text-ink-500">Thời gian</dt><dd className="text-figures font-semibold">{formatDateVi(program.startAt)} – {formatDateVi(program.endAt)}</dd>
+                      <dt className="text-ink-500">Phạm vi</dt><dd className="font-semibold">{programScope(program)} · {programArea(program)}</dd>
+                      <dt className="text-ink-500">Tiêu chí</dt><dd className="font-semibold">{program.criterionLabel}</dd>
+                    </dl>
+                  </div>
+                  {program.tiers[0] && <div className="flex flex-col justify-center gap-1 bg-brand-navy p-6 text-surface"><p className="text-figures text-xl font-semibold leading-tight text-brand-yellow">Giải nhất {formatMoneyVnd(program.tiers[0].amount)}</p><span className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-surface/80">Xem chi tiết<Icon name="arrowRight" className="h-4 w-4" /></span></div>}
                 </Link>
               ))}
             </div>
@@ -94,7 +98,7 @@ export function RewardProgramDetailPage() {
           <h2 className="text-h2">Thông tin chương trình</h2>
           <p className="mt-1 text-sm text-ink-500">Áp dụng tự động cho người chơi đáp ứng điều kiện của bảng.</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-            {[['Thời gian', `${formatDateVi(program.startAt)} - ${formatDateVi(program.endAt)}`], ['Nội dung và nhóm điểm', programScope(program)], ['Phạm vi', programArea(program)]].map(([label, value]) => (
+            {[['Thời gian', `${formatDateVi(program.startAt)} - ${formatDateVi(program.endAt)}`], ['Nội dung và hạng đấu', programScope(program)], ['Phạm vi', programArea(program)]].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-line p-3"><dt className="text-xs text-ink-500">{label}</dt><dd className="mt-1 font-semibold text-brand-navy">{value}</dd></div>
             ))}
           </dl>
@@ -143,7 +147,7 @@ export function RewardProgramDetailPage() {
             </div>
           ) : (
             <p className="mt-4 rounded-xl bg-canvas p-4 text-sm">
-              {program.status === 'scheduled' ? 'Chương trình chưa bắt đầu.' : 'Bạn chưa có trong danh sách của chương trình này. Chơi kèo xếp hạng đúng nội dung, nhóm điểm và khu vực để được tính.'}
+              {program.status === 'scheduled' ? 'Chương trình chưa bắt đầu.' : 'Bạn chưa có trong danh sách của chương trình này. Chơi kèo xếp hạng đúng nội dung, hạng đấu và khu vực để được tính.'}
             </p>
           )}
           {program.status !== 'final' && program.status !== 'cancelled' && (

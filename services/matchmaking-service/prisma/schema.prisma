@@ -189,6 +189,25 @@ enum ResultCaseStatus {
   provider_review
   admin_review
   final
+  // Quét ảnh tỉ số / tranh chấp hai tầng (result-ocr-autoconfirm.md §8), chỉ hồ sơ rulesVersion=ra_v1.
+  proposed
+  acceptance_grace
+  evidence_window
+  rule_ruling
+  ai_ruling
+  appeal_window
+}
+
+/// T8: hồ sơ mở trước khi triển khai giữ luật cũ tới khi đóng.
+enum ResultRulesVersion {
+  legacy
+  ra_v1
+}
+
+enum ResultLevel {
+  green
+  yellow
+  red
 }
 
 enum MatchOutcome {
@@ -201,6 +220,8 @@ enum ResultResponseKind {
   confirm
   object
   incident
+  /// BR-RA-30: đội đã nộp đủ bằng chứng tranh chấp.
+  evidence_done
 }
 
 enum ResultIncidentType {
@@ -211,31 +232,45 @@ enum ResultIncidentType {
 }
 
 model MatchResultCase {
-  id                    String                   @id @default(uuid())
-  matchId               String                   @unique
-  match                 Match                    @relation(fields: [matchId], references: [id])
-  status                ResultCaseStatus         @default(declaration_open)
-  outcome               MatchOutcome?
-  declarationDeadlineAt DateTime                 @db.Timestamptz(3)
-  objectionDeadlineAt   DateTime?                @db.Timestamptz(3)
-  teamGraceDeadlineAt   DateTime?                @db.Timestamptz(3)
-  incidentDeadlineAt    DateTime?                @db.Timestamptz(3)
-  providerDeadlineAt    DateTime?                @db.Timestamptz(3)
-  adminReviewStartedAt  DateTime?                @db.Timestamptz(3)
-  adminNextReminderAt   DateTime?                @db.Timestamptz(3)
+  id                     String                   @id @default(uuid())
+  matchId                String                   @unique
+  match                  Match                    @relation(fields: [matchId], references: [id])
+  status                 ResultCaseStatus         @default(declaration_open)
+  outcome                MatchOutcome?
+  declarationDeadlineAt  DateTime                 @db.Timestamptz(3)
+  objectionDeadlineAt    DateTime?                @db.Timestamptz(3)
+  teamGraceDeadlineAt    DateTime?                @db.Timestamptz(3)
+  incidentDeadlineAt     DateTime?                @db.Timestamptz(3)
+  providerDeadlineAt     DateTime?                @db.Timestamptz(3)
+  adminReviewStartedAt   DateTime?                @db.Timestamptz(3)
+  adminNextReminderAt    DateTime?                @db.Timestamptz(3)
   /// Đã nhắc sắp hết hạn khai báo / phản hồi (spec §11); chống gửi trùng khi scheduler chạy lại.
-  declarationReminderAt DateTime?                @db.Timestamptz(3)
-  responseReminderAt    DateTime?                @db.Timestamptz(3)
-  version               Int                      @default(1)
-  finalizedAt           DateTime?                @db.Timestamptz(3)
-  closedAt              DateTime?                @db.Timestamptz(3)
-  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime                 @updatedAt @db.Timestamptz(3)
-  claims                ResultClaim[]
-  responses             ResultResponse[]
-  evidence              ResultEvidence[]
-  recommendations       ProviderRecommendation[]
-  adminDecision         AdminResultDecision?
+  declarationReminderAt  DateTime?                @db.Timestamptz(3)
+  responseReminderAt     DateTime?                @db.Timestamptz(3)
+  rulesVersion           ResultRulesVersion       @default(ra_v1)
+  /// BR-RA-20a: lưu cả hạn gốc và hạn đã giãn qua đêm.
+  responseDeadlineBaseAt DateTime?                @db.Timestamptz(3)
+  responseDeadlineAt     DateTime?                @db.Timestamptz(3)
+  graceDeadlineAt        DateTime?                @db.Timestamptz(3)
+  evidenceDeadlineAt     DateTime?                @db.Timestamptz(3)
+  evidenceClosedAt       DateTime?                @db.Timestamptz(3)
+  appealDeadlineAt       DateTime?                @db.Timestamptz(3)
+  /// Tầng 2 đang chờ AI (BR-RA-37): thử lại tới rulingRetryUntil rồi chuyển Admin.
+  pendingRuling          Boolean                  @default(false)
+  rulingRetryUntil       DateTime?                @db.Timestamptz(3)
+  version                Int                      @default(1)
+  finalizedAt            DateTime?                @db.Timestamptz(3)
+  closedAt               DateTime?                @db.Timestamptz(3)
+  createdAt              DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                 @updatedAt @db.Timestamptz(3)
+  claims                 ResultClaim[]
+  responses              ResultResponse[]
+  evidence               ResultEvidence[]
+  recommendations        ProviderRecommendation[]
+  adminDecision          AdminResultDecision?
+  uploads                ResultUpload[]
+  rulings                AiRuling[]
+  appeals                ResultAppeal[]
 
   @@index([status, declarationDeadlineAt])
   @@index([status, objectionDeadlineAt])
@@ -244,16 +279,26 @@ model MatchResultCase {
 }
 
 model ResultClaim {
-  id             String           @id @default(uuid())
-  caseId         String
-  claimantUserId String
-  outcome        MatchOutcome
-  setWinsA       Int
-  setWinsB       Int
-  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
-  case           MatchResultCase  @relation(fields: [caseId], references: [id])
-  sets           ResultSet[]
-  evidence       ResultEvidence[]
+  id                String           @id @default(uuid())
+  caseId            String
+  claimantUserId    String
+  outcome           MatchOutcome
+  setWinsA          Int
+  setWinsB          Int
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  /// ra_v1: mọi cột dưới đây ghi lúc chèn, không bao giờ sửa (trigger chỉ ghi thêm giữ nguyên, T6).
+  level             ResultLevel?
+  levelReasons      Json?
+  columnMappedBy    String?
+  editedCells       Json?
+  manualEntry       Boolean          @default(false)
+  supersedesClaimId String?
+  draftId           String?
+  /// `claim` = bản khai; `evidence` = ảnh nộp trong 2h tranh chấp (BR-RA-30).
+  purpose           String           @default("claim")
+  case              MatchResultCase  @relation(fields: [caseId], references: [id])
+  sets              ResultSet[]
+  evidence          ResultEvidence[]
 
   @@index([caseId, createdAt])
   @@map("result_claims")
@@ -287,26 +332,174 @@ model ResultResponse {
 }
 
 model ResultEvidence {
-  id             String          @id @default(uuid())
-  caseId         String
-  objectKey      String          @unique
-  mimeType       String
-  size           Int
-  checksumSha256 String
-  ownerUserId    String
-  claimId        String?
-  responseId     String?
-  position       Int
-  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  id                 String          @id @default(uuid())
+  caseId             String
+  objectKey          String          @unique
+  mimeType           String
+  size               Int
+  checksumSha256     String
+  ownerUserId        String
+  claimId            String?
+  responseId         String?
+  position           Int
+  createdAt          DateTime        @default(now()) @db.Timestamptz(3)
   /// Retention xóa binary 90 ngày sau closedAt; metadata/checksum giữ lại (BR-CM-27).
-  deletedAt      DateTime?       @db.Timestamptz(3)
-  case           MatchResultCase @relation(fields: [caseId], references: [id])
-  claim          ResultClaim?    @relation(fields: [claimId], references: [id])
-  response       ResultResponse? @relation(fields: [responseId], references: [id])
+  deletedAt          DateTime?       @db.Timestamptz(3)
+  /// ra_v1: ghi lúc chèn, không sửa. purpose: claim / evidence / appeal.
+  uploadId           String?
+  capturedAt         DateTime?       @db.Timestamptz(3)
+  dhash              String?
+  exactDuplicateOfId String?
+  nearDuplicateOfId  String?
+  level              ResultLevel?
+  levelReasons       Json?
+  /// Bên thắng mà ảnh ủng hộ, theo bản khai/bản nộp chứa ảnh (BR-RA-30).
+  supports           MatchOutcome?
+  purpose            String          @default("claim")
+  case               MatchResultCase @relation(fields: [caseId], references: [id])
+  claim              ResultClaim?    @relation(fields: [claimId], references: [id])
+  response           ResultResponse? @relation(fields: [responseId], references: [id])
 
   @@unique([caseId, objectKey])
   @@index([caseId, ownerUserId])
+  @@index([checksumSha256])
   @@map("result_evidence")
+}
+
+/// Ảnh nháp trước khi gửi bản khai (chỉ ghi thêm); chưa tính vào hạn mức 7 ảnh.
+model ResultUpload {
+  id                 String            @id @default(uuid())
+  caseId             String
+  userId             String
+  /// Id của lượt tải (id ResultUpload đầu tiên trong lượt).
+  draftId            String
+  objectKey          String            @unique
+  checksumSha256     String
+  mimeType           String
+  size               Int
+  capturedAt         DateTime?         @db.Timestamptz(3)
+  capturedAtSource   String
+  dhash              String
+  exactDuplicateOfId String?
+  nearDuplicateOfId  String?
+  isScreenshot       Boolean           @default(false)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  case               MatchResultCase   @relation(fields: [caseId], references: [id])
+  readings           EvidenceReading[]
+
+  @@index([caseId, userId])
+  @@index([draftId])
+  @@map("result_uploads")
+}
+
+/// Mỗi lượt AI đọc một ảnh (thành công hoặc thất bại); đọc lại là dòng mới.
+model EvidenceReading {
+  id         String       @id @default(uuid())
+  uploadId   String
+  ok         Boolean
+  reading    Json?
+  provider   String?
+  model      String?
+  chainIndex Int?
+  latencyMs  Int
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+  upload     ResultUpload @relation(fields: [uploadId], references: [id])
+
+  @@index([uploadId, createdAt])
+  @@map("evidence_readings")
+}
+
+/// Kết quả tạm tầng 1 (luật) và phán quyết tạm tầng 2 (AI) — BR-RA-31..40.
+model AiRuling {
+  id           String          @id @default(uuid())
+  caseId       String
+  tier         Int
+  outcome      MatchOutcome
+  reasons      Json
+  adminNotes   String?
+  citations    Json
+  confidence   Float?
+  provider     String?
+  model        String?
+  latencyMs    Int?
+  tokensIn     Int?
+  tokensOut    Int?
+  publishedAt  DateTime?       @db.Timestamptz(3)
+  appealedAt   DateTime?       @db.Timestamptz(3)
+  finalOutcome MatchOutcome?
+  overturned   Boolean?
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  case         MatchResultCase @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("ai_rulings")
+}
+
+model ResultAppeal {
+  id            String          @id @default(uuid())
+  caseId        String
+  rulingId      String
+  userId        String
+  reason        String
+  pointedReason String?
+  evidenceIds   Json
+  accepted      Boolean
+  adminGrounded Boolean?
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  case          MatchResultCase @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("result_appeals")
+}
+
+/// BR-RA-51: tối đa 1 vi phạm/người/hồ sơ; uy tín = đếm 90 ngày lúc đọc.
+model PlayerViolation {
+  id        String   @id @default(uuid())
+  userId    String
+  caseId    String
+  kind      String
+  source    String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, caseId])
+  @@index([userId, createdAt])
+  @@map("player_violations")
+}
+
+/// Kho RAG (tech design §7). `tsv` là cột sinh `to_tsvector('simple', text)` tạo bằng SQL thô trong migration.
+model KnowledgeChunk {
+  id        String                   @id
+  kind      String
+  ref       String
+  text      String
+  embedding Float[]
+  tsv       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('simple'::regconfig, text)"))
+  metadata  Json                     @default("{}")
+  active    Boolean                  @default(true)
+  updatedAt DateTime                 @updatedAt @db.Timestamptz(3)
+
+  @@index([kind, active])
+  @@index([tsv], type: Gin)
+  @@map("knowledge_chunks")
+}
+
+/// Mỗi lần gọi AI (không chứa prompt) — chỉ số "rơi xuống nguồn dự phòng" (spec §10).
+model AiCallLog {
+  id         String   @id @default(uuid())
+  purpose    String
+  provider   String
+  model      String
+  chainIndex Int
+  ok         Boolean
+  errorCode  String?
+  latencyMs  Int
+  tokensIn   Int?
+  tokensOut  Int?
+  caseId     String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([purpose, createdAt])
+  @@map("ai_call_logs")
 }
 
 model ProviderRecommendation {
@@ -343,11 +536,11 @@ model Passport {
   ratingMu      Float
   ratingRd      Float
   ratingSigma   Float
-  matchesPlayed Int        @default(0)
-  declaredAt    DateTime?  @db.Timestamptz(3)
+  matchesPlayed Int             @default(0)
+  declaredAt    DateTime?       @db.Timestamptz(3)
   /// BR-CM-49: mốc rating period gần nhất (đánh trận hoặc tăng RD khi không hoạt động).
-  lastAgedAt    DateTime?  @db.Timestamptz(3)
-  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
+  lastAgedAt    DateTime?       @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
 
   @@id([userId, discipline])
   @@map("passports")
@@ -374,18 +567,18 @@ model MatchRatingChange {
 /// BR-CM-47: suất rating cùng đối thủ trong 7 ngày trượt, quyết định theo finalizedAt lúc chốt kết quả.
 /// opponentKey: singles = userId đối thủ; doubles = hai userId đội đối phương đã sắp xếp, nối bằng ':'.
 model RatedEncounter {
-  id          String          @id @default(uuid())
-  matchId     String
-  userId      String
-  discipline  MatchDiscipline
-  opponentKey String
-  finalizedAt DateTime        @db.Timestamptz(3)
-  rated       Boolean
+  id             String          @id @default(uuid())
+  matchId        String
+  userId         String
+  discipline     MatchDiscipline
+  opponentKey    String
+  finalizedAt    DateTime        @db.Timestamptz(3)
+  rated          Boolean
   /// Kết quả đã giữ suất (snapshot đối thủ lúc chốt); consumer áp theo thứ tự finalizedAt.
   opponentRating Float?
   opponentRd     Float?
   score          Float?
-  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
 
   @@unique([matchId, userId])
   @@index([userId, discipline, opponentKey, finalizedAt])
@@ -420,22 +613,32 @@ model PlayerSeasonProfile {
   @@map("player_season_profiles")
 }
 
+/// Không chuyên = Yếu, TB; Chuyên = TB+, Bán chuyên. Mới chơi không chơi được kèo xếp hạng.
+enum SeasonDivision {
+  amateur
+  pro
+}
+
 /// BR-CM-56/57: số liệu theo kỳ, reset mỗi kỳ; Passport giữ nguyên qua các kỳ.
 model SeasonStat {
-  seasonId          String
-  userId            String
-  discipline        MatchDiscipline
-  matchesPlayed     Int             @default(0)
-  wins              Int             @default(0)
-  provinceMatches   Int             @default(0)
-  currentWinStreak  Int             @default(0)
-  longestWinStreak  Int             @default(0)
-  ratingGain        Float           @default(0)
+  seasonId         String
+  userId           String
+  discipline       MatchDiscipline
+  matchesPlayed    Int             @default(0)
+  wins             Int             @default(0)
+  provinceMatches  Int             @default(0)
+  currentWinStreak Int             @default(0)
+  longestWinStreak Int             @default(0)
+  ratingGain       Float           @default(0)
+  /// Hạng đấu khóa ở trận xếp hạng đầu tiên của mùa (điểm kinh nghiệm >= 1600 → pro).
+  division         SeasonDivision?
+  /// Điểm BXH mùa (Elo K=40, sàn 0), tách khỏi điểm kinh nghiệm và reset mỗi mùa.
+  points           Int             @default(0)
   /// Chụp lúc đóng kỳ để BXH/huy hiệu kỳ đã đóng không đổi theo Passport hiện tại.
-  finalRating       Float?
-  finalRd           Float?
-  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
-  season            Season          @relation(fields: [seasonId], references: [id])
+  finalRating      Float?
+  finalRd          Float?
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+  season           Season          @relation(fields: [seasonId], references: [id])
 
   @@id([seasonId, userId, discipline])
   @@index([seasonId, discipline, matchesPlayed])

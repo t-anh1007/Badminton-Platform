@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ManageMatchResultsPage } from './manage/ManageMatchResultsPage.js'
@@ -41,7 +41,7 @@ it('provider pages the queue, reads evidence privately and sends a non-binding r
   expect(screen.getByText(/Đề xuất chưa có hiệu lực/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Xem ảnh 1' }))
   await waitFor(() => expect(readResultEvidence).toHaveBeenCalledWith('match-c1', 'e1'))
-  fireEvent.click(screen.getByRole('button', { name: '›' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }))
   await waitFor(() => expect(listProviderResultCases).toHaveBeenLastCalledWith(2, 'provider_review'))
   const send = screen.getByRole('button', { name: 'Gửi đề xuất cho quản trị viên' })
   expect(send).toBeDisabled()
@@ -101,7 +101,6 @@ it('admin must preview the unchanged decision and tick the check before the fina
   expect(await screen.findByText(/Hồ sơ đã thay đổi/)).toBeInTheDocument()
   expect(screen.queryByText('Minh Anh nhận lại')).not.toBeInTheDocument()
   expect(confirm).toBeDisabled()
-  expect(within(screen.getByRole('list', { name: 'Các bước quyết định' })).getAllByRole('listitem')).toHaveLength(3)
 })
 
 it('opens the case from the notification link even when it is not on the current queue page', async () => {
@@ -124,14 +123,14 @@ it('lets provider and Admin switch to processed cases through the status filter'
   vi.mocked(getAdminResultCase).mockResolvedValue(detail({ caseId: 'c5', status: 'final', actions: { canPreviewDecision: false } }))
   render(<MemoryRouter><AdminMatchResultsPage /></MemoryRouter>)
   await waitFor(() => expect(listAdminResultCases).toHaveBeenLastCalledWith(1, 'admin_review'))
-  fireEvent.change(screen.getByLabelText('Trạng thái hồ sơ'), { target: { value: 'final' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Đã chốt' }))
   await waitFor(() => expect(listAdminResultCases).toHaveBeenLastCalledWith(1, 'final'))
   expect(await screen.findByText('Hồ sơ không còn ở bước quản trị viên quyết định.')).toBeInTheDocument()
 
   cleanup()
   vi.mocked(listProviderResultCases).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 })
   render(<MemoryRouter><ManageMatchResultsPage /></MemoryRouter>)
-  fireEvent.change(await screen.findByLabelText('Trạng thái hồ sơ'), { target: { value: 'admin_review' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Chờ quản trị viên' }))
   await waitFor(() => expect(listProviderResultCases).toHaveBeenLastCalledWith(1, 'admin_review'))
   expect(await screen.findByText('Không có hồ sơ nào ở trạng thái này.')).toBeInTheDocument()
 })

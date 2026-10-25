@@ -15,7 +15,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-08-23T03:00:00.000Z'))
   // Phần góp của chủ kèo do backend trả (kèo đơn 7:3 giá 120.000đ -> 84.000đ).
   vi.mocked(getMatchDetail).mockResolvedValue({ funding: { organizerContribution: '84000' } } as never)
-  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', withdrawable: '0', pending: '0', reserved: '0', currency: 'VND' }])
+  vi.mocked(getMyWallets).mockResolvedValue([{ id: 'wallet-1', walletType: 'personal', available: '250000', pending: '0', reserved: '0', currency: 'VND' }])
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
 
@@ -33,7 +33,7 @@ it('shows the organizer contribution returned by the backend and waits for the m
 
 it('shows the personal wallet balance in VND next to the balance method', async () => {
   render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={vi.fn()} onExpired={vi.fn()} />)
-  expect(await screen.findByRole('option', { name: 'Số dư — 250.000đ' })).toBeInTheDocument()
+  expect(await screen.findByText('Hiện có 250.000đ')).toBeInTheDocument()
 })
 
 it('shows a balance error and allows retrying', async () => {
@@ -77,7 +77,7 @@ it('renders SePay and does not finish while payment is pending', async () => {
   vi.mocked(waitForMatchOpen).mockImplementation(() => new Promise(() => {}))
   const onPaid = vi.fn()
   render(<MatchDepositCheckout matchId="m1" fullPrice="120000" holdExpiresAt={future} onPaid={onPaid} onExpired={vi.fn()} />)
-  fireEvent.change(screen.getByLabelText('Phương thức thanh toán cọc'), { target: { value: 'sepay' } })
+  fireEvent.click(screen.getByRole('radio', { name: /Chuyển khoản VietQR/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Tạo mã SePay' }))
   expect(await screen.findByText(sepayIntent.matchCode)).toBeInTheDocument()
   expect(waitForMatchOpen).toHaveBeenCalledWith('m1', { intervalMs: 2_500, attempts: 240 })

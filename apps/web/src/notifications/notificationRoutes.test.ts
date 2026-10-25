@@ -3,7 +3,7 @@ import { resolveNotificationRoute } from './notificationRoutes.js';
 
 describe('competitive notification deep links', () => {
   it.each([
-    ['match.result.view', 'm1', '/matches/m1'],
+    ['match.result.view', 'm1', '/matches/m1#ket-qua-tran'],
     ['provider.match-result.review', 'c1', '/manage/match-results?caseId=c1'],
     ['admin.match-result.review', 'c2', '/admin/match-results?caseId=c2'],
     ['leaderboard.view', null, '/leaderboard'],

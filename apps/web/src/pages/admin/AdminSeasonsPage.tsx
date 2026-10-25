@@ -11,7 +11,7 @@ import type { Discipline } from '../../lib/passportApi';
 const STATUS: Record<AdminSeason['status'], { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   active: { label: 'Đang diễn ra', tone: 'success' },
   scheduled: { label: 'Sắp diễn ra', tone: 'neutral' },
-  closing: { label: 'Chờ đóng kỳ', tone: 'warning' },
+  closing: { label: 'Chờ đóng mùa', tone: 'warning' },
   closed: { label: 'Đã kết thúc', tone: 'neutral' },
 };
 // Ngày nhập theo giờ Việt Nam; ngày kết thúc tính trọn ngày nên mốc kết thúc là 00:00 ngày hôm sau.
@@ -33,7 +33,7 @@ export function AdminSeasonsPage() {
   const [viewing, setViewing] = useState<AdminSeason | null>(null);
   const [message, setMessage] = useState('');
   const load = useCallback(() => {
-    listAdminSeasons(page).then(setData, (cause) => setError(cause instanceof Error ? cause.message : 'Không thể tải kỳ xếp hạng.'));
+    listAdminSeasons(page).then(setData, (cause) => setError(cause instanceof Error ? cause.message : 'Không thể tải mùa giải.'));
   }, [page]);
   useEffect(load, [load]);
   const active = data?.items.find((season) => season.status === 'active');
@@ -44,28 +44,28 @@ export function AdminSeasonsPage() {
       await closeSeason(season.id);
       setMessage(`Đã đóng ${season.name}.`);
       load();
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể đóng kỳ.'); }
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Không thể đóng mùa giải.'); }
   };
 
   return (
     <>
-      <h2 className="text-h1">Quản lý kỳ xếp hạng</h2>
-      <p className="mt-2 text-ink-500">Mỗi thời điểm chỉ có một kỳ áp dụng chung cho bảng đánh đơn và đánh đôi. Mỗi kỳ đã có bảng riêng cho từng tỉnh/thành; muốn tổ chức giải riêng cho một tỉnh/thành, tạo chương trình thưởng phạm vi tỉnh/thành.</p>
+      <h1 className="text-h2">Mùa giải</h1>
+      <p className="mt-1 text-sm text-ink-500">Một mùa chung cho đơn và đôi · hai hạng đấu mỗi nội dung · bảng riêng từng tỉnh/thành.</p>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <SurfaceCard><p className="text-xs text-ink-500">Kỳ đang diễn ra</p><p className="mt-1 whitespace-nowrap text-h3">{active?.name ?? 'Chưa có'}</p>{active && <p className="text-xs text-ink-500">Còn {daysLeft(active.endAt)} ngày</p>}</SurfaceCard>
+        <SurfaceCard><p className="text-xs text-ink-500">Mùa đang diễn ra</p><p className="mt-1 whitespace-nowrap text-h3">{active?.name ?? 'Chưa có'}</p>{active && <p className="text-xs text-ink-500">Còn {daysLeft(active.endAt)} ngày</p>}</SurfaceCard>
         <SurfaceCard><p className="text-xs text-ink-500">Người đủ điều kiện lên bảng</p><p className="text-figures mt-1 text-h3">{(active?.eligiblePlayerCount ?? 0).toLocaleString('vi-VN')}</p><p className="text-xs text-ink-500">Đơn và đôi</p></SurfaceCard>
-        <SurfaceCard><p className="text-xs text-ink-500">Kỳ tiếp theo</p><p className="mt-1 whitespace-nowrap text-h3">{next?.name ?? 'Chưa công bố'}</p>{next && <p className="text-xs text-ink-500">Bắt đầu {formatDateVi(next.startAt)}</p>}</SurfaceCard>
+        <SurfaceCard><p className="text-xs text-ink-500">Mùa tiếp theo</p><p className="mt-1 whitespace-nowrap text-h3">{next?.name ?? 'Chưa công bố'}</p>{next && <p className="text-xs text-ink-500">Bắt đầu {formatDateVi(next.startAt)}</p>}</SurfaceCard>
       </div>
       {message && <p role="status" className="mt-4 rounded-xl bg-info-bg p-3 text-sm">{message}</p>}
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <SurfaceCard>
-          <h3 className="text-h3">Danh sách kỳ xếp hạng</h3>
+          <h3 className="text-h3">Danh sách mùa giải</h3>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : !data ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p> : data.items.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-500">Chưa có kỳ nào. Tạo kỳ đầu tiên ở khung bên cạnh.</p>
+            <p className="mt-3 text-sm text-ink-500">Chưa có mùa giải nào. Tạo mùa đầu tiên ở khung bên cạnh.</p>
           ) : (
             <table className="mt-3 w-full table-fixed text-sm">
               <thead><tr className="border-b border-line text-left text-xs text-ink-500">
-                <th scope="col" className="py-2">Tên kỳ</th><th scope="col" className="w-44 py-2">Thời gian</th><th scope="col" className="w-32 py-2">Trạng thái</th><th scope="col" className="w-32 py-2"><span className="sr-only">Thao tác</span></th>
+                <th scope="col" className="py-2">Tên mùa</th><th scope="col" className="w-44 py-2">Thời gian</th><th scope="col" className="w-32 py-2">Trạng thái</th><th scope="col" className="w-32 py-2"><span className="sr-only">Thao tác</span></th>
               </tr></thead>
               <tbody>
                 {data.items.map((season) => (
@@ -75,7 +75,7 @@ export function AdminSeasonsPage() {
                     <td className="py-3"><Badge tone={STATUS[season.status].tone}>{STATUS[season.status].label}</Badge></td>
                     <td className="py-3 text-right">
                       {season.status === 'closing'
-                        ? <Button size="sm" onClick={() => void close(season)}>Đóng kỳ</Button>
+                        ? <Button size="sm" onClick={() => void close(season)}>Đóng mùa</Button>
                         : <Button size="sm" tone="secondary" onClick={() => setViewing(season)}>Xem</Button>}
                     </td>
                   </tr>
@@ -102,7 +102,7 @@ function CreateSeasonForm({ onCreated }: { onCreated: (name: string) => void }) 
   const [pending, setPending] = useState(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!name.trim() || !start || !end) { setError('Nhập tên kỳ, ngày bắt đầu và ngày kết thúc.'); return; }
+    if (!name.trim() || !start || !end) { setError('Nhập tên mùa, ngày bắt đầu và ngày kết thúc.'); return; }
     if (end < start) { setError('Ngày kết thúc phải sau ngày bắt đầu.'); return; }
     const endAt = nextDayStart(end);
     setPending(true);
@@ -111,22 +111,22 @@ function CreateSeasonForm({ onCreated }: { onCreated: (name: string) => void }) 
       await createSeason({ name: name.trim(), startAt: dayStart(start).toISOString(), endAt: endAt.toISOString() });
       onCreated(name.trim());
       setName(''); setStart(''); setEnd('');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tạo kỳ.'); } finally { setPending(false); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể tạo mùa giải.'); } finally { setPending(false); }
   };
   return (
     <SurfaceCard className="h-fit">
       <form noValidate onSubmit={(event) => void submit(event)}>
-        <h3 className="text-h3">Tạo kỳ tiếp theo</h3>
-        <p className="mt-1 text-sm text-ink-500">Kỳ mới bắt đầu sau khi kỳ hiện tại kết thúc.</p>
-        <label className="mt-4 block text-sm font-bold">Tên kỳ hiển thị<TextInput className="mt-1" value={name} placeholder="Tháng 11-12/2026" onChange={(event) => setName(event.target.value)} /></label>
+        <h3 className="text-h3">Tạo mùa tiếp theo</h3>
+        <p className="mt-1 text-sm text-ink-500">Mùa mới bắt đầu sau khi mùa hiện tại kết thúc.</p>
+        <label className="mt-4 block text-sm font-bold">Tên mùa hiển thị<TextInput className="mt-1" value={name} placeholder="Tháng 11-12/2026" onChange={(event) => setName(event.target.value)} /></label>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="block text-sm font-bold">Ngày bắt đầu<TextInput className="mt-1" type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label>
           <label className="block text-sm font-bold">Ngày kết thúc<TextInput className="mt-1" type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label>
         </div>
-        <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-xs text-ink-700">Thời gian các kỳ không được trùng nhau.</p>
-        <p className="mt-2 rounded-xl bg-canvas p-3 text-xs text-ink-700">Khi sang kỳ mới, điểm xếp hạng và mức độ ổn định được giữ nguyên. Số trận, số trận thắng, chuỗi thắng và điều kiện lên bảng được tính lại.</p>
+        <p className="mt-3 rounded-xl border-l-4 border-brand-yellow bg-warning-bg p-3 text-xs text-ink-700">Thời gian các mùa giải không được trùng nhau.</p>
+        <p className="mt-2 rounded-xl bg-canvas p-3 text-xs text-ink-700">Khi sang mùa mới, điểm kinh nghiệm và độ tin cậy được giữ nguyên. Điểm BXH, hạng đấu, số trận, số trận thắng, chuỗi thắng và điều kiện lên bảng được tính lại.</p>
         {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
-        <AsyncButton type="submit" className="mt-3 w-full" pending={pending}>Tạo kỳ</AsyncButton>
+        <AsyncButton type="submit" className="mt-3 w-full" pending={pending}>Tạo mùa giải</AsyncButton>
       </form>
     </SurfaceCard>
   );
@@ -143,7 +143,7 @@ function SeasonDetail({ season, onSaved }: { season: AdminSeason; onSaved: (name
   const [pending, setPending] = useState(false);
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!name.trim() || !start || !end) { setError('Nhập tên kỳ, ngày bắt đầu và ngày kết thúc.'); return; }
+    if (!name.trim() || !start || !end) { setError('Nhập tên mùa, ngày bắt đầu và ngày kết thúc.'); return; }
     if (end < start) { setError('Ngày kết thúc phải sau ngày bắt đầu.'); return; }
     // Chỉ gửi mốc đã đổi để giữ nguyên mốc gốc của kỳ.
     const body: { name: string; startAt?: string; endAt?: string } = { name: name.trim() };
@@ -151,7 +151,7 @@ function SeasonDetail({ season, onSaved }: { season: AdminSeason; onSaved: (name
     if (end !== inputLastDay(season.endAt)) body.endAt = nextDayStart(end).toISOString();
     setPending(true);
     setError('');
-    try { await updateSeason(season.id, body); onSaved(body.name); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể cập nhật kỳ.'); } finally { setPending(false); }
+    try { await updateSeason(season.id, body); onSaved(body.name); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể cập nhật mùa giải.'); } finally { setPending(false); }
   };
   return (
     <>
@@ -162,13 +162,13 @@ function SeasonDetail({ season, onSaved }: { season: AdminSeason; onSaved: (name
       </dl>
       {editable && (
         <form noValidate className="mt-3 rounded-2xl border border-line p-4" onSubmit={(event) => void save(event)}>
-          <h3 className="text-h3">Sửa thông tin kỳ</h3>
-          <label className="mt-3 block text-sm font-bold">Tên kỳ hiển thị<TextInput className="mt-1" value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <h3 className="text-h3">Sửa thông tin mùa giải</h3>
+          <label className="mt-3 block text-sm font-bold">Tên mùa hiển thị<TextInput className="mt-1" value={name} onChange={(event) => setName(event.target.value)} /></label>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <label className="block text-sm font-bold">Ngày bắt đầu<TextInput className="mt-1" type="date" value={start} disabled={started} onChange={(event) => setStart(event.target.value)} /></label>
             <label className="block text-sm font-bold">Ngày kết thúc<TextInput className="mt-1" type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label>
           </div>
-          {started && <p className="mt-2 text-xs text-ink-500">Kỳ đã bắt đầu nên không đổi được ngày bắt đầu.</p>}
+          {started && <p className="mt-2 text-xs text-ink-500">Mùa giải đã bắt đầu nên không đổi được ngày bắt đầu.</p>}
           {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
           <AsyncButton type="submit" className="mt-3" pending={pending}>Lưu thay đổi</AsyncButton>
         </form>
@@ -183,7 +183,7 @@ const BOARD_PAGE_SIZE = 10;
 /** BXH của một kỳ cụ thể; kỳ đã đóng hiển thị điểm chụp lúc đóng kỳ. */
 function SeasonLeaderboard({ seasonId }: { seasonId: string }) {
   const [discipline, setDiscipline] = useState<Discipline>('singles');
-  const [band, setBand] = useState<LeaderboardBand>('under_1600');
+  const [band, setBand] = useState<LeaderboardBand>('amateur');
   const [provinceCode, setProvinceCode] = useState('');
   const [page, setPage] = useState(1);
   const [board, setBoard] = useState<Leaderboard | null>(null);
@@ -196,16 +196,16 @@ function SeasonLeaderboard({ seasonId }: { seasonId: string }) {
   }, [seasonId, discipline, band, provinceCode, page]);
   return (
     <section className="mt-4">
-      <h3 className="text-h3">Bảng xếp hạng của kỳ</h3>
+      <h3 className="text-h3">Bảng xếp hạng của mùa</h3>
       <div className="mt-2 grid gap-3 sm:grid-cols-3">
         <label className="block text-xs font-bold">Nội dung
           <SelectInput className="mt-1" value={discipline} onChange={(event) => { setDiscipline(event.target.value as Discipline); setPage(1); }}>
             <option value="singles">Đánh đơn</option><option value="doubles">Đánh đôi</option>
           </SelectInput>
         </label>
-        <label className="block text-xs font-bold">Nhóm điểm
+        <label className="block text-xs font-bold">Hạng đấu
           <SelectInput className="mt-1" value={band} onChange={(event) => { setBand(event.target.value as LeaderboardBand); setPage(1); }}>
-            <option value="under_1600">Dưới 1.600</option><option value="from_1600">Từ 1.600</option>
+            <option value="amateur">Không chuyên</option><option value="pro">Chuyên</option>
           </SelectInput>
         </label>
         <label className="block text-xs font-bold">Phạm vi
@@ -222,14 +222,14 @@ function SeasonLeaderboard({ seasonId }: { seasonId: string }) {
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[480px] text-sm">
               <thead><tr className="border-b border-line text-left text-xs text-ink-500">
-                <th scope="col" className="py-2">Hạng</th><th scope="col" className="py-2">Người chơi</th><th scope="col" className="py-2 text-right">Điểm</th><th scope="col" className="py-2 text-right">Trận</th><th scope="col" className="py-2 text-right">Thắng</th>
+                <th scope="col" className="py-2">Hạng</th><th scope="col" className="py-2">Người chơi</th><th scope="col" className="py-2 text-right">Điểm BXH</th><th scope="col" className="py-2 text-right">Trận</th><th scope="col" className="py-2 text-right">Thắng</th>
               </tr></thead>
               <tbody>
                 {board.items.map((row) => (
                   <tr key={row.userId} className="border-b border-line last:border-0">
                     <td className="text-figures py-2 font-bold">{row.rank}</td>
                     <td className="py-2"><p className="font-semibold text-brand-navy">{row.displayName}</p>{row.provinceCode && <p className="text-xs text-ink-500">{provinceName(row.provinceCode)}</p>}</td>
-                    <td className="text-figures py-2 text-right font-semibold">{row.rating.toLocaleString('vi-VN')}</td>
+                    <td className="text-figures py-2 text-right font-semibold">{row.points.toLocaleString('vi-VN')}</td>
                     <td className="text-figures py-2 text-right">{row.matchesPlayed}</td>
                     <td className="text-figures py-2 text-right">{row.wins}</td>
                   </tr>

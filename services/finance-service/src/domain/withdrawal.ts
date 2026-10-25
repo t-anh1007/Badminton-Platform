@@ -2,11 +2,36 @@ import { randomUUID } from 'node:crypto';
 import type { Prisma, WithdrawalRequest } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
-import { postLedgerEntry } from './wallet.js';
+import { ensurePlatformWallet, postLedgerEntry } from './wallet.js';
 import { writeOutbox } from '../lib/outbox.js';
 import { writeFinanceUiInvalidation } from '../realtime/financeInvalidation.js';
 
 export const MIN_WITHDRAWAL = 10000n;
+/** Ví người chơi: rút miễn phí tới mức này mỗi ngày (giờ Việt Nam); phần vượt chịu phí 1%. */
+export const PERSONAL_DAILY_FREE_WITHDRAWAL = 1_000_000n;
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 0h ngày hiện tại theo giờ Việt Nam (UTC+7). */
+export function vnDayStart(now: Date) {
+  return new Date(Math.floor((now.getTime() + VN_OFFSET_MS) / DAY_MS) * DAY_MS - VN_OFFSET_MS);
+}
+
+/** Phí 1% chỉ tính trên phần vượt hạn mức miễn phí còn lại trong ngày, làm tròn tới đồng. */
+export function personalWithdrawalFee(gross: bigint, withdrawnToday: bigint) {
+  const freeLeft = withdrawnToday < PERSONAL_DAILY_FREE_WITHDRAWAL ? PERSONAL_DAILY_FREE_WITHDRAWAL - withdrawnToday : 0n;
+  const over = gross > freeLeft ? gross - freeLeft : 0n;
+  return (over + 50n) / 100n;
+}
+
+/** Tổng đã rút trong ngày (gồm phí) của ví người chơi; yêu cầu đã hủy/bị từ chối không tính. */
+export async function personalWithdrawnToday(db: Prisma.TransactionClient | typeof prisma, userId: string, now = new Date()) {
+  const sum = await db.withdrawalRequest.aggregate({
+    where: { sellerUserId: userId, walletType: 'personal', status: { not: 'rejected' }, createdAt: { gte: vnDayStart(now) } },
+    _sum: { amount: true, fee: true },
+  });
+  return (sum._sum.amount ?? 0n) + (sum._sum.fee ?? 0n);
+}
 
 export interface WithdrawalInput {
   amount: bigint;
@@ -37,6 +62,8 @@ export async function createWithdrawal(
     );
   }
 
+  const platform = walletType === 'personal' ? await ensurePlatformWallet() : null;
+
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${walletRef.id} FOR UPDATE`;
     const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: walletRef.id } });
@@ -44,14 +71,17 @@ export async function createWithdrawal(
       where: { sellerUserId: userId, walletType, status: { in: ['pending', 'partially_paid'] } },
     });
     if (active) throw new AppError('WITHDRAWAL_PENDING', 'Đã có yêu cầu rút đang xử lý.', 409);
-    if (wallet.available < input.amount || (walletType === 'personal' && wallet.withdrawable < input.amount)) {
+    if (wallet.available < input.amount) {
       throw new AppError('INSUFFICIENT_AVAILABLE', 'Số dư khả dụng không đủ.', 400);
     }
+    // Ví người chơi: input.amount là số trừ khỏi ví; phí trừ vào số tiền nhận về ngân hàng.
+    const fee = walletType === 'personal' ? personalWithdrawalFee(input.amount, await personalWithdrawnToday(tx, userId)) : 0n;
     const request = await tx.withdrawalRequest.create({
       data: {
         sellerUserId: userId,
         walletType,
-        amount: input.amount,
+        amount: input.amount - fee,
+        fee,
         paidAmount: 0n,
         transferCode: `WD${randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()}`,
         bankCode: input.bankCode.trim(),
@@ -59,12 +89,15 @@ export async function createWithdrawal(
         bankAccountName: input.bankAccountName.trim(),
       },
     });
+    if (fee > 0n) await postWithdrawalFee(tx, wallet.id, platform!.id, request.id, fee, 'charge');
+    const availableAfter = wallet.available - input.amount;
     await tx.wallet.update({
       where: { id: wallet.id },
       data: {
-        available: { decrement: input.amount },
-        reserved: { increment: input.amount },
-        ...(walletType === 'personal' ? { withdrawable: { decrement: input.amount } } : {}),
+        available: { decrement: request.amount },
+        reserved: { increment: request.amount },
+        // Ví người chơi không còn giới hạn "phần được rút"; chỉ giữ withdrawable <= available cho bút toán cũ.
+        ...(walletType === 'personal' && wallet.withdrawable > availableAfter ? { withdrawable: availableAfter } : {}),
       },
     });
     const targetRole = walletType === 'personal' ? 'player' : 'provider';
@@ -108,6 +141,18 @@ export async function createWithdrawal(
   });
 }
 
+/** Thu phí (charge) hoặc hoàn phí khi yêu cầu bị hủy/từ chối (refund): hai bút toán đối ứng ví người chơi ↔ ví nền tảng. */
+async function postWithdrawalFee(
+  tx: Prisma.TransactionClient, personalWalletId: string, platformWalletId: string, requestId: string, fee: bigint, mode: 'charge' | 'refund',
+) {
+  const title = mode === 'charge' ? 'Phí rút tiền vượt hạn mức ngày' : 'Hoàn phí rút tiền';
+  const sign = mode === 'charge' ? 1n : -1n;
+  const type = mode === 'charge' ? 'commission' as const : 'refund' as const;
+  const summary = { kind: 'withdrawal' as const, title };
+  await postLedgerEntry(tx, { walletId: personalWalletId, amount: -sign * fee, type, refType: 'withdrawalFee', refId: requestId, referenceSummary: summary });
+  await postLedgerEntry(tx, { walletId: platformWalletId, amount: sign * fee, type, refType: 'withdrawalFee', refId: requestId, referenceSummary: summary });
+}
+
 export async function cancelWithdrawal(
   userId: string,
   requestId: string,
@@ -144,12 +189,12 @@ async function reversePendingWithdrawal(
     if (freshWallet.reserved < request.amount) throw new Error('Reserved không đủ để hoàn tác yêu cầu rút');
     await tx.wallet.update({
       where: { id: wallet.id },
-      data: {
-        reserved: { decrement: request.amount },
-        available: { increment: request.amount },
-        ...(request.walletType === 'personal' ? { withdrawable: { increment: request.amount } } : {}),
-      },
+      data: { reserved: { decrement: request.amount }, available: { increment: request.amount } },
     });
+    if (request.fee > 0n) {
+      const platform = await tx.wallet.findFirstOrThrow({ where: { userId: null, walletType: 'platform' } });
+      await postWithdrawalFee(tx, wallet.id, platform.id, request.id, request.fee, 'refund');
+    }
     const updated = await tx.withdrawalRequest.update({
       where: { id: request.id },
       data: {

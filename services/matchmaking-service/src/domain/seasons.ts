@@ -1,7 +1,7 @@
 import type { MatchDiscipline, Prisma, Season } from '@prisma/client';
 import { AppError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
-import { HIGH_UNCERTAINTY_RD } from './rating.js';
+import { HIGH_UNCERTAINTY_RD, isNewcomerRating } from './rating.js';
 import { awardSeasonBadges } from './badges.js';
 import { countPendingRatedWork } from './ratedResults.js';
 
@@ -28,7 +28,7 @@ async function assertNoOverlap(tx: Prisma.TransactionClient, startAt: Date, endA
   const overlapping = await tx.season.findFirst({
     where: { id: excludeId ? { not: excludeId } : undefined, startAt: { lt: endAt }, endAt: { gt: startAt } },
   });
-  if (overlapping) throw new AppError(409, 'SEASON_OVERLAP', 'Kỳ thi đấu bị chồng thời gian với một kỳ khác.');
+  if (overlapping) throw new AppError(409, 'SEASON_OVERLAP', 'Mùa giải bị chồng thời gian với một mùa khác.');
 }
 
 export async function createSeason(input: { name: string; startAt: Date; endAt: Date }) {
@@ -43,10 +43,10 @@ export async function updateSeason(id: string, input: { name?: string; startAt?:
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${SEASON_LOCK}, 0))`;
     const season = await tx.season.findUnique({ where: { id } });
-    if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy kỳ thi đấu.');
-    if (season.closedAt) throw new AppError(409, 'SEASON_CLOSED', 'Kỳ thi đấu đã đóng.');
+    if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy mùa giải.');
+    if (season.closedAt) throw new AppError(409, 'SEASON_CLOSED', 'Mùa giải đã đóng.');
     if (input.startAt && input.startAt.getTime() !== season.startAt.getTime() && season.startAt <= now) {
-      throw new AppError(409, 'SEASON_STARTED', 'Kỳ đã bắt đầu nên không đổi được thời điểm bắt đầu.');
+      throw new AppError(409, 'SEASON_STARTED', 'Mùa giải đã bắt đầu nên không đổi được thời điểm bắt đầu.');
     }
     const startAt = input.startAt ?? season.startAt;
     const endAt = input.endAt ?? season.endAt;
@@ -59,11 +59,11 @@ export async function closeSeason(id: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${SEASON_LOCK}, 0))`;
     const season = await tx.season.findUnique({ where: { id } });
-    if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy kỳ thi đấu.');
+    if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy mùa giải.');
     if (season.closedAt) return season;
-    if (now < season.endAt) throw new AppError(409, 'SEASON_NOT_ENDED', 'Kỳ thi đấu chưa kết thúc.');
+    if (now < season.endAt) throw new AppError(409, 'SEASON_NOT_ENDED', 'Mùa giải chưa kết thúc.');
     if (await countPendingRatedWork(tx, { from: season.startAt, to: new Date(season.endAt.getTime() - 1) }) > 0) {
-      throw new AppError(409, 'SEASON_RESULTS_PENDING', 'Còn kết quả hoặc điểm xếp hạng của kỳ chưa hoàn tất.');
+      throw new AppError(409, 'SEASON_RESULTS_PENDING', 'Còn kết quả hoặc điểm kinh nghiệm của mùa giải chưa hoàn tất.');
     }
     // Khóa BXH cuối kỳ: chụp rating/RD rồi trao Top 10 / Vua sân từ bản chụp đó.
     await tx.$executeRaw`
@@ -121,10 +121,10 @@ export async function selectSeasonRegion(userId: string, provinceCode: string, n
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))`;
     const season = await findActiveSeason(tx, now);
-    if (!season) throw new AppError(409, 'NO_ACTIVE_SEASON', 'Chưa có kỳ thi đấu đang diễn ra.');
+    if (!season) throw new AppError(409, 'NO_ACTIVE_SEASON', 'Chưa có mùa giải đang diễn ra.');
     const where = { seasonId_userId: { seasonId: season.id, userId } };
     if (await tx.playerSeasonProfile.findUnique({ where })) {
-      throw new AppError(409, 'SEASON_REGION_LOCKED', 'Bạn đã chọn khu vực cho kỳ này; có thể đổi ở kỳ sau.');
+      throw new AppError(409, 'SEASON_REGION_LOCKED', 'Bạn đã chọn khu vực cho mùa này; có thể đổi ở mùa sau.');
     }
     return tx.playerSeasonProfile.create({ data: { seasonId: season.id, userId, provinceCode, lockedAt: now } });
   });
@@ -132,9 +132,13 @@ export async function selectSeasonRegion(userId: string, provinceCode: string, n
 
 /** Kèo xếp hạng chỉ tính điểm cho người đã khai trình độ loại hình đó, nên chặn tạo/tham gia khi chưa khai. */
 export async function assertRankedEligibility(db: Db, userId: string, discipline: MatchDiscipline, now = new Date()) {
-  if (!await db.passport.findUnique({ where: { userId_discipline: { userId, discipline } } })) {
-    const label = discipline === 'singles' ? 'đánh đơn' : 'đánh đôi';
+  const passport = await db.passport.findUnique({ where: { userId_discipline: { userId, discipline } } });
+  const label = discipline === 'singles' ? 'đánh đơn' : 'đánh đôi';
+  if (!passport) {
     throw new AppError(409, 'PASSPORT_REQUIRED', `Hãy khai trình độ ${label} trước khi chơi kèo xếp hạng ${label}.`);
+  }
+  if (isNewcomerRating(passport.ratingMu)) {
+    throw new AppError(409, 'NEWCOMER_RANKED_BLOCKED', `Trình độ Mới chơi chưa được chơi kèo xếp hạng ${label}. Hãy chơi kèo giao hữu để tích điểm kinh nghiệm lên trình Yếu.`);
   }
   await assertRankedSeasonRegion(db, userId, now);
 }
@@ -145,6 +149,6 @@ export async function assertRankedSeasonRegion(db: Db, userId: string, now = new
   if (!season) return;
   const profile = await db.playerSeasonProfile.findUnique({ where: { seasonId_userId: { seasonId: season.id, userId } } });
   if (!profile) {
-    throw new AppError(409, 'SEASON_REGION_REQUIRED', 'Hãy chọn tỉnh/thành chính của kỳ trước khi chơi kèo xếp hạng.');
+    throw new AppError(409, 'SEASON_REGION_REQUIRED', 'Hãy chọn tỉnh/thành chính của mùa giải trước khi chơi kèo xếp hạng.');
   }
 }

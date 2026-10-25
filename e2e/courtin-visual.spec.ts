@@ -8,7 +8,7 @@ for (const viewport of viewports) {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
     for (const route of routes) {
       test(`${route} exposes COURTIN chrome and a stable main landmark`, async ({ page }) => {
-        if (route === '/matches') {
+        if (route === '/matches' || route === '/' || route === '/assistant') {
           await page.route('**/matches**', async (request) => {
             if (request.request().resourceType() === 'fetch') {
               await request.fulfill({ json: { matches: [] } });
@@ -17,7 +17,7 @@ for (const viewport of viewports) {
             await request.continue();
           });
         }
-        if (route === '/venues') {
+        if (route === '/venues' || route === '/' || route === '/assistant') {
           await page.route('**/search**', async (request) => {
             if (request.request().resourceType() === 'fetch') {
               await request.fulfill({ json: [] });
@@ -38,7 +38,7 @@ for (const viewport of viewports) {
         await page.goto(route);
         await expect(page.locator('#main-content')).toBeVisible();
         await expect(page.getByRole('link', { name: /COURTIN.*trang chủ/i })).toBeVisible();
-        await expect(page).toHaveScreenshot(`courtin-${viewport.name}-${route === '/' ? 'home' : route.slice(1)}.png`, { fullPage: true });
+        await expect(page).toHaveScreenshot(`courtin-${viewport.name}-${route === '/' ? 'home' : route.slice(1)}.png`, { fullPage: true, mask: [page.locator('.leaflet-container'), page.locator('input[type="date"]')] });
       });
     }
   });

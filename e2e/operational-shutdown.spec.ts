@@ -118,12 +118,11 @@ test('provider scheduled close returns a paid booking, notifies the player, and 
   await page.getByRole('radio', { name: /Đóng cửa từ ngày đã chọn/ }).click();
   await page.getByLabel('Ngày bắt đầu đóng cửa').fill(closeDate);
   await page.getByRole('button', { name: 'Xem ảnh hưởng' }).click();
+  // Ảnh hưởng và xác nhận nằm chung một bước.
   await expect(page.getByText('Lịch bị hủy')).toBeVisible();
-  await expect(page.getByText('Lịch tiếp tục phục vụ')).toBeVisible();
-  await expect(page.getByText('Bắt đầu đóng cửa')).toBeVisible();
-  await page.getByRole('button', { name: 'Tiếp tục' }).click();
+  await expect(page.getByText('Dự kiến hoàn cho khách')).toBeVisible();
   await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Xác nhận ngừng hoạt động' }).click();
+  await page.getByRole('button', { name: 'Đóng cửa sân', exact: true }).click();
 
   await poll(async () => {
     const item = await venueDb.operationalShutdownItem.findFirst({ where: { bookingId: booking.id } });
@@ -151,7 +150,7 @@ test('provider scheduled close returns a paid booking, notifies the player, and 
   await setSession(page, token(playerId, ['player']));
   await page.goto('/profile');
   await page.getByRole('button', { name: 'Đã hủy' }).click();
-  const bookingCard = page.getByLabel('Danh sách booking').filter({ hasText: venue.name });
+  const bookingCard = page.getByRole('article').filter({ hasText: venue.name });
   await bookingCard.getByRole('button', { name: /^Xem chi tiết lượt đặt sân/ }).click();
   await expect(bookingCard.getByText(booking.businessCode)).toBeVisible();
   await expect(bookingCard.getByText('Quận 1, TP.HCM')).toBeVisible();
@@ -181,17 +180,17 @@ test('Admin can stop a court immediately while a booking is in progress', async 
 
   await setSession(page, token(adminId, ['player', 'admin']));
   await page.goto('/admin/bookings');
-  await page.getByLabel('Tìm booking').fill(venue.name);
+  await page.getByLabel('Tìm lượt đặt sân').fill(venue.name);
   await page.getByRole('button', { name: 'Lọc' }).click();
-  await page.getByRole('article').filter({ hasText: venue.name })
-    .getByRole('button', { name: 'Xem chi tiết' }).click();
-  await page.getByRole('button', { name: 'Ngừng hoạt động sân' }).click();
+  await page.getByRole('row').filter({ hasText: venue.name }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'Chi tiết lượt đặt sân' });
+  await drawer.getByText('Ngừng hoạt động sân hoặc cơ sở').click();
+  await drawer.getByRole('button', { name: 'Ngừng hoạt động sân' }).click();
   await page.getByRole('radio', { name: /Ngừng hoạt động ngay do sự cố/ }).click();
   await page.getByLabel('Lý do sự cố').fill('Cơ sở không thể tiếp tục phục vụ');
   await page.getByRole('button', { name: 'Xem ảnh hưởng' }).click();
-  await page.getByRole('button', { name: 'Tiếp tục' }).click();
   await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Xác nhận ngừng hoạt động' }).click();
+  await page.getByRole('button', { name: 'Ngừng hoạt động ngay', exact: true }).click();
 
   await poll(async () => {
     const item = await venueDb.operationalShutdownItem.findFirst({ where: { bookingId: booking.id } });
@@ -238,7 +237,7 @@ test('shutdown of a held match returns each paid contribution and skips pending 
   const funding = await financeDb.matchFunding.create({
     data: {
       matchId: match.id, bookingId: booking.id, organizerUserId: organizerId, capacity: 3,
-      feePerSlot: 50000n, bookingPrice: 150000n, organizerContribution: 50000n,
+      feePerSlot: 50000n, bookingPrice: 150000n, organizerContribution: 50000n, totalContribution: 150000n,
       cutoffAt: match.cutoffAt,
       contributions: { create: [
         { contributionKey: `organizer:${match.id}`, userId: organizerId, role: 'organizer', amount: 50000n, status: 'paid', paidAt: new Date() },
@@ -272,9 +271,8 @@ test('shutdown of a held match returns each paid contribution and skips pending 
   await page.getByLabel('Lý do sự cố').fill('Không thể tiếp tục phục vụ');
   await page.getByRole('button', { name: 'Xem ảnh hưởng' }).click();
   await expect(page.getByText('Dự kiến hoàn cho khách')).toBeVisible();
-  await page.getByRole('button', { name: 'Tiếp tục' }).click();
   await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Xác nhận ngừng hoạt động' }).click();
+  await page.getByRole('button', { name: 'Ngừng hoạt động ngay', exact: true }).click();
 
   await poll(async () => {
     const item = await venueDb.operationalShutdownItem.findFirst({ where: { bookingId: booking.id } });

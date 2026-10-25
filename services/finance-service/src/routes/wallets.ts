@@ -3,15 +3,16 @@ import { h } from './handler.js';
 import { getWalletsForUser, getWalletLedger } from '../domain/wallet.js';
 import { describeLedgerEntries } from '../domain/ledgerContext.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { PERSONAL_DAILY_FREE_WITHDRAWAL, personalWithdrawnToday } from '../domain/withdrawal.js';
+import { prisma } from '../lib/prisma.js';
 
 export const walletRouter = Router();
 
-function serializeWallet(w: { id: string; walletType: string; available: bigint; withdrawable: bigint; pending: bigint; reserved: bigint; currency: string }) {
+function serializeWallet(w: { id: string; walletType: string; available: bigint; pending: bigint; reserved: bigint; currency: string }) {
   return {
     id: w.id,
     walletType: w.walletType,
     available: w.available.toString(),
-    withdrawable: w.withdrawable.toString(),
     pending: w.pending.toString(),
     reserved: w.reserved.toString(),
     currency: w.currency,
@@ -32,7 +33,11 @@ walletRouter.get(
   h(async (req, res) => {
     const userId = (req as AuthenticatedRequest).user!.id;
     const wallets = await getWalletsForUser(userId);
-    res.status(200).json(wallets.map(serializeWallet));
+    // Ví người chơi: hạn mức rút miễn phí trong ngày; phần vượt chịu phí 1%.
+    const withdrawnToday = wallets.some((w) => w.walletType === 'personal') ? await personalWithdrawnToday(prisma, userId) : 0n;
+    res.status(200).json(wallets.map((w) => (w.walletType === 'personal'
+      ? { ...serializeWallet(w), dailyFreeWithdrawal: PERSONAL_DAILY_FREE_WITHDRAWAL.toString(), withdrawnToday: withdrawnToday.toString() }
+      : serializeWallet(w))));
   }),
 );
 

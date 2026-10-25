@@ -251,8 +251,8 @@ export function MatchCreatePanel({ onCancel, onCreated }: { onCancel: () => void
           <p className="text-sm text-ink-500">Các lựa chọn này bị khóa sau khi công bố.</p>
           <div className="mt-4 space-y-5">
             <ChoiceGroup legend="Chế độ" value={mode} onChange={setMode} options={[
-              { value: 'friendly', title: 'Giao lưu', description: 'Có tiền kèo và xử lý kết quả; không cập nhật điểm xếp hạng.' },
-              { value: 'ranked', title: 'Xếp hạng', description: 'Kết quả hợp lệ cập nhật điểm và bảng xếp hạng.' },
+              { value: 'friendly', title: 'Giao hữu', description: 'Có tiền kèo và xử lý kết quả; cộng/trừ điểm kinh nghiệm nhưng không tính vào bảng xếp hạng mùa giải.' },
+              { value: 'ranked', title: 'Xếp hạng', description: 'Kết quả hợp lệ cập nhật điểm kinh nghiệm và điểm BXH mùa giải. Trình độ Mới chơi chưa được chơi.' },
             ]} />
             <ChoiceGroup legend="Hình thức" value={discipline} onChange={setDiscipline} options={[
               { value: 'singles', title: 'Đánh đơn', description: '2 người - 1 người mỗi đội.' },

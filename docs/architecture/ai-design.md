@@ -95,3 +95,16 @@ packages/ai/
 ```
 - Hàm thuần (rating/compat/matching/grouping/analytics) test bằng Vitest, không cần LLM.
 - `llm/` có **fallback theo luật** để hệ thống vẫn chạy khi thiếu LLM/thiếu dữ liệu.
+
+## NCKH — Quét ảnh tỉ số và tranh chấp hai tầng
+
+Thiết kế đầy đủ ở [`result-ocr-tech-design.md`](result-ocr-tech-design.md) (nghiệp vụ: `specs/result-ocr-autoconfirm.md`,
+quyết định D60, D61). Phần thư viện nằm trong `packages/ai`:
+
+- `llm/openaiCompatChain.ts` — client `fetch` kiểu OpenAI cho Gemini/Groq/OpenRouter, chuỗi dự phòng theo env,
+  circuit breaker 60 giây sau 429, log mỗi lần gọi (không chứa prompt).
+- `resultOcr.ts` — prompt + JSON schema đọc ảnh bảng tỉ số; AI chỉ chép số, bên thắng do code tính.
+- `disputeRuling.ts` — phán quyết tạm tầng 2 chỉ từ văn bản, trích dẫn bắt buộc thuộc tập đoạn đã truy hồi.
+- `rag/hybrid.ts` — cosine + RRF k=60 cho kho RAG trong PostgreSQL (`matchmaking.knowledge_chunks`).
+
+Phần nghiệp vụ (mức tin cậy, hạn, tầng 1, job tầng 2, kháng nghị, uy tín) nằm trong `matchmaking-service`.

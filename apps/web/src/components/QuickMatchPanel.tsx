@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { useNavigate } from 'react-router-dom'
-import { Badge, Button, SelectInput } from './ui'
+import { Button, SelectInput } from './ui'
+import { Icon } from './Icon'
+import { useAuthPrompt } from '../layout/AuthPrompt'
 import { QuickMatchModal, type QuickMatchProgress, type QuickMatchProposal } from './QuickMatchModal'
 import type { SkillTier } from '../lib/matchApi'
 
@@ -24,6 +26,7 @@ export function QuickMatchPanel() {
   const requestIdRef = useRef('')
   const timerRef = useRef<number | null>(null)
   const navigate = useNavigate()
+  const promptAuth = useAuthPrompt()
 
   const clearTimer = () => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
@@ -46,7 +49,7 @@ export function QuickMatchPanel() {
   const find = () => {
     const accessToken = window.localStorage.getItem('accessToken')
     if (!accessToken) {
-      navigate('/auth')
+      promptAuth({ title: 'Đăng nhập để tìm nhanh' })
       return
     }
     disconnect()
@@ -98,5 +101,12 @@ export function QuickMatchPanel() {
     setMessage('Đang gửi yêu cầu tham gia…')
   }
 
-  return <><section className="overflow-hidden rounded-2xl border border-line bg-[linear-gradient(120deg,#edf4f7_0%,#ffffff_70%)] p-5 shadow-[var(--shadow-card)]" aria-live="polite"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><Badge tone="danger">Live</Badge><h2 className="text-h3">Tìm nhanh một chỗ còn lại</h2></div><p className="mt-1 text-sm text-ink-500">Theo dõi tiến trình ghép kèo trực tiếp; chỉ khi bạn xác nhận hệ thống mới tạo yêu cầu chờ duyệt.</p></div><div className="flex flex-col gap-2 sm:flex-row"><SelectInput aria-label="Bậc Tìm nhanh" value={skill} onChange={(event) => setSkill(event.target.value as SkillTier)}>{tiers.map((tier) => <option key={tier.value} value={tier.value}>{tier.label}</option>)}</SelectInput><Button onClick={find} disabled={open}>Tìm nhanh</Button></div></div></section><QuickMatchModal open={open} progress={progress} proposal={proposal} message={message} onCancel={stop} onAccept={accept} /></>
+  return <><section className="flex flex-col gap-5 rounded-2xl bg-brand-navy p-6 text-surface shadow-[var(--shadow-card)] lg:flex-row lg:items-center lg:justify-between" aria-live="polite">
+    <div>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/20 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.1em] text-[#ffb3b9]"><span className="h-1.5 w-1.5 rounded-full bg-[#ff5a66]" />TRỰC TIẾP</span>
+      <h2 className="mt-2 font-display text-lg font-extrabold">Tìm nhanh một chỗ còn lại</h2>
+      <p className="mt-1 text-sm text-surface/75">Ghép bạn vào kèo đang thiếu người. Chỉ tạo yêu cầu khi bạn xác nhận.</p>
+    </div>
+    <div className="flex shrink-0 flex-col gap-2 sm:flex-row"><SelectInput aria-label="Bậc Tìm nhanh" className="sm:w-52" value={skill} onChange={(event) => setSkill(event.target.value as SkillTier)}>{tiers.map((tier) => <option key={tier.value} value={tier.value}>{tier.label}</option>)}</SelectInput><Button onClick={find} disabled={open}><Icon name="bolt" className="h-4 w-4" />Tìm nhanh</Button></div>
+  </section><QuickMatchModal open={open} progress={progress} proposal={proposal} message={message} onCancel={stop} onAccept={accept} /></>
 }

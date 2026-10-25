@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyManagedVenues, getVenueCalendar, type ManagedVenue } from '../../lib/venueBookingApi'
-import { formatMoneyVnd, vietnamDateInput, vietnamMinuteOfDay } from '../../lib/formatters'
+import { vietnamDateInput, vietnamMinuteOfDay } from '../../lib/formatters'
+import { Icon } from '../../components/Icon'
+import { SegmentedControl, SelectInput } from '../../components/ui'
 
 // NOTE: Tạo booking vãng lai (createInternalBooking) / hủy nội bộ (cancelInternalBooking)
 // tạm ẩn khỏi trang này — tab Lịch sân hiện chỉ để XEM/quản lý. Logic API vẫn giữ
@@ -20,7 +22,6 @@ type CalendarEntry = {
   priceSnapshot?: string
 }
 type DayData = { iso: string; courts: Court[]; entries: CalendarEntry[] }
-type BookingRow = CalendarEntry & { iso: string }
 
 const DEFAULT_START_MIN = 6 * 60 // khung mặc định khi không có booking
 const DEFAULT_END_MIN = 22 * 60
@@ -102,7 +103,8 @@ const layoutBlocks = (list: CalendarEntry[], startMin: number, endMin: number): 
   return result
 }
 
-export function ManageCalendarPage() {
+/** Lịch theo ngày/tuần của một cơ sở; bấm lượt đặt → onSelect mở drawer chi tiết dùng chung. */
+export function ManageCalendarPage({ onSelect }: { onSelect?: (bookingId: string) => void }) {
   const [venues, setVenues] = useState<ManagedVenue[]>([])
   const [venueId, setVenueId] = useState('')
   const [view, setView] = useState<'day' | 'week'>('day')
@@ -111,7 +113,6 @@ export function ManageCalendarPage() {
   const [weekData, setWeekData] = useState<DayData[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState<BookingRow | null>(null)
 
   useEffect(() => {
     void getMyManagedVenues()
@@ -179,15 +180,6 @@ export function ManageCalendarPage() {
   const navLabel = view === 'day' ? fmtDayLabel(day) : `${fmtDate(weekStart)} – ${fmtDate(weekEnd)}`
   const courtName = (id: string) => (view === 'day' ? dayData?.courts : weekData[0]?.courts)?.find((c) => c.courtId === id)?.courtName ?? ''
 
-  // Danh sách booking (đã thanh toán) cho bảng dưới lịch, kèm ngày để phân biệt ở chế độ Tuần.
-  const bookingRows = useMemo<BookingRow[]>(() => {
-    const rows: BookingRow[] = view === 'day'
-      ? (dayData?.entries ?? []).filter((e) => e.kind === 'booking').map((e) => ({ ...e, iso: day }))
-      : weekData.flatMap((d) => d.entries.filter((e) => e.kind === 'booking').map((e) => ({ ...e, iso: d.iso })))
-    return rows.sort((a, b) => (a.iso + a.startAt).localeCompare(b.iso + b.startAt))
-  }, [view, dayData, weekData, day])
-  const sourceLabel = (s?: string) => (s === 'internal' ? 'Tại quầy' : 'Trực tuyến')
-
   const timeAxis = (
     <div className="w-14 shrink-0 border-r border-line bg-surface">
       <div className="sticky top-0 z-10 h-14 border-b border-line bg-surface" />
@@ -203,15 +195,15 @@ export function ManageCalendarPage() {
     <div key={min} className="pointer-events-none absolute inset-x-0 border-t border-line/50" style={{ top: yOf(min) }} />
   ))
 
-  const renderBlocks = (entries: CalendarEntry[], showCourt: boolean, iso: string) =>
+  const renderBlocks = (entries: CalendarEntry[], showCourt: boolean) =>
     layoutBlocks(entries, startMin, endMin).map(({ entry, start, end, lane, lanes }, idx) => {
-      const active = selected?.id && selected.id === entry.id && selected.iso === iso
       return (
         <button
           type="button"
           key={entry.id ?? `${entry.courtId}-${idx}`}
-          onClick={() => setSelected({ ...entry, iso })}
-          className={`absolute overflow-hidden rounded-lg border px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition hover:brightness-95 ${active ? 'border-brand-navy bg-brand-navy/20 ring-2 ring-brand-navy/40' : 'border-brand-navy/25 bg-brand-navy/10'} text-brand-navy`}
+          disabled={!entry.id}
+          onClick={() => entry.id && onSelect?.(entry.id)}
+          className={`absolute overflow-hidden rounded-lg border px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition hover:brightness-95 border-brand-navy/25 bg-brand-navy/10 text-brand-navy`}
           style={{
             top: yOf(start),
             height: Math.max(20, (end - start) * PX_PER_MIN - 2),
@@ -227,50 +219,18 @@ export function ManageCalendarPage() {
     })
 
   const hasData = view === 'day' ? (dayData?.courts.length ?? 0) > 0 : weekData.length > 0
-  const kpiTiles: Array<{ label: string; value: string }> = view === 'day'
-    ? [{ label: 'Đặt sân', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }, { label: 'Lấp đầy', value: `${kpi.occupancy}%` }]
-    : [{ label: 'Lượt đặt / tuần', value: String(kpi.bookings) }, { label: 'Sân con', value: String(kpi.courts) }]
-
   return (
     <section className="space-y-5">
-      <div>
-        <h2 className="text-h2">Lịch sân</h2>
-        <p className="mt-1 text-sm text-ink-500">Xem kín/trống theo khung giờ, tách rõ từng sân con và số lượt đặt sân trong ngày.</p>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="grid gap-1.5 text-sm font-medium">Cơ sở
-          <select aria-label="Cơ sở" className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm" value={venueId} onChange={(event) => setVenueId(event.target.value)}>
-            {venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
-          </select>
-        </label>
-
-        <div className="inline-flex overflow-hidden rounded-xl border border-line" role="group" aria-label="Kiểu xem">
-          {(['day', 'week'] as const).map((mode) => (
-            <button key={mode} type="button" aria-pressed={view === mode} onClick={() => setView(mode)}
-              className={`px-4 py-2.5 text-sm font-semibold transition ${view === mode ? 'bg-brand-navy text-white' : 'bg-surface text-ink-600 hover:bg-canvas'}`}>
-              {mode === 'day' ? 'Ngày' : 'Tuần'}
-            </button>
-          ))}
-        </div>
-
-        <div className="inline-flex items-center gap-1">
-          <button type="button" aria-label="Trước" onClick={() => shift(-1)} className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm hover:bg-canvas">‹</button>
-          <button type="button" onClick={goToday} className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm font-medium hover:bg-canvas">Hôm nay</button>
-          <button type="button" aria-label="Sau" onClick={() => shift(1)} className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm hover:bg-canvas">›</button>
-        </div>
-
-        <input aria-label="Chọn ngày" type="date" className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm" value={day} onChange={(event) => event.target.value && setDay(event.target.value)} />
-        <span className="ml-auto text-sm font-semibold text-ink-700">{navLabel}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {kpiTiles.map((tile) => (
-          <div key={tile.label} className="rounded-2xl border border-line bg-surface px-4 py-3">
-            <div className="text-2xl font-bold tabular-nums text-ink-900">{tile.value}</div>
-            <div className="text-xs text-ink-500">{tile.label}</div>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <SelectInput aria-label="Cơ sở" className="!w-64" value={venueId} onChange={(event) => setVenueId(event.target.value)}>
+          {venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
+        </SelectInput>
+        <SegmentedControl options={[{ value: 'day', label: 'Ngày' }, { value: 'week', label: 'Tuần' }]} value={view} onChange={setView} />
+        <button type="button" aria-label="Trước" onClick={() => shift(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface hover:border-brand-navy"><Icon name="chevronLeft" className="h-4 w-4" /></button>
+        <span className="min-w-36 text-center text-sm font-bold text-ink-900">{navLabel}</span>
+        <button type="button" aria-label="Sau" onClick={() => shift(1)} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface hover:border-brand-navy"><Icon name="chevronRight" className="h-4 w-4" /></button>
+        <button type="button" onClick={goToday} className="min-h-9 rounded-full border border-line bg-surface px-4 text-sm font-semibold hover:border-brand-navy">{view === 'day' ? 'Hôm nay' : 'Tuần này'}</button>
+        <span className="ml-auto text-sm text-ink-500">{kpi.bookings} lượt{view === 'day' ? ` · lấp đầy ${kpi.occupancy}%` : ''}</span>
       </div>
 
       {error && <p role="alert" className="rounded-xl bg-danger-bg p-3 text-sm text-danger">{error}</p>}
@@ -290,7 +250,7 @@ export function ManageCalendarPage() {
                     <span className="truncate text-sm font-bold text-ink-800">{court.courtName}</span>
                     <span className="text-[11px] text-ink-400">{court.closedAllDay ? 'Đóng cả ngày' : `${count} booking`}</span>
                   </div>
-                  <div className={`relative ${court.closedAllDay ? 'bg-ink-900/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{court.closedAllDay && <div className="absolute inset-x-0 top-1/3 text-center text-xs font-semibold text-ink-500">Sân đóng cửa</div>}{!court.closedAllDay && (court.closedRanges ?? []).map((r) => { const a = Math.max(r.startMinute, startMin); const b = Math.min(r.endMinute, endMin); return b > a ? <div key={r.startMinute} className="pointer-events-none absolute inset-x-0 flex items-start justify-center bg-ink-900/10 pt-1 text-[11px] font-semibold text-ink-500" style={{ top: yOf(a), height: (b - a) * PX_PER_MIN }}>Đã khóa {clockLabel(r.startMinute)}–{clockLabel(r.endMinute)}</div> : null })}{renderBlocks(courtEntries, false, day)}</div>
+                  <div className={`relative ${court.closedAllDay ? 'bg-ink-900/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{court.closedAllDay && <div className="absolute inset-x-0 top-1/3 text-center text-xs font-semibold text-ink-500">Sân đóng cửa</div>}{!court.closedAllDay && (court.closedRanges ?? []).map((r) => { const a = Math.max(r.startMinute, startMin); const b = Math.min(r.endMinute, endMin); return b > a ? <div key={r.startMinute} className="pointer-events-none absolute inset-x-0 flex items-start justify-center bg-ink-900/10 pt-1 text-[11px] font-semibold text-ink-500" style={{ top: yOf(a), height: (b - a) * PX_PER_MIN }}>Đã khóa {clockLabel(r.startMinute)}–{clockLabel(r.endMinute)}</div> : null })}{renderBlocks(courtEntries, false)}</div>
                 </div>
               )
             })}
@@ -312,7 +272,7 @@ export function ManageCalendarPage() {
                     <span className="text-[11px] text-ink-400">{fmtDate(d.iso).slice(0, 5)} · {count} booking</span>
                     {closedCount > 0 && <span className="text-[10px] font-semibold text-danger">{closedCount === d.courts.length ? 'Đóng cả ngày' : `${closedCount} sân đóng`}</span>}
                   </div>
-                  <div className={`relative ${isToday ? 'bg-brand-yellow/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{renderBlocks(dayBookings, true, d.iso)}</div>
+                  <div className={`relative ${isToday ? 'bg-brand-yellow/5' : ''}`} style={{ height: bodyHeight }}>{gridLines}{renderBlocks(dayBookings, true)}</div>
                 </div>
               )
             })}
@@ -320,71 +280,6 @@ export function ManageCalendarPage() {
         </div>
       )}
 
-      {hasData && (
-        <div className="rounded-2xl border border-line bg-surface">
-          <div className="flex items-center justify-between border-b border-line px-4 py-3">
-            <h3 className="text-sm font-bold text-ink-800">Danh sách lượt đặt sân {view === 'day' ? 'trong ngày' : 'trong tuần'}</h3>
-            <span className="text-xs text-ink-500">{bookingRows.length} booking</span>
-          </div>
-          {bookingRows.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-ink-500">Chưa có lượt đặt sân nào.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-xs text-ink-500">
-                    {view === 'week' && <th className="px-4 py-2 font-medium">Ngày</th>}
-                    <th className="px-4 py-2 font-medium">Khung giờ</th>
-                    <th className="px-4 py-2 font-medium">Sân</th>
-                    <th className="px-4 py-2 font-medium">Khách</th>
-                    <th className="px-4 py-2 font-medium">Nguồn</th>
-                    <th className="px-4 py-2 text-right font-medium">Giá</th>
-                    <th className="px-4 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookingRows.map((row, idx) => (
-                    <tr key={row.id ?? `${row.iso}-${row.courtId}-${idx}`} className="border-b border-line/60 last:border-b-0">
-                      {view === 'week' && <td className="px-4 py-2.5 whitespace-nowrap text-ink-600">{fmtDate(row.iso)}</td>}
-                      <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-ink-700">{clockLabel(minuteOf(row.startAt) ?? 0)}–{clockLabel(minuteOf(row.endAt) ?? 0)}</td>
-                      <td className="px-4 py-2.5 text-ink-700">{courtName(row.courtId)}</td>
-                      <td className="px-4 py-2.5 text-ink-700">{row.customerLabel ?? '—'}</td>
-                      <td className="px-4 py-2.5 text-ink-600">{sourceLabel(row.source)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-ink-800">{row.priceSnapshot ? formatMoneyVnd(row.priceSnapshot) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <button type="button" onClick={() => setSelected(row)} className="text-xs font-semibold text-brand-navy hover:underline">Chi tiết</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Chi tiết lượt đặt sân">
-          <div className="absolute inset-0 bg-ink-900/30" onClick={() => setSelected(null)} />
-          <aside className="relative flex h-full w-full max-w-sm flex-col gap-4 overflow-y-auto bg-surface p-6 shadow-xl">
-            <div className="flex items-start justify-between">
-              <h3 className="text-h3">Chi tiết lượt đặt sân</h3>
-              <button type="button" aria-label="Đóng" onClick={() => setSelected(null)} className="rounded-lg px-2 py-1 text-ink-500 hover:bg-canvas">✕</button>
-            </div>
-            <dl className="grid gap-3 text-sm">
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Mã đặt sân</dt><dd className="font-mono font-semibold">{selected.businessCode ?? 'Chưa có mã'}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Ngày</dt><dd className="font-medium text-ink-800">{fmtDate(selected.iso)}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Khung giờ</dt><dd className="font-medium tabular-nums text-ink-800">{clockLabel(minuteOf(selected.startAt) ?? 0)}–{clockLabel(minuteOf(selected.endAt) ?? 0)}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Sân con</dt><dd className="font-medium text-ink-800">{courtName(selected.courtId)}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Khách</dt><dd className="font-medium text-ink-800">{selected.customerLabel ?? '—'}</dd></div>
-              {selected.guestContact && <div className="flex justify-between gap-4"><dt className="text-ink-500">Liên hệ</dt><dd className="font-medium text-ink-800">{selected.guestContact}</dd></div>}
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Nguồn</dt><dd className="font-medium text-ink-800">{sourceLabel(selected.source)}</dd></div>
-              <div className="flex justify-between gap-4"><dt className="text-ink-500">Giá</dt><dd className="font-bold text-ink-900">{selected.priceSnapshot ? formatMoneyVnd(selected.priceSnapshot) : '—'}</dd></div>
-            </dl>
-            <p className="mt-auto text-xs text-ink-500">Cần đổi sân hoặc hủy lượt đặt sân do sự cố? Dùng mục <a href="/manage/incidents" className="font-semibold text-brand-navy underline">Xử lý sự cố</a>.</p>
-          </aside>
-        </div>
-      )}
     </section>
   )
 }

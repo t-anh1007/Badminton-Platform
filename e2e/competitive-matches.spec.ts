@@ -150,6 +150,7 @@ async function createMatchViaUi(page: Page, organizer: User, options: { ratio: '
     // Finance tạo phần góp khi nhận MatchCreated qua queue; chỉ bấm trả khi phần góp đã có.
     await poll(() => financeDb.matchContribution.findUnique({ where: { contributionKey: `organizer:${matchId}` } }), (row) => row !== null, 'phần góp chủ kèo');
     await page.getByRole('button', { name: 'Đóng phần góp' }).click();
+    await page.getByRole('dialog', { name: 'Đóng phần góp' }).getByRole('button', { name: 'Thanh toán số dư' }).click();
   }
   await poll(() => matchDb.match.findUniqueOrThrow({ where: { id: matchId } }), (row) => row.status === 'open', 'kèo mở');
   return matchId;
@@ -166,8 +167,7 @@ async function joinViaUi(page: Page, player: User, matchId: string, side: 'A' | 
   );
   expect(join!.teamSide).toBe(side);
   await poll(() => financeDb.matchContribution.findUnique({ where: { joinId: join!.id } }), (row) => row !== null, 'phần góp người chơi');
-  await page.getByRole('button', { name: 'Thanh toán phần còn lại' }).click();
-  await page.getByRole('button', { name: 'Thanh toán số dư' }).click();
+  await page.getByRole('dialog', { name: 'Chọn phương thức thanh toán' }).getByRole('button', { name: 'Thanh toán số dư' }).click();
   await poll(() => matchDb.join.findUniqueOrThrow({ where: { id: join!.id } }), (row) => row.status === 'confirmed', 'JOIN xác nhận');
   return join!;
 }
@@ -536,7 +536,7 @@ test('5. Kèo xếp hạng -> điểm đơn/đôi độc lập -> chặn lặp �
   await xPage.goto('/passport');
   await xPage.getByLabel('Bậc hiện tại của bạn').selectOption('intermediate');
   await xPage.getByRole('button', { name: 'Lưu khai báo' }).click();
-  await expect(xPage.getByText('Điểm đánh đơn')).toBeVisible();
+  await expect(xPage.getByRole('heading', { name: 'Điểm kinh nghiệm đánh đơn' })).toBeVisible();
   expect((await api('PUT', '/matchmaking/passports/me/declaration', y.id, ['player'], { discipline: 'singles', tier: 'intermediate' })).status).toBe(200);
   const first = await createMatchViaApi(x, { mode: 'ranked' });
   await joinViaApi(y, first.matchId, 'B');
@@ -555,7 +555,7 @@ test('5. Kèo xếp hạng -> điểm đơn/đôi độc lập -> chặn lặp �
   await new Promise((resolve) => setTimeout(resolve, 3_000));
   expect(await matchDb.matchRatingChange.count({ where: { matchId: second.matchId } })).toBe(0);
 
-  // AC-CM-28: điểm >= 1600 và đủ 5 trận hợp lệ, độ bất định thấp -> lên bảng "Từ 1.600".
+  // AC-CM-28 (D59): đủ 5 trận hợp lệ, độ bất định thấp -> lên bảng của hạng đấu đã khóa ở trận xếp hạng đầu mùa.
   const season = await matchDb.season.findFirst({ where: { closedAt: null, startAt: { lte: new Date() }, endAt: { gt: new Date() } } });
   test.skip(!season, 'DB local chưa có kỳ xếp hạng đang chạy');
   await matchDb.passport.update({ where: { userId_discipline: { userId: x.id, discipline: 'singles' } }, data: { ratingMu: 1650, ratingRd: 80 } });
@@ -568,7 +568,8 @@ test('5. Kèo xếp hạng -> điểm đơn/đôi độc lập -> chặn lặp �
   await page.goto('/leaderboard');
   await expect(page.locator('tr[aria-current="true"]')).toContainText('Tay vợt X E2E');
   await shot(page, 's07-leaderboard');
-  await expect(page.getByRole('button', { name: 'Từ 1.600' })).toHaveClass(/bg-brand-navy/);
+  const xStat = await matchDb.seasonStat.findUniqueOrThrow({ where: { seasonId_userId_discipline: { seasonId: season!.id, userId: x.id, discipline: 'singles' } } });
+  await expect(page.getByRole('button', { name: xStat.division === 'pro' ? 'Chuyên' : 'Không chuyên', exact: true })).toHaveClass(/bg-brand-navy/);
   await page.goto('/passport');
   await expect(page.getByText('Đủ điều kiện lên bảng')).toBeVisible();
   await shot(page, 's06-passport');
@@ -605,7 +606,7 @@ test('7. Ảnh bằng chứng qua giao diện -> người ngoài không đọc �
 
   // AC-CM-35: dữ liệu công khai không chứa tiền góp, tiền hoàn, ngân hàng hay bằng chứng.
   const publicDetail = await (await fetch(`${API}/matchmaking/matches/${matchId}`)).text();
-  const board = await (await fetch(`${API}/matchmaking/competition/leaderboards?discipline=singles&band=under_1600`)).text();
+  const board = await (await fetch(`${API}/matchmaking/competition/leaderboards?discipline=singles&band=amateur`)).text();
   const programs = await (await fetch(`${API}/matchmaking/rewards/programs`)).text();
   for (const body of [publicDetail, board, programs]) {
     expect(body).not.toMatch(/contribution|refund|bankAccount|evidence|objectKey|ratingRd/i);
@@ -631,14 +632,15 @@ async function adminDecide(admin: User, matchId: string, outcome: 'TEAM_A_WIN' |
 
 /**
  * Chương trình thưởng "nhiều trận thắng nhất" đã tới bước chờ Admin duyệt: Admin tạo + công bố qua API, rồi
- * dời khung thời gian về quá khứ và seed kết quả có điểm (trận giao lưu để không bị coi là kết quả treo).
+ * dời khung thời gian về quá khứ và seed kết quả có điểm: kèo xếp hạng có hồ sơ kết quả đã chốt (không bị coi là
+ * kết quả treo) và hạng đấu nghiệp dư đã khóa trong mùa (BR-CM-62/63).
  */
 async function seedProgramAwaitingApproval(admin: User, wins: Array<[User, number]>, hoursAgo: number) {
   const season = await matchDb.season.findFirst({ where: { closedAt: null, startAt: { lte: new Date() }, endAt: { gt: new Date() } } });
   if (!season) return null;
   const startAt = new Date(Date.now() + 10 * 60_000);
   const createdProgram = await api<{ program: { id: string } }>('POST', '/matchmaking/rewards/admin/programs', admin.id, ['admin'], {
-    name: `Top đánh đôi E2E ${randomUUID().slice(0, 4)}`, seasonId: season.id, criterion: 'most_wins', discipline: 'doubles', band: 'under_1600',
+    name: `Top đánh đôi E2E ${randomUUID().slice(0, 4)}`, seasonId: season.id, criterion: 'most_wins', discipline: 'doubles', band: 'amateur',
     scope: 'global', startAt: startAt.toISOString(), endAt: new Date(startAt.getTime() + HOUR).toISOString(),
     tiers: [{ rank: 1, amount: '300000' }, { rank: 2, amount: '100000' }, { rank: 3, amount: '50000' }],
   });
@@ -651,12 +653,14 @@ async function seedProgramAwaitingApproval(admin: User, wins: Array<[User, numbe
   const windowEnd = new Date(windowStart.getTime() + 2 * 60_000);
   await matchDb.rewardProgram.update({ where: { id: programId }, data: { startAt: windowStart, endAt: windowEnd } });
   for (const [user, count] of wins) {
+    await matchDb.seasonStat.create({ data: { seasonId: season.id, userId: user.id, discipline: 'doubles', division: 'amateur', matchesPlayed: count, wins: count } });
     for (let index = 0; index < count; index += 1) {
       const endAt = new Date(windowStart.getTime() + (index + 1) * 10_000);
       const match = await matchDb.match.create({
         data: {
-          bookingId: randomUUID(), organizerUserId: user.id, capacity: 4, feePerSlot: 60_000n, status: 'completed', mode: 'friendly', discipline: 'doubles',
+          bookingId: randomUUID(), organizerUserId: user.id, capacity: 4, feePerSlot: 60_000n, status: 'completed', mode: 'ranked', discipline: 'doubles',
           format: 'bo3', ratio: 'five_five', cutoffAt: new Date(endAt.getTime() - 2 * HOUR), bookingPrice: 200_000n, startAt: new Date(endAt.getTime() - HOUR), endAt,
+          resultCase: { create: { status: 'final', declarationDeadlineAt: endAt } },
         },
       });
       created.matches.push(match.id);
@@ -875,7 +879,7 @@ test('14. Mỗi nội dung chỉ tự khai trình độ một lần; kỳ mới 
   await page.goto('/passport');
   await page.getByLabel('Bậc hiện tại của bạn').selectOption('intermediate_plus');
   await page.getByRole('button', { name: 'Lưu khai báo' }).click();
-  await expect(page.getByText('Điểm đánh đơn')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Điểm kinh nghiệm đánh đơn' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Lưu khai báo' })).toHaveCount(0);
   const again = await api<{ error: { code: string } }>('PUT', '/matchmaking/passports/me/declaration', player.id, ['player'], { discipline: 'singles', tier: 'advanced' });
   expect(again.status).toBe(409);
@@ -901,7 +905,7 @@ test('14. Mỗi nội dung chỉ tự khai trình độ một lần; kỳ mới 
   expect(inNext.singles).toMatchObject({ rating: 1580, leaderboardVisible: false, season: { matchesPlayed: 0, wins: 0, currentWinStreak: 0 } });
   const seasonsPage = await openAs(browser, admin, 'admin');
   await seasonsPage.goto('/admin/seasons');
-  await expect(seasonsPage.getByText('Danh sách kỳ xếp hạng')).toBeVisible();
+  await expect(seasonsPage.getByRole('heading', { name: 'Danh sách mùa giải' })).toBeVisible();
   await shot(seasonsPage, 's11-seasons');
   if (nextSeason.status === 201) await matchDb.season.delete({ where: { id: upcoming } });
 });

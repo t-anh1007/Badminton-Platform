@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { AdminFinancePage } from './AdminFinancePage.js'
 import { AdminDisputesPage } from './AdminDisputesPage.js'
 import { AdminModerationPage } from './AdminModerationPage.js'
@@ -11,6 +13,7 @@ import { getAdminEvaluations, reviewAdminEvaluation } from '../../lib/matchApi.j
 import { addSupportTicketMessage, getSupportTicket, listSupportTickets, setSupportTicketStatus } from '../../lib/communityApi.js'
 
 vi.mock('../../lib/accountApi.js', () => ({
+  getAdminAccounts: vi.fn().mockResolvedValue([{ id: 'u9', email: 'new-player@example.com', displayName: 'Người chơi mới', businessCode: 'ND-00000999', status: 'active', roles: ['player'] }]),
   getAdminAccountIdentities: vi.fn().mockResolvedValue([{ id: 'u1', email: 'owner@example.com', displayName: 'Chủ sân A' }, { id: 'u2', email: 'owner-2@example.com', displayName: 'Chủ sân B' }]),
 }))
 
@@ -42,30 +45,22 @@ vi.mock('../../lib/communityApi.js', () => ({
 }))
 
 afterEach(() => { cleanup(); vi.clearAllMocks() })
+const show = (ui: ReactElement, path = '/admin') => render(<MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>)
 
-it('navigates between the three admin finance sections with in-page links', async () => {
-  render(<AdminFinancePage />)
-
-  const bank = await screen.findByRole('link', { name: 'Tổng quan dòng tiền' })
-  const withdrawals = screen.getByRole('link', { name: 'Yêu cầu rút tiền' })
-  const reconciliation = screen.getByRole('link', { name: 'Đối soát' })
-
-  expect(screen.getByRole('navigation', { name: 'Điều hướng tài chính' })).toHaveClass('sticky')
-  expect(bank).toHaveAttribute('href', '#finance-bank-reconciliation')
-  expect(withdrawals).toHaveAttribute('href', '#finance-withdrawals')
-  expect(reconciliation).toHaveAttribute('href', '#finance-reconciliation')
-  expect(bank).toHaveAttribute('aria-current', 'page')
-  expect(document.getElementById('finance-bank-reconciliation')).toBeInTheDocument()
-  expect(document.getElementById('finance-withdrawals')).toBeInTheDocument()
-  expect(document.getElementById('finance-reconciliation')).toBeInTheDocument()
-
-  fireEvent.click(withdrawals)
-  expect(withdrawals).toHaveAttribute('aria-current', 'page')
-  expect(bank).not.toHaveAttribute('aria-current')
+it('shows one finance tab at a time and opens withdrawals from a notification link', async () => {
+  show(<AdminFinancePage />)
+  expect(await screen.findByRole('button', { name: 'Tổng quan' })).toBeInTheDocument()
+  expect(screen.queryByLabelText('Tìm yêu cầu rút')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Rút tiền' }))
+  expect(await screen.findByLabelText('Tìm yêu cầu rút')).toBeInTheDocument()
+  cleanup()
+  show(<AdminFinancePage />, '/admin?withdrawal=w2')
+  const first = (await screen.findAllByRole('article'))[0]
+  expect(first).toHaveTextContent('RUT-2026-002')
 })
 
 it('requires a reason and confirmation before rejecting a withdrawal', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=withdrawals')
   fireEvent.click(await screen.findByRole('button', { name: 'Từ chối' }))
   expect(screen.getByLabelText('Lý do từ chối RUT-2026-001')).toBeVisible()
   expect(screen.queryByLabelText('Lý do xử lý tiền')).not.toBeInTheDocument()
@@ -78,7 +73,7 @@ it('requires a reason and confirmation before rejecting a withdrawal', async () 
 })
 
 it('shows a withdrawal QR with the remaining amount and transfer reference without marking it paid', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=withdrawals')
   fireEvent.click(await screen.findByRole('button', { name: 'Hiển thị mã QR RUT-2026-002' }))
   const dialog = screen.getByRole('dialog', { name: 'Quét QR chuyển tiền' })
   expect(within(dialog).getByText('200.000đ')).toBeInTheDocument()
@@ -89,7 +84,7 @@ it('shows a withdrawal QR with the remaining amount and transfer reference witho
 })
 
 it('records an externally transferred withdrawal only after a per-request reference and confirmation', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=withdrawals')
   fireEvent.click(await screen.findByRole('button', { name: 'Đã chuyển tiền RUT-2026-001' }))
   fireEvent.change(screen.getByLabelText('Mã tham chiếu/lý do chi RUT-2026-001'), { target: { value: 'MB-REF-20260912' } })
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đã chuyển tiền' }))
@@ -98,7 +93,7 @@ it('records an externally transferred withdrawal only after a per-request refere
 })
 
 it('filters and sorts the finance operation queues', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=withdrawals')
   expect((await screen.findAllByText('RUT-2026-001')).length).toBeGreaterThan(0)
   expect(screen.getByText('Chủ sân A')).toBeInTheDocument()
 
@@ -111,14 +106,15 @@ it('filters and sorts the finance operation queues', async () => {
   expect(screen.getAllByText('RUT-2026-001').length).toBeGreaterThan(0)
   expect(screen.queryByText('RUT-2026-002')).not.toBeInTheDocument()
 
-  fireEvent.change(screen.getByLabelText('Lọc hướng tiền'), { target: { value: 'out' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Đối soát' }))
+  fireEvent.change(await screen.findByLabelText('Lọc hướng tiền'), { target: { value: 'out' } })
   expect(screen.getAllByText('200.000đ').length).toBeGreaterThan(0)
   expect(screen.queryByText('SEPAY-LONG-REFERENCE-001')).not.toBeInTheDocument()
   expect(screen.getByText('BANK-LONG-REFERENCE-002')).toBeInTheDocument()
 })
 
 it('opens reconciliation controls only for the selected event and uses selectable targets', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=reconciliation')
   expect(await screen.findByRole('button', { name: 'Gán yêu cầu rút' })).toBeInTheDocument()
   expect(screen.queryByLabelText('Đối tượng gán')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Lý do đối soát')).not.toBeInTheDocument()
@@ -143,15 +139,29 @@ it('opens reconciliation controls only for the selected event and uses selectabl
   await waitFor(() => expect(reconcileIncoming).toHaveBeenCalledWith('rc1', 'u1', 'Khớp ví người chơi'))
 })
 
+it('credits an incoming transfer to any account found by search, not only past withdrawers', async () => {
+  show(<AdminFinancePage />, '/admin?tab=reconciliation')
+  const incomingCard = (await screen.findByRole('button', { name: 'Gán ví cá nhân' })).closest('article')!
+  fireEvent.click(within(incomingCard).getByRole('button', { name: 'Gán ví cá nhân' }))
+  fireEvent.change(within(incomingCard).getByLabelText('Tìm người nhận rc1'), { target: { value: 'new-player' } })
+  expect(await within(incomingCard).findByRole('option', { name: /Người chơi mới · ND-00000999/ })).toBeInTheDocument()
+  fireEvent.change(within(incomingCard).getByLabelText('Chọn người nhận rc1'), { target: { value: 'u9' } })
+  fireEvent.change(within(incomingCard).getByLabelText('Lý do đối soát rc1'), { target: { value: 'Khách chuyển nhầm nội dung' } })
+  fireEvent.click(within(incomingCard).getByRole('button', { name: 'Xác nhận gán ví cá nhân' }))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
+  await waitFor(() => expect(reconcileIncoming).toHaveBeenCalledWith('rc1', 'u9', 'Khách chuyển nhầm nội dung'))
+})
+
 it('finalizes a partial withdrawal and supports out-of-scope reconciliation', async () => {
-  render(<AdminFinancePage />)
+  show(<AdminFinancePage />, '/admin?tab=withdrawals')
   fireEvent.click(await screen.findByRole('button', { name: 'Chốt mức đã chi' }))
   fireEvent.change(screen.getByLabelText('Lý do chốt mức đã chi RUT-2026-002'), { target: { value: 'Đối chiếu sao kê' } })
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chốt mức đã chi' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(finalizePartialWithdrawal).toHaveBeenCalledWith('w2', 'Đối chiếu sao kê'))
 
-  const incomingEventCard = screen.getByRole('button', { name: 'Gán ví cá nhân' }).closest('article')!
+  fireEvent.click(screen.getByRole('button', { name: 'Đối soát' }))
+  const incomingEventCard = (await screen.findByRole('button', { name: 'Gán ví cá nhân' })).closest('article')!
   fireEvent.click(within(incomingEventCard).getByRole('button', { name: 'Ngoài phạm vi' }))
   fireEvent.change(within(incomingEventCard).getByLabelText('Lý do đối soát rc1'), { target: { value: 'Không liên quan nền tảng' } })
   fireEvent.click(within(incomingEventCard).getByRole('button', { name: 'Xác nhận ngoài phạm vi' }))
@@ -160,7 +170,7 @@ it('finalizes a partial withdrawal and supports out-of-scope reconciliation', as
 })
 
 it('submits a validated partial-refund dispute decision', async () => {
-  render(<AdminDisputesPage />)
+  show(<AdminDisputesPage />)
   expect(await screen.findByRole('link', { name: '0901234567' })).toHaveAttribute('href', 'tel:0901234567')
   expect(screen.getByAltText('Bằng chứng 1')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('radio', { name: 'Hoàn một phần' }))
@@ -172,25 +182,29 @@ it('submits a validated partial-refund dispute decision', async () => {
 })
 
 it('can hide then explicitly restore recently moderated content', async () => {
-  render(<AdminModerationPage />)
-  fireEvent.change(await screen.findByLabelText('Lý do quyết định kiểm duyệt'), { target: { value: 'Ẩn để xác minh' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Ẩn tạm' }))
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
+  show(<AdminModerationPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Ẩn tạm' }))
+  const dialog = screen.getByRole('dialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Ẩn tạm' }))
+  expect(within(dialog).getByRole('alert')).toHaveTextContent('Nhập lý do')
+  fireEvent.change(within(dialog).getByLabelText('Lý do quyết định kiểm duyệt'), { target: { value: 'Ẩn để xác minh' } })
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Ẩn tạm' }))
   await waitFor(() => expect(moderateCommunityReport).toHaveBeenCalledWith('r1', 'hide', 'Ẩn để xác minh'))
   fireEvent.click(await screen.findByRole('button', { name: 'Khôi phục nội dung vừa xử lý' }))
   await waitFor(() => expect(restoreCommunityContent).toHaveBeenCalledWith('post', 'post-uuid', 'Ẩn để xác minh'))
 })
 
 it.each([['Bác báo cáo', 'dismiss'], ['Gỡ nội dung', 'remove']] as const)('supports moderation action %s', async (buttonName, action) => {
-  render(<AdminModerationPage />)
-  fireEvent.change(await screen.findByLabelText('Lý do quyết định kiểm duyệt'), { target: { value: 'Quyết định có căn cứ' } })
-  fireEvent.click(screen.getByRole('button', { name: buttonName }))
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
+  show(<AdminModerationPage />)
+  fireEvent.click(await screen.findByRole('button', { name: buttonName }))
+  const dialog = screen.getByRole('dialog')
+  fireEvent.change(within(dialog).getByLabelText('Lý do quyết định kiểm duyệt'), { target: { value: 'Quyết định có căn cứ' } })
+  fireEvent.click(within(dialog).getByRole('button', { name: buttonName }))
   await waitFor(() => expect(moderateCommunityReport).toHaveBeenCalledWith('r1', action, 'Quyết định có căn cứ'))
 })
 
 it('reviews a flagged evaluation only after confirmation', async () => {
-  render(<AdminEvaluationsPage />)
+  show(<AdminEvaluationsPage />)
   expect(await screen.findByText('Người đánh giá → Người được đánh giá')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Chấp thuận đánh giá' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
@@ -199,14 +213,14 @@ it('reviews a flagged evaluation only after confirmation', async () => {
 })
 
 it('can reject a flagged evaluation after confirmation', async () => {
-  render(<AdminEvaluationsPage />)
+  show(<AdminEvaluationsPage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Từ chối đánh giá' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xác nhận' }))
   await waitFor(() => expect(reviewAdminEvaluation).toHaveBeenCalledWith('m1', 'e1', 'reject'))
 })
 
 it('lets an admin reply and resolve a support ticket without showing its UUID', async () => {
-  render(<AdminTicketsPage />)
+  show(<AdminTicketsPage />)
   expect(await screen.findAllByText('Không thanh toán được')).toHaveLength(2)
   expect(screen.queryByText('t1')).not.toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Nội dung phản hồi hỗ trợ'), { target: { value: 'Đội ngũ đang kiểm tra giao dịch.' } })
@@ -219,7 +233,7 @@ it('lets an admin reply and resolve a support ticket without showing its UUID', 
 it('closes a resolved support ticket', async () => {
   vi.mocked(listSupportTickets).mockResolvedValueOnce({ tickets: [{ id: 't2', requesterUserId: 'u2', subject: 'Đã hỗ trợ xong', status: 'resolved', createdAt: '2026-08-15T00:00:00Z' }] })
   vi.mocked(getSupportTicket).mockResolvedValueOnce({ id: 't2', requesterUserId: 'u2', subject: 'Đã hỗ trợ xong', status: 'resolved', createdAt: '2026-08-15T00:00:00Z', messages: [] })
-  render(<AdminTicketsPage />)
+  show(<AdminTicketsPage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Đóng yêu cầu' }))
   await waitFor(() => expect(setSupportTicketStatus).toHaveBeenCalledWith('t2', 'closed'))
 })

@@ -26,6 +26,7 @@ vi.mock('../lib/financeApi.js', () => ({
   payMatchJoinBalance: vi.fn().mockResolvedValue({}), createMatchJoinSepayIntent: vi.fn().mockResolvedValue({ intentId: 'participant-intent-hidden', matchCode: 'KLTJOIN01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTJOIN01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTJOIN01' } }),
   payMatchOrganizerContributionBalance: vi.fn().mockResolvedValue({}), createMatchOrganizerContributionSepayIntent: vi.fn().mockResolvedValue({ intentId: 'organizer-intent-hidden', matchCode: 'KLTORG01', amount: '45000', payment: { bankCode: 'MBBank', accountNumber: '0123456789', accountName: 'CAU LONG PLATFORM', amount: '45000', matchCode: 'KLTORG01', qrImageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=45000&des=KLTORG01' } }),
 }))
+vi.mock('../lib/rewardApi', () => ({ listMyRewardPayouts: vi.fn().mockResolvedValue({ items: [] }), PAYOUT_STATUS_LABELS: {} }))
 vi.mock('../lib/passportApi.js', () => ({
   api: vi.fn().mockRejectedValue(new Error('offline')),
   getMatchHistory: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 5 }),
@@ -75,9 +76,11 @@ it('shows organizer payment and cancel controls without an approval queue', asyn
   expect(screen.queryByText(/participant-internal-uuid/)).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Đặt cọc chốt sân' })).getByRole('button', { name: 'Thanh toán số dư' }))
   await waitFor(() => expect(payMatchOrganizerContributionBalance).toHaveBeenCalledWith('match-1'))
-  fireEvent.change(screen.getByLabelText('Cách thanh toán phần của chủ kèo'), { target: { value: 'sepay' } })
   fireEvent.click(screen.getByRole('button', { name: 'Đặt cọc chốt sân' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Đặt cọc chốt sân' })).getByRole('radio', { name: /Chuyển khoản VietQR/ }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Đặt cọc chốt sân' })).getByRole('button', { name: 'Tạo mã SePay' }))
   expect(await screen.findByText('KLTORG01')).toBeInTheDocument()
   expect(screen.queryByText('organizer-intent-hidden')).not.toBeInTheDocument()
   const organizerDialog = screen.getByText('KLTORG01').closest('[role="dialog"]') as HTMLElement
@@ -142,7 +145,7 @@ it('shows participant payment/withdraw controls only from ownJoin state', async 
   fireEvent.click(within(await screen.findByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Thanh toán số dư' }))
   await waitFor(() => expect(payMatchJoinBalance).toHaveBeenCalledWith('match-1', 'own-join'))
   fireEvent.click(screen.getByRole('button', { name: 'Thanh toán phần còn lại' }))
-  fireEvent.change(await screen.findByLabelText('Cách thanh toán'), { target: { value: 'sepay' } })
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('radio', { name: /Chuyển khoản VietQR/ }))
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Chọn phương thức thanh toán' })).getByRole('button', { name: 'Tạo mã SePay' }))
   await waitFor(() => expect(createMatchJoinSepayIntent).toHaveBeenCalledWith('match-1', 'own-join'))
   expect(await screen.findByText('KLTJOIN01')).toBeInTheDocument()
@@ -169,7 +172,8 @@ it('renders public and own Community activity with business labels and creates a
   expect(await screen.findAllByText('Hẹn giao lưu cuối tuần')).not.toHaveLength(0)
   expect(await screen.findByText('Bài viết đã báo cáo')).toBeInTheDocument()
   expect(screen.queryByText(/player-internal-uuid|post-internal-id|report-internal-id/)).not.toBeInTheDocument()
-  fireEvent.click(screen.getAllByRole('button', { name: 'Báo cáo' })[0])
+  fireEvent.click(screen.getAllByRole('button', { name: 'Tùy chọn bài viết' })[0])
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Báo cáo' }))
   const reportDialog = screen.getByRole('dialog', { name: 'Báo cáo nội dung' })
   fireEvent.change(within(reportDialog).getByPlaceholderText('Mô tả rõ nội dung cần xem xét'), { target: { value: 'Nội dung quảng cáo' } })
   fireEvent.click(within(reportDialog).getByRole('button', { name: 'Gửi báo cáo' }))
@@ -186,7 +190,8 @@ it('keeps post/comment ownership actions inside Community detail cards', async (
   fireEvent.click(screen.getByRole('button', { name: 'Bình luận' }))
   await waitFor(() => expect(createCommunityComment).toHaveBeenCalledWith(post.id, 'Bình luận mới'))
 
-  fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tùy chọn bài viết' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Chỉnh sửa' }))
   const editDialog = screen.getByRole('dialog', { name: 'Chỉnh sửa bài viết' })
   fireEvent.change(within(editDialog).getByRole('textbox'), { target: { value: 'Nội dung đã sửa' } })
   fireEvent.click(within(editDialog).getByRole('button', { name: 'Lưu thay đổi' }))
@@ -196,7 +201,8 @@ it('keeps post/comment ownership actions inside Community detail cards', async (
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Gỡ bình luận?' })).getByRole('button', { name: 'Gỡ bình luận' }))
   await waitFor(() => expect(removeCommunityComment).toHaveBeenCalledWith(comment.id))
 
-  fireEvent.click(screen.getByRole('button', { name: 'Gỡ bài' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tùy chọn bài viết' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Gỡ bài' }))
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Gỡ bài viết?' })).getByRole('button', { name: 'Gỡ bài' }))
   await waitFor(() => expect(removeCommunityPost).toHaveBeenCalledWith(post.id))
 })

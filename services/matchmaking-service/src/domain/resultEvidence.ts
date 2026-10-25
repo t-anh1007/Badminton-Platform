@@ -7,8 +7,8 @@ import {
 import { AppError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 
-/** BR-CM-25..27: 1–3 ảnh mỗi lần nộp, tối đa 5 ảnh/người/hồ sơ, 5 MB/ảnh, giữ 90 ngày sau đóng. */
-export const RESULT_EVIDENCE_MAX_BYTES = 5 * 1024 * 1024;
+/** BR-CM-25..27: 1–3 ảnh mỗi lần nộp, tối đa 5 ảnh/người/hồ sơ, giữ 90 ngày sau đóng; 15 MB/ảnh (BR-RA-02, T4). */
+export const RESULT_EVIDENCE_MAX_BYTES = 15 * 1024 * 1024;
 export const RESULT_EVIDENCE_MAX_PER_SUBMISSION = 3;
 export const RESULT_EVIDENCE_MAX_PER_USER = 5;
 export const RESULT_EVIDENCE_RETENTION_MS = 90 * 24 * 60 * 60 * 1_000;
@@ -63,7 +63,7 @@ export async function authorizeResultEvidenceUpload(
   input: { matchId: string; userId: string; mimeType: ImageMimeType; size: number; checksumSha256: string },
 ) {
   if (!Number.isInteger(input.size) || input.size < 1 || input.size > RESULT_EVIDENCE_MAX_BYTES) {
-    throw new AppError(400, 'RESULT_EVIDENCE_TOO_LARGE', 'Mỗi ảnh bằng chứng tối đa 5 MB.');
+    throw new AppError(400, 'RESULT_EVIDENCE_TOO_LARGE', 'Mỗi ảnh bằng chứng tối đa 15 MB.');
   }
   if (!(await resultRosterUserIds(prisma, input.matchId)).includes(input.userId)) {
     throw new AppError(403, 'RESULT_ROSTER_ONLY', 'Chỉ người trong kèo được gửi bằng chứng.');
@@ -157,9 +157,22 @@ export async function readResultEvidence(
 ): Promise<{ url: string }> {
   const evidence = await prisma.resultEvidence.findFirst({
     where: { id: input.evidenceId, case: { matchId: input.matchId } },
-    select: { objectKey: true, deletedAt: true, case: { select: { status: true, match: { select: { providerUserId: true } } } } },
+    select: {
+      objectKey: true, deletedAt: true, purpose: true, ownerUserId: true,
+      case: { select: { status: true, evidenceClosedAt: true, evidenceDeadlineAt: true, match: { select: { providerUserId: true, organizerUserId: true } } } },
+    },
   });
   if (!evidence) throw new AppError(404, 'RESULT_EVIDENCE_NOT_FOUND', 'Không tìm thấy ảnh bằng chứng.');
+  // BR-RA-30: ảnh tranh chấp của đội kia giữ kín tới khi hết 2 giờ hoặc cả hai đội bấm Đã nộp đủ.
+  const sealed = evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null
+    && evidence.case.evidenceDeadlineAt !== null && new Date() < evidence.case.evidenceDeadlineAt;
+  if (sealed && !input.viewer.roles.includes('admin')) {
+    const sideOf = async (userId: string) => (userId === evidence.case.match.organizerUserId ? 'A'
+      : (await prisma.join.findFirst({ where: { matchId: input.matchId, participantUserId: userId, status: 'confirmed' }, select: { teamSide: true } }))?.teamSide ?? 'B');
+    if (await sideOf(evidence.ownerUserId) !== await sideOf(input.viewer.userId)) {
+      throw new AppError(404, 'RESULT_EVIDENCE_SEALED', 'Ảnh bằng chứng của đội kia đang được giữ kín tới khi hết hạn nộp.');
+    }
+  }
   const allowed = input.viewer.roles.includes('admin')
     || (evidence.case.status === 'provider_review' && evidence.case.match.providerUserId === input.viewer.userId)
     || (await resultRosterUserIds(prisma, input.matchId)).includes(input.viewer.userId);

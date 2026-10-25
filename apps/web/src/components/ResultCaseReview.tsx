@@ -13,7 +13,7 @@ export const outcomeText = (detail: ReviewCaseDetail, outcome: MatchOutcome) =>
   // Kèm tên đội vì người chơi ẩn danh đều hiển thị "Người chơi".
   outcome === 'NO_RESULT' ? 'Không có kết quả' : `${teamNames(detail, outcome === 'TEAM_A_WIN' ? 'A' : 'B')} thắng (Đội ${outcome === 'TEAM_A_WIN' ? 'A' : 'B'})`;
 export const queueTitle = (item: ReviewQueueItem) =>
-  `Kèo ${item.mode === 'ranked' ? 'xếp hạng' : 'giao lưu'} - ${item.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}`;
+  `Kèo ${item.mode === 'ranked' ? 'xếp hạng' : 'giao hữu'} - ${item.discipline === 'doubles' ? 'Đánh đôi' : 'Đánh đơn'}`;
 /** Dòng phân biệt hồ sơ trong hàng chờ: sân + mã kèo/booking. */
 export const queueContext = (item: ReviewQueueItem) =>
   [[item.venueName, item.courtName].filter(Boolean).join(' - '), item.matchCode, item.bookingCode].filter(Boolean).join(' · ');

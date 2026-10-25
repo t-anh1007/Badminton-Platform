@@ -13,24 +13,29 @@ import { getMyBookingHistory, getMyUpcomingBookings, type BookingSummary } from 
 import { RoleBadge } from '../components/RoleBadge';
 import type { UserRole } from '../session/session';
 import { RouteState } from '../components/RouteState.js';
+import { Icon } from '../components/Icon';
 import { formatDateTimeVi, formatMoneyVnd } from '../lib/formatters.js';
 import { getMyConfirmedMatches, type MyConfirmedMatch } from '../lib/matchApi.js';
+import { MatchHistoryPanel } from '../components/MatchHistoryPanel.js';
 import { useLiveDataRefresh } from '../realtime/dataInvalidation.js';
 
-type Tab = 'bookings' | 'wallet' | 'disputes';
+type Tab = 'bookings' | 'history' | 'wallet';
+type Period = 'upcoming' | 'past' | 'cancelled' | 'disputes';
 
 const money = (value?: string) => formatMoneyVnd(value ?? '0');
 
 export function ProfilePage() {
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as Tab) || 'bookings';
+  // ?tab=disputes (liên kết cũ) mở thẳng bộ lọc Tranh chấp trong tab Đặt sân & kèo.
+  const tab: Tab = params.get('tab') === 'wallet' ? 'wallet' : params.get('tab') === 'history' ? 'history' : 'bookings';
   const [profile, setProfile] = useState<ProfileResult | null>(null);
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [ledgerByWallet, setLedgerByWallet] = useState<Record<string, WalletLedgerEntry[]>>({});
   const [upcoming, setUpcoming] = useState<BookingSummary[]>([]);
   const [past, setPast] = useState<BookingSummary[]>([]);
   const [confirmedMatches, setConfirmedMatches] = useState<MyConfirmedMatch[]>([]);
-  const [period, setPeriod] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
+  const [period, setPeriod] = useState<Period>(() => (params.get('tab') === 'disputes' ? 'disputes' : 'upcoming'));
+  const [ledgerLimit, setLedgerLimit] = useState(10);
   const [message, setMessage] = useState('');
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -219,10 +224,14 @@ export function ProfilePage() {
   const bookings = period === 'cancelled'
     ? cancelledBookings
     : (period === 'upcoming' ? upcoming : past).filter((booking) => booking.status !== 'cancelled');
-  const matchesForPeriod = period === 'cancelled' ? [] : confirmedMatches.filter((match) =>
-    period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date(),
-  );
+  const matchesForPeriod = period === 'cancelled' || period === 'disputes' ? [] : confirmedMatches.filter((match) => match.status !== 'cancelled' && (
+    period === 'upcoming' ? new Date(match.endAt) >= new Date() : new Date(match.endAt) < new Date()
+  ));
   const personal = wallets.find((wallet) => wallet.walletType === 'personal');
+  const freeWithdrawLeft = (() => {
+    const left = BigInt(personal?.dailyFreeWithdrawal ?? '1000000') - BigInt(personal?.withdrawnToday ?? '0');
+    return (left > 0n ? left : 0n).toString();
+  })();
   const activePersonalWithdrawal = withdrawals.find((row) => row.status === 'pending' || row.status === 'partially_paid') ?? null;
   const ledgerEntries = wallets.flatMap((wallet) => (ledgerByWallet[wallet.id] ?? []).map((entry) => ({ ...entry, walletType: wallet.walletType }))).sort((left, right) => new Date(right.ts).getTime() - new Date(left.ts).getTime());
 
@@ -245,20 +254,18 @@ export function ProfilePage() {
             <p className="mt-1 font-semibold text-ink-900">{profile?.playerProfile?.displayName}</p>
             <p className="mt-1 text-sm text-ink-500">{profile?.email}</p><BusinessCode code={profile?.businessCode} label="Mã tài khoản" />
             <div className="mt-3 flex flex-wrap gap-2" aria-label="Vai trò tài khoản">{profile?.roles.filter((role): role is UserRole => role === 'player' || role === 'provider' || role === 'admin').map((role) => <RoleBadge key={role} role={role} />)}</div>
-            <div className="mt-5 space-y-3 border-y border-line py-4 text-sm">
-              <p><span className="text-ink-500">Sắp tới</span><strong className="float-right text-figures">{upcoming.filter((booking) => booking.status !== 'cancelled').length}</strong></p>
-              <p><span className="text-ink-500">Đã qua</span><strong className="float-right text-figures">{past.filter((booking) => booking.status !== 'cancelled').length}</strong></p>
-              <p><span className="text-ink-500">Đã hủy</span><strong className="float-right text-figures">{cancelledBookings.length}</strong></p>
-              <p><span className="text-ink-500">Trình độ</span><span className="float-right">Chưa cập nhật</span></p>
+            <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+              {([['Sắp tới', upcoming.filter((booking) => booking.status !== 'cancelled').length], ['Đã qua', past.filter((booking) => booking.status !== 'cancelled').length], ['Đã hủy', cancelledBookings.length]] as const).map(([label, count]) => <div key={label} className="rounded-xl bg-canvas px-1 py-2.5"><p className="text-figures text-xl font-semibold text-brand-navy">{count}</p><p className="text-xs text-ink-500">{label}</p></div>)}
             </div>
-            <Button tone="secondary" className="mt-5 w-full" onClick={() => setEditOpen(true)}>Cập nhật thông tin</Button>
+            <Link to="/passport" className="mt-3 flex items-center justify-between rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-brand-navy hover:bg-green-100">Hồ sơ thi đấu<Icon name="chevronRight" className="h-4 w-4" /></Link>
+            <Button tone="secondary" size="sm" className="mt-5 w-full" onClick={() => setEditOpen(true)}>Cập nhật thông tin</Button>
             <Button tone="ghost" className="mt-2 w-full" onClick={openPasswordModal}>Đổi mật khẩu</Button>
           </SurfaceCard>
         </aside>
 
         <section>
           <Tabs
-            tabs={[{ value: 'bookings', label: 'Đặt sân của tôi' }, { value: 'wallet', label: 'Ví' }, { value: 'disputes', label: 'Tranh chấp' }]}
+            tabs={[{ value: 'bookings', label: 'Đặt sân & kèo' }, { value: 'history', label: 'Lịch sử đấu' }, { value: 'wallet', label: 'Ví' }]}
             value={tab}
             onChange={(next) => setParams({ tab: next })}
           />
@@ -266,22 +273,23 @@ export function ProfilePage() {
 
           {tab === 'bookings' && (
             <div className="mt-6">
-              <SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }]} value={period} onChange={(next) => setPeriod(next as 'upcoming' | 'past' | 'cancelled')} />
+              <div className="flex flex-wrap items-center justify-between gap-3"><SegmentedControl options={[{ value: 'upcoming', label: 'Sắp tới' }, { value: 'past', label: 'Đã qua' }, { value: 'cancelled', label: 'Đã hủy' }, { value: 'disputes', label: 'Tranh chấp' }]} value={period} onChange={(next) => setPeriod(next as Period)} /><Link to="/venues"><Button size="sm">Đặt sân mới</Button></Link></div>
               {matchesForPeriod.length > 0 && (
                 <section className="mt-4" aria-label="Kèo đã tham gia">
-                  <h2 className="mb-3 text-h3">Kèo đã tham gia</h2>
                   <div className="space-y-3">
                     {matchesForPeriod.map((match) => (
-                      <Link key={match.id} to={`/matches/${match.id}`} className="block rounded-xl border border-green-600/30 bg-green-50 p-4 transition hover:border-green-600">
-                        <div className="flex justify-between gap-3"><div><p className="font-semibold">{match.venue.name} — {match.court.name}</p><BusinessCode code={match.businessCode} label="Mã kèo" /><p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(match.startAt)}</p><p className="mt-1 text-xs font-semibold text-green-700">Kèo đã tham gia · Đã xác nhận</p></div><strong>{formatMoneyVnd(match.feePerSlot)}</strong></div>
+                      <Link key={match.id} to={`/matches/${match.id}`} className="surface-card block p-4 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)]">
+                        <div className="flex justify-between gap-3"><div><p className="font-semibold">{match.venue.name} — {match.court.name}</p><BusinessCode code={match.businessCode} label="Mã kèo" /><p className="mt-1 text-sm text-ink-500">{formatDateTimeVi(match.startAt)}</p><p className="mt-2 inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-brand-navy">Kèo đã tham gia · Đã xác nhận</p></div><strong className="text-figures text-brand-navy">{formatMoneyVnd(match.feePerSlot)}</strong></div>
                       </Link>
                     ))}
                   </div>
                 </section>
               )}
-              <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có lượt đặt sân" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>
+              {period === 'disputes' ? <div className="mt-4"><DisputePanel /></div> : <div className="mt-4">{bookings.length ? <BookingCancellationPanel bookings={bookings} cancellable={period === 'upcoming'} onChanged={reloadBookings} /> : matchesForPeriod.length === 0 ? <EmptyState title="Chưa có lượt đặt sân" description="Khi bạn đặt sân hoặc tham gia kèo, lịch sử sẽ hiển thị tại đây." /> : null}</div>}
             </div>
           )}
+
+          {tab === 'history' && <MatchHistoryPanel matches={confirmedMatches} />}
 
           {tab === 'wallet' && (
             <div className="mt-6">
@@ -289,15 +297,14 @@ export function ProfilePage() {
                 <p className="courtin-kicker">Ví cá nhân</p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-line">
                   <div><p className="text-sm text-ink-500">Tổng số dư</p><p className="text-figures mt-1 text-2xl font-medium">{money(personal?.available)}</p></div>
-                  <div className="sm:pl-5"><p className="text-sm text-ink-500">Có thể rút</p><p className="text-figures mt-1 text-xl font-medium text-success">{money(personal?.withdrawable)}</p><p className="mt-1 text-xs text-ink-500">Từ hoàn tiền và tiền chuyển dư</p></div>
+                  <div className="sm:pl-5"><p className="text-sm text-ink-500">Hôm nay còn rút miễn phí</p><p className="text-figures mt-1 text-xl font-medium text-success">{money(freeWithdrawLeft)}</p><p className="mt-1 text-xs text-ink-500">Miễn phí 1.000.000đ/ngày, phần vượt chịu phí 1%</p></div>
                 </div>
                 <div className="mt-5 flex gap-2 border-t border-line pt-4"><Button className="flex-1" onClick={() => { setTopupIntent(null); setTopupState('idle'); setTopupOpen(true); }}>Nạp tiền</Button><Button tone="secondary" className="flex-1" onClick={() => setWithdrawOpen(true)}>Rút tiền</Button></div>
               </SurfaceCard>
-              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <ul className="mt-4 divide-y divide-line">{ledgerEntries.map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p>{shown.subtitle && <p className="mt-1 text-ink-700">{shown.subtitle}</p>}<p className="mt-1 text-xs text-ink-500">Giao dịch lúc {formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
+              <SurfaceCard className="mt-6"><h2 className="text-h3">Giao dịch gần đây</h2>{ledgerEntries.length ? <><ul className="mt-4 divide-y divide-line">{ledgerEntries.slice(0, ledgerLimit).map((entry) => { const shown = presentLedgerEntry(entry); return <li key={entry.id} className="flex items-center justify-between gap-4 py-3 text-sm"><div><p className="font-medium text-ink-900">{shown.title}</p>{shown.subtitle && <p className="mt-1 text-ink-700">{shown.subtitle}</p>}<p className="mt-1 text-xs text-ink-500">Giao dịch lúc {formatDateTimeVi(entry.ts)}</p></div><strong className={`text-figures ${shown.amountTone === 'debit' ? 'text-danger' : 'text-green-700'}`}>{shown.amountTone === 'debit' ? '' : '+'}{money(entry.amount)}</strong></li>})}</ul>{ledgerEntries.length > ledgerLimit && <Button tone="secondary" size="sm" className="mt-3 w-full" onClick={() => setLedgerLimit((limit) => limit + 10)}>Xem thêm giao dịch</Button>}</> : <p className="mt-3 text-sm text-ink-500">Chưa có giao dịch.</p>}</SurfaceCard>
             </div>
           )}
 
-          {tab === 'disputes' && <DisputePanel />}
         </section>
       </div>
 
@@ -321,10 +328,10 @@ export function ProfilePage() {
 
       <Modal open={topupOpen} title="Nạp tiền bằng SePay" onClose={() => { setTopupOpen(false); if (topupState === 'completed') { setTopupIntent(null); setTopupState('idle'); } }}>
         <div className="grid gap-4">
-          <p className="text-sm font-semibold text-danger">Tiền bạn chủ động nạp vào ví không thể rút về tài khoản ngân hàng.</p>
+          <p className="text-sm text-danger">Tiền bạn chủ động nạp vào ví không thể rút về tài khoản ngân hàng.</p>
           {topupState === 'completed' ? (
             <div role="status" aria-live="assertive" className="rounded-xl border-2 border-green-500 bg-green-50 p-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-3xl text-white" aria-hidden="true">✓</div>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success text-white" aria-hidden="true"><Icon name="check" className="h-7 w-7" /></div>
               <h3 className="mt-3 text-h3 text-green-700">Nạp tiền thành công!</h3>
               {topupIntent && <p className="mt-1 text-figures text-2xl font-bold text-green-700">+{formatMoneyVnd(topupIntent.payment.amount)}</p>}
               <p className="mt-2 text-sm text-ink-500">Số dư ví đã được cập nhật. Cửa sổ sẽ tự đóng…</p>
@@ -332,14 +339,16 @@ export function ProfilePage() {
             </div>
           ) : (
             <>
-              <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
-              <div className="flex gap-2" data-testid="personal-topup-actions"><Button tone="secondary" className="flex-1" onClick={() => setTopupOpen(false)}>Hủy</Button><Button className="flex-1" onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button></div>
-              {topupIntent && <div role="status" aria-live="polite" className="rounded-xl bg-green-50 p-3"><SepayPayBox payment={topupIntent.payment} /><p className="mt-2 text-sm text-green-700">{topupState === 'pending' ? 'Đang chờ SePay xác nhận…' : topupState === 'timeout' ? 'Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.' : ''}</p></div>}
+              {!topupIntent ? <>
+                <label className="grid gap-1.5 text-sm font-medium">Số tiền (VNĐ)<TextInput inputMode="numeric" min="1000" type="number" value={topupAmount} onChange={(event) => setTopupAmount(event.target.value)} /></label>
+                <div className="flex flex-wrap gap-2">{['100000', '200000', '500000'].map((amount) => <button key={amount} type="button" onClick={() => setTopupAmount(amount)} className={`min-h-9 rounded-full border px-4 text-sm font-semibold ${topupAmount === amount ? 'border-brand-navy bg-brand-navy text-surface' : 'border-line text-ink-700 hover:border-brand-navy'}`}>{formatMoneyVnd(amount)}</button>)}</div>
+                <div className="flex gap-2" data-testid="personal-topup-actions"><Button tone="secondary" className="flex-1" onClick={() => setTopupOpen(false)}>Hủy</Button><Button className="flex-1" onClick={() => void createTopup()}>Tạo mã chuyển khoản</Button></div>
+              </> : <div role="status" aria-live="polite"><SepayPayBox payment={topupIntent.payment} />{topupState === 'timeout' && <p className="mt-3 text-sm text-ink-500">Chưa thấy giao dịch. Bạn có thể kiểm tra lại ví sau.</p>}</div>}
             </>
           )}
         </div>
       </Modal>
-      <PersonalWithdrawalModal open={withdrawOpen} withdrawable={personal?.withdrawable ?? '0'} active={activePersonalWithdrawal} busy={withdrawBusy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />
+      <PersonalWithdrawalModal open={withdrawOpen} available={personal?.available ?? '0'} freeLeft={freeWithdrawLeft} active={activePersonalWithdrawal} busy={withdrawBusy} onClose={() => setWithdrawOpen(false)} onSubmit={(body) => void submitWithdrawal(body)} onCancel={(id) => void cancelWithdrawal(id)} />
     </main>
   );
 }

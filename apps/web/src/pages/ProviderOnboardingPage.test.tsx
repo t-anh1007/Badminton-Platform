@@ -6,7 +6,7 @@ import { getMyProvider, registerProvider } from '../lib/venueBookingApi.js'
 import { ProviderOnboardingPage } from './ProviderOnboardingPage.js'
 
 vi.mock('../lib/venueBookingApi.js', () => ({ getMyProvider: vi.fn(), registerProvider: vi.fn() }))
-vi.mock('../lib/accountApi.js', () => ({ refreshSession: vi.fn().mockRejectedValue(new Error('stale')), logout: vi.fn() }))
+vi.mock('../lib/accountApi.js', () => ({ refreshSession: vi.fn().mockResolvedValue({ accessToken: `h.${btoa(JSON.stringify({ sub: 'p1' }))}.s`, refreshToken: 'refresh', roles: ['player'] }), logout: vi.fn() }))
 beforeEach(() => { localStorage.clear(); localStorage.setItem('courtin.session', JSON.stringify({ userId: 'p1', accessToken: 'token', refreshToken: 'refresh', roles: ['player'], activeRole: 'player' })) })
 
 it('submits a new provider application and renders rejected recovery plus approved role refresh', async () => {

@@ -25,14 +25,14 @@ export async function awardStreakBadge(
   });
 }
 
-/** Khi đóng kỳ: Top 10 và Vua sân (hạng 1, đồng hạng cùng nhận) cho mọi bảng đơn/đôi × nhóm rating × phạm vi. */
+/** Khi đóng mùa: Top 10 và Vua sân (hạng 1, đồng hạng cùng nhận) cho mọi bảng đơn/đôi × hạng đấu × phạm vi. */
 export async function awardSeasonBadges(tx: Prisma.TransactionClient, seasonId: string) {
   const provinces = (await tx.playerSeasonProfile.findMany({
     where: { seasonId }, distinct: ['provinceCode'], select: { provinceCode: true },
   })).map((row) => row.provinceCode);
   const boards: BoardKey[] = [];
   for (const discipline of ['singles', 'doubles'] as const) {
-    for (const band of ['under_1600', 'from_1600'] as const) {
+    for (const band of ['amateur', 'pro'] as const) {
       boards.push({ seasonId, discipline, band, scope: 'global' });
       for (const provinceCode of provinces) boards.push({ seasonId, discipline, band, scope: 'province', provinceCode });
     }

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { ManageIncidentsPage } from './ManageIncidentsPage.js'
+import { MemoryRouter } from 'react-router-dom'
+import { BookingIncidentActions } from './BookingIncidentActions.js'
 import { ManageFinancePage } from './ManageFinancePage.js'
 import { createWithdrawal, getMyFinancialTransparency } from '../../lib/financeApi.js'
 vi.mock('../../lib/financeApi.js', async (importOriginal) => ({
@@ -18,17 +19,25 @@ vi.mock('../../lib/venueBookingApi.js', () => ({
   createInternalBooking: vi.fn().mockResolvedValue({}), cancelInternalBooking: vi.fn().mockResolvedValue({}), getReplacementCourts: vi.fn().mockResolvedValue({ courts: [{ id: 'c2', name: 'Sân 2' }] }), changeBookingCourt: vi.fn().mockResolvedValue({}), cancelProviderBooking: vi.fn().mockResolvedValue({}),
 }))
 afterEach(() => { cleanup(); vi.clearAllMocks() })
-it('loads replacement choices and requires a provider-fault reason before cancellation', async () => {
+it('swaps to a free court or cancels for a provider-fault reason from the booking drawer', async () => {
   const api = await import('../../lib/venueBookingApi.js')
-  render(<ManageIncidentsPage />)
-  const select = await screen.findByLabelText('Lượt đặt sân đã chọn'); await screen.findByRole('option', { name: /–/ }); fireEvent.change(select, { target: { value: 'b1' } }); fireEvent.click(screen.getByRole('button', { name: 'Tải sân thay thế' }))
+  const onDone = vi.fn()
+  render(<BookingIncidentActions bookingId="b1" onDone={onDone} />)
+  fireEvent.click(screen.getByRole('button', { name: /Đổi sân/ }))
   await waitFor(() => expect(api.getReplacementCourts).toHaveBeenCalledWith('b1'))
-  fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đổi sân' })); await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
-  fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi phía sân' })); fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled()
-  fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } }); fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' })); fireEvent.click(screen.getByRole('button', { name: 'Xác nhận hủy lượt đặt sân' })); await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Xác nhận đổi sân' }))
+  await waitFor(() => expect(api.changeBookingCourt).toHaveBeenCalledWith('b1', 'c2'))
+  await waitFor(() => expect(onDone).toHaveBeenCalledOnce())
+  fireEvent.click(screen.getByRole('button', { name: 'Hủy do lỗi sân' }))
+  const cancel = screen.getByRole('button', { name: 'Xác nhận hủy lượt đặt sân' })
+  expect(cancel).toBeDisabled()
+  fireEvent.change(screen.getByLabelText('Lý do lỗi phía sân'), { target: { value: 'Mưa lớn' } })
+  fireEvent.click(cancel)
+  await waitFor(() => expect(api.cancelProviderBooking).toHaveBeenCalledWith('b1', 'Mưa lớn'))
 })
 it('shows today’s owner snapshot and creates a withdrawal from the single primary action', async () => {
-  render(<ManageFinancePage />); await screen.findByText('Số dư có thể rút')
+  render(<MemoryRouter><ManageFinancePage /></MemoryRouter>); await screen.findByText('Số dư có thể rút')
+  fireEvent.click(screen.getByRole('button', { name: 'Giao dịch' }))
   expect(getMyFinancialTransparency).toHaveBeenCalledWith(expect.objectContaining({ from: undefined, to: expect.stringContaining('+07:00'), page: 1, pageSize: 1 }))
   expect(await screen.findByText('Bị từ chối')).toBeVisible()
   expect(screen.getByText(/VCB •••• 0123/)).toBeVisible()

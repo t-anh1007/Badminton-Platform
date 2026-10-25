@@ -11,7 +11,12 @@ import {
   describeRating,
   redeclarationRating,
   updateRating,
+  confidenceForRd,
+  divisionForRating,
+  isNewcomerRating,
+  seasonPointsDelta,
   type RatingResult,
+  type SeasonDivision,
 } from './rating.js';
 
 const DISCIPLINES = ['singles', 'doubles'] as const;
@@ -119,14 +124,14 @@ async function applyOneRatedResult(tx: Prisma.TransactionClient, input: RatedInp
     aggregateType: 'Notification', aggregateId: `rating.changed:${change.id}`, eventType: 'UserNotificationRequested',
     payload: {
       recipient: { type: 'user', userId: input.userId, targetRole: 'player' }, category: 'match', kind: 'rating.changed',
-      title: 'Điểm xếp hạng đã cập nhật', body: `Điểm xếp hạng ${input.discipline === 'doubles' ? 'đôi' : 'đơn'} thay đổi ${signed}.`,
+      title: 'Điểm kinh nghiệm đã cập nhật', body: `Điểm kinh nghiệm ${input.discipline === 'doubles' ? 'đánh đôi' : 'đánh đơn'} thay đổi ${signed}.`,
       priority: 'update', entityType: null, entityId: null, actionKind: 'leaderboard.view', actionExpiresAt: null, emailPolicy: 'required',
     },
   });
 
-  // Số liệu kỳ theo kỳ chứa giờ kết thúc trận (BR-CM-56/57); kèo không có snapshot giờ chơi thì bỏ qua.
-  const match = await tx.match.findUnique({ where: { id: input.matchId }, select: { endAt: true, provinceCode: true } });
-  if (!match?.endAt) return;
+  // Số liệu mùa theo mùa chứa giờ kết thúc trận (BR-CM-56/57); chỉ kèo xếp hạng, giao hữu chỉ đổi điểm kinh nghiệm.
+  const match = await tx.match.findUnique({ where: { id: input.matchId }, select: { endAt: true, provinceCode: true, mode: true } });
+  if (!match?.endAt || match.mode !== 'ranked') return;
   const season = await tx.season.findFirst({ where: { startAt: { lte: match.endAt }, endAt: { gt: match.endAt } } });
   if (!season) return;
   const profile = await tx.playerSeasonProfile.findUnique({ where: { seasonId_userId: { seasonId: season.id, userId: input.userId } } });
@@ -140,8 +145,12 @@ async function applyOneRatedResult(tx: Prisma.TransactionClient, input: RatedInp
     currentWinStreak,
     longestWinStreak: Math.max(stat?.longestWinStreak ?? 0, currentWinStreak),
     ratingGain: (stat?.ratingGain ?? 0) + delta,
+    // Điểm BXH mùa (Elo K=40, sàn 0) tách khỏi điểm kinh nghiệm; xác suất thắng tính từ điểm kinh nghiệm trước trận.
+    points: Math.max(0, (stat?.points ?? 0) + seasonPointsDelta(before.ratingMu, input.results[0]!.opponentRating, input.results[0]!.score)),
   };
-  await tx.seasonStat.upsert({ where: statKey, create: { ...statKey.seasonId_userId_discipline, ...counters }, update: counters });
+  // Hạng đấu khóa ở trận xếp hạng đầu tiên của mùa, không đổi khi điểm kinh nghiệm vượt mốc giữa mùa.
+  const division = stat?.division ?? divisionForRating(before.ratingMu);
+  await tx.seasonStat.upsert({ where: statKey, create: { ...statKey.seasonId_userId_discipline, ...counters, division }, update: { ...counters, division } });
   await awardStreakBadge(tx, { userId: input.userId, discipline: input.discipline, seasonId: season.id, winStreak: currentWinStreak });
 }
 
@@ -211,7 +220,10 @@ export async function applyRatingCorrection(input: {
 }
 
 /** Trường nghiệp vụ cho màn 06; không lộ sigma hay công thức. */
-function ownDisciplineView(passport: Passport, stat: { matchesPlayed: number; wins: number; currentWinStreak: number } | undefined) {
+function ownDisciplineView(
+  passport: Passport,
+  stat: { matchesPlayed: number; wins: number; currentWinStreak: number; points: number; division: SeasonDivision | null } | undefined,
+) {
   const seasonResults = stat?.matchesPlayed ?? 0;
   const described = describeRating({ rating: passport.ratingMu, rd: passport.ratingRd, sigma: passport.ratingSigma });
   const highUncertainty = passport.ratingRd >= HIGH_UNCERTAINTY_RD;
@@ -224,9 +236,14 @@ function ownDisciplineView(passport: Passport, stat: { matchesPlayed: number; wi
     ratingStability: highUncertainty ? 'high_uncertainty' as const : 'established' as const,
     // Cùng điều kiện với BXH kỳ đang diễn ra: >= 5 kết quả trong kỳ và RD < 200 (BR-CM-57).
     leaderboardVisible: !highUncertainty && seasonResults >= SEASON_MIN_RESULTS,
-    // Nhóm bảng xét trên rating gốc như truy vấn BXH (BR-CM-58), không theo số đã làm tròn để hiển thị.
-    leaderboardBand: passport.ratingMu >= 1600 ? 'from_1600' as const : 'under_1600' as const,
-    season: { matchesPlayed: seasonResults, wins: stat?.wins ?? 0, currentWinStreak: stat?.currentWinStreak ?? 0 },
+    // Độ tin cậy của điểm kinh nghiệm: Cao/Vừa/Thấp theo RD (không lộ RD thô).
+    confidence: confidenceForRd(passport.ratingRd),
+    // Mới chơi chỉ được chơi giao hữu cho tới khi lên trình Yếu.
+    rankedAllowed: !isNewcomerRating(passport.ratingMu),
+    // Hạng đấu khóa ở trận xếp hạng đầu tiên trong mùa; chưa đấu thì là hạng dự kiến theo điểm hiện tại.
+    division: stat?.division ?? divisionForRating(passport.ratingMu),
+    divisionLocked: Boolean(stat?.division),
+    season: { matchesPlayed: seasonResults, wins: stat?.wins ?? 0, currentWinStreak: stat?.currentWinStreak ?? 0, points: stat?.points ?? 0 },
     updatedAt: passport.updatedAt,
   };
 }
@@ -275,7 +292,7 @@ async function findRecentCompletedMatches(userId: string) {
 export async function getOwnPassport(userId: string, now = new Date()) {
   const season = await findActiveSeason(prisma, now);
   const seasonStats = season
-    ? await prisma.seasonStat.findMany({ where: { seasonId: season.id, userId }, select: { discipline: true, matchesPlayed: true, wins: true, currentWinStreak: true } })
+    ? await prisma.seasonStat.findMany({ where: { seasonId: season.id, userId }, select: { discipline: true, matchesPlayed: true, wins: true, currentWinStreak: true, points: true, division: true } })
     : [];
   const [passports, countedEvaluations, flaggedEvaluationCount] = await Promise.all([
     prisma.passport.findMany({ where: { userId } }),

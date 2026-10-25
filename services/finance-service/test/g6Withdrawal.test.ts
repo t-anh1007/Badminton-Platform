@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma.js';
 import { seedBusinessBalance } from './helpers.js';
 import { cancelWithdrawal, createWithdrawal, confirmManualWithdrawalPayout, rejectWithdrawal } from '../src/domain/withdrawal.js';
+import { ensurePlatformWallet } from '../src/domain/wallet.js';
 import { handleOutgoingTransfer } from '../src/domain/outgoingTransfer.js';
 import { assignOutgoingEvent } from '../src/domain/reconciliation.js';
 
@@ -10,21 +11,45 @@ const bank = { bankCode: 'VCB', bankAccountNumber: '0123456789', bankAccountName
 afterAll(async () => prisma.$disconnect());
 
 describe('FIN-10 — yêu cầu rút số dư khả dụng', () => {
-  it('player reserves only withdrawable personal balance and cancellation restores it', async () => {
+  it('D59: player withdraws from the whole personal balance, free within the daily allowance', async () => {
     const userId = randomUUID();
-    const wallet = await prisma.wallet.create({
-      data: { userId, walletType: 'personal', available: 100000n, withdrawable: 80000n },
-    });
+    // Số dư nạp chủ động (withdrawable = 0) vẫn rút được.
+    const wallet = await prisma.wallet.create({ data: { userId, walletType: 'personal', available: 100000n } });
 
     const request = await createWithdrawal(userId, { amount: 60000n, ...bank }, 'personal');
     const reserved = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
-    expect([request.walletType, reserved.available, reserved.withdrawable, reserved.reserved])
-      .toEqual(['personal', 40000n, 20000n, 60000n]);
+    expect([request.walletType, request.amount, request.fee, reserved.available, reserved.reserved])
+      .toEqual(['personal', 60000n, 0n, 40000n, 60000n]);
 
     await cancelWithdrawal(userId, request.id, 'personal');
     const restored = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
-    expect([restored.available, restored.withdrawable, restored.reserved])
-      .toEqual([100000n, 80000n, 0n]);
+    expect([restored.available, restored.reserved]).toEqual([100000n, 0n]);
+  });
+
+  it('AC-FIN-10-10/11/12: 1% fee on the part over 1.000.000đ/day, deducted from the payout and refunded on cancel', async () => {
+    const userId = randomUUID();
+    const wallet = await prisma.wallet.create({ data: { userId, walletType: 'personal', available: 3_000_000n } });
+    const platformBefore = (await ensurePlatformWallet()).available;
+
+    const first = await createWithdrawal(userId, { amount: 800000n, ...bank }, 'personal');
+    expect([first.amount, first.fee]).toEqual([800000n, 0n]);
+    await confirmManualWithdrawalPayout(randomUUID(), first.id, 'FT-TEST-1');
+
+    const second = await createWithdrawal(userId, { amount: 500000n, ...bank }, 'personal');
+    expect([second.amount, second.fee]).toEqual([497000n, 3000n]);
+    const charged = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([charged.available, charged.reserved]).toEqual([1_700_000n, 497000n]);
+    expect((await ensurePlatformWallet()).available - platformBefore).toBe(3000n);
+    expect(await prisma.ledgerEntry.count({ where: { refType: 'withdrawalFee', refId: second.id } })).toBe(2);
+
+    await cancelWithdrawal(userId, second.id, 'personal');
+    const restored = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect([restored.available, restored.reserved]).toEqual([2_200_000n, 0n]);
+    expect((await ensurePlatformWallet()).available).toBe(platformBefore);
+
+    // Yêu cầu đã hủy không tính vào hạn mức: còn 200.000đ miễn phí.
+    const third = await createWithdrawal(userId, { amount: 300000n, ...bank }, 'personal');
+    expect([third.amount, third.fee]).toEqual([299000n, 1000n]);
   });
   it('AC-FIN-10-1: available -> reserved trong cùng transaction, tổng không đổi và không tạo ledger', async () => {
     const userId = randomUUID();

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Badge, Button, EmptyState, Modal, SelectInput } from '../../components/ui'
+import { Badge, Button, EmptyState, Modal, SegmentedControl } from '../../components/ui'
+import { tierLabels } from '../../components/MatchCard'
 import { getAdminEvaluations, reviewAdminEvaluation, type AdminEvaluationRow } from '../../lib/matchApi'
 import { formatDateTimeVi } from '../../lib/formatters.js'
 
-const tierLabel: Record<string, string> = {
-  newcomer: 'Mới chơi', beginner: 'Cơ bản', intermediate: 'Trung bình', intermediate_plus: 'Khá', advanced: 'Nâng cao',
-}
+// Dùng đúng thang 5 bậc chung (không đặt tên riêng ở màn admin).
+const tierLabel: Record<string, string> = tierLabels
 const reasonLabel: Record<string, string> = {
   outlier_median_2_tiers: 'Lệch ít nhất 2 bậc so với trung vị',
   reciprocal_top_tier_3_matches_30_days: 'Đánh giá nâng cao qua lại bất thường trong 30 ngày',
@@ -35,13 +35,9 @@ export function AdminEvaluationsPage() {
 
   return (
     <>
-      <h2 className="text-h1">Đánh giá bị gắn cờ</h2>
-      <p className="mt-2 text-ink-500">Chỉ quyết định rõ ràng của quản trị viên mới đưa đánh giá vào tổng hợp trình độ.</p>
-      <div className="mt-5 max-w-xs">
-        <SelectInput aria-label="Trạng thái duyệt đánh giá" value={status} onChange={(event) => { const next = event.target.value as AdminEvaluationRow['reviewStatus']; setStatus(next); void load(next) }}>
-          <option value="pending">Chờ duyệt</option><option value="approved">Đã chấp thuận</option><option value="rejected">Đã từ chối</option>
-        </SelectInput>
-      </div>
+      <h1 className="text-h2">Đánh giá</h1>
+      <p className="mt-1 text-sm text-ink-500">Đánh giá bị gắn cờ chỉ tính vào trình độ khi được chấp thuận.</p>
+      <div className="mt-4"><SegmentedControl options={[{ value: 'pending', label: 'Chờ duyệt' }, { value: 'approved', label: 'Đã chấp thuận' }, { value: 'rejected', label: 'Đã từ chối' }]} value={status} onChange={(next) => { setStatus(next); void load(next) }} /></div>
       {message && <p role="status" className="mt-4 rounded-xl bg-info-bg p-3 text-sm">{message}</p>}
       <div className="mt-5 space-y-3">
         {rows.length ? rows.map((row) => (
@@ -55,13 +51,14 @@ export function AdminEvaluationsPage() {
               </div>
               <Badge tone={row.reviewStatus === 'pending' ? 'warning' : row.reviewStatus === 'approved' ? 'success' : 'danger'}>{row.reviewStatus === 'pending' ? 'Chờ duyệt' : row.reviewStatus === 'approved' ? 'Đã chấp thuận' : 'Đã từ chối'}</Badge>
             </div>
-            {row.reviewStatus === 'pending' && <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => setPending({ row, decision: 'approve' })}>Chấp thuận đánh giá</Button><Button size="sm" tone="danger" onClick={() => setPending({ row, decision: 'reject' })}>Từ chối đánh giá</Button></div>}
+            {row.reviewStatus === 'pending' && <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => setPending({ row, decision: 'approve' })}>Chấp thuận đánh giá</Button><Button size="sm" tone="secondary" className="text-danger" onClick={() => setPending({ row, decision: 'reject' })}>Từ chối đánh giá</Button></div>}
           </article>
         )) : <EmptyState title="Không có đánh giá" description="Không có hàng chờ phù hợp trạng thái đã chọn." />}
       </div>
       <Modal open={Boolean(pending)} title="Xác nhận quyết định đánh giá" onClose={() => setPending(null)}>
-        <p className="text-sm text-ink-500">{pending?.decision === 'approve' ? 'Đánh giá sẽ được đưa vào tổng hợp trình độ.' : 'Đánh giá sẽ bị loại khỏi tổng hợp trình độ.'}</p>
-        <Button className="mt-5" tone={pending?.decision === 'reject' ? 'danger' : 'primary'} onClick={() => void confirm()}>Xác nhận</Button>
+        <p className="text-sm"><strong>{pending?.row.rater.label} → {pending?.row.ratee.label}</strong></p>
+        <p className="mt-1 text-sm text-ink-500">{pending?.decision === 'approve' ? 'Đánh giá sẽ được đưa vào tổng hợp trình độ.' : 'Đánh giá sẽ bị loại khỏi tổng hợp trình độ.'}</p>
+        <div className="mt-5 flex justify-end gap-2"><Button tone="secondary" onClick={() => setPending(null)}>Hủy</Button><Button tone={pending?.decision === 'reject' ? 'danger' : 'primary'} onClick={() => void confirm()}>Xác nhận</Button></div>
       </Modal>
     </>
   )

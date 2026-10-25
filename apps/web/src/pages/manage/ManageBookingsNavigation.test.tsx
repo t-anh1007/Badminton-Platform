@@ -7,7 +7,7 @@ import { resolveNotificationRoute } from '../../notifications/notificationRoutes
 afterEach(cleanup);
 
 describe('provider booking navigation', () => {
-  it('puts Tài chính first and Quản lý đặt sân after Lịch in the provider sidebar', () => {
+  it('lists the four provider sections, Tài chính first', () => {
     render(
       <MemoryRouter initialEntries={['/manage']}>
         <Routes>
@@ -20,14 +20,12 @@ describe('provider booking navigation', () => {
 
     const links = screen.getByRole('navigation', { name: 'Điều hướng quản trị' }).querySelectorAll('a');
     expect(Array.from(links).map((link) => link.textContent)).toEqual([
-      '💰Tài chính',
-      '🏸Sân',
-      '📅Lịch',
-      '📋Quản lý đặt sân',
-      '⚠️Sự cố',
-      '🏆Hồ sơ kèo',
+      'Tài chính',
+      'Cơ sở',
+      'Đặt sân',
+      'Hồ sơ kèo',
     ]);
-    expect(screen.getByRole('link', { name: /Quản lý đặt sân/ })).toHaveAttribute('href', '/manage/bookings');
+    expect(screen.getByRole('link', { name: /Đặt sân/ })).toHaveAttribute('href', '/manage/bookings');
   });
 
   it('maps provider booking notifications to the drawer', () => {

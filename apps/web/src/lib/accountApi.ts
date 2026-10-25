@@ -82,7 +82,11 @@ export const getAdminAccounts = (filters: { query?: string; status?: string } = 
   const query = new URLSearchParams(Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])));
   return api<AdminAccountRow[]>(`/admin/users${query.size ? `?${query}` : ''}`);
 };
-export const getAdminAccountIdentities = (userIds: string[]) =>
-  api<AdminAccountIdentity[]>('/admin/users/identities', { method: 'POST', body: JSON.stringify({ userIds }) });
+// API nhận tối đa 200 id mỗi lần → tra theo lô rồi gộp.
+export const getAdminAccountIdentities = async (userIds: string[]) => {
+  const chunks = Array.from({ length: Math.ceil(userIds.length / 200) }, (_, index) => userIds.slice(index * 200, index * 200 + 200));
+  const results = await Promise.all(chunks.map((chunk) => api<AdminAccountIdentity[]>('/admin/users/identities', { method: 'POST', body: JSON.stringify({ userIds: chunk }) })));
+  return results.flat();
+};
 export const lockAdminAccount = (id: string, reason: string) => api(`/admin/users/${id}/lock`, { method: 'POST', body: JSON.stringify({ reason }) });
 export const unlockAdminAccount = (id: string, reason: string) => api(`/admin/users/${id}/unlock`, { method: 'POST', body: JSON.stringify({ reason }) });

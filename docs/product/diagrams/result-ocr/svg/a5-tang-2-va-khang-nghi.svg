@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 940" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="a5-tang-2-va-khang-nghi-title a5-tang-2-va-khang-nghi-desc" style="min-width:1000px" id="a5-tang-2-va-khang-nghi-root"><title id="a5-tang-2-va-khang-nghi-title">A5 — Tầng 2 và kháng nghị</title><desc id="a5-tang-2-va-khang-nghi-desc">AI agent soạn phán quyết tạm với RAG; mọi kết quả tạm có 6 giờ kháng nghị, kháng nghị có căn cứ chuyển Admin, còn lại tự chốt.</desc><defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #a5-tang-2-va-khang-nghi-root { font-family: 'Geist', system-ui, sans-serif; color: #2d3142; }
+      #a5-tang-2-va-khang-nghi-root .diagram-container { width: 100%; overflow-x: auto; }
+      #a5-tang-2-va-khang-nghi-root .diagram-container { overflow-x: visible; }</style>
+<marker id="a5-tang-2-va-khang-nghi-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+<marker id="a5-tang-2-va-khang-nghi-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+<marker id="a5-tang-2-va-khang-nghi-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+<marker id="a5-tang-2-va-khang-nghi-arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+<marker id="a5-tang-2-va-khang-nghi-arrow-gen" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><polygon points="0 0, 11 5, 0 10" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/></marker>
+</defs><rect width="100%" height="100%" fill="#f5f5f5"/><rect x="488" y="42" width="96" height="12" rx="2" fill="#f5f5f5"/>
+<text x="536" y="51" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TỪ A4 · ≥ 2 BÊN</text>
+<rect x="102" y="382" width="116" height="12" rx="2" fill="#f5f5f5"/>
+<text x="160" y="391" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TỪ A4 · KẾT QUẢ TẠM</text>
+<path d="M 440 55 L 440 96.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 144.0 L 440 184.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 544.0 228 L 772 228 A 8 8 0 0 1 780 236 L 780 564.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<rect x="630" y="208" width="100" height="12" rx="2" fill="#f5f5f5"/>
+<text x="680" y="217" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[KHÔNG / AI LỖI]</text>
+<path d="M 440 272.0 L 440 312.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<rect x="452" y="284" width="32" height="12" rx="2" fill="#f5f5f5"/>
+<text x="468" y="293" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CÓ]</text>
+<path d="M 440 360.0 L 440 402" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 167 412 L 430 412" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 422 L 440 452.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 500.0 L 440 544.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 536.0 588 L 664.0 588" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<rect x="564" y="568" width="72" height="12" rx="2" fill="#f5f5f5"/>
+<text x="600" y="577" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CÓ CĂN CỨ]</text>
+<path d="M 344.0 588 L 250.0 588" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<rect x="252" y="568" width="88" height="12" rx="2" fill="#f5f5f5"/>
+<text x="296" y="577" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[THIẾU CĂN CỨ]</text>
+<path d="M 150 564.0 L 150 484 A 8 8 0 0 1 158 476 L 316.0 476" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 632.0 L 440 686" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<rect x="458" y="654" width="124" height="12" rx="2" fill="#f5f5f5"/>
+<text x="520" y="663" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">[CHẤP NHẬN / HẾT 6H]</text>
+<path d="M 780 612.0 L 780 688 A 8 8 0 0 1 772 696 L 450 696" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 706 L 440 744.0" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<path d="M 440 792.0 L 440 835" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<circle cx="440" cy="48" r="7" fill="#2d3142"/>
+<rect x="290.0" y="96.0" width="300" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="290.0" y="96.0" width="300" height="48" rx="10" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<text x="440.0" y="116.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI agent soạn phán quyết tạm</text>
+<text x="440.0" y="131.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">chỉ văn bản bằng chứng + RAG luật/án lệ</text>
+<polygon points="440,184.0 544.0,228 440,272.0 336.0,228" fill="#f5f5f5"/>
+<polygon points="440,184.0 544.0,228 440,272.0 336.0,228" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="440" y="225" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tin cậy ≥ 0,85</text>
+<text x="440" y="239" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">và đúng khuôn?</text>
+<rect x="316.0" y="312.0" width="248" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="316.0" y="312.0" width="248" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="440.0" y="332.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Công bố phán quyết tạm</text>
+<text x="440.0" y="347.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">kèm lý do và trích dẫn</text>
+<circle cx="160" cy="412" r="7" fill="#2d3142"/>
+<polygon points="440,402 450,412 440,422 430,412" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="316.0" y="452.0" width="248" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="316.0" y="452.0" width="248" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="440.0" y="472.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Mở 6h kháng nghị</text>
+<text x="440.0" y="487.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">giãn qua đêm nếu rơi 23:00–07:00</text>
+<polygon points="440,544.0 536.0,588 440,632.0 344.0,588" fill="#f5f5f5"/>
+<polygon points="440,544.0 536.0,588 440,632.0 344.0,588" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="440" y="585" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Bên bị xử thua</text>
+<text x="440" y="599" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">làm gì?</text>
+<rect x="50.0" y="564.0" width="200" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="50.0" y="564.0" width="200" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="150.0" y="584.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Từ chối kháng nghị</text>
+<text x="150.0" y="599.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">thiếu căn cứ</text>
+<rect x="664.0" y="564.0" width="232" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="664.0" y="564.0" width="232" height="48" rx="10" fill="#2d3142" stroke="#4f5d75" stroke-width="1" fill-opacity="0.05"/>
+<text x="780.0" y="584.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Admin xử hồ sơ</text>
+<text x="780.0" y="599.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">SLA 48h · xác nhận hai bước</text>
+<polygon points="440,686 450,696 440,706 430,696" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="316.0" y="744.0" width="248" height="48" rx="10" fill="#f5f5f5"/>
+<rect x="316.0" y="744.0" width="248" height="48" rx="10" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="440.0" y="764.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chốt kết quả cuối</text>
+<text x="440.0" y="779.5" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tiền · rating · BXH · vi phạm · án lệ</text>
+<circle cx="440" cy="844" r="9" fill="#f5f5f5" stroke="#2d3142" stroke-width="1.2"/>
+<circle cx="440" cy="844" r="5" fill="#2d3142"/>
+<line x1="40" y1="872" x2="960" y2="872" stroke="#2d3142" stroke-width="0.8" stroke-opacity="0.10"/>
+<text x="40" y="888" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+<circle cx="44" cy="905" r="4" fill="#2d3142"/><circle cx="54" cy="905" r="5" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/><circle cx="54" cy="905" r="2.5" fill="#2d3142"/>
+<text x="72" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Bắt đầu / kết thúc</text>
+<rect x="197" y="900" width="16" height="11" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="229" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Hành động</text>
+<polygon points="305,905 313,899 321,905 313,911" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="337" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Quyết định / hợp nhánh</text>
+<rect x="483" y="900" width="16" height="11" rx="2" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<text x="515" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Bước trọng tâm</text>
+<line x1="618" y1="905" x2="642" y2="905" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#a5-tang-2-va-khang-nghi-arrow)"/>
+<text x="650" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Luồng điều khiển</text>
+<rect x="764" y="900" width="16" height="11" rx="2" fill="#2d3142" stroke="#4f5d75" stroke-width="1" fill-opacity="0.05"/>
+<text x="796" y="908" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Do Admin xử</text></svg>

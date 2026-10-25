@@ -276,6 +276,13 @@ describe('COM-01..08 — public community and asynchronous support', () => {
       })
       .expect(201);
     await request(app)
+      .get('/admin/reports')
+      .set('Authorization', moderator.authorization)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.reports).toContainEqual(expect.objectContaining({ id: report.body.id, target: expect.objectContaining({ excerpt: 'Bài được báo cáo', status: 'published' }) }));
+      });
+    await request(app)
       .post(`/admin/reports/${report.body.id}/actions`)
       .set('Authorization', moderator.authorization)
       .send({ action: 'dismiss', reason: 'Không vi phạm' })

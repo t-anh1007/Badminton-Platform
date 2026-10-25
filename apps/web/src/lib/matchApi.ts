@@ -37,6 +37,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.method && init.method !== 'GET') publishDataInvalidation();
   return body;
 }
+/** Dùng chung cho `resultApi.ts` (luồng kết quả bằng ảnh). */
+export const matchRequest = api;
 
 export type SkillTier = 'newcomer' | 'beginner' | 'intermediate' | 'intermediate_plus' | 'advanced';
 export type MatchSourceType = 'hold' | 'paid_booking';
@@ -127,7 +129,9 @@ export interface OwnJoin {
   approvedAt: string | null;
 }
 export interface MatchDetail extends Omit<MatchRow, 'organizerUserId' | 'status'> {
-  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed';
+  status: 'awaiting_deposit' | 'open' | 'filled' | 'confirmed' | 'completed' | 'cancelled';
+  /** Chỉ có khi kèo đã hủy và người xem là chủ kèo/người đã đóng tiền. */
+  cancellation?: MatchCancellation | null;
   skillConfiguredAt: string | null;
   /** Chỉ có khi kèo chờ chủ kèo đóng phần góp: hết hạn thì slot nhả, kèo bị hủy. */
   holdExpiresAt?: string | null;
@@ -227,17 +231,27 @@ export async function waitForMatchOpen(id: string, options: { attempts?: number;
   }
   throw new Error('Khoản cọc đang được xác nhận. Vui lòng chờ thêm hoặc thử kiểm tra lại.');
 }
+// Lý do lấy từ sự kiện MatchCancelled (packages/shared MatchCancelledPayload).
+export type MatchCancelReason ='organizer' | 'cutoff' | 'confirmed_booking_policy' | 'shutdown';
+export interface MatchCancellation {
+  reason: MatchCancelReason | null;
+  refundPercent: number | null;
+  cancelledAt: string | null;
+}
 export interface MyConfirmedMatch {
   businessCode?: string;
   id: string;
-  status: 'confirmed' | 'completed';
+  status: 'confirmed' | 'completed' | 'cancelled';
   participationRole: 'organizer' | 'participant';
   participationLabel: 'Kèo đã tham gia';
+  teamSide: TeamSide;
   feePerSlot: string;
   startAt: string;
   endAt: string;
   court: MatchCourt;
   venue: MatchVenue;
+  result: { status: string; outcome: 'TEAM_A_WIN' | 'TEAM_B_WIN' | 'NO_RESULT' | null; declarationDeadlineAt: string } | null;
+  cancellation: MatchCancellation | null;
 }
 export const requestMatchJoin = (id: string, teamSide: TeamSide) =>
   api<OwnJoin & { matchId: string }>(`/matches/${id}/joins`, {
@@ -366,6 +380,9 @@ export interface ReviewQueueItem {
   matchCode: string | null; bookingCode: string | null; venueName: string | null; courtName: string | null;
   discipline: MatchDiscipline; mode: MatchMode; startAt: string | null; endAt: string | null;
   providerDeadlineAt: string | null; adminReviewStartedAt: string | null; adminOverdue: boolean;
+  /** Hàng chờ Admin (luồng ảnh): vì sao vào hàng chờ và mức của bản đề xuất. */
+  adminReason?: 'unknown_photo' | 'appeal' | 'ai_unavailable' | 'evidence_unreadable' | 'incident' | 'legacy' | null;
+  level?: 'green' | 'yellow' | 'red' | null;
 }
 export interface ReviewCaseDetail extends ReviewQueueItem {
   serverNow: string;
@@ -384,12 +401,14 @@ export interface AdminDecisionPreview {
   ratingEffect: 'apply_ranked_result' | 'no_change'; bookingRevenueEffect: 'no_change';
 }
 type ReviewPage = { items: ReviewQueueItem[]; total: number; page: number; pageSize: number };
-const reviewQuery = (page: number, status?: ResultCaseStatus) => `?${new URLSearchParams({ page: String(page), pageSize: '10', ...(status ? { status } : {}) })}`;
+const reviewQuery = (page: number, status?: ResultCaseStatus, filters?: { reason?: string; level?: string }) =>
+  `?${new URLSearchParams({ page: String(page), pageSize: '10', ...(status ? { status } : {}), ...(filters?.reason ? { reason: filters.reason } : {}), ...(filters?.level ? { level: filters.level } : {}) })}`;
 export const listProviderResultCases = (page = 1, status?: ResultCaseStatus) => api<ReviewPage>(`/matches/provider/result-cases${reviewQuery(page, status)}`);
 export const getProviderResultCase = async (caseId: string) => (await api<{ resultCase: ReviewCaseDetail }>(`/matches/provider/result-cases/${caseId}`)).resultCase;
 export const submitProviderRecommendation = (matchId: string, body: { outcome: MatchOutcome; reason: string }) =>
   api(`/matches/${matchId}/provider-recommendation`, { method: 'POST', body: JSON.stringify(body) });
-export const listAdminResultCases = (page = 1, status?: ResultCaseStatus) => api<ReviewPage>(`/matches/admin/result-cases${reviewQuery(page, status)}`);
+export const listAdminResultCases = (page = 1, status?: ResultCaseStatus, filters?: { reason?: string; level?: string }) =>
+  api<ReviewPage>(`/matches/admin/result-cases${reviewQuery(page, status, filters)}`);
 export const getAdminResultCase = async (caseId: string) => (await api<{ resultCase: ReviewCaseDetail }>(`/matches/admin/result-cases/${caseId}`)).resultCase;
 export const previewAdminDecision = async (matchId: string, body: { outcome: MatchOutcome; reason: string }) =>
   (await api<{ preview: AdminDecisionPreview }>(`/matches/${matchId}/admin-decision/preview`, { method: 'POST', body: JSON.stringify(body) })).preview;

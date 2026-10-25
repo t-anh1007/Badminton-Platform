@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s3-tang-2-ai-phan-quyet-title s3-tang-2-ai-phan-quyet-desc" style="min-width:1000px" id="s3-tang-2-ai-phan-quyet-root"><title id="s3-tang-2-ai-phan-quyet-title">S3 — Tầng 2: AI agent ra phán quyết tạm</title><desc id="s3-tang-2-ai-phan-quyet-desc">AI agent nhận hồ sơ tranh chấp, truy hồi luật và án lệ qua RAG, trả phán quyết tạm; tin cậy cao thì công bố, thấp thì chuyển Admin.</desc><defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #s3-tang-2-ai-phan-quyet-root { font-family: 'Geist', system-ui, sans-serif; color: #2d3142; }
+      #s3-tang-2-ai-phan-quyet-root .diagram-container { width: 100%; overflow-x: auto; }
+      #s3-tang-2-ai-phan-quyet-root .diagram-container { overflow-x: visible; }</style>
+<marker id="s3-tang-2-ai-phan-quyet-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+<marker id="s3-tang-2-ai-phan-quyet-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+<marker id="s3-tang-2-ai-phan-quyet-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+<marker id="s3-tang-2-ai-phan-quyet-arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+<marker id="s3-tang-2-ai-phan-quyet-arrow-gen" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><polygon points="0 0, 11 5, 0 10" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/></marker>
+</defs><rect width="100%" height="100%" fill="#f5f5f5"/><rect x="316" y="216" width="8" height="200" fill="#2d3142" stroke="#4f5d75" stroke-width="0.8" fill-opacity="0.06"/>
+<rect x="72" y="432" width="872" height="176" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.22)" stroke-width="1" fill-opacity="0.02"/>
+<rect x="72" y="432" width="40" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="92" y="444" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+<text x="84" y="468" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.04em">[độ tin cậy ≥ 0,85 và đúng khuôn]</text>
+<text x="84" y="548" fill="#4f5d75" font-size="8.5" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.04em">[tin cậy thấp, sai khuôn hoặc AI lỗi]</text>
+<line x1="80" y1="524" x2="936" y2="524" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+<line x1="112" y1="112" x2="112" y2="672" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="320" y1="112" x2="320" y2="672" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="528" y1="112" x2="528" y2="672" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="720" y1="112" x2="720" y2="672" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="896" y1="112" x2="896" y2="672" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+<path d="M 116 168 L 148 168 A 8 8 0 0 1 156 176 L 156 184 A 8 8 0 0 1 148 192 L 118 192" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="168" y="174.0" width="200" height="12" rx="2" fill="#f5f5f5"/>
+<text x="268" y="183.0" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">hết 2h · bằng chứng ủng hộ hai bên</text>
+<path d="M 116 232 L 316 232" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="166" y="212" width="100" height="12" rx="2" fill="#f5f5f5"/>
+<text x="216" y="221" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">hồ sơ tranh chấp</text>
+<path d="M 324 276 L 524 276" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="332" y="256" width="184" height="12" rx="2" fill="#f5f5f5"/>
+<text x="424" y="265" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">truy hồi luật và án lệ tương tự</text>
+<path d="M 524 316 L 324 316" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="342" y="296" width="164" height="12" rx="2" fill="#f5f5f5"/>
+<text x="424" y="305" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">đoạn luật · án lệ Admin/mẫu</text>
+<path d="M 316 404 L 116 404" fill="none" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="132" y="384" width="168" height="12" rx="2" fill="#f5f5f5"/>
+<text x="216" y="393" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">kết quả · lý do · độ tin cậy</text>
+<path d="M 116 500 L 716 500" fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow-accent)"/>
+<rect x="296" y="480" width="240" height="12" rx="2" fill="#f5f5f5"/>
+<text x="416" y="489" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">phán quyết tạm + lý do · mở 6h kháng nghị</text>
+<path d="M 116 580 L 892 580" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<rect x="400" y="560" width="208" height="12" rx="2" fill="#f5f5f5"/>
+<text x="504" y="569" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">chuyển hồ sơ kèm phân tích (nếu có)</text>
+<rect x="340" y="340" width="176" height="28" rx="2" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="0.8"/>
+<text x="428.0" y="355" fill="#2d3142" font-size="10" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI không nhận uy tín của ai</text>
+<rect x="36" y="56" width="152" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="36" y="56" width="152" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="44" y="62" width="32" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="60.0" y="71" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SYS</text>
+<text x="112.0" y="84.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Hệ thống</text>
+<text x="112.0" y="99.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">kết quả kèo</text>
+<rect x="244" y="56" width="152" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="244" y="56" width="152" height="56" rx="6" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<rect x="252" y="62" width="28" height="12" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="266.0" y="71" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">AI</text>
+<text x="320.0" y="84.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI agent</text>
+<text x="320.0" y="99.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">phán quyết</text>
+<rect x="452" y="56" width="152" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="452" y="56" width="152" height="56" rx="6" fill="#2d3142" stroke="#4f5d75" stroke-width="1" fill-opacity="0.05"/>
+<rect x="460" y="62" width="44" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="482.0" y="71" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">STORE</text>
+<text x="528.0" y="84.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Kho tri thức</text>
+<text x="528.0" y="99.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">RAG</text>
+<rect x="644" y="56" width="152" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="644" y="56" width="152" height="56" rx="6" fill="#4f5d75" stroke="#5a6580" stroke-width="1" fill-opacity="0.10"/>
+<rect x="652" y="62" width="36" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="670.0" y="71" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">USER</text>
+<text x="720.0" y="84.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người chơi</text>
+<text x="720.0" y="99.5" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">hai đội</text>
+<rect x="820" y="56" width="152" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="820" y="56" width="152" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="828" y="62" width="44" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="850.0" y="71" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">ADMIN</text>
+<text x="896.0" y="92.0" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Admin</text>
+<line x1="40" y1="696" x2="960" y2="696" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="40" y="712" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">CHÚ GIẢI</text>
+<rect x="40" y="724" width="16" height="11" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="72" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Thành phần</text>
+<rect x="154" y="724" width="16" height="11" rx="2" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<text x="186" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Thành phần trọng tâm</text>
+<rect x="322" y="722" width="22" height="14" rx="2" fill="#2d3142" stroke="rgba(45,49,66,0.22)" stroke-width="1" fill-opacity="0.02"/><text x="333" y="732" fill="#4f5d75" font-size="6.5" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ALT</text>
+<text x="354" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Khung rẽ nhánh</text>
+<line x1="457" y1="729" x2="481" y2="729" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<text x="489" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Gọi</text>
+<line x1="533" y1="729" x2="557" y2="729" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow)"/>
+<text x="565" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Trả về</text>
+<line x1="625" y1="729" x2="649" y2="729" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow-open)"/>
+<text x="657" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Bất đồng bộ</text>
+<line x1="744" y1="729" x2="768" y2="729" stroke="#bf4520" stroke-width="1.2" marker-end="url(#s3-tang-2-ai-phan-quyet-arrow-accent)"/>
+<text x="776" y="732" fill="#4f5d75" font-size="9.5" font-family="'Geist', system-ui, sans-serif">Thông điệp chính</text></svg>

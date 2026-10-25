@@ -10,9 +10,9 @@ import type { AccountClient } from '../clients/account.js';
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const REWARD_CLAIM_WINDOW_MS = 7 * DAY_MS;
 const CRITERION_LABELS: Record<RewardCriterion, string> = {
-  ending_rating: 'Điểm xếp hạng cao nhất khi kết thúc',
+  ending_rating: 'Điểm kinh nghiệm cao nhất khi kết thúc',
   most_wins: 'Nhiều trận thắng xếp hạng nhất',
-  largest_rating_gain: 'Tăng điểm xếp hạng nhiều nhất',
+  largest_rating_gain: 'Tăng điểm kinh nghiệm nhiều nhất',
   longest_streak: 'Chuỗi thắng dài nhất',
 };
 
@@ -21,7 +21,8 @@ export interface CreateProgramInput {
   seasonId: string;
   criterion: RewardCriterion;
   discipline: MatchDiscipline;
-  band: 'under_1600' | 'from_1600';
+  /** Hạng đấu của mùa: amateur = Không chuyên, pro = Chuyên. */
+  band: 'amateur' | 'pro';
   scope: 'global' | 'province';
   provinceCode?: string;
   startAt: Date;
@@ -31,9 +32,9 @@ export interface CreateProgramInput {
 
 export async function createProgram(adminUserId: string, input: CreateProgramInput) {
   const season = await prisma.season.findUnique({ where: { id: input.seasonId } });
-  if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy kỳ thi đấu.');
+  if (!season) throw new AppError(404, 'SEASON_NOT_FOUND', 'Không tìm thấy mùa giải.');
   if (input.endAt <= input.startAt || input.startAt < season.startAt || input.endAt > season.endAt) {
-    throw new AppError(400, 'REWARD_RANGE_INVALID', 'Thời gian chương trình phải nằm trong kỳ và kết thúc sau khi bắt đầu.');
+    throw new AppError(400, 'REWARD_RANGE_INVALID', 'Thời gian chương trình phải nằm trong mùa giải và kết thúc sau khi bắt đầu.');
   }
   if ((input.scope === 'province') !== Boolean(input.provinceCode)) {
     throw new AppError(400, 'REWARD_SCOPE_INVALID', 'Phạm vi tỉnh/thành cần đúng một tỉnh/thành.');
@@ -105,14 +106,14 @@ function ratedChanges(db: Db, program: RewardProgram, now = new Date()) {
     FROM match_rating_changes c
     JOIN matches m ON m.id = c."matchId"
     LEFT JOIN player_season_profiles r ON r."seasonId" = ${program.seasonId} AND r."userId" = c."userId"
-    WHERE c.discipline = ${program.discipline}::"MatchDiscipline"
+    WHERE c.discipline = ${program.discipline}::"MatchDiscipline" AND m.mode = 'ranked'
       AND m."endAt" >= ${program.startAt} AND m."endAt" <= ${until}
     ORDER BY m."endAt" ASC, c."createdAt" ASC`;
 }
 
 /**
- * BR-CM-62/63: điểm theo tiêu chí hệ thống; nhóm rating và phạm vi xét theo rating cuối (ratingAfter cuối
- * cùng trong chương trình), nên người vượt 1600 giữa chừng thi ở nhóm trên. Đồng điểm thì đồng hạng.
+ * BR-CM-62/63: điểm theo tiêu chí hệ thống, chỉ từ kèo xếp hạng; hạng đấu lấy theo hạng đã khóa ở trận xếp hạng
+ * đầu tiên của mùa (season_stats.division), nên vượt mốc giữa chừng không đổi bảng. Đồng điểm thì đồng hạng.
  */
 export async function scoreProgram(db: Db, program: RewardProgram, now = new Date()) {
   const byUser = new Map<string, {
@@ -132,8 +133,12 @@ export async function scoreProgram(db: Db, program: RewardProgram, now = new Dat
     entry.best = Math.max(entry.best, entry.streak);
     byUser.set(change.userId, entry);
   }
+  const divisions = new Map((await db.seasonStat.findMany({
+    where: { seasonId: program.seasonId, discipline: program.discipline, userId: { in: [...byUser.keys()] } },
+    select: { userId: true, division: true },
+  })).map((row) => [row.userId, row.division]));
   const scored = [...byUser.entries()]
-    .filter(([, entry]) => (program.band === 'under_1600' ? entry.ending < 1600 : entry.ending >= 1600))
+    .filter(([userId]) => divisions.get(userId) === program.band)
     .filter(([, entry]) => program.scope === 'global' || entry.province === program.provinceCode)
     .map(([userId, entry]) => ({
       userId,

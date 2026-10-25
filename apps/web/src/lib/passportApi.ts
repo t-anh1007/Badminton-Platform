@@ -50,8 +50,14 @@ export interface OwnDisciplinePassport {
   matchesPlayed: number;
   ratingStability: 'high_uncertainty' | 'established';
   leaderboardVisible: boolean;
-  leaderboardBand: 'under_1600' | 'from_1600';
-  season: { matchesPlayed: number; wins: number; currentWinStreak: number };
+  /** Độ tin cậy của điểm kinh nghiệm. */
+  confidence: 'high' | 'medium' | 'low';
+  /** Mới chơi chưa được chơi kèo xếp hạng. */
+  rankedAllowed: boolean;
+  /** Hạng đấu mùa này; divisionLocked = đã khóa ở trận xếp hạng đầu tiên. */
+  division: 'amateur' | 'pro';
+  divisionLocked: boolean;
+  season: { matchesPlayed: number; wins: number; currentWinStreak: number; points: number };
   updatedAt: string;
 }
 export interface OwnPassport {

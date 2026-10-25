@@ -4,6 +4,8 @@ import { Badge, Button, Skeleton } from '../../components/ui.js';
 import { formatDateTimeVi, formatMoneyVnd } from '../../lib/formatters.js';
 import type { ProviderBookingDetail } from '../../lib/venueBookingApi.js';
 import { providerBookingBadgeTone, providerBookingStatusLabel } from './providerBookingView.js';
+import { BookingIncidentActions } from './BookingIncidentActions.js';
+import { Icon } from '../../components/Icon';
 
 type Props = {
   bookingId: string | null;
@@ -12,6 +14,7 @@ type Props = {
   error: string;
   onClose: () => void;
   onRetry: () => void;
+  onChanged?: () => Promise<void> | void;
 };
 
 const cancellationLabels = {
@@ -20,7 +23,7 @@ const cancellationLabels = {
   platform_admin: 'Nền tảng hủy',
 } as const;
 
-export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error, onClose, onRetry }: Props) {
+export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error, onClose, onRetry, onChanged }: Props) {
   const titleId = useId();
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -74,22 +77,22 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-label="Chi tiết lượt đặt sân"
         className="absolute inset-y-0 right-0 w-[min(100%,30rem)] overflow-y-auto border-l border-line bg-surface p-5 shadow-[var(--shadow-raised)] sm:p-6"
       >
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-caption font-bold uppercase tracking-[0.12em] text-ink-500">Thông tin vận hành</p>
-            <h2 id={titleId} className="mt-1 text-h2">Chi tiết lượt đặt sân</h2>
+            <p className="text-figures text-xs text-ink-500">{detail?.businessCode ?? 'Lượt đặt sân'}</p>
+            <h2 id={titleId} className="mt-1 text-h3 !text-2xl">{detail ? `${detail.court.venue.name} · ${detail.court.name}` : 'Chi tiết lượt đặt sân'}</h2>
           </div>
           <button
             ref={closeRef}
             type="button"
             aria-label="Đóng chi tiết lượt đặt sân"
             onClick={onClose}
-            className="grid h-11 w-11 place-items-center rounded-full text-2xl text-ink-500 hover:bg-canvas hover:text-brand-navy"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-500 hover:bg-canvas hover:text-brand-navy"
           >
-            ×
+            <Icon name="close" />
           </button>
         </div>
 
@@ -99,53 +102,23 @@ export function ProviderBookingDetailDrawer({ bookingId, detail, loading, error,
             <Button className="mt-3" tone="secondary" size="sm" onClick={onRetry}>Thử lại chi tiết</Button>
           </div>
         ) : detail ? (
-          <div className="mt-5 space-y-5">
-            <section className="rounded-2xl bg-canvas p-4">
-              <p className="text-caption text-ink-500">Mã đặt sân</p>
-              <p className="mt-1 text-sm font-bold text-brand-navy">{detail.businessCode}</p>
-              <Badge className="mt-3" tone={providerBookingBadgeTone(detail.status)}>
-                {providerBookingStatusLabel(detail.status, detail.matchDepositPaid)}
-              </Badge>
-            </section>
-
-            <section className="border-t border-line pt-4">
-              <h3 className="text-h3">Thông tin ca đặt</h3>
-              <p className="mt-2 font-semibold">{detail.court.venue.name} · {detail.court.name}</p>
-              <p className="text-sm text-ink-500">{detail.court.venue.address}</p>
-              {detail.manualCustomerNotificationRequired && <p className="mt-3 rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
-              <p className="mt-3 text-sm">{formatDateTimeVi(detail.startAt)} – {formatDateTimeVi(detail.endAt)}</p>
-              <p className="mt-1 text-sm text-ink-500">{detail.source === 'internal' ? 'Lượt đặt sân tại quầy' : 'Đặt qua COURTIN'}</p>
-              {detail.courtChangedAt ? <p className="mt-2 text-sm text-warning">Đã đổi sân lúc {formatDateTimeVi(detail.courtChangedAt)}</p> : null}
-            </section>
-
-            <section className="border-t border-line pt-4">
-              <h3 className="text-h3">Khách hàng</h3>
-              <p className="mt-2 font-semibold">{detail.customer.label}</p>
-              {detail.source === 'internal' && detail.customer.guestContact ? (
-                <a className="mt-2 inline-block text-sm font-semibold text-brand-navy underline decoration-brand-yellow decoration-2 underline-offset-4" href={`tel:${detail.customer.guestContact}`}>
-                  {detail.customer.guestContact}
-                </a>
-              ) : null}
-            </section>
-
-            <section className="border-t border-line pt-4">
-              <h3 className="text-h3">Thanh toán</h3>
-              <p className="text-figures mt-2 text-xl font-bold text-brand-navy">{formatMoneyVnd(detail.priceSnapshot)}</p>
-              {detail.matchDepositPaid ? <p className="mt-1 text-sm text-success">Đã nhận đặt cọc ghép trận</p> : null}
-              <Link className="mt-3 inline-block text-sm font-semibold text-brand-navy" to="/manage">
-                Xem đối soát tài chính →
-              </Link>
-            </section>
-
-            {detail.cancellationReason ? (
-              <section className="border-t border-line pt-4">
-                <h3 className="text-h3">Thông tin hủy</h3>
-                <p className="mt-2 text-sm">{cancellationLabels[detail.cancellationReason]}</p>
-                {detail.cancellationRefundPercent !== null ? (
-                  <p className="mt-1 text-sm text-ink-500">Mức hoàn: {detail.cancellationRefundPercent}%</p>
-                ) : null}
-              </section>
-            ) : null}
+          <div className="mt-4 grid gap-4">
+            <Badge className="w-fit" tone={providerBookingBadgeTone(detail.status)}>{providerBookingStatusLabel(detail.status, detail.matchDepositPaid)}</Badge>
+            {detail.manualCustomerNotificationRequired && <p className="rounded-xl bg-brand-yellow/20 p-3 text-sm font-semibold">Bạn cần tự thông báo cho khách</p>}
+            <dl className="text-sm">
+              {([
+                ['Thời gian', `${formatDateTimeVi(detail.startAt)} – ${formatDateTimeVi(detail.endAt)}`],
+                ['Khách', detail.customer.label],
+                ['Nguồn', detail.source === 'internal' ? 'Tại quầy' : 'Đặt qua COURTIN'],
+                ['Thanh toán', `${formatMoneyVnd(detail.priceSnapshot)}${detail.matchDepositPaid ? ' · đã nhận cọc kèo' : ''}`],
+                ...(detail.courtChangedAt ? [['Đổi sân lúc', formatDateTimeVi(detail.courtChangedAt)]] : []),
+                ...(detail.cancellationReason ? [['Hủy bởi', cancellationLabels[detail.cancellationReason]]] : []),
+                ...(detail.cancellationRefundPercent !== null && detail.cancellationReason ? [['Mức hoàn', `${detail.cancellationRefundPercent}%`]] : []),
+              ] as Array<[string, string]>).map(([label, value]) => <div key={label} className="flex justify-between gap-6 border-t border-line py-2.5"><dt className="text-ink-500">{label}</dt><dd className="text-right font-semibold text-ink-900">{value}</dd></div>)}
+              {detail.source === 'internal' && detail.customer.guestContact ? <div className="flex justify-between gap-6 border-t border-line py-2.5"><dt className="text-ink-500">Liên hệ</dt><dd><a className="font-semibold text-brand-navy underline" href={`tel:${detail.customer.guestContact}`}>{detail.customer.guestContact}</a></dd></div> : null}
+            </dl>
+            <Link className="w-fit text-sm font-semibold text-brand-navy hover:underline" to="/manage?tab=transactions">Xem dòng tiền →</Link>
+            {detail.status === 'confirmed' && new Date(detail.endAt).getTime() > Date.now() && <BookingIncidentActions key={detail.id} bookingId={detail.id} onDone={async () => { await onChanged?.(); }} />}
           </div>
         ) : null}
       </aside>

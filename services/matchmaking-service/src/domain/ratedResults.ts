@@ -22,7 +22,8 @@ export async function reserveRatedResults(
   outcome: MatchOutcome,
   finalizedAt: Date,
 ) {
-  if (match.mode !== 'ranked' || outcome === 'NO_RESULT') return;
+  // Giao hữu cũng đổi điểm kinh nghiệm (để Mới chơi lên trình); chỉ kèo xếp hạng mới vào số liệu/BXH mùa.
+  if (outcome === 'NO_RESULT') return;
   const winner: TeamSide = outcome === 'TEAM_A_WIN' ? 'A' : 'B';
   const players = [...teams.A, ...teams.B].sort();
   for (const userId of players) {
@@ -86,6 +87,6 @@ export async function countPendingRatedWork(
     SELECT COUNT(*) AS count FROM rated_encounters e
     JOIN matches m ON m.id = e."matchId"
     LEFT JOIN match_rating_changes c ON c."matchId" = e."matchId" AND c."userId" = e."userId"
-    WHERE e.rated AND c.id IS NULL AND m."endAt" >= ${window.from} AND m."endAt" <= ${window.to} ${discipline}`;
+    WHERE e.rated AND c.id IS NULL AND m.mode = 'ranked' AND m."endAt" >= ${window.from} AND m."endAt" <= ${window.to} ${discipline}`;
   return unresolved + Number(rows[0]?.count ?? 0);
 }

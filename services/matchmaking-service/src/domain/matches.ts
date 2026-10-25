@@ -1,5 +1,5 @@
 import type { MatchDiscipline as DbDiscipline, MatchRatio as DbRatio, MatchSourceType, SkillTier, TeamSide } from '@prisma/client';
-import type { JoinApprovedPayload, MatchCreatedPayload, MatchRatio } from '@khoaluantn/shared';
+import type { JoinApprovedPayload, MatchCancelledPayload, MatchCreatedPayload, MatchRatio } from '@khoaluantn/shared';
 import { RATIO_FROM_DB, RATIO_TO_DB, allocateResultReserve, calculateMatchFunding, capacityOf, formatAllowed, participantSlots, teamSize } from './matchRules.js';
 import type { VenueBookingClient, VenueMatchContext } from '../clients/venueBooking.js';
 import type { AccountClient } from '../clients/account.js';
@@ -384,17 +384,22 @@ export async function getPublicMatchDetail(
     // PLAN_MATCH-DEPOSIT: chủ kèo phải xem được kèo awaiting_deposit để trả cọc.
     requester && (isOrganizer || ownJoin || isInvitee) && ['awaiting_deposit', 'open', 'filled', 'confirmed', 'completed'].includes(match.status),
   );
-  if (!isPubliclyVisible && !canViewOwnLifecycle) {
+  // Kèo đã hủy: chỉ chủ kèo và người đã đóng tiền được xem lại (lịch sử đấu); JOIN lúc này đã chuyển withdrawn.
+  const canViewCancelled = match.status === 'cancelled' && Boolean(requester) && (isOrganizer || await prisma.join.count({
+    where: { matchId, participantUserId: requester!.id, status: 'withdrawn', feePaidAt: { not: null } },
+  }) > 0);
+  if (!isPubliclyVisible && !canViewOwnLifecycle && !canViewCancelled) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
-  const [context, organizerProfile, organizerPassport] = await Promise.all([
+  const [context, organizerProfile, organizerPassport, cancellations] = await Promise.all([
     venueBookingClient.getMatchContext(match.bookingId),
     accountClient.getPublicMatchProfile(match.organizerUserId),
     prisma.passport.findUnique({ where: { userId_discipline: { userId: match.organizerUserId, discipline: match.discipline } } }),
+    canViewCancelled ? cancellationsOf([match.id]) : null,
   ]);
   // Chủ kèo chưa có hồ sơ công khai vẫn xem được kèo; danh tính hiển thị nhãn trung tính (D31).
-  if (!context || context.status === 'cancelled' || (context.status === 'completed' && !canViewOwnLifecycle)) {
+  if (!context || (context.status === 'cancelled' && !canViewCancelled) || (context.status === 'completed' && !canViewOwnLifecycle && !canViewCancelled)) {
     throw new AppError(404, 'MATCH_NOT_FOUND', 'Không tìm thấy kèo công khai.');
   }
 
@@ -511,6 +516,7 @@ export async function getPublicMatchDetail(
     teamSlots: (['A', 'B'] as const).map((side) => ({ side, size: teamSize(match.discipline), open: Math.max(0, sideOpen(side)) })),
     participants,
     partner,
+    cancellation: canViewCancelled ? cancellations?.get(match.id) ?? unknownCancellation : null,
     funding: matchFundingView(match, requester ? { id: requester.id, joinStatus: ownJoin && ownJoin.status !== 'pending' ? ownJoin.status as 'approved' | 'confirmed' : null } : null),
     actions: {
       canJoinTeamA: canJoinBase && sideOpen('A') > 0,
@@ -633,35 +639,73 @@ export async function requestJoin(matchId: string, participantUserId: string, re
   });
 }
 
+export type MatchCancellation = { reason: MatchCancelledPayload['reason'] | null; refundPercent: number | null; cancelledAt: string | null };
+
+/** Lý do hủy đọc từ sự kiện MatchCancelled ghi cùng giao dịch hủy (outbox không bị xóa). Thiếu sự kiện → lý do null. */
+async function cancellationsOf(matchIds: string[]) {
+  const map = new Map<string, MatchCancellation>();
+  if (matchIds.length === 0) return map;
+  const events = await prisma.outbox.findMany({
+    where: { eventType: 'MatchCancelled', aggregateId: { in: matchIds } },
+    orderBy: { createdAt: 'asc' },
+    select: { aggregateId: true, payload: true, createdAt: true },
+  });
+  for (const event of events) {
+    const payload = event.payload as Partial<MatchCancelledPayload>;
+    map.set(event.aggregateId, { reason: payload.reason ?? null, refundPercent: payload.refundPercent ?? null, cancelledAt: event.createdAt.toISOString() });
+  }
+  return map;
+}
+const unknownCancellation: MatchCancellation = { reason: null, refundPercent: null, cancelledAt: null };
+
+/** Lịch sử đấu: kèo đã chốt/đã đấu và kèo đã hủy mà người chơi thực sự tham gia (đã đóng tiền/cọc). */
 export async function listMyConfirmedMatches(venueBookingClient: VenueBookingClient, userId: string) {
   const matches = await prisma.match.findMany({
     where: {
-      status: { in: ['confirmed', 'completed'] },
       OR: [
-        { organizerUserId: userId },
-        { joins: { some: { participantUserId: userId, status: 'confirmed' } } },
+        { status: { in: ['confirmed', 'completed'] }, organizerUserId: userId },
+        { status: { in: ['confirmed', 'completed'] }, joins: { some: { participantUserId: userId, status: 'confirmed' } } },
+        // Kèo nháp hết hạn cọc (chưa đóng góp) không tính là đã tham gia.
+        { status: 'cancelled', organizerUserId: userId, OR: [{ sourceType: 'paid_booking' }, { organizerContributionPaidAt: { not: null } }] },
+        { status: 'cancelled', joins: { some: { participantUserId: userId, status: 'withdrawn', feePaidAt: { not: null } } } },
       ],
+    },
+    include: {
+      joins: { where: { participantUserId: userId }, select: { teamSide: true } },
+      resultCase: { select: { status: true, outcome: true, declarationDeadlineAt: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
   if (matches.length === 0) return [];
-  const contexts = venueBookingClient.getMatchContexts
-    ? await venueBookingClient.getMatchContexts(matches.map((match) => match.bookingId))
-    : await Promise.all(matches.map((match) => venueBookingClient.getMatchContext(match.bookingId)));
+  const [contexts, cancellations] = await Promise.all([
+    venueBookingClient.getMatchContexts
+      ? venueBookingClient.getMatchContexts(matches.map((match) => match.bookingId))
+      : Promise.all(matches.map((match) => venueBookingClient.getMatchContext(match.bookingId))),
+    cancellationsOf(matches.filter((match) => match.status === 'cancelled').map((match) => match.id)),
+  ]);
   return matches.flatMap((match, index) => {
     const context = contexts[index];
     if (!context) return [];
+    const isOrganizer = match.organizerUserId === userId;
+    const resultCase = match.resultCase;
     return [{
       id: match.id,
       businessCode: match.businessCode,
       status: match.status,
-      participationRole: match.organizerUserId === userId ? 'organizer' as const : 'participant' as const,
+      participationRole: isOrganizer ? 'organizer' as const : 'participant' as const,
       participationLabel: 'Kèo đã tham gia',
+      teamSide: isOrganizer ? 'A' as TeamSide : (match.joins[0]?.teamSide ?? 'B' as TeamSide),
       feePerSlot: match.feePerSlot.toString(),
       startAt: context.startAt,
       endAt: context.endAt,
       court: context.court,
       venue: context.venue,
+      result: resultCase ? {
+        status: resultCase.status,
+        outcome: resultCase.status === 'final' ? resultCase.outcome : null,
+        declarationDeadlineAt: resultCase.declarationDeadlineAt.toISOString(),
+      } : null,
+      cancellation: match.status === 'cancelled' ? cancellations.get(match.id) ?? unknownCancellation : null,
     }];
   });
 }

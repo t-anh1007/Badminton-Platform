@@ -49,10 +49,14 @@ function escapeAttribute(value: string) {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join('').toUpperCase();
+}
+
 function venueIcon(venue: VenueMapPoint) {
   const content = venue.coverImage
-    ? `<img src="${escapeAttribute(venue.coverImage)}" alt="" style="display:block;width:44px;height:44px;object-fit:cover;border-radius:10px" />`
-    : '<span aria-hidden="true" style="display:grid;width:44px;height:44px;place-items:center;border-radius:10px;background:#fff;font-size:22px">🏸</span>';
+    ? `<span style="position:relative;display:grid;width:44px;height:44px;place-items:center;border-radius:10px;background:#fff;font:800 15px Archivo,sans-serif;color:#15446c">${escapeAttribute(initials(venue.name))}<img src="${escapeAttribute(venue.coverImage)}" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:44px;height:44px;object-fit:cover;border-radius:10px" /></span>`
+    : `<span aria-hidden="true" style="display:grid;width:44px;height:44px;place-items:center;border-radius:10px;background:#fff;font:800 15px Archivo,sans-serif;color:#15446c">${escapeAttribute(initials(venue.name))}</span>`;
   return L.divIcon({
     className: '',
     html: `<span style="display:block;width:50px;height:50px;padding:3px;border-radius:13px;background:#f7df4b;border:2px solid #174f78;box-shadow:0 4px 12px rgba(23,79,120,.35)">${content}</span>`,
@@ -66,17 +70,23 @@ export function shouldFocusCurrentLocation(searchOrigin: { lat: number; lng: num
   return currentLocation?.lat === searchOrigin.lat && currentLocation.lng === searchOrigin.lng;
 }
 
+// Chỉ khớp khung theo sân trong 50 km để dữ liệu sai toạ độ không kéo bản đồ ra cả thế giới.
+const nearby = (venues: VenueMapPoint[]) => [...venues].filter((v) => v.distanceKm <= 50).sort((a, b) => a.distanceKm - b.distanceKm);
+
 function FitBounds({ searchOrigin, currentLocation, venues }: { searchOrigin: { lat: number; lng: number }; currentLocation?: { lat: number; lng: number } | null; venues: VenueMapPoint[] }) {
   const map = useMap();
   useEffect(() => {
     if (currentLocation && shouldFocusCurrentLocation(searchOrigin, currentLocation)) {
-      map.setView([currentLocation.lat, currentLocation.lng], 15);
+      // Khớp khung theo vài sân gần nhất để luôn thấy sân, không zoom sát tên đường.
+      const nearest = nearby(venues).slice(0, 6);
+      if (nearest.length === 0) map.setView([currentLocation.lat, currentLocation.lng], 15);
+      else map.fitBounds(L.latLngBounds([[currentLocation.lat, currentLocation.lng], ...nearest.map((v) => [v.lat, v.lng] as [number, number])]).pad(0.15));
       return;
     }
     const points: [number, number][] = [
       [searchOrigin.lat, searchOrigin.lng],
       ...(currentLocation ? [[currentLocation.lat, currentLocation.lng] as [number, number]] : []),
-      ...venues.map((v) => [v.lat, v.lng] as [number, number]),
+      ...nearby(venues).map((v) => [v.lat, v.lng] as [number, number]),
     ];
     if (points.length === 1) {
       map.setView(points[0], 13);
@@ -144,7 +154,7 @@ export function VenuesMap({ searchOrigin, currentLocation, venues, onPickOrigin,
               <div className="relative h-24 shrink-0 overflow-hidden bg-brand-navy-raised">
                 {venue.coverImage
                   ? <img src={venue.coverImage} alt={`Ảnh ${venue.name}`} className="h-full w-full object-cover" />
-                  : <div className="grid h-full place-items-center text-4xl" aria-hidden="true">🏸</div>}
+                  : <div className="grid h-full place-items-center font-display text-3xl font-extrabold text-brand-yellow" aria-hidden="true">{initials(venue.name)}</div>}
                 <span className="absolute left-2 top-2 rounded-full bg-success px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white shadow">● Có thể đặt</span>
                 <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-brand-navy to-transparent" />
               </div>

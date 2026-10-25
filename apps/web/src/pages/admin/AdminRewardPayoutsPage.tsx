@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AsyncButton, Badge, Button, Modal, Pagination, SelectInput, SurfaceCard, TextInput } from '../../components/ui';
 import { RouteState } from '../../components/RouteState.js';
+import { RewardTabs } from './AdminRewardProgramsPage';
 import { ImageUploadPicker, type UploadImageState } from '../../components/CommunityComposer.js';
 import { useServerCountdown } from '../../components/MatchResultFlow';
 import { uploadAuthorizedFile } from '../../lib/communityApi';
@@ -40,9 +41,10 @@ function PayoutList() {
   });
   return (
     <>
-      <h2 className="text-h1">Danh sách nhận giải</h2>
-      <p className="mt-2 text-ink-500">Chuyển thưởng trong 7 ngày kể từ khi người nhận gửi đủ thông tin.</p>
-      <div className="mt-5 max-w-xs">
+      <h1 className="text-h2">Chương trình thưởng</h1>
+      <RewardTabs />
+      <p className="mt-3 text-sm text-ink-500">Chuyển thưởng trong 7 ngày kể từ khi người nhận gửi đủ thông tin.</p>
+      <div className="mt-3 max-w-xs">
         <SelectInput aria-label="Trạng thái khoản thưởng" value={status ?? ''} onChange={(event) => update('status', event.target.value)}>
           <option value="">Tất cả trạng thái</option>
           {Object.entries(PAYOUT_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

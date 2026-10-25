@@ -10,7 +10,7 @@ import {
   markRewardPayoutPaid, publishRewardProgram,
 } from '../../lib/rewardApi'
 
-vi.mock('../../lib/competitionApi', () => ({ listAdminSeasons: vi.fn(), createSeason: vi.fn(), closeSeason: vi.fn() }))
+vi.mock('../../lib/competitionApi', async (importOriginal) => ({ ...await importOriginal<object>(), listAdminSeasons: vi.fn(), createSeason: vi.fn(), closeSeason: vi.fn() }))
 vi.mock('../../lib/rewardApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/rewardApi')>()),
   listAdminRewardPrograms: vi.fn(), getAdminRewardProgram: vi.fn(), createRewardProgram: vi.fn(), publishRewardProgram: vi.fn(),
@@ -27,23 +27,23 @@ const season = { id: 's1', name: 'Tháng 9-10/2026', startAt: '2026-08-31T17:00:
 
 it('lists seasons with one-line names and shows the overlap error from create', async () => {
   vi.mocked(listAdminSeasons).mockResolvedValue({ items: [season, { ...season, id: 's0', name: 'Tháng 7-8/2026', status: 'closed' }], total: 2, page: 1, pageSize: 10 })
-  vi.mocked(createSeason).mockRejectedValue(new Error('Kỳ thi đấu bị chồng thời gian với một kỳ khác.'))
+  vi.mocked(createSeason).mockRejectedValue(new Error('Mùa giải bị chồng thời gian với một mùa khác.'))
   render(<MemoryRouter><AdminSeasonsPage /></MemoryRouter>)
   const row = (await screen.findAllByText('Tháng 9-10/2026')).find((node) => node.closest('tr'))!.closest('tr')!
   expect(within(row).getByText('01/09/2026 - 31/10/2026')).toBeInTheDocument()
   expect(within(row).getByRole('button', { name: 'Xem' })).toBeInTheDocument()
   expect(screen.getByText('1.284')).toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('Tên kỳ hiển thị'), { target: { value: 'Tháng 10-11/2026' } })
+  fireEvent.change(screen.getByLabelText('Tên mùa hiển thị'), { target: { value: 'Tháng 10-11/2026' } })
   fireEvent.change(screen.getByLabelText('Ngày bắt đầu'), { target: { value: '2026-10-15' } })
   fireEvent.change(screen.getByLabelText('Ngày kết thúc'), { target: { value: '2026-11-30' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Tạo kỳ' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo mùa giải' }))
   await waitFor(() => expect(createSeason).toHaveBeenCalledWith({ name: 'Tháng 10-11/2026', startAt: '2026-10-14T17:00:00.000Z', endAt: '2026-11-30T17:00:00.000Z' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('chồng thời gian')
 })
 
 const program = (overrides: Record<string, unknown> = {}) => ({
   id: 'p1', name: 'Top đánh đơn TP. Hồ Chí Minh', seasonId: 's1', status: 'active', criterion: 'ending_rating', criterionLabel: 'Điểm xếp hạng cao nhất',
-  discipline: 'singles', band: 'under_1600', scope: 'province', provinceCode: 'ho-chi-minh', serverNow: '', startAt: '2026-09-30T17:00:00Z',
+  discipline: 'singles', band: 'amateur', scope: 'province', provinceCode: 'ho-chi-minh', serverNow: '', startAt: '2026-09-30T17:00:00Z',
   endAt: '2026-10-31T17:00:00Z', reconciling: false, tiers: [{ rank: 1, amount: '2000000' }], locked: true, ...overrides,
 })
 
@@ -53,9 +53,10 @@ it('builds configurable prize tiers with a display-only total and publishes afte
   vi.mocked(createRewardProgram).mockResolvedValue({ program: program({ status: 'draft' }) } as never)
   vi.mocked(publishRewardProgram).mockResolvedValue({ program: program() } as never)
   render(<MemoryRouter><AdminRewardProgramsPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Tạo chương trình' }))
   await screen.findByRole('option', { name: 'Tháng 9-10/2026' })
   fireEvent.change(screen.getByLabelText('Tên chương trình'), { target: { value: 'Top đánh đơn TP. Hồ Chí Minh' } })
-  fireEvent.change(screen.getByLabelText('Kỳ xếp hạng'), { target: { value: 's1' } })
+  fireEvent.change(screen.getByLabelText('Mùa giải'), { target: { value: 's1' } })
   fireEvent.change(screen.getByLabelText('Ngày bắt đầu'), { target: { value: '2026-10-01' } })
   fireEvent.change(screen.getByLabelText('Ngày kết thúc'), { target: { value: '2026-10-31' } })
   fireEvent.click(screen.getByRole('radio', { name: /Nhiều trận thắng nhất/ }))
@@ -72,7 +73,7 @@ it('builds configurable prize tiers with a display-only total and publishes afte
   fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra và công bố' }))
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Công bố' }))
   await waitFor(() => expect(createRewardProgram).toHaveBeenCalledWith({
-    name: 'Top đánh đơn TP. Hồ Chí Minh', seasonId: 's1', criterion: 'most_wins', discipline: 'singles', band: 'under_1600', scope: 'province',
+    name: 'Top đánh đơn TP. Hồ Chí Minh', seasonId: 's1', criterion: 'most_wins', discipline: 'singles', band: 'amateur', scope: 'province',
     provinceCode: 'ho-chi-minh', startAt: '2026-09-30T17:00:00.000Z', endAt: '2026-10-31T17:00:00.000Z',
     tiers: [{ rank: 1, amount: '2000000' }, { rank: 2, amount: '1000000' }],
   }))
@@ -91,7 +92,7 @@ it('locks published programs, requires a reason to cancel a running one and revi
   render(<MemoryRouter><AdminRewardProgramsPage /></MemoryRouter>)
   await screen.findByText('Chuỗi thắng')
   expect(screen.queryByRole('button', { name: /Sửa/ })).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Danh sách nhận giải' })).toHaveAttribute('href', '/admin/reward-payouts?programId=p3')
+  expect(screen.getByRole('link', { name: 'Người nhận giải →' })).toHaveAttribute('href', '/admin/reward-payouts?programId=p3')
   fireEvent.click(screen.getByRole('button', { name: 'Hủy chương trình' }))
   const dialog = screen.getByRole('dialog', { name: 'Hủy chương trình thưởng' })
   const confirmCancel = within(dialog).getByRole('button', { name: 'Xác nhận hủy' })

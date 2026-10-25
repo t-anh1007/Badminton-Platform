@@ -7,7 +7,9 @@ import { cancelMatch, getMatchDetail, getMyScheduleConflicts, requestMatchJoin, 
 
 vi.mock('../components/map/LocationMap', () => ({ LocationMap: () => null }))
 vi.mock('../lib/passportApi', () => ({ getOwnPassport: vi.fn() }))
-vi.mock('../lib/matchApi.js', () => ({
+vi.mock('../lib/matchApi.js', async (importOriginal) => ({
+  // errorText cần lớp lỗi thật khi khối kết quả trận tải lỗi trong test.
+  MatchApiError: (await importOriginal<typeof import('../lib/matchApi.js')>()).MatchApiError,
   getMatchDetail: vi.fn(), getMyScheduleConflicts: vi.fn(), requestMatchJoin: vi.fn(),
   cancelMatch: vi.fn(), withdrawMatchJoin: vi.fn(),
 }))
@@ -44,15 +46,15 @@ afterEach(() => { cleanup(); vi.clearAllMocks() })
 it('shows the locked configuration, authoritative booking and backend money without raw terms', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail() as never)
   renderPage()
-  expect(await screen.findByText('Thông tin đã khóa')).toBeInTheDocument()
+  expect(await screen.findByText('Thông tin kèo')).toBeInTheDocument()
   expect(screen.getByText('Kèo xếp hạng - Đánh đơn')).toBeInTheDocument()
   expect(screen.getByText('7 : 3')).toBeInTheDocument()
-  expect(screen.getByText('BO3 (thắng 2 trong 3 ván) - 21 điểm - giới hạn 30')).toBeInTheDocument()
+  expect(screen.getByText('BO3 (thắng 2 trong 3 ván) · 21 điểm · tối đa 30')).toBeInTheDocument()
   expect(screen.getByText('123 Nguyễn Thị Thập')).toBeInTheDocument()
   expect(screen.getByText(/Hạn chốt kèo -/)).toBeInTheDocument()
-  const money = screen.getByRole('heading', { name: 'Tình trạng tiền kèo' }).closest('section')!
-  expect(within(money).getByText('Bạn cần trả thêm').parentElement!.parentElement).toHaveTextContent('140.000đ')
-  expect(within(money).getByText('Giữ chờ kết quả').parentElement!.parentElement).toHaveTextContent('80.000đ')
+  const money = screen.getByLabelText('Tiền kèo')
+  expect(within(money).getByText('Bạn cần trả thêm').closest('div')).toHaveTextContent('140.000đ')
+  expect(within(money).getByText('Giữ chờ kết quả').closest('div')).toHaveTextContent('80.000đ')
   expect(document.body.textContent).not.toMatch(/cutoff|reserve|contribution|paid_booking|ranked|singles/)
 })
 
@@ -92,7 +94,7 @@ it('shows the paid-booking organizer refund as withdrawable and the organizer re
     actions: { canJoin: false, isOrganizer: true, canPayOrganizerContribution: false, ownJoin: null, canJoinTeamA: false, canJoinTeamB: false },
   }) as never)
   renderPage()
-  const refund = (await screen.findByText('Hoàn cho chủ kèo')).parentElement!.parentElement!
+  const refund = (await screen.findByText('Hoàn cho chủ kèo')).closest('div')!
   expect(refund).toHaveTextContent('60.000đ')
   expect(refund).toHaveTextContent('Có thể rút')
   expect(screen.getByText('Chủ kèo')).toBeInTheDocument()
@@ -115,13 +117,13 @@ it('offers no cancel or withdraw once the match is locked, and points to the inc
 it('keeps the held place and the unpaid match when the player reloads or leaves the page', async () => {
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ actions: { canJoin: false, isOrganizer: false, canPayOrganizerContribution: false, ownJoin: { id: 'j1', status: 'approved', approvedAt: new Date().toISOString() }, canJoinTeamA: false, canJoinTeamB: false, canPay: true } }) as never)
   const view = renderPage()
-  await screen.findByText('Thông tin đã khóa')
+  await screen.findByText('Thông tin kèo')
   window.dispatchEvent(new Event('pagehide'))
   view.unmount()
   cleanup()
   vi.mocked(getMatchDetail).mockResolvedValue(detail({ status: 'awaiting_deposit', actions: { canJoin: false, isOrganizer: true, canPayOrganizerContribution: true, ownJoin: null, canJoinTeamA: false, canJoinTeamB: false } }) as never)
   const organizerView = renderPage()
-  await screen.findByText('Thông tin đã khóa')
+  await screen.findByText('Thông tin kèo')
   window.dispatchEvent(new Event('pagehide'))
   organizerView.unmount()
   expect(withdrawMatchJoin).not.toHaveBeenCalled()

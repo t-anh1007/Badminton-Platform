@@ -81,6 +81,10 @@ async function completedMatch(options: { endedAgoMs?: number; providerUserId?: s
   const eventId = randomUUID();
   eventIds.push(eventId);
   await handleBookingCompletedForMatch(eventId, { bookingId, completedAt: new Date().toISOString() });
+  // Hồ sơ mở trước ra_v1 giữ luật cũ (T8): các test này kiểm luồng legacy với hạn 12 giờ không giãn.
+  await prisma.matchResultCase.updateMany({
+    where: { matchId: match.id }, data: { rulesVersion: 'legacy', declarationDeadlineAt: new Date(endAt.getTime() + 12 * 60 * 60_000) },
+  });
   return { match, organizerUserId, opponentUserId };
 }
 
@@ -250,12 +254,12 @@ describe('Task 11 player result read model', () => {
     const { match, opponentUserId } = await completedMatch();
     const response = await request(app).post(`/matches/${match.id}/result-evidence/uploads`)
       .set('Authorization', `Bearer ${token(opponentUserId)}`)
-      .send({ mimeType: 'image/webp', size: 5 * 1024 * 1024, checksumSha256: CHECKSUM });
+      .send({ mimeType: 'image/webp', size: 15 * 1024 * 1024, checksumSha256: CHECKSUM });
     expect(response.status).toBe(201);
     expect(response.body.upload.headers['x-amz-checksum-sha256']).toBe(CHECKSUM);
     const tooLarge = await request(app).post(`/matches/${match.id}/result-evidence/uploads`)
       .set('Authorization', `Bearer ${token(opponentUserId)}`)
-      .send({ mimeType: 'image/webp', size: 5 * 1024 * 1024 + 1, checksumSha256: CHECKSUM });
+      .send({ mimeType: 'image/webp', size: 15 * 1024 * 1024 + 1, checksumSha256: CHECKSUM });
     expect(tooLarge.body.error.code).toBe('RESULT_EVIDENCE_TOO_LARGE');
   });
 });

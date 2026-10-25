@@ -10,6 +10,8 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+/** Ảnh kết quả kèo tải file gốc để giữ EXIF (tech design T4). */
+export const MATCH_RESULT_MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 export const PRESIGN_EXPIRY_SECONDS = 10 * 60;
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number];
@@ -100,8 +102,9 @@ export function buildOwnedObjectKey(input: AuthorizeUploadInput & { nonce?: stri
 export function validateUploadInput(input: AssertOwnedObjectInput): void {
   assertOwnerId(input.ownerUserId);
   assertImageMimeType(input.mimeType);
-  if (!Number.isInteger(input.maxBytes) || input.maxBytes < 1 || input.maxBytes > MAX_IMAGE_BYTES) {
-    throw new ObjectStorageError('OBJECT_MAX_BYTES_INVALID', 'Dung lượng ảnh tối đa là 8 MiB.');
+  const limit = input.namespace === 'match/results' ? MATCH_RESULT_MAX_IMAGE_BYTES : MAX_IMAGE_BYTES;
+  if (!Number.isInteger(input.maxBytes) || input.maxBytes < 1 || input.maxBytes > limit) {
+    throw new ObjectStorageError('OBJECT_MAX_BYTES_INVALID', `Dung lượng ảnh tối đa là ${limit / 1024 / 1024} MiB.`);
   }
   if (input.objectKey.includes('..') || input.objectKey.includes('\\') || !input.objectKey.startsWith(expectedPrefix(input.namespace, input.ownerUserId))) {
     throw new ObjectStorageError('OBJECT_NOT_OWNED', 'Tệp tải lên không thuộc phạm vi của bạn.');

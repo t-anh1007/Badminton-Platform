@@ -405,10 +405,10 @@ async function wallets(q: FlowQuery): Promise<FlowPage> {
         const inflow = [['Nạp', flow(row.id, 'topup')], ['Hoàn', flow(row.id, 'refund')], ['Thắng kèo', flow(row.id, 'release')]] as const;
         return {
           id: row.id, title: user(row.userId), titleNote: 'Ví người chơi', party: inflow.filter(([, v]) => v > 0n).map(([k, v]) => `${k} ${vnd(v)}`).join(' · ') || 'Chưa có tiền vào', partyNote: `Đã chi ${vnd(-flow(row.id, 'payment'))} · đã rút ${vnd(out)}`,
-          counterpart: vnd(row.reserved), counterpartNote: row.reserved > 0n ? 'Đang giữ cho yêu cầu rút / phí kèo' : 'Không giữ', status: `Rút được ${vnd(row.withdrawable)}`, tone: 'info' as Tone, amount: n(row.available), sign: '' as const, amountNote: 'số dư khả dụng',
+          counterpart: vnd(row.reserved), counterpartNote: row.reserved > 0n ? 'Đang giữ cho yêu cầu rút / phí kèo' : 'Không giữ', status: 'Rút miễn phí 1.000.000đ/ngày', tone: 'info' as Tone, amount: n(row.available), sign: '' as const, amountNote: 'số dư khả dụng',
           from: 'Nạp, hoàn, thắng kèo', fromNote: 'Tiền vào ví', to: 'Đặt sân, phí kèo, rút về NH', toNote: 'Tiền ra khỏi ví',
-          steps: [{ title: 'Tiền vào', detail: inflow.map(([k, v]) => `${k} ${vnd(v)}`).join(' · '), tone: 'ok' as Tone }, { title: 'Tiền ra', detail: `Thanh toán ${vnd(-flow(row.id, 'payment'))} · rút về NH ${vnd(out)}`, tone: 'wait' as Tone }, { title: `Được rút về ngân hàng ${vnd(row.withdrawable)}`, detail: 'Chỉ phần hoàn do lỗi sân, chuyển thừa, thắng kèo', tone: 'info' as Tone }],
-          facts: [{ k: 'Chủ ví', v: user(row.userId) }, { k: 'Khả dụng', v: vnd(row.available) }, { k: 'Đang giữ', v: vnd(row.reserved) }, { k: 'Được rút', v: vnd(row.withdrawable) }], refIds: [],
+          steps: [{ title: 'Tiền vào', detail: inflow.map(([k, v]) => `${k} ${vnd(v)}`).join(' · '), tone: 'ok' as Tone }, { title: 'Tiền ra', detail: `Thanh toán ${vnd(-flow(row.id, 'payment'))} · rút về NH ${vnd(out)}`, tone: 'wait' as Tone }, { title: 'Rút về ngân hàng từ toàn bộ số dư', detail: 'Miễn phí tới 1.000.000đ/ngày, phần vượt chịu phí 1%', tone: 'info' as Tone }],
+          facts: [{ k: 'Chủ ví', v: user(row.userId) }, { k: 'Khả dụng', v: vnd(row.available) }, { k: 'Đang giữ', v: vnd(row.reserved) }], refIds: [],
         };
       }
       const recorded = row.available + row.pending + row.reserved + out;

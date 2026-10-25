@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
+import { listMyRewardPayouts, PAYOUT_STATUS_LABELS, type RewardPayout } from '../lib/rewardApi';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { VIETNAM_PROVINCES } from '@khoaluantn/shared';
 import { AsyncButton, Avatar, Badge, Button, EmptyState, Modal, Pagination, SegmentedControl, SelectInput, SurfaceCard, Tabs, Toast } from '../components/ui';
 import { RouteState } from '../components/RouteState.js';
-import { formatDateTimeVi, formatDateVi } from '../lib/formatters.js';
+import { formatDateTimeVi, formatDateVi, formatMoneyVnd } from '../lib/formatters.js';
 import { PageHeader } from '../components/courtin/PageHeader';
 import { MetricCard } from '../components/courtin/MetricCard';
+import { MyReputationCard } from '../components/result/MyReputationCard';
 import type { SkillTier } from '../lib/matchApi';
 import { getMyProfile } from '../lib/accountApi';
-import { getCurrentSeason, getLeaderboard, selectSeasonRegion, type CurrentSeason, type LeaderboardRow } from '../lib/competitionApi';
+import { DIVISION_LABEL, getCurrentSeason, getLeaderboard, selectSeasonRegion, type CurrentSeason, type LeaderboardRow } from '../lib/competitionApi';
 import {
   declarePassportTier,
   getMatchHistory,
@@ -34,6 +36,11 @@ const tierLabels: Record<SkillTier, string> = {
 const tiers = Object.entries(tierLabels) as Array<[SkillTier, string]>;
 const disciplineOptions = [{ value: 'singles', label: 'Đánh đơn' }, { value: 'doubles', label: 'Đánh đôi' }] as const;
 const disciplineName: Record<Discipline, string> = { singles: 'đánh đơn', doubles: 'đánh đôi' };
+const CONFIDENCE: Record<OwnDisciplinePassport['confidence'], { label: string; text: string; bar: string; hint: string }> = {
+  high: { label: 'Cao', text: 'text-success', bar: 'w-full bg-success', hint: 'Điểm kinh nghiệm phản ánh sát trình độ của bạn.' },
+  medium: { label: 'Vừa', text: 'text-success', bar: 'w-2/3 bg-success', hint: 'Đủ tin cậy để lên bảng xếp hạng; chơi thêm để điểm sát trình độ hơn.' },
+  low: { label: 'Thấp', text: 'text-warning', bar: 'w-1/4 bg-warning', hint: 'Chơi thêm kèo để tăng độ tin cậy và đủ điều kiện lên bảng xếp hạng.' },
+};
 export const provinceName = (code: string | null | undefined) => VIETNAM_PROVINCES.find((province) => province.code === code)?.name ?? null;
 const HISTORY_PAGE_SIZE = 5;
 
@@ -151,9 +158,9 @@ function OwnPassportView() {
     <div className="page-container py-8 sm:py-10">
       {notice && <Toast message={notice} tone={notice.startsWith('Đã') ? 'success' : 'error'} />}
       <PageHeader
-        eyebrow="Hồ sơ thi đấu"
-        title="Điểm xếp hạng của tôi"
-        description="Điểm đánh đơn và đánh đôi được theo dõi riêng."
+        eyebrow="Thi đấu"
+        title="Hồ sơ thi đấu"
+        description="Điểm kinh nghiệm, thứ hạng, huy hiệu và giải thưởng của bạn."
         actions={current?.leaderboardVisible ? <Badge tone="success">Đủ điều kiện lên bảng</Badge> : undefined}
       />
       {loading ? (
@@ -170,7 +177,7 @@ function OwnPassportView() {
                 <Avatar label={identity.name} src={identity.avatarUrl} alt={`Ảnh đại diện ${identity.name}`} className="h-14 w-14 text-xl" />
                 <h2 className="text-h2">{identity.name}</h2>
               </div>
-              <SeasonRegion season={season} onSelected={(provinceCode) => { setSeason((prev) => prev && { ...prev, myRegion: provinceCode }); setNotice('Đã chọn khu vực xếp hạng cho kỳ này.'); }} onError={setNotice} />
+              <SeasonRegion season={season} onSelected={(provinceCode) => { setSeason((prev) => prev && { ...prev, myRegion: provinceCode }); setNotice('Đã chọn khu vực xếp hạng cho mùa này.'); }} onError={setNotice} />
             </div>
           </SurfaceCard>
 
@@ -191,10 +198,15 @@ function OwnPassportView() {
             <ActivityCard key={discipline} discipline={discipline} passport={current} region={season?.myRegion ?? null} />
           </div>
 
-          <SurfaceCard className="mt-5">
-            <h2 className="text-h2">Huy hiệu</h2>
-            <BadgeList badges={passport.badges} />
-          </SurfaceCard>
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+            <SurfaceCard>
+              <h2 className="text-h3">Huy hiệu</h2>
+              <BadgeList badges={passport.badges} />
+            </SurfaceCard>
+            <MyRewardsCard />
+          </div>
+
+          <div className="mt-5"><MyReputationCard /></div>
 
           <SurfaceCard className="mt-5">
             <div className="flex items-start justify-between gap-3">
@@ -206,7 +218,7 @@ function OwnPassportView() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-4">
               <MetricCard label="Đã tính" value={passport.evaluationCount} />
-              <MetricCard label="Mức cảm nhận" value={passport.evaluationScore === null ? '—' : Math.round(passport.evaluationScore)} tone="yellow" />
+              <MetricCard label="Mức cảm nhận" value={passport.evaluationScore === null ? '—' : Math.round(passport.evaluationScore)} />
             </div>
             {passport.recentMatches.length === 0 ? (
               <div className="mt-5">
@@ -263,11 +275,11 @@ function SeasonRegion({ season, onSelected, onError }: { season: CurrentSeason |
   const [code, setCode] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
-  if (!season?.season) return <p className="text-sm text-ink-500">Chưa có kỳ xếp hạng đang diễn ra.</p>;
+  if (!season?.season) return <p className="text-sm text-ink-500">Chưa có mùa giải đang diễn ra.</p>;
   if (season.myRegion) {
     return (
       <div className="sm:text-right">
-        <p className="text-xs text-ink-500">Khu vực xếp hạng kỳ này</p>
+        <p className="text-xs text-ink-500">Khu vực xếp hạng mùa này</p>
         <p className="font-semibold text-brand-navy">{provinceName(season.myRegion)}</p>
       </div>
     );
@@ -292,11 +304,11 @@ function SeasonRegion({ season, onSelected, onError }: { season: CurrentSeason |
           <option value="">Chọn tỉnh/thành</option>
           {VIETNAM_PROVINCES.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
         </SelectInput>
-        <Button size="sm" disabled={!code} onClick={() => setConfirming(true)}>Chọn khu vực</Button>
+        <Button size="sm" className="whitespace-nowrap" disabled={!code} onClick={() => setConfirming(true)}>Chọn khu vực</Button>
       </div>
       <Modal open={confirming} title="Xác nhận khu vực xếp hạng" onClose={() => setConfirming(false)}>
         <p className="text-sm text-ink-700">
-          Bạn chọn <strong>{provinceName(code)}</strong> cho {season.season.name}. Khu vực được khóa đến hết kỳ ({formatDateVi(season.season.endAt)}); có thể đổi ở kỳ sau.
+          Bạn chọn <strong>{provinceName(code)}</strong> cho {season.season.name}. Khu vực được khóa đến hết mùa ({formatDateVi(season.season.endAt)}); có thể đổi ở mùa sau.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button tone="secondary" onClick={() => setConfirming(false)}>Quay lại</Button>
@@ -308,29 +320,35 @@ function SeasonRegion({ season, onSelected, onError }: { season: CurrentSeason |
 }
 
 function RatingCard({ discipline, passport }: { discipline: Discipline; passport: OwnDisciplinePassport }) {
-  const stable = passport.ratingStability === 'established';
+  const confidence = CONFIDENCE[passport.confidence];
   return (
     <SurfaceCard>
-      <h2 className="text-h2">Điểm {disciplineName[discipline]}</h2>
-      <p className="mt-1 text-sm text-ink-500">Cập nhật sau mỗi kèo xếp hạng hợp lệ.</p>
-      <p className="mt-5 text-xs text-ink-500">Điểm hiện tại</p>
+      <h2 className="text-h2">Điểm kinh nghiệm {disciplineName[discipline]}</h2>
+      <p className="mt-1 text-sm text-ink-500">Cập nhật sau mỗi kèo có kết quả hợp lệ, cả giao hữu và xếp hạng.</p>
+      <p className="mt-5 text-xs text-ink-500">Điểm kinh nghiệm hiện tại</p>
       <p className="text-figures text-5xl font-bold tracking-tight text-brand-navy">{passport.rating.toLocaleString('vi-VN')}</p>
       <div className="mt-4 flex items-center justify-between rounded-xl bg-canvas px-4 py-3">
         <span className="text-sm text-ink-500">Nhóm trình độ hiện tại</span>
         <span className="font-semibold text-brand-navy">{tierLabels[passport.tier]}</span>
       </div>
       <div className="mt-4 flex items-center justify-between text-sm">
-        <span className="font-medium">Mức độ ổn định của điểm</span>
-        <span className={stable ? 'text-success' : 'text-warning'}>{stable ? 'Ổn định' : 'Đang xác định'}</span>
+        <span className="font-medium">Độ tin cậy</span>
+        <span className={confidence.text}>{confidence.label}</span>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-canvas" aria-hidden>
-        <div className={`h-full rounded-full ${stable ? 'w-3/4 bg-success' : 'w-1/4 bg-warning'}`} />
+        <div className={`h-full rounded-full ${confidence.bar}`} />
       </div>
       <p className="mt-2 text-xs text-ink-500">
-        {stable ? 'Điểm đã ổn định, vị trí trên bảng xếp hạng phản ánh sát trình độ.' : 'Chơi thêm kèo xếp hạng để điểm ổn định và đủ điều kiện lên bảng.'}
+        {confidence.hint}
       </p>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <MetricCard label="Trận hợp lệ kỳ này" value={passport.season.matchesPlayed} />
+      <div className="mt-4 flex items-center justify-between rounded-xl bg-canvas px-4 py-3">
+        <span className="text-sm text-ink-500">Hạng đấu mùa này</span>
+        <span className="font-semibold text-brand-navy">{passport.rankedAllowed || passport.divisionLocked ? `${DIVISION_LABEL[passport.division]}${passport.divisionLocked ? '' : ' (dự kiến)'}` : 'Chưa được thi đấu xếp hạng'}</span>
+      </div>
+      {!passport.rankedAllowed && <p className="mt-2 text-xs text-warning">Trình độ Mới chơi chỉ chơi kèo giao hữu. Đạt 1.200 điểm kinh nghiệm (trình Yếu) để được chơi kèo xếp hạng.</p>}
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetricCard label="Điểm BXH mùa này" value={passport.season.points} />
+        <MetricCard label="Trận xếp hạng mùa này" value={passport.season.matchesPlayed} />
         <MetricCard label="Thắng" value={passport.season.wins} />
         <MetricCard label="Chuỗi thắng" value={passport.season.currentWinStreak} />
       </div>
@@ -356,7 +374,7 @@ function DeclarationCard({ discipline, onDeclared, onError }: { discipline: Disc
     <SurfaceCard>
       <h2 className="text-h2">Khai báo trình độ {disciplineName[discipline]}</h2>
       <p className="mt-1 text-sm text-ink-500">
-        Bạn chỉ khai báo một lần cho {disciplineName[discipline]}. Sau đó điểm thay đổi theo kết quả các kèo xếp hạng; muốn sửa bậc phải gửi yêu cầu hỗ trợ.
+        Bạn chỉ khai báo một lần cho {disciplineName[discipline]}. Sau đó điểm kinh nghiệm thay đổi theo kết quả các kèo; muốn sửa trình độ phải gửi yêu cầu hỗ trợ.
       </p>
       <label className="mt-5 block text-sm font-medium" htmlFor={`declare-${discipline}`}>Bậc hiện tại của bạn</label>
       <SelectInput id={`declare-${discipline}`} className="mt-1" value={tier} onChange={(event) => setTier(event.target.value as SkillTier)}>
@@ -386,21 +404,21 @@ function RankPanel({ discipline, passport, region }: { discipline: Discipline; p
   const [rows, setRows] = useState<{ global: LeaderboardRow | null; province: LeaderboardRow | null } | null>(null);
   useEffect(() => {
     if (!passport?.leaderboardVisible) return;
-    const band = passport.leaderboardBand;
+    const band = passport.division;
     Promise.all([
       getLeaderboard({ discipline, scope: 'global', band, pageSize: 1 }).then((board) => board.viewer, () => null),
       region ? getLeaderboard({ discipline, scope: 'province', provinceCode: region, band, pageSize: 1 }).then((board) => board.viewer, () => null) : Promise.resolve(null),
     ]).then(([global, province]) => setRows({ global, province }));
-  }, [discipline, passport?.leaderboardVisible, passport?.leaderboardBand, region]);
+  }, [discipline, passport?.leaderboardVisible, passport?.division, region]);
   if (!passport) return <p className="mt-5 text-sm text-ink-500">Khai báo trình độ {disciplineName[discipline]} để bắt đầu được xếp hạng.</p>;
   if (!passport.leaderboardVisible) {
     return (
       <p className="mt-5 rounded-xl bg-warning-bg p-4 text-sm text-ink-700">
-        Bạn chưa lên bảng xếp hạng. Cần ít nhất 5 kèo xếp hạng hợp lệ trong kỳ và điểm đã ổn định. Kỳ này: {passport.season.matchesPlayed} trận.
+        Bạn chưa lên bảng xếp hạng. Cần ít nhất 5 kèo xếp hạng hợp lệ trong mùa và độ tin cậy từ Vừa trở lên. Mùa này: {passport.season.matchesPlayed} trận.
       </p>
     );
   }
-  const band = passport.leaderboardBand === 'under_1600' ? 'Dưới 1.600 điểm' : 'Từ 1.600 điểm';
+  const band = `Hạng ${DIVISION_LABEL[passport.division]}`;
   const line = (label: string, row: LeaderboardRow | null | undefined, hint: string) => (
     <div className="flex items-center justify-between border-b border-line py-4 last:border-0">
       <div>
@@ -415,7 +433,7 @@ function RankPanel({ discipline, passport, region }: { discipline: Discipline; p
       {line('Toàn quốc', rows?.global, band)}
       {region
         ? line(provinceName(region) ?? 'Khu vực', rows?.province, rows?.province ? band : 'Cần ít nhất 5 trận tại khu vực chính')
-        : <p className="py-4 text-sm text-ink-500">Chọn khu vực kỳ này để xem thứ hạng theo tỉnh/thành.</p>}
+        : <p className="py-4 text-sm text-ink-500">Chọn khu vực mùa này để xem thứ hạng theo tỉnh/thành.</p>}
       <Link to={`/leaderboard?discipline=${discipline}`} className="mt-3 inline-block text-sm font-bold text-brand-navy underline">Xem bảng xếp hạng</Link>
     </div>
   );
@@ -446,12 +464,12 @@ function HistoryPanel({ discipline }: { discipline: Discipline }) {
                 <Link to={`/matches/${item.matchId}`} className="font-semibold hover:underline">
                   {win ? 'Thắng' : 'Thua'} {opponents}{item.scoreLabel ? ` · ${item.scoreLabel}` : ''}
                 </Link>
-                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao lưu' : item.ratingDelta === null ? 'Kèo xếp hạng - không tính điểm' : 'Kèo xếp hạng'}</p>
+                <p className="text-xs text-ink-500">{formatDateVi(item.endedAt)} · {item.mode === 'friendly' ? 'Kèo giao hữu' : 'Kèo xếp hạng'}{item.ratingDelta === null ? ' - không tính điểm' : ''}</p>
               </div>
               <div className="text-right">
                 <p className={`text-xs font-bold ${win ? 'text-success' : 'text-danger'}`}>{win ? 'Thắng' : 'Thua'}</p>
                 {item.ratingDelta !== null && (
-                  <p className="text-figures text-sm">{item.ratingDelta > 0 ? '+' : ''}{item.ratingDelta} điểm</p>
+                  <p className="text-figures text-sm">{item.ratingDelta > 0 ? '+' : ''}{item.ratingDelta} điểm kinh nghiệm</p>
                 )}
               </div>
             </li>
@@ -460,5 +478,26 @@ function HistoryPanel({ discipline }: { discipline: Discipline }) {
       </ul>
       {pageCount > 1 && <div className="mt-3"><Pagination page={page} pageCount={pageCount} onChange={setPage} /></div>}
     </div>
+  );
+}
+
+/** Giải thưởng của tôi (trước là trang riêng) — gộp vào Hồ sơ thi đấu. */
+function MyRewardsCard() {
+  const [items, setItems] = useState<RewardPayout[] | null>(null);
+  useEffect(() => { listMyRewardPayouts().then((result) => setItems(result.items), () => setItems([])); }, []);
+  return (
+    <SurfaceCard>
+      <div className="flex items-center justify-between gap-3"><h2 className="text-h3">Giải thưởng</h2><Link to="/rewards" className="text-sm font-bold text-brand-navy hover:underline">Chương trình</Link></div>
+      {items === null ? <p className="mt-3 text-sm text-ink-500">Đang tải…</p> : items.length === 0 ? <p className="mt-3 text-sm text-ink-500">Chưa có giải thưởng. Lên bảng xếp hạng mùa để nhận thưởng.</p> : (
+        <ul className="mt-3 grid gap-2">
+          {items.map((item) => (
+            <li key={item.id}><Link to={`/rewards/payouts/${item.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3 hover:bg-green-50">
+              <span className="min-w-0"><span className="block truncate font-semibold text-ink-900">{item.programName} · {item.achievementLabel}</span><span className="text-xs text-ink-500">{PAYOUT_STATUS_LABELS[item.status]}</span></span>
+              <span className="text-figures shrink-0 font-semibold text-brand-navy">{formatMoneyVnd(item.amount)}</span>
+            </Link></li>
+          ))}
+        </ul>
+      )}
+    </SurfaceCard>
   );
 }

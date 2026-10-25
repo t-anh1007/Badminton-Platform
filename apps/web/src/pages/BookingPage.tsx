@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '../components/Icon'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { toVietnameseSlotIso, toggleSlot, type BookingRange } from '../booking/selection.js'
 import { AuthForm } from '../components/AuthForm'
@@ -105,7 +106,7 @@ export function BookingPage() {
   const [date, setDate] = useState(() => vietnamDateInput(new Date(Date.now() + 86_400_000)))
   const [dateField, setDateField] = useState(() => formatDateField(vietnamDateInput(new Date(Date.now() + 86_400_000))))
 
-  const step = booking ? 3 : hold ? 2 : 1
+  const step = booking ? 2 : 1
   const selectedCourt = detail?.courts.find((court) => court.id === courtId)
   const selectedCourtName = selectedCourt?.name ?? 'Sân'
   const bookingRule = selectedCourt?.bookingRule ?? null
@@ -287,14 +288,18 @@ export function BookingPage() {
         <HoldCountdown expiresAt={hold?.expiresAt} onExpired={expireHold} />
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        {booking && <button type="button" aria-label="Quay lại chọn khung giờ và nhả lượt giữ chỗ" title="Quay lại chọn khung giờ" disabled={loading} onClick={() => void returnToSlotSelection()} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:-translate-x-0.5 hover:bg-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="m12 5-7 7 7 7" /><path d="M19 12H5" /></svg>
-        </button>}
-        {['Chọn khung giờ', 'Xác nhận', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
+        {booking && <button type="button" aria-label="Quay lại chọn khung giờ và nhả lượt giữ chỗ" title="Quay lại chọn khung giờ" disabled={loading} onClick={() => void returnToSlotSelection()} className="mr-2 inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-sm font-bold text-brand-navy hover:underline disabled:opacity-50"><Icon name="arrowLeft" className="h-4 w-4" />Đổi khung giờ</button>}
+        {['Chọn khung giờ', 'Thanh toán'].map((label, index) => <span key={label} className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[.04em] ${step === index + 1 ? 'bg-brand-navy text-surface' : 'border border-line bg-surface text-ink-500'}`}>{index + 1}. {label}</span>)}
       </div>
       {error && <SurfaceCard className="mb-5 border-danger bg-danger-bg"><p role="alert" className="text-danger">{error}</p><Link to="/venues" className="mt-2 inline-block text-sm font-semibold text-green-700 hover:underline">Quay lại danh sách sân</Link></SurfaceCard>}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section>
+          {booking && hold ? (
+            <SurfaceCard className="!p-6">
+              <h2 className="text-h3">Thanh toán đặt sân</h2>
+              <div className="mt-5"><BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} /></div>
+            </SurfaceCard>
+          ) : (
           <SurfaceCard>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-medium">
@@ -339,7 +344,7 @@ export function BookingPage() {
             </div>
             {selectedCourt?.images?.length ? (
               <div className="mt-4 flex snap-x gap-3 overflow-x-auto pb-2" aria-label={`Ảnh ${selectedCourtName}`}>
-                {selectedCourt.images.map((src, index) => <img key={src} src={src} alt={`${selectedCourtName} ${index + 1}`} className="h-36 w-56 shrink-0 snap-start rounded-xl object-cover" />)}
+                {selectedCourt.images.map((src, index) => <img key={src} src={src} alt={`${selectedCourtName} ${index + 1}`} onError={(event) => { event.currentTarget.style.display = 'none' }} className="h-36 w-56 shrink-0 snap-start rounded-xl bg-green-50 object-cover" />)}
               </div>
             ) : null}
             {availabilityLoading ? (
@@ -350,6 +355,7 @@ export function BookingPage() {
               <div className="mt-5"><EmptyState title="Không còn khung giờ trống" description="Hãy chọn ngày hoặc sân con khác." /></div>
             )}
           </SurfaceCard>
+          )}
         </section>
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <SurfaceCard>
@@ -358,12 +364,12 @@ export function BookingPage() {
             {selection && !booking && (meetsMinDuration
               ? <div className="mt-5 grid gap-3"><Button className="w-full" disabled={loading} onClick={attemptBooking}>XÁC NHẬN</Button><p className="text-xs text-ink-500">Muốn tìm đối thủ? Vào <Link to="/matches?create=1" className="font-semibold text-brand-navy underline">Tạo kèo</Link> ở trang Tìm kèo.</p></div>
               : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">Cần chọn tối thiểu {bookingRule?.minDurationMinutes} phút để xác nhận đặt sân.</p>)}
-            {booking && hold && <BookingPaymentPanel bookingId={booking.id} holdExpiresAt={hold.expiresAt} onRecover={expireHold} onConfirmed={(detail) => { checkoutCompleted.current = true; updateSelectedSlots('booked'); navigate('/booking/confirmation', { state: { booking: detail.booking } }) }} />}
+            {booking && <p className="mt-4 text-xs text-ink-500">Hủy trước 24 giờ được hoàn 100% vào ví.</p>}
             {message && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{message}</p>}
           </SurfaceCard>
         </aside>
       </div>
-      <Modal open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
+      <Modal bare open={authOpen} title="Đăng nhập để đặt sân" onClose={() => setAuthOpen(false)}><AuthForm variant="modal" contextTitle="Đăng nhập để đặt sân" onNavigateAway={() => setAuthOpen(false)} onAuthenticated={() => { setAuthOpen(false); const retry = retryAfterAuth.current; retryAfterAuth.current = null; retry?.() }} /></Modal>
       <ScheduleConflictWarning
         conflicts={scheduleWarning ?? []}
         onClose={() => setScheduleWarning(null)}
