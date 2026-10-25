@@ -102,7 +102,8 @@ export function NightTag({ from }: { from: string | null }) {
 const ERROR_TEXT: Record<string, string> = {
   RESULT_VERSION_STALE: 'Bản khai vừa được gửi lại. Xem bản mới trước khi trả lời.',
   RESULT_SCORE_INVALID: 'Tỉ số chưa hợp lệ theo luật. Kiểm tra lại từng set.',
-  RESULT_APPEAL_GROUNDS_REQUIRED: 'Chọn lý do sai trong phán quyết hoặc thêm ảnh mới để gửi kháng nghị.',
+  RESULT_APPEAL_GROUNDS_REQUIRED: 'Chọn điểm sai hoặc thêm ảnh mới để gửi kháng nghị.',
+  RESULT_APPEAL_ALREADY_SENT: 'Đội bạn đã gửi kháng nghị.',
   RESULT_OBJECTION_EVIDENCE_REQUIRED: 'Bạn cần kèm ít nhất 1 ảnh khi phản đối.',
   RESULT_REPLACE_CLOSED: 'Không thay được bản khai nữa: đội kia đã phản hồi hoặc đồng đội đã gửi bản khác.',
   RESULT_EVIDENCE_LIMIT: 'Bạn đã nộp đủ số ảnh cho trận này.',

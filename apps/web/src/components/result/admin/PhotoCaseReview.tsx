@@ -79,8 +79,31 @@ function PhotoInspector({ matchId, photo, owner, onClose }: { matchId: string; p
   );
 }
 
+/** Ảnh kháng nghị không qua AI đọc, chỉ cần mở ảnh gốc. */
+function AppealPhotoViewer({ matchId, photo, onClose }: { matchId: string; photo: { id: string; owner: string } | null; onClose: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const photoId = photo?.id;
+  useEffect(() => {
+    setUrl(null);
+    if (!photoId) return;
+    let active = true;
+    readResultEvidence(matchId, photoId).then((result) => { if (active) setUrl(result.url); }, () => undefined);
+    return () => { active = false; };
+  }, [matchId, photoId]);
+  if (!photo) return null;
+  return (
+    <Modal open title={`Ảnh kháng nghị của ${photo.owner}`} onClose={onClose}>
+      <div className="grid gap-3">
+        <div className="grid min-h-80 place-items-center overflow-hidden rounded-2xl bg-canvas">{url ? <img src={url} alt={`Ảnh kháng nghị của ${photo.owner}`} className="max-h-[70vh] w-full object-contain" /> : <span className="text-sm text-ink-500">Đang mở ảnh…</span>}</div>
+        {url && <a href={url} target="_blank" rel="noreferrer" className="text-sm font-bold text-brand-navy">Mở ảnh gốc</a>}
+      </div>
+    </Modal>
+  );
+}
+
 export function PhotoCaseReview({ detail }: { detail: ReviewCaseDetail & PhotoCaseExtras }) {
   const [inspecting, setInspecting] = useState<{ photo: AdminPhotoView; owner: string } | null>(null);
+  const [appealPhoto, setAppealPhoto] = useState<{ id: string; owner: string } | null>(null);
   const people = detail.match.teams.flatMap((team) => team.players.map((player) => ({ ...player, side: team.side })));
   const nameOf = (userId: string) => people.find((person) => person.userId === userId)?.displayName ?? 'Người chơi';
   const ruling = [...detail.rulings].reverse().find((item) => item.tier === 2 || item.publishedAt) ?? null;
@@ -146,13 +169,21 @@ export function PhotoCaseReview({ detail }: { detail: ReviewCaseDetail & PhotoCa
                 <p className="font-bold">{nameOf(appeal.userId)}, {shortTime(appeal.createdAt)} {appeal.accepted ? '' : '(bị từ chối vì thiếu căn cứ)'}</p>
                 {appeal.pointedReason && <p className="mt-1 whitespace-pre-line"><b>Lý do bị chỉ ra:</b> {appeal.pointedReason}</p>}
                 <p className="mt-1">“{appeal.reason}”</p>
-                {appeal.evidenceIds.length > 0 && <p className="mt-1 text-ink-500">{appeal.evidenceIds.length} ảnh mới kèm theo</p>}
+                {appeal.evidenceIds.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {appeal.evidenceIds.map((id, index) => (
+                      <button key={id} type="button" onClick={() => setAppealPhoto({ id, owner: nameOf(appeal.userId) })}
+                        className="rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold hover:border-brand-navy">Ảnh mới {index + 1}</button>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         </section>
       )}
       <PhotoInspector matchId={detail.matchId} photo={inspecting?.photo ?? null} owner={inspecting?.owner ?? ''} onClose={() => setInspecting(null)} />
+      <AppealPhotoViewer matchId={detail.matchId} photo={appealPhoto} onClose={() => setAppealPhoto(null)} />
     </div>
   );
 }
