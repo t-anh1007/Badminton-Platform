@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import { acceptRuling, submitAppeal } from '../src/domain/resultDisputeV2.js';
 import { decideAdminResult, previewAdminDecision } from '../src/domain/resultLifecycle.js';
+import { sweepResultDeadlinesV2 } from '../src/domain/resultSweepV2.js';
 import { HOUR, MemoryStorage, accountClient, cleanupV2, fakeAi, matchIds, randomChecksum, token, v2Fixture, venueBookingClient } from './resultV2TestUtils.js';
 
 afterAll(async () => {
@@ -83,6 +84,26 @@ describe('appeals', () => {
     const { match, organizer, b1, ruling } = await appealCase({ doubles: true, outcome: 'NO_RESULT' });
     expect((await acceptRuling({ matchId: match.id, userId: b1, rulingId: ruling.id }, NOW)).status).toBe('appeal_window');
     expect((await acceptRuling({ matchId: match.id, userId: organizer, rulingId: ruling.id }, NOW)).status).toBe('final');
+  });
+
+  it('NO_RESULT: both teams appeal into one case, Admin only once the other team has answered', async () => {
+    const { match, resultCase, organizer, b1, ruling } = await appealCase({ outcome: 'NO_RESULT' });
+    expect((await submitAppeal({ matchId: match.id, userId: b1, rulingId: ruling.id, reason: 'x', pointedReason: 'y' }, { storage, now: NOW })).status).toBe('appeal_window');
+    expect((await caseOf(match.id)).status).toBe('appeal_window');
+    await expect(submitAppeal({ matchId: match.id, userId: b1, rulingId: ruling.id, reason: 'x', pointedReason: 'y' }, { storage, now: NOW }))
+      .rejects.toMatchObject({ code: 'RESULT_APPEAL_ALREADY_SENT' });
+    expect((await submitAppeal({ matchId: match.id, userId: organizer, rulingId: ruling.id, reason: 'x', pointedReason: 'y' }, { storage, now: NOW })).status).toBe('admin_review');
+    expect(await prisma.resultAppeal.count({ where: { caseId: resultCase.id, accepted: true } })).toBe(2);
+  });
+
+  it('NO_RESULT: one team appeals, the other accepts → Admin; nobody answers → Admin at the deadline', async () => {
+    const accepted = await appealCase({ outcome: 'NO_RESULT' });
+    await submitAppeal({ matchId: accepted.match.id, userId: accepted.b1, rulingId: accepted.ruling.id, reason: 'x', pointedReason: 'y' }, { storage, now: NOW });
+    expect((await acceptRuling({ matchId: accepted.match.id, userId: accepted.organizer, rulingId: accepted.ruling.id }, NOW)).status).toBe('admin_review');
+    const silent = await appealCase({ outcome: 'NO_RESULT' });
+    await submitAppeal({ matchId: silent.match.id, userId: silent.b1, rulingId: silent.ruling.id, reason: 'x', pointedReason: 'y' }, { storage, now: NOW });
+    await sweepResultDeadlinesV2(new Date(NOW.getTime() + 6 * HOUR), [silent.match.id]);
+    expect((await caseOf(silent.match.id)).status).toBe('admin_review');
   });
 
   it('a paid-for partner accepting does not settle; the payer accepting does (BR-RA-23)', async () => {

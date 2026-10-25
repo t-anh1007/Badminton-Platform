@@ -198,9 +198,29 @@ function assertAppealOpen(ctx: CaseContext, now: Date) {
   }
 }
 
+/** Đội đã có kháng nghị hợp lệ / đã Chấp nhận phán quyết đang hiệu lực. */
+async function teamsActed(tx: Tx, ctx: CaseContext, ruling: { id: string; publishedAt: Date | null }) {
+  const [appeals, accepts] = await Promise.all([
+    tx.resultAppeal.findMany({ where: { caseId: ctx.resultCase.id, rulingId: ruling.id, accepted: true }, select: { userId: true } }),
+    tx.resultResponse.findMany({ where: { caseId: ctx.resultCase.id, kind: 'confirm', createdAt: { gte: ruling.publishedAt! } }, select: { userId: true } }),
+  ]);
+  const sides = (rows: Array<{ userId: string }>) => new Set(rows.map((row) => sideOf(ctx.teams, row.userId)).filter(Boolean));
+  return { appealed: sides(appeals), accepted: sides(accepts) };
+}
+
+/** Chuyển các kháng nghị hợp lệ của hồ sơ sang Admin (một hồ sơ cho cả hai đội). */
+export async function sendAppealsToAdmin(tx: Tx, match: CaseContext['match'], caseId: string, now: Date) {
+  await tx.matchResultCase.update({ where: { id: caseId }, data: enterAdminReview(now) });
+  await notifyRoster(tx, match, caseId, 'match.result.appealed', 'Kết quả tạm bị kháng nghị',
+    'Hồ sơ chuyển Admin quyết định. Tiền giữ cho kết quả và điểm tiếp tục khóa tới khi có quyết định.');
+  await writeResultNotification(tx, adminReviewNotification(match.id, caseId, 'match.result.admin_review', 'Có kháng nghị kết quả kèo cần quyết định'));
+}
+
 /**
  * BR-RA-38: chỉ bên bị xử thua, trong 6 giờ, kèm ảnh mới (≤ 2, ngoài hạn mức 7) hoặc chỉ ra điểm sai cụ thể.
  * Thiếu căn cứ thì bị từ chối (vẫn ghi lại để đo đạc); hợp lệ thì chuyển Admin, phán quyết tạm không có hiệu lực tiền.
+ * NO_RESULT: cả hai đội cùng được kháng nghị vào một hồ sơ, giữ kín với đội kia; chỉ chuyển Admin khi đội còn lại
+ * cũng đã kháng nghị/Chấp nhận, hoặc khi hết hạn.
  */
 export async function submitAppeal(
   input: { matchId: string; userId: string; rulingId: string; reason: string; pointedReason?: string; evidence?: ResultEvidenceItem[] },
@@ -218,6 +238,9 @@ export async function submitAppeal(
     if (!rulingLosers(ctx.teams, ruling.outcome).includes(input.userId)) {
       throw new AppError(403, 'RESULT_APPEAL_LOSER_ONLY', 'Chỉ bên bị xử thua được kháng nghị.');
     }
+    const acted = await teamsActed(tx, ctx, ruling);
+    const viewerSide = sideOf(ctx.teams, input.userId)!;
+    if (acted.appealed.has(viewerSide)) throw new AppError(409, 'RESULT_APPEAL_ALREADY_SENT', 'Đội bạn đã gửi kháng nghị.');
     if (!grounded) {
       await tx.resultAppeal.create({
         data: { caseId: ctx.resultCase.id, rulingId: ruling.id, userId: input.userId, reason: input.reason, evidenceIds: [], accepted: false, createdAt: now },
@@ -237,16 +260,18 @@ export async function submitAppeal(
       },
     });
     await tx.aiRuling.update({ where: { id: ruling.id }, data: { appealedAt: now } });
-    await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: enterAdminReview(now) });
-    await notifyRoster(tx, ctx.match, ctx.resultCase.id, 'match.result.appealed', 'Kết quả tạm bị kháng nghị',
-      'Hồ sơ chuyển Admin quyết định. Tiền giữ cho kết quả và điểm tiếp tục khóa tới khi có quyết định.');
-    await writeResultNotification(tx, adminReviewNotification(ctx.match.id, ctx.resultCase.id, 'match.result.admin_review', 'Có kháng nghị kết quả kèo cần quyết định'));
-    return appeal.id;
+    const otherSide = viewerSide === 'A' ? 'B' : 'A';
+    if (ruling.outcome === 'NO_RESULT' && !acted.appealed.has(otherSide) && !acted.accepted.has(otherSide)) {
+      await tx.matchResultCase.update({ where: { id: ctx.resultCase.id }, data: { version: { increment: 1 } } });
+      return { appealId: appeal.id, status: 'appeal_window' as const };
+    }
+    await sendAppealsToAdmin(tx, ctx.match, ctx.resultCase.id, now);
+    return { appealId: appeal.id, status: 'admin_review' as const };
   });
   if (outcome === 'rejected') {
     throw new AppError(400, 'RESULT_APPEAL_GROUNDS_REQUIRED', 'Kháng nghị cần kèm ảnh mới hoặc chỉ ra điểm sai cụ thể trong lý do.');
   }
-  return { appealId: outcome, status: 'admin_review' as const };
+  return outcome;
 }
 
 /**
@@ -266,6 +291,15 @@ export async function acceptRuling(input: { matchId: string; userId: string; rul
     if (!accepted.has(input.userId)) {
       await tx.resultResponse.create({ data: { caseId: ctx.resultCase.id, userId: input.userId, kind: 'confirm', createdAt: now } });
       accepted.add(input.userId);
+    }
+    if (ruling.outcome === 'NO_RESULT') {
+      const acted = await teamsActed(tx, ctx, ruling);
+      const viewerSide = sideOf(ctx.teams, input.userId)!;
+      if (acted.appealed.has(viewerSide)) throw new AppError(409, 'RESULT_APPEAL_ALREADY_SENT', 'Đội bạn đã gửi kháng nghị.');
+      if (acted.appealed.has(viewerSide === 'A' ? 'B' : 'A')) {
+        await sendAppealsToAdmin(tx, ctx.match, ctx.resultCase.id, now);
+        return { status: 'admin_review' as const };
+      }
     }
     const payer = await payerOf(tx, ctx.match.id, input.userId);
     const waitingPayer = payer !== null && losers.includes(payer) && !accepted.has(payer);

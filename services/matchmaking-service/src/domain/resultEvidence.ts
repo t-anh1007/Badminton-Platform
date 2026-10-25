@@ -164,8 +164,10 @@ export async function readResultEvidence(
   });
   if (!evidence) throw new AppError(404, 'RESULT_EVIDENCE_NOT_FOUND', 'Không tìm thấy ảnh bằng chứng.');
   // BR-RA-30: ảnh tranh chấp của đội kia giữ kín tới khi hết 2 giờ hoặc cả hai đội bấm Đã nộp đủ.
-  const sealed = evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null
-    && evidence.case.evidenceDeadlineAt !== null && new Date() < evidence.case.evidenceDeadlineAt;
+  // Ảnh kháng nghị cũng giữ kín với đội kia tới khi hồ sơ sang Admin (kháng nghị chung hai đội khi NO_RESULT).
+  const sealed = (evidence.purpose === 'evidence' && evidence.case.status === 'evidence_window' && evidence.case.evidenceClosedAt === null
+    && evidence.case.evidenceDeadlineAt !== null && new Date() < evidence.case.evidenceDeadlineAt)
+    || (evidence.purpose === 'appeal' && evidence.case.status === 'appeal_window');
   if (sealed && !input.viewer.roles.includes('admin')) {
     const sideOf = async (userId: string) => (userId === evidence.case.match.organizerUserId ? 'A'
       : (await prisma.join.findFirst({ where: { matchId: input.matchId, participantUserId: userId, status: 'confirmed' }, select: { teamSide: true } }))?.teamSide ?? 'B');
