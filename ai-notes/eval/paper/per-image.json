@@ -1,0 +1,1050 @@
+[
+ {
+  "f": "real01.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real02.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "vi pham luat diem"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "real03.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real04.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 1,
+  "l2": 4,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real05.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real06.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real07.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real08.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 1,
+  "l2": 2,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real09.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": true,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "vi pham luat diem"
+  ],
+  "taxo": "Doc cot thanh hang",
+  "prod": "yellow",
+  "prodReasons": [
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "real10.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real11.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real12.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 2,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real13.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real14.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real15.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real16.jpg",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real17.jpg",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real19.jpg",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": false,
+  "l1": 3,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real20.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real21.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": false,
+  "l1": 3,
+  "l2": 4,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real22.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real23.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": false,
+  "l1": 1,
+  "l2": 5,
+  "mapped": true,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "vi pham luat diem"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "real24.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real25.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real26.png",
+  "set": "real32",
+  "model": "cloudflare",
+  "conf": 1.0,
+  "ok": false,
+  "l1": 1,
+  "l2": 5,
+  "mapped": false,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten",
+   "vi pham luat diem"
+  ],
+  "taxo": "Doc cot thanh hang",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING",
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "real28.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 3,
+  "l2": 3,
+  "mapped": true,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "co van 0-0"
+  ],
+  "taxo": "Thua van",
+  "prod": "yellow",
+  "prodReasons": [
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "real29.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "real30.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real31.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "real32.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "realR1.png",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "realR2.jpg",
+  "set": "real32",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_0.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_5.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_11.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_16.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_22.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.9,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "conf<0.95"
+  ],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_27.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_33.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_38.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "co van 0-0"
+  ],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "Aadya_55.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.9,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "conf<0.95"
+  ],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame_58.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame_67.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame2_190.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame2_105.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": false,
+  "l1": 3,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame2_71.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame2_42.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 2,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Sai chu so/o diem",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame2_30.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.99,
+  "ok": true,
+  "l1": 5,
+  "l2": 5,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Dung",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame1_195.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": true,
+  "l1": 5,
+  "l2": 3,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Dung",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame1_160.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 1,
+  "l2": 2,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame1_42.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 2,
+  "l2": 5,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame1_36.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": false,
+  "rules": true,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame1_17.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": false,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten",
+   "vi pham luat diem",
+   "co van 0-0"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame1_1.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": false,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "khong tu ghep cot theo ten",
+   "vi pham luat diem",
+   "co van 0-0"
+  ],
+  "taxo": "Sai chu so/o diem",
+  "prod": "yellow",
+  "prodReasons": [
+   "USER_COLUMN_MAPPING"
+  ]
+ },
+ {
+  "f": "frame_255.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": null,
+  "ok": false,
+  "l1": 3,
+  "l2": 3,
+  "mapped": false,
+  "rules": false,
+  "tier": "Do",
+  "tierWhy": [
+   "AI khong tra ket qua"
+  ],
+  "taxo": "Khong doc duoc",
+  "prod": "yellow",
+  "prodReasons": [
+   "AI_UNAVAILABLE"
+  ]
+ },
+ {
+  "f": "frame_134.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": true,
+  "rules": false,
+  "tier": "Vang",
+  "tierWhy": [
+   "vi pham luat diem"
+  ],
+  "taxo": "Doc cot thanh hang",
+  "prod": "yellow",
+  "prodReasons": [
+   "LOW_CELL_CONFIDENCE"
+  ]
+ },
+ {
+  "f": "frame_116.jpg",
+  "set": "rf80",
+  "model": "cloudflare",
+  "conf": 1,
+  "ok": false,
+  "l1": 3,
+  "l2": 4,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ },
+ {
+  "f": "frame_28.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": null,
+  "ok": false,
+  "l1": 1,
+  "l2": 1,
+  "mapped": false,
+  "rules": false,
+  "tier": "Do",
+  "tierWhy": [
+   "AI khong tra ket qua"
+  ],
+  "taxo": "Khong doc duoc",
+  "prod": "yellow",
+  "prodReasons": [
+   "AI_UNAVAILABLE"
+  ]
+ },
+ {
+  "f": "Aadya_100.jpg",
+  "set": "rf80",
+  "model": "gemini",
+  "conf": 0.95,
+  "ok": false,
+  "l1": 3,
+  "l2": 4,
+  "mapped": true,
+  "rules": true,
+  "tier": "Xanh",
+  "tierWhy": [],
+  "taxo": "Thieu van",
+  "prod": "green",
+  "prodReasons": []
+ }
+]

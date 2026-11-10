@@ -1,0 +1,812 @@
+[
+ {
+  "file": "real01.png",
+  "latencyMs": 5151,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    10,
+    12
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "IND",
+   "right": "VIE"
+  },
+  "error": ""
+ },
+ {
+  "file": "real02.png",
+  "latencyMs": 3682,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    0,
+    1
+   ],
+   [
+    17,
+    11
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "PRANNOY (13)",
+   "right": "LE"
+  },
+  "error": ""
+ },
+ {
+  "file": "real03.png",
+  "latencyMs": 1742,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    17,
+    20
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Fabio Caponio",
+   "right": "LE Duc Phat"
+  },
+  "error": ""
+ },
+ {
+  "file": "real04.png",
+  "latencyMs": 2027,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    18,
+    21
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Fabio Caponio",
+   "right": "LE Duc Phat"
+  },
+  "error": ""
+ },
+ {
+  "file": "real05.png",
+  "latencyMs": 1764,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    10,
+    10
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LE Duc Phat",
+   "right": "Viren NETASINGHE"
+  },
+  "error": ""
+ },
+ {
+  "file": "real06.png",
+  "latencyMs": 3312,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    19
+   ],
+   [
+    10,
+    12
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VIE",
+   "right": "SRI"
+  },
+  "error": ""
+ },
+ {
+  "file": "real07.png",
+  "latencyMs": 2648,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    5,
+    10
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Kai Shhaefer",
+   "right": "Le Duc Phat"
+  },
+  "error": ""
+ },
+ {
+  "file": "real08.png",
+  "latencyMs": 1986,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    19,
+    21
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Kai Shhaefer",
+   "right": "Le Duc Phat"
+  },
+  "error": ""
+ },
+ {
+  "file": "real09.png",
+  "latencyMs": 2084,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    19,
+    17
+   ],
+   [
+    21,
+    19
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Kai Shhaefer / Le Duc Phat",
+   "right": "Ger / Vie"
+  },
+  "error": ""
+ },
+ {
+  "file": "real10.jpg",
+  "latencyMs": 3923,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    0,
+    2
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": false,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": null,
+   "right": null
+  },
+  "error": ""
+ },
+ {
+  "file": "real11.jpg",
+  "latencyMs": 3276,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    6,
+    3
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": null,
+   "right": null
+  },
+  "error": ""
+ },
+ {
+  "file": "real12.jpg",
+  "latencyMs": 4805,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    9,
+    17
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": false,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": null,
+   "right": null
+  },
+  "error": ""
+ },
+ {
+  "file": "real13.jpg",
+  "latencyMs": 2813,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    20,
+    14
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "[1] NGUYỄN THÙY LINH",
+   "right": "[4] VŨ THỊ TRANG"
+  },
+  "error": ""
+ },
+ {
+  "file": "real14.jpg",
+  "latencyMs": 4066,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    15
+   ],
+   [
+    17,
+    6
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "[1] NGUYỄN THÙY LINH",
+   "right": "[4] VŨ THỊ TRANG"
+  },
+  "error": ""
+ },
+ {
+  "file": "real15.jpg",
+  "latencyMs": 2676,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    15
+   ],
+   [
+    20,
+    9
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "[1] NGUYỄN THÙY LINH",
+   "right": "[4] VŨ THỊ TRANG"
+  },
+  "error": ""
+ },
+ {
+  "file": "real16.jpg",
+  "latencyMs": 11585,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:HTTP_429",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    12,
+    21
+   ],
+   [
+    21,
+    19
+   ],
+   [
+    18,
+    20
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "WANG YU SI",
+   "right": "NGUYEN THUY LINH"
+  },
+  "error": ""
+ },
+ {
+  "file": "real17.jpg",
+  "latencyMs": 5750,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    8,
+    16
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": null,
+   "right": null
+  },
+  "error": ""
+ },
+ {
+  "file": "real19.jpg",
+  "latencyMs": 5240,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    10,
+    10
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": null,
+   "right": null
+  },
+  "error": ""
+ },
+ {
+  "file": "real20.png",
+  "latencyMs": 4287,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    5,
+    5
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "NGUYEN",
+   "right": "OKUHARA"
+  },
+  "error": ""
+ },
+ {
+  "file": "real21.png",
+  "latencyMs": 5978,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    15,
+    21
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "NGUYEN",
+   "right": "OKUHARA"
+  },
+  "error": ""
+ },
+ {
+  "file": "real22.png",
+  "latencyMs": 2719,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    7,
+    4
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "WU Y.T.",
+   "right": "BLICHFELDT"
+  },
+  "error": ""
+ },
+ {
+  "file": "real23.png",
+  "latencyMs": 7256,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    9,
+    9
+   ],
+   [
+    12,
+    9
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "Vũ T.T",
+   "right": "Blichfeldt"
+  },
+  "error": ""
+ },
+ {
+  "file": "real24.png",
+  "latencyMs": 6186,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    21,
+    18
+   ],
+   [
+    16,
+    21
+   ],
+   [
+    20,
+    15
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VITT T",
+   "right": "BLICHFELDT"
+  },
+  "error": ""
+ },
+ {
+  "file": "real25.png",
+  "latencyMs": 4259,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    2,
+    10
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VU T.T.",
+   "right": "TAI T.Y."
+  },
+  "error": ""
+ },
+ {
+  "file": "real26.png",
+  "latencyMs": 9062,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    15,
+    10
+   ],
+   [
+    21,
+    20
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VU T.T.",
+   "right": "TAI T.Y."
+  },
+  "error": ""
+ },
+ {
+  "file": "real28.png",
+  "latencyMs": 2974,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    0
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "BEIWEN ZHANG",
+   "right": "THUY LINH NGUYEN"
+  },
+  "error": ""
+ },
+ {
+  "file": "real29.png",
+  "latencyMs": 2010,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    18,
+    18
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "USA",
+   "right": "VIE"
+  },
+  "error": ""
+ },
+ {
+  "file": "real30.jpg",
+  "latencyMs": 2089,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    10,
+    17
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "BILQIS PRASISTA",
+   "right": "THUY LINH NGUYEN"
+  },
+  "error": ""
+ },
+ {
+  "file": "real31.jpg",
+  "latencyMs": 2593,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    12,
+    21
+   ],
+   [
+    11,
+    20
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "BILQIS PRASISTA",
+   "right": "THUY LINH NGUYEN"
+  },
+  "error": ""
+ },
+ {
+  "file": "real32.png",
+  "latencyMs": 2212,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    7,
+    10
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VU T. ANH THU",
+   "right": "A. KURIHARA"
+  },
+  "error": ""
+ },
+ {
+  "file": "realR1.png",
+  "latencyMs": 2538,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    12,
+    20
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VU T. ANH THU",
+   "right": "A. KURIHARA"
+  },
+  "error": ""
+ },
+ {
+  "file": "realR2.jpg",
+  "latencyMs": 2161,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    12,
+    21
+   ],
+   [
+    21,
+    19
+   ],
+   [
+    9,
+    11
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "WANG YU SI",
+   "right": "NGUYEN THUY LINH"
+  },
+  "error": ""
+ }
+]

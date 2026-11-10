@@ -1,0 +1,2012 @@
+[
+ {
+  "file": "Aadya_0.jpg",
+  "latencyMs": 4864,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    8,
+    8
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_100.jpg",
+  "latencyMs": 2251,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_11.jpg",
+  "latencyMs": 2154,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    7,
+    6
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_111.jpg",
+  "latencyMs": 1661,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "minConf": 0.9,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_116.jpg",
+  "latencyMs": 2448,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    7,
+    7
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_138.jpg",
+  "latencyMs": 2017,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    8,
+    10
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_16.jpg",
+  "latencyMs": 2303,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    6,
+    6
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_161.jpg",
+  "latencyMs": 3070,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    3,
+    5
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_22.jpg",
+  "latencyMs": 1673,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    3,
+    4
+   ]
+  ],
+  "minConf": 0.9,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_27.jpg",
+  "latencyMs": 2126,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    7,
+    8
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_33.jpg",
+  "latencyMs": 4142,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    4,
+    5
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_38.jpg",
+  "latencyMs": 2865,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    0,
+    0
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_5.jpg",
+  "latencyMs": 2908,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    8,
+    11
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_55.jpg",
+  "latencyMs": 1643,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    3,
+    3
+   ]
+  ],
+  "minConf": 0.9,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_66.jpg",
+  "latencyMs": 3414,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    8,
+    9
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "Aadya_83.jpg",
+  "latencyMs": 3460,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    14,
+    21
+   ],
+   [
+    4,
+    6
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "VARIYATH Aadya",
+   "right": "CHUA Hui Zhen Grace"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_1.jpg",
+  "latencyMs": 3059,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    0,
+    0
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_103.jpg",
+  "latencyMs": 7415,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:HTTP_429",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    0
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_11.jpg",
+  "latencyMs": 6100,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    7
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_127.jpg",
+  "latencyMs": 6828,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    5,
+    13
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_144.jpg",
+  "latencyMs": 6367,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    7,
+    9
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_160.jpg",
+  "latencyMs": 6754,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    5
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_17.jpg",
+  "latencyMs": 4423,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    0,
+    0
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_195.jpg",
+  "latencyMs": 7725,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    7,
+    17
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_23.jpg",
+  "latencyMs": 5024,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    5,
+    12
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_36.jpg",
+  "latencyMs": 3902,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    1
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_42.jpg",
+  "latencyMs": 5041,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    9
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_47.jpg",
+  "latencyMs": 5420,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    1,
+    11
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_5.jpg",
+  "latencyMs": 3063,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    10,
+    18
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_52.jpg",
+  "latencyMs": 1851,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    10,
+    16
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_57.jpg",
+  "latencyMs": 2061,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    5,
+    15
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_75.jpg",
+  "latencyMs": 2217,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    2,
+    11
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_80.jpg",
+  "latencyMs": 1812,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    5,
+    5
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_86.jpg",
+  "latencyMs": 2205,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    12,
+    19
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_92.jpg",
+  "latencyMs": 4411,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    7,
+    8
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame1_97.jpg",
+  "latencyMs": 2324,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    6,
+    8
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "KOR",
+   "right": "CHN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_0.jpg",
+  "latencyMs": 3479,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    9,
+    3
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_105.jpg",
+  "latencyMs": 7685,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_110.jpg",
+  "latencyMs": 4451,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    11,
+    6
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_120.jpg",
+  "latencyMs": 3508,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_126.jpg",
+  "latencyMs": 2315,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    15,
+    8
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_14.jpg",
+  "latencyMs": 2546,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    7,
+    1
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_144.jpg",
+  "latencyMs": 1502,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    13,
+    8
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_149.jpg",
+  "latencyMs": 2286,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    15,
+    5
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_184.jpg",
+  "latencyMs": 1609,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    19,
+    14
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_19.jpg",
+  "latencyMs": 2005,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    9,
+    3
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_190.jpg",
+  "latencyMs": 2049,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    10,
+    4
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_30.jpg",
+  "latencyMs": 1926,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    19,
+    10
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_36.jpg",
+  "latencyMs": 5447,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:HTTP_429",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    20,
+    10
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_4.jpg",
+  "latencyMs": 3082,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    0
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_42.jpg",
+  "latencyMs": 8997,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    21,
+    15
+   ],
+   [
+    16,
+    6
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_66.jpg",
+  "latencyMs": 4589,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    17,
+    11
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_71.jpg",
+  "latencyMs": 7386,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    21,
+    16
+   ],
+   [
+    14,
+    4
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_77.jpg",
+  "latencyMs": 4726,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    12,
+    6
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_9.jpg",
+  "latencyMs": 5727,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    20,
+    16
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame2_95.jpg",
+  "latencyMs": 3484,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    2,
+    0
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "YIN CHAK CHAN",
+   "right": "KARTIKEY GULSHAN KUMAR"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_0.jpg",
+  "latencyMs": 3067,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    6,
+    11
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_116.jpg",
+  "latencyMs": 4874,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    15,
+    21
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_134.jpg",
+  "latencyMs": 4664,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    22,
+    15
+   ],
+   [
+    20,
+    19
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_143.jpg",
+  "latencyMs": 3780,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    17,
+    19
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_163.jpg",
+  "latencyMs": 5685,
+  "model": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+  "attempts": [
+   "gemini:CIRCUIT_OPEN",
+   "cloudflare:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    4,
+    7
+   ]
+  ],
+  "minConf": 1,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_18.jpg",
+  "latencyMs": 2452,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    15,
+    21
+   ],
+   [
+    1,
+    0
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_185.jpg",
+  "latencyMs": 2251,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    16,
+    18
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_214.jpg",
+  "latencyMs": 2249,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    18,
+    20
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_224.jpg",
+  "latencyMs": 2183,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    3,
+    6
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_237.jpg",
+  "latencyMs": 7741,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    5,
+    10
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_246.jpg",
+  "latencyMs": 3357,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    12,
+    17
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_255.jpg",
+  "latencyMs": 3252,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [],
+  "minConf": null,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": true,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_265.jpg",
+  "latencyMs": 2029,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    9,
+    15
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_28.jpg",
+  "latencyMs": 2550,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [],
+  "minConf": null,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": true,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_291.jpg",
+  "latencyMs": 3537,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    11,
+    17
+   ]
+  ],
+  "minConf": 0.98,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_310.jpg",
+  "latencyMs": 3809,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    3,
+    2
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_37.jpg",
+  "latencyMs": 1619,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    21,
+    20
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_47.jpg",
+  "latencyMs": 2847,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    5,
+    11
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_58.jpg",
+  "latencyMs": 2296,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    15,
+    21
+   ],
+   [
+    20,
+    4
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_67.jpg",
+  "latencyMs": 3263,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    15,
+    21
+   ],
+   [
+    12,
+    1
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_7.jpg",
+  "latencyMs": 1710,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    13,
+    18
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_79.jpg",
+  "latencyMs": 4552,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    22,
+    20
+   ],
+   [
+    10,
+    16
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_89.jpg",
+  "latencyMs": 4118,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    4,
+    8
+   ]
+  ],
+  "minConf": 0.95,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ },
+ {
+  "file": "frame_98.jpg",
+  "latencyMs": 1737,
+  "model": "gemini:gemini-3.5-flash-lite",
+  "attempts": [
+   "gemini:ok"
+  ],
+  "sets": [
+   [
+    4,
+    10
+   ]
+  ],
+  "minConf": 0.99,
+  "isScreenshot": true,
+  "boards": 1,
+  "unreadable": false,
+  "columns": {
+   "left": "LEE",
+   "right": "LIN"
+  },
+  "error": ""
+ }
+]

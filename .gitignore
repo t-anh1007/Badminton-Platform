@@ -53,3 +53,7 @@ dev-services.log
 # Vùng nháp cho AI agent — chỉ giữ README, mọi file tạm khác không track
 ai-notes/*
 !ai-notes/README.md
+# Bộ dữ liệu + kết quả thực nghiệm NCKH OCR (59 ảnh) — track cho nhóm viết bài báo
+!ai-notes/eval/
+ai-notes/eval/samples-internet/score board/
+ai-notes/eval/samples-internet/roboflow-dedup/

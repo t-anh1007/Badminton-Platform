@@ -1,0 +1,60 @@
+[
+  {
+    "file": "sheet-1.jpg",
+    "sets": [
+      [
+        21,
+        18
+      ],
+      [
+        19,
+        21
+      ],
+      [
+        21,
+        15
+      ]
+    ],
+    "left": "Minh - Hùng",
+    "right": "Lan - Phúc"
+  },
+  {
+    "file": "sheet-2.jpg",
+    "sets": [
+      [
+        15,
+        21
+      ],
+      [
+        18,
+        21
+      ]
+    ],
+    "left": "Tuấn",
+    "right": "Nam"
+  },
+  {
+    "file": "sheet-3.jpg",
+    "sets": [
+      [
+        21,
+        17
+      ]
+    ]
+  },
+  {
+    "file": "sheet-4.jpg",
+    "sets": [
+      [
+        22,
+        20
+      ],
+      [
+        21,
+        19
+      ]
+    ],
+    "left": "Đội A",
+    "right": "Đội B"
+  }
+]
