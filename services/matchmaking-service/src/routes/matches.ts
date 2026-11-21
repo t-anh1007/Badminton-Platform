@@ -37,6 +37,8 @@ export type NormalizedMatchCriteria = z.infer<typeof normalizedCriteriaSchema>;
 const assistantChatSchema = z.object({
   message: z.string().trim().min(1).max(1000),
   criteria: z.unknown().optional(),
+  // Vị trí người chơi (nếu họ cho phép) để tính khoảng cách tới sân.
+  location: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).strict().optional(),
 }).strict();
 
 function normalizeAssistantCriteria(input: unknown): NormalizedMatchCriteria {
@@ -152,11 +154,13 @@ export function createMatchRouter(
       minOpenSlots: 1,
     };
     const userId = (req as AuthenticatedRequest).user!.id;
-    const suggestions = await suggestAiMatches(venueBookingClient, userId, criteria, matchmakerClient);
+    const suggestions = await suggestAiMatches(venueBookingClient, userId, criteria, matchmakerClient, input.location);
     const asksForAction = /(tham gia|vào kèo|join|đặt sân|thanh toán|hủy)/iu.test(input.message);
     const answer = asksForAction
       ? `Tìm thấy ${suggestions.length} kèo theo F-02. Tôi không tự thực hiện hành động; hãy mở danh sách kèo để kiểm tra và xác nhận.`
-      : suggestions.length ? `Tìm thấy ${suggestions.length} kèo phù hợp theo F-02.` : 'Chưa có kèo phù hợp.';
+      : suggestions.length
+        ? `Tìm thấy ${suggestions.length} kèo hợp trình độ của bạn (${suggestions[0]!.playerTier}, đối thủ chênh tối đa 2 bậc)${input.location ? ', xếp ưu tiên sân gần' : ''}.`
+        : 'Chưa có kèo hợp trình độ của bạn theo tiêu chí này. Bạn thử nới khung giờ, khu vực hoặc mức phí nhé.';
     res.status(200).json({
       answer,
       normalizedCriteria,
