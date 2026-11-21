@@ -1,6 +1,7 @@
 import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
-import { GeminiSupportAssistant, type SupportAssistantClient } from '@khoaluantn/ai';
+import { GeminiSupportAssistant, assistantChainFromEnv, type SupportAssistantClient } from '@khoaluantn/ai';
+import { HttpPlayerDataClient, type PlayerDataClient } from './clients/playerData.js';
 import type { PolicyRetriever } from '@khoaluantn/ai';
 import { HttpAccountEligibilityClient, type AccountEligibilityClient } from './clients/account.js';
 import { HttpBookingClient, type BookingClient } from './clients/venueBooking.js';
@@ -17,6 +18,7 @@ export function createApp(dependencies?: {
   supportAssistant?: SupportAssistantClient;
   policyRetriever?: PolicyRetriever;
   objectStorage?: ObjectStorageClient;
+  playerDataClient?: PlayerDataClient;
 }) {
   const app = express();
   // Mọi request đều reset đồng hồ rảnh; nếu việc nền đang bị buông thì dựng lại.
@@ -32,6 +34,7 @@ export function createApp(dependencies?: {
     dependencies?.bookingClient ?? new HttpBookingClient(),
     dependencies?.supportAssistant ?? configuredSupportAssistant(),
     dependencies?.policyRetriever,
+    { links: assistantChainFromEnv(), data: dependencies?.playerDataClient ?? new HttpPlayerDataClient() },
   ));
   return app;
 }

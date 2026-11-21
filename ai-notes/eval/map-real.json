@@ -1,0 +1,312 @@
+{
+ "real01.png": {
+  "top": "Prannoy H. S.",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "IND | VIE",
+  "doi_A": "Prannoy H. S.",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real02.png": {
+  "top": "Prannoy H. S.",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "PRANNOY (13) | LE",
+  "doi_A": "Prannoy H. S.",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real03.png": {
+  "top": "Fabio Caponio",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "Fabio Caponio | LE Duc Phat",
+  "doi_A": "Fabio Caponio",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real04.png": {
+  "top": "Fabio Caponio",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "Fabio Caponio | LE Duc Phat",
+  "doi_A": "Fabio Caponio",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real05.png": {
+  "top": "Lê Đức Phát",
+  "bottom": "Viren Nettasinghe",
+  "co_ten": true,
+  "ten_tren_anh": "LE Duc Phat | Viren NETASINGHE",
+  "doi_A": "Lê Đức Phát",
+  "doi_B": "Viren Nettasinghe",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real06.png": {
+  "top": "Lê Đức Phát",
+  "bottom": "Viren Nettasinghe",
+  "co_ten": true,
+  "ten_tren_anh": "VIE | SRI",
+  "doi_A": "Lê Đức Phát",
+  "doi_B": "Viren Nettasinghe",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real07.png": {
+  "top": "Kai Schaefer",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "Kai Shhaefer | Le Duc Phat",
+  "doi_A": "Kai Schaefer",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real08.png": {
+  "top": "Kai Schaefer",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "Kai Shhaefer | Le Duc Phat",
+  "doi_A": "Kai Schaefer",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real09.png": {
+  "top": "Kai Schaefer",
+  "bottom": "Lê Đức Phát",
+  "co_ten": true,
+  "ten_tren_anh": "Kai Shhaefer / Le Duc Phat | Ger / Vie",
+  "doi_A": "Kai Schaefer",
+  "doi_B": "Lê Đức Phát",
+  "ket_qua_ghep": "left_is_B",
+  "ghep": "trao"
+ },
+ "real10.jpg": {
+  "co_ten": false,
+  "ten_tren_anh": "",
+  "doi_A": "Nguyễn Văn An",
+  "doi_B": "Trần Văn Bình",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real11.jpg": {
+  "co_ten": false,
+  "ten_tren_anh": "",
+  "doi_A": "Nguyễn Văn An",
+  "doi_B": "Trần Văn Bình",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real12.jpg": {
+  "co_ten": false,
+  "ten_tren_anh": "",
+  "doi_A": "Nguyễn Văn An",
+  "doi_B": "Trần Văn Bình",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real13.jpg": {
+  "top": "Nguyễn Thùy Linh",
+  "bottom": "Vũ Thị Trang",
+  "co_ten": true,
+  "ten_tren_anh": "[1] NGUYỄN THÙY LINH | [4] VŨ THỊ TRANG",
+  "doi_A": "Nguyễn Thùy Linh",
+  "doi_B": "Vũ Thị Trang",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real14.jpg": {
+  "top": "Nguyễn Thùy Linh",
+  "bottom": "Vũ Thị Trang",
+  "co_ten": true,
+  "ten_tren_anh": "[1] NGUYỄN THÙY LINH | [4] VŨ THỊ TRANG",
+  "doi_A": "Nguyễn Thùy Linh",
+  "doi_B": "Vũ Thị Trang",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real15.jpg": {
+  "top": "Nguyễn Thùy Linh",
+  "bottom": "Vũ Thị Trang",
+  "co_ten": true,
+  "ten_tren_anh": "[1] NGUYỄN THÙY LINH | [4] VŨ THỊ TRANG",
+  "doi_A": "Nguyễn Thùy Linh",
+  "doi_B": "Vũ Thị Trang",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real16.jpg": {
+  "top": "Wang Yu Si",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "WANG YU SI | NGUYEN THUY LINH",
+  "doi_A": "Wang Yu Si",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real17.jpg": {
+  "co_ten": false,
+  "ten_tren_anh": "",
+  "doi_A": "Nguyễn Văn An",
+  "doi_B": "Trần Văn Bình",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real19.jpg": {
+  "co_ten": false,
+  "ten_tren_anh": "",
+  "doi_A": "Nguyễn Văn An",
+  "doi_B": "Trần Văn Bình",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real20.png": {
+  "top": "Nguyễn Thùy Linh",
+  "bottom": "Nozomi Okuhara",
+  "co_ten": true,
+  "ten_tren_anh": "NGUYEN | OKUHARA",
+  "doi_A": "Nguyễn Thùy Linh",
+  "doi_B": "Nozomi Okuhara",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real21.png": {
+  "top": "Nguyễn Thùy Linh",
+  "bottom": "Nozomi Okuhara",
+  "co_ten": true,
+  "ten_tren_anh": "NGUYEN | OKUHARA",
+  "doi_A": "Nguyễn Thùy Linh",
+  "doi_B": "Nozomi Okuhara",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real22.png": {
+  "top": "Vũ Thị Trang",
+  "bottom": "Mia Blichfeldt",
+  "co_ten": true,
+  "ten_tren_anh": "WU Y.T. | BLICHFELDT",
+  "doi_A": "Vũ Thị Trang",
+  "doi_B": "Mia Blichfeldt",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real23.png": {
+  "top": "Vũ Thị Trang",
+  "bottom": "Mia Blichfeldt",
+  "co_ten": true,
+  "ten_tren_anh": "Vũ T.T | Blichfeldt",
+  "doi_A": "Vũ Thị Trang",
+  "doi_B": "Mia Blichfeldt",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real24.png": {
+  "top": "Vũ Thị Trang",
+  "bottom": "Mia Blichfeldt",
+  "co_ten": true,
+  "ten_tren_anh": "VITT T | BLICHFELDT",
+  "doi_A": "Vũ Thị Trang",
+  "doi_B": "Mia Blichfeldt",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real25.png": {
+  "top": "Vũ Thị Trang",
+  "bottom": "Tai Tzu Ying",
+  "co_ten": true,
+  "ten_tren_anh": "VU T.T. | TAI T.Y.",
+  "doi_A": "Vũ Thị Trang",
+  "doi_B": "Tai Tzu Ying",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real26.png": {
+  "top": "Vũ Thị Trang",
+  "bottom": "Tai Tzu Ying",
+  "co_ten": true,
+  "ten_tren_anh": "VU T.T. | TAI T.Y.",
+  "doi_A": "Vũ Thị Trang",
+  "doi_B": "Tai Tzu Ying",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real28.png": {
+  "top": "Beiwen Zhang",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "BEIWEN ZHANG | THUY LINH NGUYEN",
+  "doi_A": "Beiwen Zhang",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real29.png": {
+  "top": "Beiwen Zhang",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "USA | VIE",
+  "doi_A": "Beiwen Zhang",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "khong_tu_ghep",
+  "ghep": "khong_tu_ghep"
+ },
+ "real30.jpg": {
+  "top": "Bilqis Prasista",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "BILQIS PRASISTA | THUY LINH NGUYEN",
+  "doi_A": "Bilqis Prasista",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real31.jpg": {
+  "top": "Bilqis Prasista",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "BILQIS PRASISTA | THUY LINH NGUYEN",
+  "doi_A": "Bilqis Prasista",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "real32.png": {
+  "top": "Vũ Thị Anh Thư",
+  "bottom": "Akari Kurihara",
+  "co_ten": true,
+  "ten_tren_anh": "VU T. ANH THU | A. KURIHARA",
+  "doi_A": "Vũ Thị Anh Thư",
+  "doi_B": "Akari Kurihara",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "realR1.png": {
+  "top": "Vũ Thị Anh Thư",
+  "bottom": "Akari Kurihara",
+  "co_ten": true,
+  "ten_tren_anh": "VU T. ANH THU | A. KURIHARA",
+  "doi_A": "Vũ Thị Anh Thư",
+  "doi_B": "Akari Kurihara",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ },
+ "realR2.jpg": {
+  "top": "Wang Yu Si",
+  "bottom": "Nguyễn Thùy Linh",
+  "co_ten": true,
+  "ten_tren_anh": "WANG YU SI | NGUYEN THUY LINH",
+  "doi_A": "Wang Yu Si",
+  "doi_B": "Nguyễn Thùy Linh",
+  "ket_qua_ghep": "left_is_A",
+  "ghep": "dung"
+ }
+}

@@ -12,9 +12,16 @@ export interface AiMatchSuggestion {
   explanation: string;
   source: 'gemini' | 'fallback';
   joinPath: string;
+  /** Chatbot mở rộng (21/11): có khi người chơi chia sẻ vị trí. */
+  distanceKm?: number | null;
+  playerTier?: string;
+  /** Bậc trình độ ẩn danh của thành viên hiện có, vd "1 TB, 1 TB+". */
+  memberSummary?: string;
   match: {
     id: string;
     openSlots: number;
+    capacity?: number;
+    discipline?: 'singles' | 'doubles';
     feePerSlot: string;
     skillMin: string | null;
     skillMax: string | null;
@@ -158,6 +165,36 @@ export async function sendSupportMessage(question: string): Promise<AssistantRep
     fallback: reply.source === 'fallback',
     sources: reply.sources,
     actionPath: standardSupportActionPath(reply.actionPath),
+  };
+}
+
+export interface PlayerLocation {
+  lat: number;
+  lng: number;
+}
+
+interface PlayerAssistantResponse {
+  kind: AssistantReplyKind;
+  answer: string;
+  sources: AssistantSource[];
+  source: 'ai' | 'fallback' | 'safety';
+  actionPath?: string;
+  suggestions?: AiMatchSuggestion[];
+}
+
+/** Chatbot người chơi mở rộng: một endpoint, server tự phân loại ý định (kèo, sân, ví, trình độ, chính sách…). */
+export async function sendPlayerMessage(question: string, location?: PlayerLocation): Promise<AssistantReply> {
+  const reply = await api<PlayerAssistantResponse>(COMMUNITY_URL, '/assistant/player-chat', {
+    method: 'POST',
+    body: JSON.stringify(location ? { question, location } : { question }),
+  });
+  return {
+    kind: reply.kind,
+    answer: reply.answer,
+    fallback: reply.source === 'fallback',
+    sources: reply.sources,
+    actionPath: standardSupportActionPath(reply.actionPath),
+    suggestions: reply.suggestions,
   };
 }
 

@@ -21,6 +21,7 @@ lệch nhau thì spec là nguồn đúng.
 
 | Mã | Loại | Nội dung | HTML (xem) | SVG (chèn báo cáo) |
 |---|---|---|---|---|
+| **O1** | Tổng quan (swimlane) | **Một trang để trình bày**: luồng 03 + tranh chấp 03b, bước đánh số 1–10, đã áp D63 | `html/o1-tong-quan-to-be.html` | `svg/o1-tong-quan-to-be.svg` · `png/o1-tong-quan-to-be.png` |
 | UC1 | Use case | Khai kết quả bằng ảnh (UC01–UC05) | `html/uc-1-khai-ket-qua.html` | `svg/uc-1-khai-ket-qua.svg` |
 | UC2 | Use case | Phản hồi, tranh chấp, kháng nghị (UC06–UC12) | `html/uc-2-phan-hoi-tranh-chap.html` | `svg/…` |
 | UC3 | Use case | Xử lý tự động và quản trị (UC13–UC17) | `html/uc-3-tu-dong-va-quan-tri.html` | `svg/…` |

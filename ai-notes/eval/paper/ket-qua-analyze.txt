@@ -1,0 +1,105 @@
+=== 1. CHI SO KHACH QUAN (CI 95%: Wilson cho ti le, bootstrap B=10000 cho trung binh, seed=20261109) ===
+[Tong] n=59
+  exact match cap anh: 38/59 = 64.4% [51.7; 75.4]
+  dung cap o diem   : 163/200 = 81.5% [75.5; 86.3]
+  dung cap van      : 75/100 = 75.0% [65.7; 82.5]
+  dung ben dan/thang: 46/59 = 78.0% [65.9; 86.6]
+  Likert1 TB (bootstrap): 3.86 [3.44; 4.27] {1: 11, 2: 3, 3: 7, 5: 38}
+  Likert2 TB (bootstrap): 4.02 [3.64; 4.34] {1: 6, 2: 2, 3: 12, 4: 4, 5: 35}
+  so o diem bi nhan doi khi le van: tinh theo max(so van that, so van AI) x 2
+
+=== 2. SO SANH NHOM ===
+
+--- Gemini (n=40) vs Cloudflare (n=19) ---
+  exact: 30/40 = 75.0% [59.8; 85.8] vs 8/19 = 42.1% [23.1; 63.7]; chenh lech = 32.9 diem %; OR=4.12; Fisher p=0.020
+  l1: TB 4.22 vs 3.11; Mann-Whitney p=0.014; rank-biserial r=0.34
+  l2: TB 4.17 vs 3.68; Mann-Whitney p=0.196; rank-biserial r=0.19
+[Gemini] n=40
+  exact match cap anh: 30/40 = 75.0% [59.8; 85.8]
+  dung cap o diem   : 119/138 = 86.2% [79.5; 91.0]
+  dung cap van      : 58/69 = 84.1% [73.7; 90.9]
+  dung ben dan/thang: 34/40 = 85.0% [70.9; 92.9]
+  Likert1 TB (bootstrap): 4.22 [3.75; 4.65] {1: 5, 2: 1, 3: 4, 5: 30}
+  Likert2 TB (bootstrap): 4.17 [3.77; 4.55] {1: 3, 2: 1, 3: 8, 4: 2, 5: 26}
+[Cloudflare] n=19
+  exact match cap anh: 8/19 = 42.1% [23.1; 63.7]
+  dung cap o diem   : 44/62 = 71.0% [58.7; 80.8]
+  dung cap van      : 17/31 = 54.8% [37.8; 70.8]
+  dung ben dan/thang: 12/19 = 63.2% [41.0; 80.9]
+  Likert1 TB (bootstrap): 3.11 [2.32; 3.89] {1: 6, 2: 2, 3: 3, 5: 8}
+  Likert2 TB (bootstrap): 3.68 [3.00; 4.37] {1: 3, 2: 1, 3: 4, 4: 2, 5: 9}
+
+--- Anh that (n=32) vs Roboflow (n=27) ---
+  exact: 23/32 = 71.9% [54.6; 84.4] vs 15/27 = 55.6% [37.3; 72.4]; chenh lech = 16.3 diem %; OR=2.04; Fisher p=0.276
+  l1: TB 4.09 vs 3.59; Mann-Whitney p=0.224; rank-biserial r=0.16
+  l2: TB 4.09 vs 3.93; Mann-Whitney p=0.966; rank-biserial r=-0.01
+[Anh that] n=32
+  exact match cap anh: 23/32 = 71.9% [54.6; 84.4]
+  dung cap o diem   : 85/102 = 83.3% [74.9; 89.3]
+  dung cap van      : 39/51 = 76.5% [63.2; 86.0]
+  dung ben dan/thang: 27/32 = 84.4% [68.2; 93.1]
+  Likert1 TB (bootstrap): 4.09 [3.56; 4.59] {1: 5, 2: 1, 3: 3, 5: 23}
+  Likert2 TB (bootstrap): 4.09 [3.69; 4.47] {1: 1, 2: 1, 3: 10, 4: 2, 5: 18}
+[Roboflow] n=27
+  exact match cap anh: 15/27 = 55.6% [37.3; 72.4]
+  dung cap o diem   : 78/98 = 79.6% [70.6; 86.4]
+  dung cap van      : 36/49 = 73.5% [59.7; 83.8]
+  dung ben dan/thang: 19/27 = 70.4% [51.5; 84.1]
+  Likert1 TB (bootstrap): 3.59 [2.96; 4.22] {1: 6, 2: 2, 3: 4, 5: 15}
+  Likert2 TB (bootstrap): 3.93 [3.30; 4.48] {1: 5, 2: 1, 3: 2, 4: 2, 5: 17}
+  bang cheo model x bo: {('gemini', 'real32'): 22, ('cloudflare', 'real32'): 10, ('gemini', 'rf80'): 18, ('cloudflare', 'rf80'): 9}
+
+=== 3. DIEM TIN CAY NHU BO PHAN LOAI DUNG/SAI (nhan duong = exact match; AI khong tra -> conf 0) ===
+  phan bo conf: {0.0: 2, 0.9: 2, 0.95: 20, 0.99: 16, 1.0: 19}
+  conf TB ca dung: 0.97 [0.96; 0.98]  ca sai: 0.89 [0.75; 0.99]
+  AUROC (tat ca 59): 0.43 [0.26; 0.60]
+  AUROC (57 anh AI co tra ket qua): 0.37 [0.21; 0.53]
+  bin (-0.01,0.90]: n=4 conf TB=0.450 acc=0.500
+  bin (0.90,0.95]: n=20 conf TB=0.950 acc=0.650
+  bin (0.95,0.99]: n=16 conf TB=0.990 acc=0.938
+  bin (0.99,1.00]: n=19 conf TB=1.000 acc=0.421
+  ECE = 0.306
+  Bang nguong (tu chot khi conf >= t):
+  t     | tu chot | sai lot | precision [Wilson]          | ca dung bi giu lai
+  0.00  |      57 |      19 | 38/57 = 66.7% [53.7; 77.5]  | 0
+  0.80  |      57 |      19 | 38/57 = 66.7% [53.7; 77.5]  | 0
+  0.90  |      57 |      19 | 38/57 = 66.7% [53.7; 77.5]  | 0
+  0.95  |      55 |      19 | 36/55 = 65.5% [52.3; 76.6]  | 2
+  0.99  |      35 |      12 | 23/35 = 65.7% [49.2; 79.2]  | 15
+  1.00  |      19 |      11 | 8/19 = 42.1% [23.1; 63.7]   | 30
+
+=== 4. PHAN TANG DA TIN HIEU (POST-HOC, khong dung ground truth de quyet dinh) ===
+  Xanh: conf>=0.95 VA ghep cot tu dong theo ten VA moi van hop le theo luat VA khong co van 0-0
+  Do  : AI khong tra ket qua, hoac (vi pham luat VA conf<0.95); con lai Vang
+  vi pham luat: 9  co van 0-0: 4  tu ghep cot: 41
+  Xanh: 33 anh, dung 26/33 = 78.8% [62.2; 89.3]; sai lot vao: ['real04.png', 'real08.png', 'real21.png', 'frame2_105.jpg', 'frame2_42.jpg', 'frame_116.jpg', 'Aadya_100.jpg']
+  Vang: 24 anh, dung 12/24 = 50.0% [31.4; 68.6]; sai lot vao: ['real09.png', 'real12.jpg', 'real19.jpg', 'real23.png', 'real26.png', 'real28.png', 'frame1_160.jpg', 'frame1_42.jpg', 'frame1_36.jpg', 'frame1_17.jpg', 'frame1_1.jpg', 'frame_134.jpg']
+  Do: 2 anh, dung 0/2 = 0.0% [0.0; 65.8]; sai lot vao: ['frame_255.jpg', 'frame_28.jpg']
+  Doi chung - muc green cua he thong hien tai: 36 anh, dung 29/36 = 80.6% [65.0; 90.2]; sai: ['real04.png', 'real08.png', 'real21.png', 'frame2_105.jpg', 'frame2_42.jpg', 'frame_116.jpg', 'Aadya_100.jpg']
+  Doi chung - chi conf>=0.95: 55 anh, dung 36/55 = 65.5% [52.3; 76.6]
+
+=== 5. DO TIN CAY NHAN (Claude doc bang mat vs PO) ===
+  trung ti so that: 55/59 = 93.2% [83.8; 97.3]  khac: ['real02.png', 'real19.jpg', 'real28.png', 'frame2_42.jpg']
+  bang 2x2 dung/sai (PO hang, Claude cot): [[37,1],[0,21]]; dong thuan=0.983; Cohen kappa=0.963 [bootstrap 0.879; 1.000]
+
+=== 6. TAXONOMY TU DONG (quy tac cau truc, so voi ground truth) ===
+  Dung: 38 (64.4%)  
+  Sai chu so/o diem: 9 (15.3%)  ['real12.jpg', 'real19.jpg', 'real23.png', 'frame2_42.jpg', 'frame1_160.jpg', 'frame1_42.jpg', 'frame1_36.jpg', 'frame1_17.jpg', 'frame1_1.jpg']
+     Likert1: {2: 3, 3: 1, 1: 5}  sai ben dan: 6
+  Thieu van: 6 (10.2%)  ['real04.png', 'real08.png', 'real21.png', 'frame2_105.jpg', 'frame_116.jpg', 'Aadya_100.jpg']
+     Likert1: {1: 2, 3: 4}  sai ben dan: 2
+  Doc cot thanh hang: 3 (5.1%)  ['real09.png', 'real26.png', 'frame_134.jpg']
+     Likert1: {1: 3}  sai ben dan: 3
+  Khong doc duoc: 2 (3.4%)  ['frame_255.jpg', 'frame_28.jpg']
+     Likert1: {3: 1, 1: 1}  sai ben dan: 2
+  Thua van: 1 (1.7%)  ['real28.png']
+     Likert1: {3: 1}  sai ben dan: 0
+
+=== 3b. DO NHAY: sai = Likert1<=2, chi 57 anh co conf (dinh nghia cua stats-59.py) ===
+  conf TB L1>=4: 0.97 [0.96; 0.98]  L1<=2: 0.98 [0.97; 0.99]
+  AUROC (duong = L1>=3): 0.38 [0.20; 0.58]
+  t>=0.80: tu chot 57, trong do L1<=2: 13
+  t>=0.90: tu chot 57, trong do L1<=2: 13
+  t>=0.95: tu chot 55, trong do L1<=2: 13
+  t>=0.99: tu chot 35, trong do L1<=2: 8
+  t>=1.00: tu chot 19, trong do L1<=2: 8

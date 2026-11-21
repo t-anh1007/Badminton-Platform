@@ -144,3 +144,7 @@ export function suggestBalancedGroups(
     paymentActions: [],
   };
 }
+
+// Chatbot người chơi (21/11/2026): chuỗi AI riêng AI_ASSISTANT_CHAIN, tách khỏi OCR/phán quyết.
+export * from './playerKnowledge.js';
+export * from './playerAssistant.js';

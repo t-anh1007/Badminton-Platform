@@ -1,6 +1,6 @@
 import { markActivity } from '@khoaluantn/eventbus';
 import express from 'express';
-import { GeminiMatchmakerClient, type MatchmakerExplanationClient } from '@khoaluantn/ai';
+import { ChainMatchmakerClient, GeminiMatchmakerClient, assistantChainFromEnv, type MatchmakerExplanationClient } from '@khoaluantn/ai';
 import { HttpAccountClient, type AccountClient } from './clients/account.js';
 import { HttpVenueBookingClient, type VenueBookingClient } from './clients/venueBooking.js';
 import { createPassportRouter } from './routes/passports.js';
@@ -43,6 +43,9 @@ export function createApp(dependencies?: {
 }
 
 function configuredGeminiMatchmaker(): MatchmakerExplanationClient | undefined {
+  // Ưu tiên chuỗi riêng của chatbot (ASSISTANT_*) để không ăn quota key OCR; thiếu cấu hình thì giữ cách cũ.
+  const assistantLinks = assistantChainFromEnv();
+  if (assistantLinks.length > 0) return new ChainMatchmakerClient(assistantLinks);
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL;
   if (!apiKey || !model) return undefined;
