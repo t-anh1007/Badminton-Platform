@@ -51,7 +51,11 @@ const PROVIDERS: Record<ProviderId, { baseUrl: (env: Env) => string | null; keyE
 /** Provider đã kiểm chứng nhận `reasoning_effort` (tech design §2.2); provider khác không gửi để tránh lỗi tham số lạ. */
 const REASONING_EFFORT_PROVIDERS: ReadonlySet<ProviderId> = new Set(['gemini', 'groq']);
 
-/** `provider:model[,provider:model…]`; tách ở dấu `:` đầu tiên; thiếu key hoặc provider lạ thì bỏ mắt xích. */
+/**
+ * `provider:model[@KEY_ENV][,…]`; tách ở dấu `:` đầu tiên; thiếu key hoặc provider lạ thì bỏ mắt xích.
+ * Hậu tố `@KEY_ENV` (chữ in hoa) chọn biến key riêng cho mắt xích — để nhiều tính năng dùng chung một provider
+ * mà không chung quota. Model của Cloudflare bắt đầu bằng `@cf/…` không khớp mẫu này nên không bị cắt.
+ */
 export function parseChain(spec: string | undefined, env: Record<string, string | undefined>): ChainLink[] {
   const links: ChainLink[] = [];
   for (const entry of (spec ?? '').split(',')) {
@@ -59,9 +63,11 @@ export function parseChain(spec: string | undefined, env: Record<string, string 
     const colon = item.indexOf(':');
     if (colon <= 0) continue;
     const provider = item.slice(0, colon) as ProviderId;
-    const model = item.slice(colon + 1).trim();
+    let model = item.slice(colon + 1).trim();
+    const keyOverride = /@([A-Z][A-Z0-9_]*)$/.exec(model);
+    if (keyOverride) model = model.slice(0, keyOverride.index).trim();
     const config = PROVIDERS[provider];
-    const apiKey = config && env[config.keyEnv];
+    const apiKey = config && env[keyOverride?.[1] ?? config.keyEnv];
     const baseUrl = config?.baseUrl(env);
     if (!config || !model || !apiKey || !baseUrl) continue;
     links.push({ provider, model, baseUrl, apiKey });
@@ -127,7 +133,8 @@ export async function runChain<T>(
   for (const [chainIndex, link] of links.entries()) {
     const started = now();
     if (opts.deadlineAt !== undefined && started >= opts.deadlineAt) break;
-    const key = `${link.provider}:${link.model}`;
+    // Tách theo key: hai key cùng model ở hai tài khoản có quota riêng, 429 của key này không chặn key kia.
+    const key = `${link.provider}:${link.model}:${link.apiKey.slice(-8)}`;
     const fail = (errorCode: string) => {
       const log: CallLog = { provider: link.provider, model: link.model, chainIndex, ok: false, errorCode, latencyMs: now() - started };
       errors.push(log);
