@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom'
 import { useSession } from '../session/SessionProvider.js'
 import { Icon } from './Icon'
 import {
-  sendMatchSuggestionMessage,
-  sendSupportMessage,
+  sendPlayerMessage,
   type AiMatchSuggestion,
   type AssistantReply,
   type AssistantSource,
+  type PlayerLocation,
 } from '../lib/assistantApi.js'
-
-type Intent = 'support' | 'match'
 
 interface BubbleMessage {
   id: string
@@ -26,21 +24,31 @@ interface BubbleMessage {
 const GREETING: BubbleMessage = {
   id: 'greeting',
   role: 'assistant',
-  body: 'Chào bạn 👋 Mình là trợ lý CourtIn. Hỏi mình về chính sách, lượt đặt sân của bạn, hoặc nhờ mình gợi ý kèo phù hợp nhé.',
+  body: 'Chào bạn 👋 Mình là trợ lý CourtIn. Mình có thể gợi ý kèo hợp trình độ, tìm sân trống gần bạn, xem lượt đặt sân, kèo, ví, trình độ của bạn và giải đáp chính sách.',
   at: 0,
 }
 
-const QUICK_REPLIES: Array<{ label: string; text: string; intent: Intent }> = [
-  { label: 'Tìm kèo phù hợp', text: 'Gợi ý kèo phù hợp với tôi', intent: 'match' },
-  { label: 'Chính sách hủy sân', text: 'Chính sách hủy sân thế nào?', intent: 'support' },
-  { label: 'Lượt đặt sân gần nhất của tôi', text: 'Lượt đặt sân gần nhất của tôi khi nào?', intent: 'support' },
+const QUICK_REPLIES: Array<{ label: string; text: string }> = [
+  { label: 'Gợi ý kèo tối nay', text: 'Gợi ý kèo tối nay cho tôi' },
+  { label: 'Sân trống gần tôi', text: 'Sân nào gần tôi còn trống tối nay?' },
+  { label: 'Số dư ví của tôi', text: 'Số dư ví của tôi bao nhiêu?' },
+  { label: 'Chính sách hủy sân', text: 'Chính sách hủy sân thế nào?' },
 ]
 
 const clock = (at: number) => new Date(at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+const money = (value: string) => `${Number(value).toLocaleString('vi-VN')}đ`
+const matchTime = (startAt: string) => new Date(startAt).toLocaleString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-/** Đoán ý định để composer tự chọn nguồn: tìm kèo (F-02) hay hỏi chính sách. */
-function detectIntent(text: string): Intent {
-  return /(tìm|gợi ý|kiếm|ghép)\s*kèo|kèo\s*(nào|phù hợp)|đối thủ|đánh đôi/iu.test(text) ? 'match' : 'support'
+/** Vị trí chỉ để tính khoảng cách tới sân; người chơi từ chối thì bỏ qua (không lỗi). */
+function readLocation(): Promise<PlayerLocation | undefined> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(undefined)
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      () => resolve(undefined),
+      { timeout: 12_000, maximumAge: 30 * 60_000, enableHighAccuracy: false },
+    )
+  })
 }
 
 export function AssistantBubble() {
@@ -52,6 +60,37 @@ export function AssistantBubble() {
   const trigger = useRef<HTMLButtonElement>(null)
   const streamRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const locationRef = useRef<Promise<PlayerLocation | undefined> | null>(null)
+  const lookRef = useRef<HTMLSpanElement>(null)
+  const [hopping, setHopping] = useState(false)
+  // Lời chào trên đầu mascot; người dùng tắt thì nhớ trong phiên (tab) hiện tại.
+  const [showGreeting, setShowGreeting] = useState(() => {
+    try { return window.sessionStorage.getItem('courtin.mascotGreetingHidden') !== '1' } catch { return true }
+  })
+  const dismissGreeting = () => {
+    setShowGreeting(false)
+    try { window.sessionStorage.setItem('courtin.mascotGreetingHidden', '1') } catch { /* bộ nhớ trình duyệt bị chặn: chỉ ẩn tạm */ }
+  }
+
+  // Mascot dõi theo chuột: nghiêng/quay 3D về phía con trỏ. Tắt khi người dùng bật giảm chuyển động.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let frame = 0
+    const onMove = (event: PointerEvent) => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        const target = lookRef.current
+        if (!target) return
+        const box = target.getBoundingClientRect()
+        const nx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / 400))
+        const ny = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / 300))
+        target.style.transform = `rotateY(${nx * 24}deg) rotateX(${-ny * 16}deg) rotate(${nx * 4}deg) translate(${nx * 4}px, ${ny * 3}px)`
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => { window.removeEventListener('pointermove', onMove); cancelAnimationFrame(frame) }
+  }, [])
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => inputRef.current?.focus())
@@ -69,14 +108,25 @@ export function AssistantBubble() {
     requestAnimationFrame(() => trigger.current?.focus())
   }
 
-  const send = async (text: string, intent: Intent = detectIntent(text)) => {
+  // Bấm mascot: bật nhảy trước rồi mới mở khung chat; đang mở thì đóng ngay.
+  const onMascotClick = () => {
+    if (open) return close()
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) return setOpen(true)
+    setHopping(true)
+    window.setTimeout(() => setOpen(true), 500)
+  }
+
+  const send = async (text: string) => {
     const body = text.trim()
     if (!body || sending) return
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', body, at: Date.now() }])
     setDraft('')
     setSending(true)
     try {
-      const reply: AssistantReply = intent === 'match' ? await sendMatchSuggestionMessage(body) : await sendSupportMessage(body)
+      // Hỏi quyền vị trí một lần cho cả phiên chat.
+      locationRef.current ??= readLocation()
+      const reply: AssistantReply = await sendPlayerMessage(body, await locationRef.current)
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -150,7 +200,7 @@ export function AssistantBubble() {
                   key={quick.label}
                   type="button"
                   disabled={sending}
-                  onClick={() => void send(quick.text, quick.intent)}
+                  onClick={() => void send(quick.text)}
                   className="rounded-full border border-line bg-canvas px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-brand-navy hover:text-brand-navy disabled:opacity-50"
                 >
                   {quick.label}
@@ -186,15 +236,35 @@ export function AssistantBubble() {
         </section>
       )}
 
+      {!open && showGreeting && (
+        <div className="mascot-greet relative mb-1 mr-3 rounded-2xl rounded-br-sm border border-brand-yellow/60 bg-surface py-2 pl-3.5 pr-8 text-sm font-semibold text-brand-navy shadow-[var(--shadow-raised)]">
+          <p aria-hidden>Xin chào! Tôi có thể giúp gì cho bạn? <span aria-hidden>👋</span></p>
+          <button
+            type="button"
+            onClick={dismissGreeting}
+            aria-label="Ẩn lời chào"
+            className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-base leading-none text-ink-400 hover:bg-canvas hover:text-brand-navy"
+          >
+            ×
+          </button>
+          <span aria-hidden className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-brand-yellow/60 bg-surface" />
+        </div>
+      )}
       <button
         ref={trigger}
         type="button"
         aria-label={open ? 'Thu gọn trợ lý AI' : 'Mở trợ lý AI'}
         aria-expanded={open}
-        onClick={() => (open ? close() : setOpen(true))}
-        className="grid h-14 w-14 place-items-center rounded-full border-2 border-brand-yellow bg-brand-navy text-brand-yellow shadow-[var(--shadow-raised)] transition hover:-translate-y-0.5"
+        onClick={onMascotClick}
+        onAnimationEnd={() => setHopping(false)}
+        className={`relative h-[86px] w-[104px] cursor-pointer border-0 bg-transparent p-0 [perspective:400px] drop-shadow-[0_8px_10px_rgb(21_68_108_/_28%)] focus-visible:rounded-2xl focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-brand-yellow ${hopping ? 'mascot-hop' : 'mascot-idle'}`}
       >
-        <Icon name={open ? 'close' : 'chat'} className="h-6 w-6" />
+        <span ref={lookRef} className="mascot-look block h-full w-full [transform-style:preserve-3d]">
+          <img src="/logo.png" alt="" aria-hidden="true" draggable={false} className="pointer-events-none h-full w-full select-none object-contain" />
+        </span>
+        {open && (
+          <span aria-hidden className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full bg-brand-navy text-xs text-surface shadow">×</span>
+        )}
       </button>
     </div>
   )
@@ -217,7 +287,12 @@ function MessageBubble({ message, onClose }: { message: BubbleMessage; onClose: 
                 className="block rounded-xl border border-line bg-canvas p-2.5 text-ink-800 hover:border-brand-navy"
               >
                 <strong className="block text-sm">{item.match.venue.name} · {item.match.court.name}</strong>
-                <span className="mt-0.5 block text-xs text-ink-500">Điểm F-02: {Math.round(item.score)} · {item.explanation}</span>
+                <span className="block text-xs text-ink-500">{item.match.venue.address}{item.distanceKm != null ? ` · cách ${item.distanceKm} km` : ''}</span>
+                <span className="mt-1 block text-xs text-ink-700">
+                  {matchTime(item.match.startAt)} · {money(item.match.feePerSlot)}/suất · còn {item.match.openSlots} chỗ
+                </span>
+                {item.memberSummary && <span className="block text-xs text-ink-700">Trong kèo: {item.memberSummary}</span>}
+                <span className="mt-0.5 block text-xs text-ink-500">Điểm phù hợp {Math.round(item.score)} · {item.explanation}</span>
               </Link>
             ))}
           </div>
@@ -237,7 +312,7 @@ function MessageBubble({ message, onClose }: { message: BubbleMessage; onClose: 
             onClick={onClose}
             className="mt-2 inline-flex rounded-full border border-brand-navy px-3 py-1 text-xs font-semibold text-brand-navy hover:bg-green-50"
           >
-            Mở luồng để xác nhận
+            Mở trang để xem và tự xác nhận
           </Link>
         )}
 

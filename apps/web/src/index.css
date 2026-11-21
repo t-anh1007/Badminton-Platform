@@ -54,6 +54,26 @@
 @keyframes courtin-arrival { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes skeleton-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
+/* Mascot trợ lý (bong bóng chat): nhún khi đứng yên, bật nhảy khi bấm. Lớp .mascot-look xoay theo chuột bằng JS. */
+@keyframes mascot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes mascot-hop {
+  0% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(5px) scale(1.08, 0.9); }
+  55% { transform: translateY(-30px) rotate(-10deg) scale(1.05); }
+  75% { transform: translateY(-30px) rotate(10deg) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+.mascot-idle { animation: mascot-bob 3.2s ease-in-out infinite; }
+.mascot-hop { animation: mascot-hop 0.65s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.mascot-look { transition: transform 0.18s ease-out; will-change: transform; }
+@keyframes mascot-greet { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes mascot-greet-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.mascot-greet { transform-origin: bottom right; animation: mascot-greet 0.35s ease-out 0.4s both, mascot-greet-float 3.2s ease-in-out 0.8s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mascot-idle, .mascot-hop, .mascot-greet { animation: none; }
+  .mascot-look { transition: none; }
+}
+
 @layer base {
   html { min-width: 320px; background: var(--color-canvas); color: var(--color-ink-900); font-family: var(--font-sans); }
   body { margin: 0; }
